@@ -1,0 +1,121 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>%(label)s usage</title>
+
+	<script type="text/javascript" src="static/scripts/jquery-2.1.3.min.js"></script>
+	<script type="text/javascript" src="static/scripts/highcharts.js"></script>
+	<script type="text/javascript" src="static/scripts/highcharts-more.js"></script>
+	<script type="text/javascript" src="static/scripts/exporting.js"></script>
+
+	<style type="text/css">
+	 .highcharts-tooltip h3 {
+	     margin: 0.3em 0;
+	 }
+	</style>
+
+	<script type="text/javascript">
+	 var chart;
+	 var titleString = '%(label)s: File count and bytes by user %(yyyymmdd)s';
+	 $(function () {
+	     chart = Highcharts.chart('container', {
+		 bubble: {
+		     minSize: 3,
+		     maxSize: 10,
+		 },
+
+		 chart: {
+		     panKey: 'shift',
+		     panning: true,
+		     plotBorderWidth: 1,
+		     type: 'bubble',
+		     zoomType: 'xy'
+		 },
+
+		 credits: {
+		     enabled: false,
+		 },
+
+		 legend: {
+		     enabled: false,
+		 },
+
+		 title: {
+		     text: titleString,
+		 },
+
+		 xAxis: {
+		     type: 'logarithmic',
+		     gridLineWidth: 1,
+		     title: {
+			 text: 'Total bytes'
+		     },
+		 },
+
+		 yAxis: {
+		     type: 'logarithmic',
+		     startOnTick: false,
+		     endOnTick: false,
+		     title: {
+			 text: 'File count'
+		     },
+		     maxPadding: 0.2,
+		 },
+
+		 tooltip: {
+		     useHTML: true,
+		     headerFormat: '<table>',
+		     pointFormatter: function(){ return '<tr><th colspan="2"><h3>' + this.name + '</h3></th></tr>' +
+							'<tr><th>Bytes:</th><td>' + this.x.toExponential(3) + '</td></tr>' +
+							'<tr><th>Files:</th><td>' + this.y.toExponential(3) + '</td></tr>' +
+							'<tr><th>Delta bytes:</th><td>' + this.dfb.toExponential(3) + '</td></tr>' +
+							'<tr><th>Delta files:</th><td>' + this.dfc + '</td></tr>' } ,
+		     footerFormat: '</table>',
+		     followPointer: true
+		 },
+
+		 plotOptions: {
+		     series: {
+			 dataLabels: {
+			     enabled: true,
+			     format: '{point.name}'
+			 }
+		     }
+		 },
+
+		 series: [{
+		     data: [
+			 %(data)s
+		     ]
+		 }]
+
+	     });
+	     // Clone the highchart font family setting from the title element to use with the input label element.
+	     hcff = $("tspan:contains('"+titleString+"')").css('font-family');
+	     $('#usernameLabel').css('font-family', hcff);
+	 });
+	 function selectUser() {
+	     var username = $('input[id=username]').val();
+	     for (d of chart.series[0].data) {
+		 if (username == d.name) {
+		     chart.xAxis[0].setExtremes(d.x/4, d.x*4);
+		     chart.yAxis[0].setExtremes(d.y/4, d.y*4);
+		     chart.showResetZoom();
+		     return false;
+		 }
+	     }
+	     alert('Did not find user: '+ username);
+	     return false
+	 }
+	</script>
+    </head>
+    <body>
+	<div id="container" style="height: 640px; min-width: 620px; max-width: 1200px; margin: 0 auto">	</div>
+	<div style="margin: auto; width: 300px">
+	    <form action="javascript:selectUser()">
+		<label id="usernameLabel" for="username">Center on user:&nbsp;</label><input type="text" id="username">
+	    </form>
+	</div>
+    </body>
+</html>

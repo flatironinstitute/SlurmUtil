@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" href="/static/css/style.css">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+<style>
+.sortDiv {
+    float:            right;
+    margin:           auto;
+    display:          inline-block;
+    overflow:         hidden;
+    font-size:        0.8em;
+    border-style:     outset;
+    border-width:     thin;
+    background-color: lightblue;
+}
+
+.glyphicon-triangle-top{
+   color: #000000;
+}
+.glyphicon-triangle-bottom{
+   color: #000000;
+}
+
+.slurminfo tr.summary {
+    color: #000000;
+    background-color: #B7DCEB;
+}
+.slurminfo tr.detail {
+    font-size: 0.95em;
+}
+.slurminfo tr.detail td{
+    padding-left: 1.2em
+}
+.slurminfo th.sort {
+    background-color: blue;
+    font-size: 1.2em;
+}
+</style>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script>
+var load_data        =%(tableData)s
+var expDict          ={0:2, 1:0, 2:0, 3:2, 4:2, 5:0, 6:0, 7:0, 8:0, 9:0}  // 0:2 when sorted on 0, 2 is expandable 
+var typeDict         ={0:0, 1:0, 2:0, 3:2, 4:0, 5:1, 6:1, 7:2, 8:3, 9:3}  // 0:0 type of 0 is string(0), integer(1), float(2), float exp(3)
+var rightDict        ={0:0, 1:0, 2:0, 3:1, 4:0, 5:1, 6:1, 7:1, 8:1, 9:1}  // 9:1 include right class of 9
+var orderBy          =0 // 0: node inc, 1: node dec, ... (2*idx + inc?0:1)
+var summary_data     =[] // [[startIdx, endIdx, [summaryAttr ...]]...]
+
+// init
+orderData (1, 0)	// init page order by Status inc
+
+// order data by idx with inc/dec(subIdx=0,1) order, if idx is equal, order by secIdx
+function orderData(idx, subIdx, secIdx=0) {
+   var newOrder = idx * 2 + subIdx;
+   if ( newOrder == orderBy ) return
+
+   // sort load_data
+   load_data.sort (function (a, b) {
+      if ( subIdx == 0 ) return incFunc(a, b, idx, secIdx)
+      else               return decFunc(a, b, idx, secIdx)
+   })
+   orderBy = newOrder
+
+   summary_data= getSummaryData(load_data, idx, expDict[idx])  // 0=Node, 2=Jobs
+   return
+}
+
+function getSingleSummaryData(table_data, startRow, endRow, sortIdx) {
+   var totalCnt = endRow - startRow +1
+   var result   = table_data[startRow].slice() //based on the first item
+   var stat     = [0,0,0,0,0,0,0,0,0,0]
+   // loop over the row
+   while (startRow <= endRow) {
+      // loop over the attribute
+      for (var i=0; i< table_data[startRow].length; i++ ) {
+         if ( i != sortIdx ) {
+            switch (typeDict[i]) {
+            case 0: // string
+               if ( table_data[startRow][i] != ' ' ) stat[i] += 1
+               break
+            case 1: // integer
+            case 2:
+            case 3:
+               stat[i] += table_data[startRow][i]
+               break;
+            }
+         }
+      }
+      startRow ++;
+   } 
+
+   // loop over the attribute
+   for (var i=0; i< result.length; i++) {
+      if ( i != sortIdx) {
+         console.log("result " + i + "=" + result[i] + ",stat=" + stat[i]);
+         switch ( typeDict[i] ) {
+         case 0: // string
+            result[i] += "... Count " + stat[i];  break
+         case 1: //integer
+            result[i] = "Total " + stat[i];  break
+         case 2: // float
+            result[i] = "Avg. " + (stat[i]/totalCnt).toFixed(2);       break
+         case 3:
+            result[i] = "Avg. " + (stat[i]/totalCnt).toExponential(2); break
+         }
+      }
+   }
+
+   return result
+}
+
+//summary sIdx over the same load_data[idx] value
+function getSummaryData(table_data, sortIdx, expIdx ) {
+   var result = []
+
+   // loop over the table_data
+   var i      = 0
+   while (table_data[i]) {
+      var curr = table_data[i]
+      var j=i+1
+      if ( curr[sortIdx] && (curr[sortIdx] != ' ') 
+           && table_data[j] && table_data[j][sortIdx] 
+           && (curr[sortIdx] == table_data[j][sortIdx]) ) {
+         //if same value with next item
+         //loop to next different value, summarize information during loop
+         while ( table_data[j] && table_data[j][sortIdx] && (curr[sortIdx] == table_data[j][sortIdx]) ) j++;
+         //save summary information
+         summaryRecord       = getSingleSummaryData(table_data, i, j-1, sortIdx)
+         summaryRecord[expIdx] += getPlusSign() + getMinusSign()
+         
+         result.push([i, j-1, summaryRecord])
+      }
+
+      i=j
+   }
+   console.log(result)
+   
+   return result
+}
+
+// category val depending on sep
+function getCategory (val, sep1, sep2, low, normal, high) {
+    if ( val > sep2 ) return high
+    if ( val < sep1 ) return low
+
+    return normal
+}
+
+function getPlusSign () {
+   return '<span class="glyphicon glyphicon-plus-sign"  style="float:right"></span>'
+}
+function getMinusSign() {
+   return '<span class="glyphicon glyphicon-minus-sign" style="float:right"></span>'
+}
+
+function getTDsHtml (r) {
+   // 0:Node, Status, Jobs, Delay, User, 5:Cores Allocated, Processes, Aggregate Load, RSS, 9:VMS
+   var delayC= getCategory(r[3], 120, '"right"', '"right"', '"right alarm"')
+   var tds   = `<td><a href="./nodeDetails?node=${r[0]}">${r[0]}</a></td><td>${r[1]}</td><td>${r[2]}</td><td class=${delayC}>${r[3].toFixed(2)}</td>`
+   var tds2  = '<td></td><td></td><td></td><td></td><td></td><td></td>'
+   if ( r.length > 4 ) {
+      var userC = getCategory(r[7], r[5]-1, r[5]+1, '', '', '"alarm"') 
+      var loadC = getCategory(r[7], r[5]-1, r[5]+1, '"right inform"', '"right"', '"right"') 
+      tds2   = `<td class=${userC}><a href="./userDetails?user=${r[4]}">${r[4]}</a></td><td class="right">${r[5]}</td><td class="right">${r[6]}</td><td class=${loadC}>${r[7].toFixed(2)}</td><td class="right">${r[8].toExponential(2)}</td><td class="right">${r[9].toExponential(2)}</td></tr>`
+   }
+
+   return tds + tds2
+}
+
+function getTRecordHtml (r, sortIdx) {
+   return "<tr>" + getTDsHtml(r) + "</tr>"
+}
+function getDetailTRecordHtml (r, sortIdx) {
+   return `<tr class="detail ${r[sortIdx]}">`  + getTDsHtml(r) + '</tr>'
+}
+function getSummaryTRecordHtml (r, expIdx) {
+   // 0:Node, Status, Jobs, Delay, User, 5:Cores Allocated, Processes, Aggregate Load, RSS, 9:VMS
+   var tr= '<tr class="summary">'
+   var i = 0  // loop over attr
+   for (; i<r.length; i++ ) {
+      if ( rightDict[i] ) tr += `<td class="right">${r[i]}</td>`
+      else                tr += `<td>${r[i]}</td>`
+   }
+   for (; i<10; i++)      tr += `<td></td>`
+
+   return tr + '</tr>'
+}
+
+// use global load_data and summary_data
+function getTableBodyHtml() {
+   var i      = 0
+   var result = []
+   var sarr   = summary_data.slice()
+   var orderIdx = Math.floor(orderBy / 2)
+
+   currS = sarr.shift()
+   while (load_data[i]) {
+      if (load_data[i].length > orderIdx && load_data[i][orderIdx] != ' ') { 
+         if ( currS && currS[0] == i ) {
+            //console.log("found insert place before " + i)
+            result.push (getSummaryTRecordHtml(currS[2], expDict[orderIdx]))
+            for ( ; i<=currS[1]; i++ )
+               result.push (getDetailTRecordHtml(load_data[i], orderIdx))
+
+            currS = sarr.shift()
+            i -- // to compenstate i++ later
+         } else {
+            result.push (getTRecordHtml(load_data[i], orderIdx))
+         }
+      } // else skip the other records
+
+      i++
+   }
+
+   return result.toString()
+}
+
+//if selector contains $ @ error, + - * no response
+function escapeSpecialSymbol(str) {
+   if ( typeof str != 'string' ) {
+      return str.toString()
+   } else {
+      // contains $ @ * +, replace it with \\$ ....
+      return str.replace(/([\$\@\*\+])/g, "\\$1")
+   }
+}
+
+// table body
+function setTableBody () {
+   $("#tbody").html(getTableBodyHtml())
+
+   // hide all the details
+   $(".detail").hide()
+   $(".glyphicon-minus-sign").hide()
+
+   var orderIdx = Math.floor(orderBy/2)
+
+   // set the color of sorted attribute
+   $("th").removeClass("sort")
+   $(`th:eq(${orderIdx})`).addClass("sort")
+
+   // plus click 
+   $(".glyphicon-plus-sign").click(function() {
+      var idx=$(".glyphicon-plus-sign").index(this)
+      var cls=escapeSpecialSymbol(summary_data[idx][2][orderIdx])
+      
+      // display detail record
+      $(`.detail.${cls}`).show()
+
+      // switch +, minus,  nth-of-type starts from 1 instead of 0
+      $(`.glyphicon-plus-sign:eq(${idx})`).hide()
+      $(`.glyphicon-minus-sign:eq(${idx})`).show()
+   });
+
+   // minus click
+   $(".glyphicon-minus-sign").click(function() {
+      var idx=$(".glyphicon-minus-sign").index(this)
+      var cls=escapeSpecialSymbol(summary_data[idx][2][orderIdx])
+
+      $(`.detail.${cls}`).hide()
+      $(`.glyphicon-minus-sign:eq(${idx})`).hide()
+      $(`.glyphicon-plus-sign:eq(${idx})`).show()
+   });
+}
+
+$(document).ready(function(){
+   $("#comment").text("Status as of " + new Date())
+
+   setTableBody()
+
+   // sort inc
+   $(".glyphicon-triangle-top").click(function() {
+      var idx=$(".glyphicon-triangle-top").index(this)
+      orderData(idx, 0)
+      setTableBody ()
+   });
+   // sort dec
+   $(".glyphicon-triangle-bottom").click(function() {
+      var idx=$(".glyphicon-triangle-bottom").index(this)
+      orderData(idx, 1)
+      setTableBody ()
+   });
+});
+
+function incF (a, b, idx) {
+   if ( idx >= a.length ) return -1
+   if ( idx >= b.length ) return 1
+
+   if ( a[idx] > b[idx] ) return 1
+   if ( a[idx] < b[idx] ) return -1
+
+   return 0;
+}
+
+function incFunc (a, b, idx, secIdx) {
+   var cmp = incF (a, b, idx)
+
+   if ( secIdx != idx && cmp == 0 ) 
+      return incF (a, b, secIdx)
+   else            
+      return cmp;
+}
+
+function decFunc (a, b, idx, secIdx) {
+   var cmp = -incF (a, b, idx)
+
+   if ( secIdx != idx && cmp == 0 ) 
+      return incF (a, b, secIdx)
+   else            
+      return cmp;
+}
+</script>
+
+</head>
+
+<body>
+<h4 id="comment"></h4>
+<table class="slurminfo">
+<thead>
+<tr>
+   <th>Node            <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div/></th>
+   <th>Status          <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div></th>
+   <th>Jobs            <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div></th>
+   <th>Delay           <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div></th>
+   <th>User            <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div></th>
+   <th>Cores Allocated <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div></th>
+   <th>Processes       <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div></th>
+   <th>Aggregate Load  <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div></th>
+   <th>RSS             <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div></th>
+   <th>VMS             <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div></th>
+</tr>
+</thead>
+<tbody id="tbody"> </tbody>
+</table>
+
+</body>

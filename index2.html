@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link href="/static/css/style.css" rel="stylesheet">
+<style>
+aimg {
+    border: solid black;
+    overflow: auto;
+    border-width: 0 2px 2px 0;
+    display: inline-block;
+    padding: 3px;
+}
+
+.aup {
+    transform: rotate(-135deg);
+    -webkit-transform: rotate(-135deg);
+}
+
+.adown {
+    transform: rotate(45deg);
+    -webkit-transform: rotate(45deg);
+}
+
+.aDiv {
+    margin: auto;
+    background-color: lightblue;
+    overflow: auto;
+    border-width: 0 2px 2px 0;
+    display: inline-block;
+    padding: 4px;
+}
+
+.slurminfo tr:nth-child(even) {
+    color: #000000;
+    background-color: #D7DCEB;
+}
+
+em.inform, .slurminfo td.inform, .slurminfo tr.alt td.inform {
+    background-color: #21B2EA;
+}
+</style>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script>
+var load_data=%(tableData)s
+var orderBy=0 // 0: node inc, 1: node dec, ... (2*idx + inc?0:1)
+
+function incFunc (a, b, idx) {
+   if ( idx >= a.length ) return -1
+   if ( idx >= b.length ) return 1
+
+   if ( a[idx] > b[idx] ) return 1
+   if ( a[idx] < b[idx] ) return -1;
+
+   return 0;
+}
+
+function decFunc (a, b, idx) {
+   return -incFunc (a, b, idx)
+}
+
+// order data by idx with dec order
+function orderData(idx, subIdx) {
+   var newOrder = idx * 2 + subIdx;
+
+   if ( newOrder == orderBy ) return
+
+   // sort load_data
+   load_data.sort (function (a, b) {
+      if ( subIdx == 0 ) return incFunc(a, b, idx)
+      else               return decFunc(a, b, idx)
+   })
+
+   orderBy = newOrder
+   return
+}
+
+// category val depending on sep
+function getCategory (val, sep1, sep2, low, normal, high) {
+    if ( val > sep2 ) return high
+    if ( val < sep1 ) return low
+
+    return normal
+}
+
+//orderIdx = [..] the list of original idx
+function getTableBodyHtml(data, orderIdx, ignoreIdx, expandIdx) {
+   var i      = 0
+   var result = ''
+   while (data[i]) {
+      var r     = data[i]
+      // 0:Node, Status, Jobs, Delay, User, 5:Cores Allocated, Processes, Aggregate Load, RSS, 9:VMS
+      var delayC= getCategory(r[3], 120, '"right"', '"right"', '"right alarm"')
+      var tds   = `<td><a href="./nodeDetails?node=${r[0]}">${r[0]}</a></td><td>${r[1]}</td><td>${r[2]}</td><td class=${delayC}>${r[3].toFixed(2)}</td>`
+      var tds2  = '<td></td><td></td><td></td><td></td><td></td><td></td>'
+   }
+}
+
+function getTableBodyHtml(data) {
+   var i      = 0
+   var result = ''
+   while (data[i]) {
+      var r     = data[i]
+      // 0:Node, Status, Jobs, Delay, User, 5:Cores Allocated, Processes, Aggregate Load, RSS, 9:VMS
+      var delayC= getCategory(r[3], 120, '"right"', '"right"', '"right alarm"')
+      var tds   = `<td><a href="./nodeDetails?node=${r[0]}">${r[0]}</a></td><td>${r[1]}</td><td>${r[2]}</td><td class=${delayC}>${r[3].toFixed(2)}</td>`
+      var tds2  = '<td></td><td></td><td></td><td></td><td></td><td></td>'
+      if ( r.length > 4 ) {
+         var userC = getCategory(r[7], r[5]-1, r[5]+1, '', '', '"alarm"') 
+         var loadC = getCategory(r[7], r[5]-1, r[5]+1, '"right inform"', '"right"', '"right"') 
+         tds2   = `<td class=${userC}><a href="./userDetails?user=${r[4]}">${r[4]}</a></td><td class="right">${r[5]}</td><td class="right">${r[6]}</td><td class=${loadC}>${r[7].toFixed(2)}</td><td class="right">${r[8].toExponential(2)}</td><td class="right">${r[9].toExponential(2)}</td></tr>`
+      }
+
+      result += "<tr>" + tds + tds2 + "</tr>"
+      i++
+   }
+
+   return result
+}
+
+function setTableBody () {
+   var tstr=getTableBodyHtml (load_data)
+   $("#tbody").html(tstr)
+}
+
+$(document).ready(function(){
+   $("#comment").text("Status as of " + new Date())
+
+   setTableBody()
+
+   // sort
+   $(".aup").click(function() {
+      var idx=$(".aup").index(this)
+      orderData(idx, 0)
+      setTableBody ()
+   });
+   $(".adown").click(function() {
+      var idx=$(".adown").index(this)
+      orderData(idx, 1)
+      setTableBody ()
+   });
+
+});
+
+</script>
+
+</head>
+
+<body>
+<h4 id="comment"></h4>
+<table class="slurminfo">
+<thead>
+<tr>
+   <th>Node <div class="aDiv"> <aimg class="aup" ></aimg> <aimg class="adown"></aimg> </div> </th>
+   <th>Status <div class="aDiv"> <aimg class="aup"></aimg> <aimg class="adown"></aimg> </div> </th>
+   <th>Jobs <div class="aDiv"> <aimg class="aup"></aimg> <aimg class="adown"></aimg></th>
+   <th>Delay <div class="aDiv"> <aimg class="aup"></aimg> <aimg class="adown"></aimg></th>
+   <th>User <div class="aDiv"> <aimg class="aup"></aimg> <aimg class="adown"></aimg></th>
+   <th>Cores Allocated <div class="aDiv"> <aimg class="aup"></aimg> <aimg class="adown"></aimg></th>
+   <th>Processes <div class="aDiv"> <aimg class="aup"></aimg> <aimg class="adown"></aimg></th>
+   <th>Aggregate Load <div class="aDiv"> <aimg class="aup"></aimg> <aimg class="adown"></aimg></th>
+   <th>RSS <div class="aDiv"> <aimg class="aup"></aimg> <aimg class="adown"></aimg></th>
+   <th>VMS <div class="aDiv"> <aimg class="aup"></aimg> <aimg class="adown"></aimg></th> </tr></thead>
+<tbody id="tbody"> </tbody>
+</table>
+
+</body>

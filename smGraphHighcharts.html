@@ -1,0 +1,66 @@
+<!doctype HTML>
+<html>
+    <head>
+	<title>%(node)s %(start)s:%(stop)s</title>
+	<script type="text/javascript" src="static/scripts/jquery-2.1.3.min.js"></script>
+	<script type="text/javascript" src="static/scripts/highcharts.js"></script>
+	<script type="text/javascript" src="static/scripts/exporting.js"></script>
+	<script type="text/javascript">
+	 function graphSeries(series, chartTag, title, yCap) {
+	     $('#'+chartTag).highcharts({
+		 chart: {
+		     panKey: 'shift',
+		     panning: true,
+		     type: 'scatter',
+		     zoomType: 'xy'
+		 },
+		 title: {
+		     text: title,
+		 },
+		 credits: {
+		     enabled: false,
+		 },
+		 subtitle: {
+		     text: document.ontouchstart === undefined ?
+                     'Click and drag in the plot area to zoom in. Shift-click to pan.' : 'Pinch the chart to zoom in'
+		 },
+		 xAxis: {
+		     type: 'datetime'
+		 },
+		 yAxis: {
+		     title: {
+			 text: yCap
+		     }
+		 },
+		 legend: {
+		     enabled: true
+		 },
+		 plotOptions: {
+		     scatter: {
+			 marker: { radius: 2, },
+			 tooltip: {
+			     pointFormatter: function() {
+				 return '<br/>' + Highcharts.dateFormat('%%H:%%M', new Date(this.x)) + ': ' + this.y.toFixed(2);
+			     }
+			 },
+		     },
+		 },
+		 series: series,
+	     });
+	 }
+	 Highcharts.setOptions({
+             global: {
+		 useUTC: false
+             }
+	 });
+	</script>
+    </head>
+    <body>
+	<div id="memChart" style="min-width: 310px; height: 400px; margin: 0 auto"></div>
+	<hr>
+	<div id="loadChart" style="min-width: 310px; height: 400px; margin: 0 auto"></div>
+	<script>
+	 graphSeries(%(mseries)s, "memChart", "Memory usage on %(node)s from %(start)s to %(stop)s", "Aggregate VMS per user");
+	 graphSeries(%(lseries)s, "loadChart", "Load on %(node)s from %(start)s to %(stop)s", "Aggregate load per user");
+	</script>
+</html>
