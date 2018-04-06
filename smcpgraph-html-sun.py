@@ -97,7 +97,7 @@ class SLURMMonitor(object):
 
         tableData = self.getTableCol(self.data, self.jobData)
         
-        htmltemp = os.path.join(wai, 'index2.html')
+        htmltemp = os.path.join(wai, 'index3.html')
         h = open(htmltemp).read()%{'tableData' : tableData}
  
         return h
@@ -216,7 +216,6 @@ class SLURMMonitor(object):
 
     @cherrypy.expose
     def userDetails(self, user):
-        print("--- userDetails called ---")
         if type(self.data) == str: return self.data # error of some sort.
 
         t = htmlPreamble
