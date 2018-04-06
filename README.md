@@ -14,19 +14,19 @@ The incoming messages will be
 Web server is hosted by CherryPy at http://${webserver}:8126/
 
 You can see different user interfaces at
-1) http://${webserver}:8126/
+1) http://${webserver}:8126/,
 A tabular summary of the slurm worker nodes, jobs and users.
 
-2) http://${webserver}:8126/sunburst
+2) http://${webserver}:8126/sunburst,
 A sunburst graph of the slurm partitions, users, jobs and worker nodes.
 
-3) http://${webserver}:8126/usageGraph
+3) http://${webserver}:8126/usageGraph,
 A chart showing the file usage of slurm users.
 
-4) http://${webserver}:8126/tymor
+4) http://${webserver}:8126/tymor,
 A tabular summary of slurm jobs
 
-4) http://${webserver}:8126/tymor2
+4) http://${webserver}:8126/tymor2,
 A tabular summary of slurm jobs
 
 ## Getting Started
@@ -42,73 +42,48 @@ slurm 17.02.2
 
 ```
 Python 3.6
-Python virtual environment
-Pyslurm
+```
+
+Python virtual environment with packages:
+```
+cheroot (6.0.0)
+CherryPy (14.0.0)
+Cython (0.27.3)
+dnspython (1.15.0)
+more-itertools (4.1.0)
+numpy (1.14.2)
+paho-mqtt (1.3.1)
+pandas (0.22.0)
+pip (9.0.1)
+portend (2.2)
+pyslurm (17.2.0)
+python-dateutil (2.7.0)
+python-etcd (0.4.5)
+pytz (2018.3)
+setuptools (38.5.2)
+six (1.11.0)
+tempora (1.11)
+urllib3 (1.22)
+wheel (0.30.0)
 ```
 
 ### Installing
 
-A step by step series of examples that tell you have to get a development env running
-
-Say what the step will be
+A step by step series of examples that tell you have to get a development env running.
 
 ```
-Give the example
+Clone the repository to your local machine
 ```
-
-And repeat
-
-```
-until finished
-```
-
-End with an example of getting some data out of the system or using it for a little demo
-
-## Running the tests
-
-Explain how to run the automated tests for this system
-
-### Break down into end to end tests
-
-Explain what these tests test and why
-
-```
-Give an example
-```
-
-### And coding style tests
-
-Explain what these tests test and why
-
-```
-Give an example
-```
-
-## Deployment
-
-Add additional notes about how to deploy this on a live system
-
-## Built With
-
-* [Dropwizard](http://www.dropwizard.io/1.0.2/docs/) - The web framework used
-* [Maven](https://maven.apache.org/) - Dependency Management
-* [ROME](https://rometools.github.io/rome/) - Used to generate RSS Feeds
-
-## Contributing
-
-Please read [CONTRIBUTING.md](https://gist.github.com/PurpleBooth/b24679402957c63ec426) for details on our code of conduct, and the process for submitting pull requests to us.
-
-## Versioning
-
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/your/project/tags). 
 
 ## Execute
 
-##StartSlurmMqtMonitoring 
-Run
+###StartSlurmMqtMonitoring 
+Customerize ${CmSlurmRoot}, ${pData}, ${WebPort}, python virtual environment in the script, list the web server update interface in mqt_urls, and run
 ```
 StartSlurmMqtMonitoring
 ```
-It starts web server at http://localhost:8126 and a deamon and 1) subscribe to mqt 2) update the informaton of the server.
+It starts web server at http://localhost:${WebPort} and a deamon that shall 1) subscribe to MQTT 2) update the informaton of the web server.
+
+The log files are saved in smcpsun_${cm}_mqt_$(date +%Y%m%d_%T).log and mms_${cm}_$(date +%Y%m%d_%T).log.
 
 

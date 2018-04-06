@@ -34,7 +34,7 @@ then
     export LD_LIBRARY_PATH=${CmSlurmRoot}/lib64:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=${CmSlurmRoot}/lib64/slurm:$LD_LIBRARY_PATH
 
-    #. ~carriero/projects/slurm/utils/iron/ve_2.7.9/bin/activate
+    # activate python virutal environment
     . ~yliu/anaconda3/lib/python3.6/site-packages/pyslurmenv/bin/activate
     # This allows us to use the same data archive for bcm1 and bcm2
 else
