@@ -12,7 +12,7 @@ from IndexedDataFile import SearchIndex, IndexedHostData, compTimestamps
 # returned in a format compatible with highcharts' graphing widget.
 
 def getSMData(SMDir, targetNode, start, stop):
-    #print ("getSMdata %020d"%start)
+    #print ("getSMdata %s"%targetNode)
     sm = SearchIndex(SMDir+'/%s_sm.px'%targetNode, 40, compTimestamps)
 
     #print (SMDir+'/%s_sm.p'%targetNode)

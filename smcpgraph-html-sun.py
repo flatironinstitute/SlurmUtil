@@ -187,7 +187,6 @@ class SLURMMonitor(object):
         # highcharts
         getSMData = scanSMSplitHighcharts.getSMData
         htmlTemp = os.path.join(wai, 'smGraphHighcharts.html')
-        node=node.encode("utf-8")
         lseries, mseries = getSMData(SMDir, node, start, stop)
         h = open(htmlTemp).read()%{'node': node,
                                           'start': time.strftime('%Y/%m/%d', time.localtime(start)),

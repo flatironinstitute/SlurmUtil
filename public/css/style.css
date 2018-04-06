@@ -1,0 +1,72 @@
+a:link {
+    color: black;
+    text-decoration: none;
+}
+
+a:visited {
+    color: black;
+    text-decoration: none;
+}
+
+a:hover {
+    color: blue;
+    text-decoration: none;
+}
+
+a:active {
+    color: blue;
+    text-decoration: none;
+}
+
+h4{
+    font-family:Trebuchet MS, Arial, Helvetica, sans-serif;
+}
+
+.slurminfo {
+    font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.slurminfo td, .slurminfo th {
+    font-size: 1em;
+    border: 1px solid #22305D;
+    padding: 3px 7px 2px 7px;
+}
+
+.slurminfo td.right {
+    text-align: right;
+}
+
+em.alarm, .slurminfo td.alarm, .slurminfo tr.alt td.alarm {
+    background-color: #F65700;
+}
+
+em.inform, .slurminfo td.inform, .slurminfo tr.alt td.inform {
+    background-color: #21B2EA;
+}
+
+.slurminfo th {
+    font-size: 1.1em;
+    text-align: left;
+    padding-top: 5px;
+    padding-bottom: 4px;
+    background-color: #3A509C;
+    color: #ffffff;
+}
+
+.slurminfo tr:nth-child(even) {
+    color: #000000;
+    background-color: #D7DCEB;
+}
+
+.aup {
+    transform: rotate(-135deg);
+    -webkit-transform: rotate(-135deg);
+}
+
+.adown {
+    transform: rotate(45deg);
+    -webkit-transform: rotate(45deg);
+}
+

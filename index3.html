@@ -68,13 +68,17 @@ function orderData(idx, subIdx, secIdx=0) {
 
 function getSingleSummaryData(table_data, startRow, endRow, sortIdx) {
    var totalCnt = endRow - startRow +1
-   var result   = table_data[startRow].slice() //based on the first item
+   var result   = table_data[startRow].slice() //based on the first row
    var stat     = [0,0,0,0,0,0,0,0,0,0]
+
    // loop over the row
    while (startRow <= endRow) {
       // loop over the attribute
       for (var i=0; i< table_data[startRow].length; i++ ) {
          if ( i != sortIdx ) {
+            if ( !result[i] || result[i] == ' ')   // fill in the attr missed from first row
+               result[i] = table_data[startRow][i]
+
             switch (typeDict[i]) {
             case 0: // string
                if ( table_data[startRow][i] != ' ' ) stat[i] += 1
@@ -91,9 +95,9 @@ function getSingleSummaryData(table_data, startRow, endRow, sortIdx) {
    } 
 
    // loop over the attribute
-   for (var i=0; i< result.length; i++) {
-      if ( i != sortIdx) {
-         console.log("result " + i + "=" + result[i] + ",stat=" + stat[i]);
+   for (var i=0; i< stat.length; i++) {
+      if ( i != sortIdx && stat[i] > 0) {
+         //console.log("result " + i + "=" + result[i] + ",stat=" + stat[i]);
          switch ( typeDict[i] ) {
          case 0: // string
             result[i] += "... Count " + stat[i];  break
