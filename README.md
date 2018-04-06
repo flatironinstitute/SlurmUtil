@@ -67,6 +67,10 @@ urllib3 (1.22)
 wheel (0.30.0)
 ```
 
+```
+MQTT server running on mon5.flatironinstitute.org
+```
+
 ### Installing
 
 A step by step series of examples that tell you have to get a development env running.
@@ -76,6 +80,8 @@ Clone the repository to your local machine
 ```
 
 ## Execute
+
+Here is how to start the system on your local machine.
 
 ###StartSlurmMqtMonitoring 
 Customerize ${CmSlurmRoot}, ${pData}, ${WebPort}, python virtual environment in the script, list the web server update interface in mqt_urls, and run
