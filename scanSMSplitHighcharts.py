@@ -17,14 +17,14 @@ def getSMData(SMDir, targetNode, start, stop):
 
     #print (SMDir+'/%s_sm.p'%targetNode)
     #smd = open(SMDir+'/%s_sm.p'%targetNode, 'rb')
-    smd = IndexedHostData(SMDir)
+    smd = IndexedHostData(SMDir, targetNode)
 
     u2d = DD(list)
     pos = sm.find('%020d'%start)
     #print (pos)
     for x in range(pos, sm.len):
         offset = int(sm[x][20:])
-        ts, nd = smd.readData (targetNode, offset, stop)
+        ts, nd = smd.readData (offset, stop)
         if ( nd == None): break
 
         for ud in nd[3:]:
@@ -57,4 +57,4 @@ if __name__ == '__main__':
 
     lseries, mseries = getSMData(SMDir, targetNode, start, stop)
     open(outbn+'_load.json', 'w').write(repr(lseries).replace('\'', '"'))
-    open(outbn+'_mem.json', 'w').write(repr(mseries).replace('\'', '"'))
+    open(outbn+'_mem.json',  'w').write(repr(mseries).replace('\'', '"'))

@@ -5,8 +5,19 @@ import zlib
 
 class IndexedHostData(object):
     def __init__(self, prefix):
-        self.prefix = prefix
+        self.prefix    = prefix
+        self.hostname  = None
+        self.data_file = None
 
+    def __init__(self, prefix, hostname):
+        self.prefix    = prefix
+        self.hostname  = hostname
+        self.data_file = open(self.prefix + '/%s_sm.p'%hostname, 'rb')
+   
+    def __del__ (self):
+      if ( self.data_file != None ):
+         self.data_file.close()      
+        
     def writeData(self, hostname, ts, d):
         #save information to files
         with open(self.prefix+'/%s_sm.p'%hostname, 'ab') as df, open(self.prefix+'/%s_sm.px'%hostname, 'a') as idx:
@@ -19,7 +30,19 @@ class IndexedHostData(object):
 #           p.write('%020d%020d'%(t1, len(zps)))
 #           p.write(zps)
 
-    def readData(self, hostname, offset, stopTime):
+    #readData is used to read data from one file successively
+    def readData(self, offset, stopTime):
+      df = self.data_file
+      if offset != df.tell(): 
+         df.seek(offset, 0)
+      ts = int(df.read(20))
+      if ts > stopTime:  # no history saved
+         return ts, None
+      len = int(df.read(20))
+      return ts, pickle.loads(zlib.decompress(df.read(len)))
+
+
+    def readData4(self, hostname, offset, stopTime):
         with open(self.prefix+'/%s_sm.p'%hostname, 'rb') as df:
             if offset != df.tell(): 
                 df.seek(offset, 0)
