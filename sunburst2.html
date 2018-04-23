@@ -1,15 +1,9 @@
 <html>
 <!DOCTYPE html>
 
-<div id="optionsSelect">Select a Graph Option 1:
-  <select id="optionsList">
-    <option value="load_data">Load Graph</option>
-    <option value="vms_data">VMS Graph</option>
-    <option value="rss_data">RSS Graph</option>
-    <option value="state_data">State Graph</option>
-  </select>
-  <br/>
-</div>
+<head>
+<link rel="stylesheet" href="/static/css/style.css">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
 
 <meta charset="utf-8">
 <style>
@@ -35,14 +29,31 @@
     border-radius: 8px;
     pointer-events: none;
 }
-
-
 </style>
 
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script>
+$(function(){
+   $("#tabmenu").load("/getHeader?page=sunburst")
+});
+</script>
+</head>
+
 <body>
+<div class="tab" id="tabmenu"></div>
+
+<div id="optionsSelect">Select a Graph Option 1:
+  <select id="optionsList">
+    <option value="load_data">Load Graph</option>
+    <option value="vms_data">VMS Graph</option>
+    <option value="rss_data">RSS Graph</option>
+    <option value="state_data">State Graph</option>
+  </select>
+  <br/>
+</div>
+
 <script src="https://d3js.org/d3.v3.min.js"></script>
 <script type="text/javascript">
-
   var load_data=%(data1)s
   var vms_data=%(data3)s
   var rss_data=%(data4)s
@@ -201,4 +212,5 @@
 	createVisualization(newData);
     });
 </script>
+</body>
 </html>

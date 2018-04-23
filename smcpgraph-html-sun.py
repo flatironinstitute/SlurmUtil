@@ -1,6 +1,6 @@
-import cherrypy, _pickle as cPickle, csv, datetime as DT, json, os
+import cherrypy, _pickle as cPickle, csv, datetime, json, os
 import pandas as pd, pwd, pyslurm as SL, re, subprocess as SUB, sys, time, zlib
-from collections import defaultdict as DD
+from collections import defaultdict as DDict
 
 import fs2hc
 import scanSMSplitHighcharts
@@ -32,10 +32,10 @@ def loadSwitch(c, l, low, normal, high):
 class SLURMMonitor(object):
 
     def __init__(self):
-        self.data = 'No data received.'
+        self.data = 'No data received yet. Wait a few minutes and come back.'
         self.jobData = {}
         self.rawNodeData = None
-        self.dataTime = 'BOOM'
+        self.updateTime = 'BOOM'
         self.userJobData = None
 
     @cherrypy.expose
@@ -58,11 +58,16 @@ class SLURMMonitor(object):
     def getUserJobData(self):
         return repr(self.userJobData)
 
-    def getTableCol(self, hostData, jobData):
-        node2jobs = DD(list)
+    def getNode2Jobs (self, jobData):
+        node2jobs = DDict(list)
         for jid, jinfo in jobData.items():
             for nd, coreCount in jinfo.get(u'cpus_allocated', {}).items():
                 node2jobs[nd].append(jid)
+
+        return node2jobs
+        
+    def getTableCol(self, hostData, jobData):
+        node2jobs = self.getNode2Jobs (jobData)
 
         result=[]
         for node, v in sorted(hostData.items()):
@@ -83,13 +88,24 @@ class SLURMMonitor(object):
         
     @cherrypy.expose
     def test(self, **args):
-        if type(self.data) == str: return self.data # error of some sort.
-
-        tableData = self.getTableCol(self.data, self.jobData)
-        htmltemp = os.path.join(wai, 'index3.html')
-        h = open(htmltemp).read()%{'tableData' : tableData}
+        htmltemp = os.path.join(wai, 'header.html')
+        h = open(htmltemp).read()
  
-        return h
+        return open("header.html")
+
+    @cherrypy.expose
+    def getHeader(self, page=None):
+        pages=["index", "sunburst", "usageGraph", "tymor", "tymor2"]
+        titles=["Tabular Summary", "Sunburst Graph", "Usage Graph", "Tymor", "Tymor2"]
+ 
+        result=""
+        for i in range (len(pages)):
+           if ( pages[i] == page ):
+              result += '<button class="tablinks active"><a href="/' + pages[i] + '">' + titles[i] + '</a></button>'
+           else:
+              result += '<button class="tablinks"><a href="/' + pages[i] + '">' + titles[i] + '</a></button>'
+
+        return result
 
     @cherrypy.expose
     def index(self, **args):
@@ -110,32 +126,44 @@ class SLURMMonitor(object):
         if type(self.data) != dict: self.data = {}
         for k,v in newdata.items(): self.data[k] = v
         #open("/mnt/xfs1/home/thamamsy/projects/slurmonitor/current/tmp/tymorusd","w+").write(d)
-        self.dataTime = time.asctime(time.localtime(ts))
-        #print ('Got new data', self.dataTime, len(d), len(self.data), len(newdata), file=sys.stderr)
+        self.updateTime = time.asctime(time.localtime(ts))
+        #print ('Got new data', self.updateTime, len(d), len(self.data), len(newdata), file=sys.stderr)
 
-    def details(self, criteria):
-        t = DT.date.today() + DT.timedelta(days=-SacctWindow)
-        startDate = '%d-%02d-%02d'%(t.year, t.month, t.day)
-        cmd = ['sacct', '-n', '-P', '-S', startDate, '-o', 'JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End'] + criteria
+    def sacctData (self, criteria):
+        cmd = ['sacct', '-n', '-P', '-o', 'JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End'] + criteria
         try:
             #TODO: capture standard error separately?
             d = SUB.check_output(cmd, stderr=SUB.STDOUT)
         except SUB.CalledProcessError as e:
             return 'Command "%s" returned %d with output %s.<br>'%(' '.join(cmd), e.returncode, repr(e.output))
 
+        return d.decode('utf-8')
+
+    def sacctDataInWindow(self, criteria):
+        t = datetime.date.today() + datetime.timedelta(days=-SacctWindow)
+        startDate = '%d-%02d-%02d'%(t.year, t.month, t.day)
+        d = self.sacctData (['-S', startDate] + criteria)
+
+        return d
+
+    @cherrypy.expose
+    def sacctReport(self, d, skipJobStep=True):
         t = '''\
 <table class="slurminfo">
 <tr><th>Job ID</th><th>Job Name</th><th>Allocated CPUS</th><th>State</th><th>Exit Code</th><th>User</th><th>Node List</th><th>Start</th><th>End</th></tr>
 '''
-        rclass, nrclass = '', ' class="alt"'
-        jid2info = DD(list)
-        d=d.decode('utf-8')
+        jid2info = DDict(list)
         for l in d.splitlines():
             print(l)
             if not l: continue
             ff = l.split(sep='|')
-            if '.' in ff[0]: continue # indicates a job step --- under what circumstances should these be broken out?
-            f0p = ff[0].split(sep='_')
+            if (skipJobStep and '.' in ff[0]): continue # indicates a job step --- under what circumstances should these be broken out?
+            if ( '.' in ff[0] ):
+               ff0 = ff[0].split(sep='.')[0]
+            else:
+               ff0 = ff[0]
+
+            f0p = ff0.split(sep='_')
             try:
                 jId, aId = int(f0p[0]), int(f0p[1])
             except:
@@ -151,8 +179,7 @@ class SLURMMonitor(object):
 
         for jId, parts in sorted(jid2info.items(), reverse=True):
             for aId, ff in sorted(parts):
-                t += '<tr%s><td>'%rclass + '</td><td>'.join(ff) + '</tr>\n'
-                rclass, nrclass = nrclass, rclass
+               t += '<tr><td>' + '</td><td>'.join(ff) + '</tr>\n'
         t += '\n</tbody>\n</table>\n'
         return t
 
@@ -160,7 +187,7 @@ class SLURMMonitor(object):
     def usageGraph(self, yyyymmdd='', fs='home'):
         if not yyyymmdd:
             # only have census date up to yesterday, so we use that as the default.
-            yyyymmdd = (DT.date.today() + DT.timedelta(days=-1)).strftime('%Y%m%d')
+            yyyymmdd = (datetime.date.today() + datetime.timedelta(days=-1)).strftime('%Y%m%d')
         label, usageData = fs2hc.gendata(yyyymmdd, fs)
         htmlTemp = 'fileCensus.html'
 
@@ -199,6 +226,8 @@ class SLURMMonitor(object):
 
     @cherrypy.expose
     def nodeDetails(self, node):
+        if type(self.data) == str: return self.data # error of some sort.
+
         t = htmlPreamble
         d = self.data.get(node, [])
         try:    status = d[0]
@@ -210,7 +239,7 @@ class SLURMMonitor(object):
             ac = loadSwitch(cores, tc, ' class="inform"', '', ' class="alarm"')
             t += '<hr><em%s>%s</em> %d<pre>'%(ac, user, cores) + '\n'.join([' '.join(['%6d'%cmd[0], '%6.2f'%cmd[1], '%10.2e'%cmd[5], '%10.2e'%cmd[6]] + cmd[7]) for cmd in cmds]) + '\n</pre>\n'
         t += '<h4 id="sacctreport">sacct report (last %d days for node %s):</h4>\n'%(SacctWindow, node)
-        t += self.details(['-N', node])
+        t += self.sacctReport(self.sacctDataInWindow(['-N', node]))
         t += '<a href="%s/index">&#8617</a>\n</body>\n</html>\n'%cherrypy.request.base
         return t
 
@@ -219,7 +248,7 @@ class SLURMMonitor(object):
         if type(self.data) == str: return self.data # error of some sort.
 
         t = htmlPreamble
-        t += '<h3>User: %s <a href="#sacctreport">(jump to sacct)</a></h3>\n'%user
+        t += '<h3>User: %s, <a href="#sacctreport">(jump to sacct)</a></h3>\n'%(user)
         for node, d in sorted(self.data.items()):
             if len(d) < 3: continue
             for nuser, uid, cores, procs, tc, trm, tvm, cmds in sorted(d[3:]):
@@ -227,10 +256,39 @@ class SLURMMonitor(object):
                 ac = loadSwitch(cores, tc, ' class="inform"', '', ' class="alarm"')
                 t += '<hr><em%s>%s</em> %d<pre>'%(ac, node, cores) + '\n'.join([' '.join(['%6d'%cmd[0], '%6.2f'%cmd[1], '%10.2e'%cmd[5], '%10.2e'%cmd[6]] + cmd[7]) for cmd in cmds]) + '\n</pre>\n'
         t += '<h4 id="sacctreport">sacct report (last %d days for user %s):</h4>\n'%(SacctWindow, user)
-        t += self.details(['-u', user])
+        t += self.sacctReport(self.sacctDataInWindow['-u', user])
         t += '<a href="%s/index">&#8617</a>\n</body>\n</html>\n'%cherrypy.request.base
         return t
 
+    @cherrypy.expose
+    def jobDetails(self, jobid):
+        if type(self.data) == str: return self.data # error of some sort.
+
+        jid    = int(jobid)
+        jinfo  = self.jobData.get(jid)
+        print (jinfo)
+        if ( jinfo is None):
+            return "Cannot find information of the job"
+
+        t = htmlPreamble
+        t += '<h3>Job: %s (<a href="%s/jobGraph?jobid=%s">Graph</a>), State: %s, Num_Nodes: %d, Num_CPUs: %d <a href="#sacctreport">(jump to sacct)</a></h3>\n'%(jobid, cherrypy.request.base, jobid, jinfo.get(u'job_state'), jinfo.get(u'num_nodes'), jinfo.get(u'num_cpus'))
+
+        # get current report
+        for node, coreCount in jinfo.get(u'cpus_allocated', {}).items():
+            d = self.data.get(node)
+            
+            if len(d) < 3: 
+                t += '<hr><em>%s</em> %d<pre>'%(node, coreCount) + '\n</pre>\n'
+            else:
+                for user, uid, cores, procs, tc, trm, tvm, cmds in sorted(d[3:]):
+                    ac = loadSwitch(cores, tc, ' class="inform"', '', ' class="alarm"')
+                    t += '<hr><em%s>%s</em> %d<pre>'%(ac, node, coreCount) + '\n'.join([' '.join(['%6d'%cmd[0], '%6.2f'%cmd[1], '%10.2e'%cmd[5], '%10.2e'%cmd[6]] + cmd[7]) for cmd in cmds]) + '\n</pre>\n'
+
+        # get sacct report
+        t += self.sacctReport(self.sacctData (['-j', jobid]), False)
+ 
+        t += '<a href="%s/index">&#8617</a>\n</body>\n</html>\n'%cherrypy.request.base
+        return t
 
     @cherrypy.expose
     def tymor(self,**args):
@@ -368,8 +426,8 @@ class SLURMMonitor(object):
             list_VMS_stndrd      =", ".join(map(str,data_dash[i]['VMS_stndrd']))+" "+"; column"
             list_load_diff_stndrd=", ".join(map(str,data_dash[i]['load_diff_stndrd']))+" "+"; column"
 
-            t  += '<tr><td><a href="%s/jobDetails?jobid=%s">%s</a></td><td><a href="%s/userDetails?user=%s">%s</a></td><td>%s</td><td>%s</td><td data-sparkline="%s"/><td data-sparkline="%s"/><td data-sparkline="%s"/><td data-sparkline="%s"/><td class="categories" style="display:none;">%s</td></tr>\n'%(cherrypy.request.base,jid,jid,cherrypy.request.base,uid,uid,nodes,num_cpus,list_load_stndrd,list_load_diff_stndrd,list_VMS_stndrd,list_RSS_stndrd,list_nodes)
-            t2 += '<tr><td><a href="%s/jobDetails?jobid=%s">%s</a></td><td><a href="%s/userDetails?user=%s">%s</a></td><td>%s</td><td>%s</td><td data-sparkline="%s"/><td data-sparkline="%s"/><td data-sparkline="%s"\
+            t  += '<tr><td><a href="%s/jobGraph?jobid=%s">%s</a></td><td><a href="%s/userDetails?user=%s">%s</a></td><td>%s</td><td>%s</td><td data-sparkline="%s"/><td data-sparkline="%s"/><td data-sparkline="%s"/><td data-sparkline="%s"/><td class="categories" style="display:none;">%s</td></tr>\n'%(cherrypy.request.base,jid,jid,cherrypy.request.base,uid,uid,nodes,num_cpus,list_load_stndrd,list_load_diff_stndrd,list_VMS_stndrd,list_RSS_stndrd,list_nodes)
+            t2 += '<tr><td><a href="%s/jobGraph?jobid=%s">%s</a></td><td><a href="%s/userDetails?user=%s">%s</a></td><td>%s</td><td>%s</td><td data-sparkline="%s"/><td data-sparkline="%s"/><td data-sparkline="%s"\
 /><td data-sparkline="%s"/><td class="categories" style="display:none;">%s</td></tr>\n'%(cherrypy.request.base,jid,jid,cherrypy.request.base,uid,uid,nodes,num_cpus,list_load,list_core_load_diff,list_VMS,list_RSS,list_nodes)
 
         t  += '</tbody>\n<a href="%s/tymor?refresh=1">&#8635</a>\n'%cherrypy.request.base
@@ -523,8 +581,8 @@ class SLURMMonitor(object):
             list_RSS_stndrd=", ".join(map(str,data_dash[i]['RSS_stndrd']))+" "+"; column"
             list_VMS_stndrd=", ".join(map(str,data_dash[i]['VMS_stndrd']))+" "+"; column"
             list_load_diff_stndrd=", ".join(map(str,data_dash[i]['load_diff_stndrd']))+" "+"; column"
-            t += '<tr><td><a href="%s/jobDetails?jobid=%s">%s</a></td><td><a href="%s/userDetails?user=%s">%s</a></td><td>%s</td><td>%s</td><td data-sparkline="%s"/><td data-sparkline="%s"/><td data-sparkline="%s"/><td data-sparkline="%s"/><td class="categories" style="display:none;">%s</td></tr>\n'%(cherrypy.request.base,jid,jid,cherrypy.request.base,uid,uid,nodes,num_cpus,list_load_stndrd,list_load_diff_stndrd,list_VMS_stndrd,list_RSS_stndrd,list_nodes)
-            t2 += '<tr><td><a href="%s/jobDetails?jobid=%s">%s</a></td><td><a href="%s/userDetails?user=%s">%s</a></td><td>%s</td><td>%s</td><td data-sparkline="%s"/><td data-sparkline="%s"/><td data-sparkline="%s"/><td data-sparkline="%s"/><td class="categories" style="display:none;">%s</td></tr>\n'%(cherrypy.request.base,jid,jid,cherrypy.request.base,uid,uid,nodes,num_cpus,list_load,list_core_load_diff,list_VMS,list_RSS,list_nodes)
+            t += '<tr><td><a href="%s/jobGraph?jobid=%s">%s</a></td><td><a href="%s/userDetails?user=%s">%s</a></td><td>%s</td><td>%s</td><td data-sparkline="%s"/><td data-sparkline="%s"/><td data-sparkline="%s"/><td data-sparkline="%s"/><td class="categories" style="display:none;">%s</td></tr>\n'%(cherrypy.request.base,jid,jid,cherrypy.request.base,uid,uid,nodes,num_cpus,list_load_stndrd,list_load_diff_stndrd,list_VMS_stndrd,list_RSS_stndrd,list_nodes)
+            t2 += '<tr><td><a href="%s/jobGraph?jobid=%s">%s</a></td><td><a href="%s/userDetails?user=%s">%s</a></td><td>%s</td><td>%s</td><td data-sparkline="%s"/><td data-sparkline="%s"/><td data-sparkline="%s"/><td data-sparkline="%s"/><td class="categories" style="display:none;">%s</td></tr>\n'%(cherrypy.request.base,jid,jid,cherrypy.request.base,uid,uid,nodes,num_cpus,list_load,list_core_load_diff,list_VMS,list_RSS,list_nodes)
 
         t += '</tbody>\n<a href="%s/tymor?refresh=1">&#8635</a>\n'%cherrypy.request.base
         t2 += '</tbody>\n<a href="%s/tymor?refresh=1">&#8635</a>\n'%cherrypy.request.base
@@ -610,11 +668,11 @@ class SLURMMonitor(object):
             
 
     @cherrypy.expose
-    def jobDetails(self,jobid,start='', stop=''):
+    def jobGraph(self,jobid,start='', stop=''):
         if type(self.data) == str: return self.data # error of some sort.
 
         jobid    = int(jobid)
-        print("--- jobDetails called %d---"%jobid)
+        print("--- jobGraph called %d---"%jobid)
         data     = self.jobData
 
         nodelist = list(data[jobid][u'cpus_allocated'])

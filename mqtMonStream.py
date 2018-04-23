@@ -6,7 +6,7 @@ import json, pwd, sys, time, zlib
 import paho.mqtt.client as mqtt
 import pyslurm as SL
 
-from collections import defaultdict as DD
+from collections import defaultdict as DDict
 from IndexedDataFile import IndexedHostData
 Interval = 61
 
@@ -14,7 +14,7 @@ Interval = 61
 # stamp of the last update, and pid2info maps a pid to a dictionary of
 # info about the process identified by the pid.
 
-hn2pid2info = DD(lambda: (-1.0, DD(lambda: DD(lambda: DD)), []))
+hn2pid2info = DDict(lambda: (-1.0, DDict(lambda: DDict(lambda: DDict)), []))
 
 NodeStateHack = None
 
@@ -29,7 +29,7 @@ class DataReader:
         self.mqtt_client.on_connect = self.on_connect
         self.mqtt_client.on_message = self.on_message
         self.mqtt_client.connect("mon5.flatironinstitute.org")
-        self.msgs = DD(list)
+        self.msgs = DDict(list)
         self.msg_count = 0
         self.t0 = time.time()
 
@@ -42,49 +42,54 @@ class DataReader:
         self.mqtt_client.subscribe("cluster/hostprocesses/#")
 
     def on_message(self, client, userdata, msg):
-        global NodeStateHack
         
-        data = json.loads(msg.payload)
+        data     = json.loads(msg.payload)
         hostname = data['hdr']['hostname']
         if hostname.startswith('worker'):
             self.msgs[hostname].append(data)
         self.msg_count += 1
+
         t1 = time.time()
-        if (t1 - self.t0) > Interval:
-            print (t1, self.msg_count, file=sys.stderr)
+        if (t1 - self.t0) > Interval:  #deal message on interval
+            print (t1, self.msg_count, data, file=sys.stderr)
+            self.dealData (t1)
 
-            jobData  = SL.job().get()
-            nodeData = SL.node().get()
+            self.t0 += Interval
 
-            if NodeStateHack == None:
-                sample = next(iter(nodeData.values()))
-                if 'node_state' in sample:
-                    NodeStateHack = 'node_state'
-                elif 'state' in sample:
-                    NodeStateHack = 'state'
-                else:
-                    print ('Cannot determine key for state in node dictionary:', dir(sample), file=sys.stderr)
-                    sys.exit(-1)
+    def dealData (self, t1):
+        global NodeStateHack
+        # get job/node data from pyslurm
+        jobData  = SL.job().get()
+        nodeData = SL.node().get()
 
-            hn2uid2allocated = DD(lambda: DD(int))
-            for jid, jdata in jobData.items():
-                # if jdata['job_state'] != 'RUNNING': continue
-                uid = jdata['user_id']
-                for hn, c in jdata.get('cpus_allocated', {}).items():
-                    hn2uid2allocated[hn][uid] += c
+        if NodeStateHack == None:
+           sample = next(iter(nodeData.values()))
+           if 'node_state' in sample:
+              NodeStateHack = 'node_state'
+           elif 'state' in sample:
+              NodeStateHack = 'state'
+           else:
+              print ('Cannot determine key for state in node dictionary:', dir(sample), file=sys.stderr)
+              sys.exit(-1)
 
-            msgs = self.msgs
-            hn2info = {}
+        hn2uid2allocated = DDict(lambda: DDict(int))
+        for jid, jdata in jobData.items():
+           # if jdata['job_state'] != 'RUNNING': continue
+           uid = jdata['user_id']
+           for hn, c in jdata.get('cpus_allocated', {}).items():
+              hn2uid2allocated[hn][uid] += c
 
-            #update the information using msg
-            for hostname in nodeData: # need to generate a record for
-                                      # every host to reflect current
-                                      # SLURM status, even if we don't
-                                      # have a msg for it.
-                prevTs, pid2info, dummy = hn2pid2info[hostname]
-                procsByUser = []
-                uid2pp = DD(list)
-                if hostname in msgs:
+        hn2info = {}
+
+        #update the information using msg
+        for hostname in nodeData: # need to generate a record for
+                                  # every host to reflect current
+                                  # SLURM status, even if we don't
+                                  # have a msg for it.
+            prevTs, pid2info, dummy = hn2pid2info[hostname]
+            procsByUser = []
+            uid2pp = DDict(list)
+            if hostname in self.msgs:
                     # TODO: any value in processing earlier messages if they exist?
                     m = self.msgs.pop(hostname)[-1]
                     
@@ -119,28 +124,30 @@ class DataReader:
 
                     hn2info[hostname] = [nodeData[hostname].get(NodeStateHack, '?STATE?'), delta, ts] + procsByUser
                     hn2pid2info[hostname] = (ts, pid2info, procsByUser)
-                else:
+            else:
                     ts, pid2info, procsByUser = hn2pid2info[hostname]
                     delta = 0.0 if -1 == ts else t1 - ts
                     hn2info[hostname] = [nodeData[hostname].get(NodeStateHack, '?STATE?'), delta, ts] + procsByUser
                         
-                #save information to files
-                self.idxHD.writeData(hostname, t1, hn2info[hostname])
+            #save information to files
+            self.idxHD.writeData(hostname, t1, hn2info[hostname])
                 
-            self.discardMessage()
+        self.discardMessage()
+        self.sendUpdate    (t1, jobData, hn2info, nodeData)
                 
-            for url in open(self.urlfile):
-                url = url[:-1]
-                zps = zlib.compress(cPickle.dumps((t1, jobData, hn2info, nodeData), -1))
-                #print ("url=", url, ",", t1, ",", len(jobData))
-                try:
-                    resp = urllib2.urlopen(urllib2.Request(url, zps, {'Content-Type': 'application/octet-stream'}))
-                    print ( resp.code, resp.read(), file=sys.stderr)
-                except Exception as e:
-                    print ( 'Failed to update slurm data (%s): %s'%(str(e), repr(url)), file=sys.stderr)
 
-            self.t0 += Interval
+    def sendUpdate (self, ts, jobData, hn2info, nodeData):
+        for url in open(self.urlfile):
+           url = url[:-1]
+           zps = zlib.compress(cPickle.dumps((ts, jobData, hn2info, nodeData), -1))
+           #print ("url=", url, ",", ts, ",", len(jobData))
+           try:
+               resp = urllib2.urlopen(urllib2.Request(url, zps, {'Content-Type': 'application/octet-stream'}))
+               print ( resp.code, resp.read(), file=sys.stderr)
+           except Exception as e:
+               print ( 'Failed to update slurm data (%s): %s'%(str(e), repr(url)), file=sys.stderr)
 
+        
     def discardMessage(self):
         hdiscard, mmdiscard = 0, 0
         #self.msgs is a dict

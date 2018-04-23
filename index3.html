@@ -3,40 +3,6 @@
 <head>
 <link rel="stylesheet" href="/static/css/style.css">
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
-<style>
-.sortDiv {
-    float:            right;
-    margin:           auto;
-    display:          inline-block;
-    overflow:         hidden;
-    font-size:        0.8em;
-    border-style:     outset;
-    border-width:     thin;
-    background-color: lightblue;
-}
-
-.glyphicon-triangle-top{
-   color: #000000;
-}
-.glyphicon-triangle-bottom{
-   color: #000000;
-}
-
-.slurminfo tr.summary {
-    color: #000000;
-    background-color: #B7DCEB;
-}
-.slurminfo tr.detail {
-    font-size: 0.95em;
-}
-.slurminfo tr.detail td{
-    padding-left: 1.2em
-}
-.slurminfo th.sort {
-    background-color: blue;
-    font-size: 1.2em;
-}
-</style>
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 <script>
@@ -161,7 +127,7 @@ function getMinusSign() {
 function getTDsHtml (r) {
    // 0:Node, Status, Jobs, Delay, User, 5:Cores Allocated, Processes, Aggregate Load, RSS, 9:VMS
    var delayC= getCategory(r[3], 120, '"right"', '"right"', '"right alarm"')
-   var tds   = `<td><a href="./nodeDetails?node=${r[0]}">${r[0]}</a></td><td>${r[1]}</td><td>${r[2]}</td><td class=${delayC}>${r[3].toFixed(2)}</td>`
+   var tds   = `<td><a href="./nodeDetails?node=${r[0]}">${r[0]}</a></td><td>${r[1]}</td><td><a href="./jobDetails?jobid=${r[2]}">${r[2]}</td><td class=${delayC}>${r[3].toFixed(2)}</td>`
    var tds2  = '<td></td><td></td><td></td><td></td><td></td><td></td>'
    if ( r.length > 4 ) {
       var userC = getCategory(r[7], r[5]-1, r[5]+1, '', '', '"alarm"') 
@@ -268,25 +234,6 @@ function setTableBody () {
    });
 }
 
-$(document).ready(function(){
-   $("#comment").text("Status as of " + new Date())
-
-   setTableBody()
-
-   // sort inc
-   $(".glyphicon-triangle-top").click(function() {
-      var idx=$(".glyphicon-triangle-top").index(this)
-      orderData(idx, 0)
-      setTableBody ()
-   });
-   // sort dec
-   $(".glyphicon-triangle-bottom").click(function() {
-      var idx=$(".glyphicon-triangle-bottom").index(this)
-      orderData(idx, 1)
-      setTableBody ()
-   });
-});
-
 function incF (a, b, idx) {
    if ( idx >= a.length ) return -1
    if ( idx >= b.length ) return 1
@@ -314,11 +261,36 @@ function decFunc (a, b, idx, secIdx) {
    else            
       return cmp;
 }
+
+$(document).ready(function(){
+   //add menu
+   $("#tabmenu").load("/getHeader?page=index")
+
+   $("#comment").text("Status as of " + new Date())
+
+   setTableBody()
+
+   // sort inc
+   $(".glyphicon-triangle-top").click(function() {
+      var idx=$(".glyphicon-triangle-top").index(this)
+      orderData(idx, 0)
+      setTableBody ()
+   });
+   // sort dec
+   $(".glyphicon-triangle-bottom").click(function() {
+      var idx=$(".glyphicon-triangle-bottom").index(this)
+      orderData(idx, 1)
+      setTableBody ()
+   });
+
+});
 </script>
 
 </head>
 
 <body>
+<div class="tab" id="tabmenu"></div>
+<div>
 <h4 id="comment"></h4>
 <table class="slurminfo">
 <thead>
@@ -337,5 +309,5 @@ function decFunc (a, b, idx, secIdx) {
 </thead>
 <tbody id="tbody"> </tbody>
 </table>
-
+</div>
 </body>

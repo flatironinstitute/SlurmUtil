@@ -4,15 +4,13 @@ import _pickle as pickle
 import zlib
 
 class IndexedHostData(object):
-    def __init__(self, prefix):
-        self.prefix    = prefix
-        self.hostname  = None
-        self.data_file = None
-
-    def __init__(self, prefix, hostname):
+    def __init__(self, prefix, hostname=None):
         self.prefix    = prefix
         self.hostname  = hostname
-        self.data_file = open(self.prefix + '/%s_sm.p'%hostname, 'rb')
+        if ( hostname != None ):
+           self.data_file = open(self.prefix + '/%s_sm.p'%hostname, 'rb')
+        else:
+           self.data_file = None
    
     def __del__ (self):
       if ( self.data_file != None ):

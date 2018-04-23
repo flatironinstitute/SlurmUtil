@@ -60,13 +60,65 @@ em.inform, .slurminfo td.inform, .slurminfo tr.alt td.inform {
     background-color: #D7DCEB;
 }
 
-.aup {
-    transform: rotate(-135deg);
-    -webkit-transform: rotate(-135deg);
+.sortDiv {
+    float:            right;
+    margin:           auto;
+    display:          inline-block;
+    overflow:         hidden;
+    font-size:        0.8em;
+    border-style:     outset;
+    border-width:     thin;
+    background-color: lightblue;
 }
 
-.adown {
-    transform: rotate(45deg);
-    -webkit-transform: rotate(45deg);
+.slurminfo tr.summary {
+    color: #000000;
+    background-color: #B7DCEB;
+}
+.slurminfo tr.detail {
+    font-size: 0.95em;
+}
+.slurminfo tr.detail td{
+    padding-left: 1.2em
+}
+.slurminfo th.sort {
+    background-color: blue;
+    font-size: 1.2em;
+}
+
+.glyphicon-triangle-top{
+   color: #000000;
+}
+.glyphicon-triangle-bottom{
+   color: #000000;
+}
+
+/* Style the tab */
+.tab {
+    overflow: hidden;
+    border: 1px solid #ccc;
+    background-color: #f1f1f1;
+}
+
+/* Style the buttons inside the tab */
+.tab button {
+    background-color: #ccc;
+    float: left;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    padding: 14px 16px;
+    transition: 0.3s;
+    font-size: 17px;
+}
+
+/* Change background color of buttons on hover */
+.tab button:hover {
+    background-color: #ddd;
+}
+
+/* Create an active/current tablink class */
+.tab button.active {
+    background-color: inherit;
 }
 
