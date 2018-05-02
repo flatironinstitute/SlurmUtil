@@ -32,7 +32,53 @@ function orderData(idx, subIdx, secIdx=0) {
    return
 }
 
+function getSum(total, curr) {return total+curr}
+
 function getSingleSummaryData(table_data, startRow, endRow, sortIdx) {
+   var currRow     = startRow
+   var colVals     = []
+   var summary     = []
+   for ( var i=0; i<10; i++)
+      colVals[i]   = []
+
+   // loop over the row
+   while (currRow <= endRow) {
+      // loop over the col
+      for (var i=0; i< table_data[currRow].length; i++ ) {
+         if ( i != sortIdx && table_data[currRow][i]!= ' ') colVals[i].push(table_data[currRow][i]);
+      }
+      currRow ++;
+   } 
+
+   // loop over the column
+   var totalCnt    = endRow - startRow +1
+   summary[sortIdx]= table_data[startRow][sortIdx]
+   for (var i=0; i< colVals.length; i++) {
+      if ( i != sortIdx ) {
+         //console.log("result " + i + "=" + result[i] + ",stat=" + stat[i]);
+         switch ( typeDict[i] ) {
+         case 0: // string
+            var setTmp = new Set(colVals[i])
+            summary[i] = "Count " + setTmp.size
+            if ( setTmp.size > 0 )
+               summary[i]  += " [" + colVals[i][0] + "...]";  
+            break;
+         case 1: //integer
+            summary[i] = "Total " + colVals[i].reduce(getSum, 0);  
+            break
+         case 2: // float
+            summary[i] = "Avg. " + (colVals[i].reduce(getSum, 0.0)/totalCnt).toFixed(2);       break
+         case 3:
+            summary[i] = "Avg. " + (colVals[i].reduce(getSum, 0.0)/totalCnt).toExponential(2); break
+         }
+      }
+   }
+
+   return summary
+}
+
+function getSingleSummaryData_old(table_data, startRow, endRow, sortIdx) {
+
    var totalCnt = endRow - startRow +1
    var result   = table_data[startRow].slice() //based on the first row
    var stat     = [0,0,0,0,0,0,0,0,0,0]
@@ -42,15 +88,15 @@ function getSingleSummaryData(table_data, startRow, endRow, sortIdx) {
       // loop over the attribute
       for (var i=0; i< table_data[startRow].length; i++ ) {
          if ( i != sortIdx ) {
-            if ( !result[i] || result[i] == ' ')   // fill in the attr missed from first row
+            if ( result[i] || result[i] == ' ')   // fill in the attr missed from first row
                result[i] = table_data[startRow][i]
 
             switch (typeDict[i]) {
-            case 0: // string
+            case 0: // string, count the non-empty item
                if ( table_data[startRow][i] != ' ' ) stat[i] += 1
                break
             case 1: // integer
-            case 2:
+            case 2: // float
             case 3:
                stat[i] += table_data[startRow][i]
                break;
@@ -66,7 +112,7 @@ function getSingleSummaryData(table_data, startRow, endRow, sortIdx) {
          //console.log("result " + i + "=" + result[i] + ",stat=" + stat[i]);
          switch ( typeDict[i] ) {
          case 0: // string
-            result[i] += "... Count " + stat[i];  break
+            result[i] = "Count " + stat[i] + " [" + result[i] + "...]";  break
          case 1: //integer
             result[i] = "Total " + stat[i];  break
          case 2: // float
@@ -189,6 +235,7 @@ function getTableBodyHtml() {
 //if selector contains $ @ error, + - * no response
 function escapeSpecialSymbol(str) {
    if ( typeof str != 'string' ) {
+      console.log (str)
       return str.toString()
    } else {
       // contains $ @ * +, replace it with \\$ ....
