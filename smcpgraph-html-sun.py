@@ -1,6 +1,7 @@
 import cherrypy, _pickle as cPickle, csv, datetime, json, os
 import pandas as pd, pwd, pyslurm as SL, re, subprocess as SUB, sys, time, zlib
 from collections import defaultdict as DDict
+from functools import reduce
 
 import fs2hc
 import scanSMSplitHighcharts
@@ -27,6 +28,38 @@ def loadSwitch(c, l, low, normal, high):
     if c == -1 or c < l-1: return high
     if c > l+1: return low
     return normal
+
+def most_common(lst):
+    if len(lst)>0:
+        return max(set(lst), key=lst.count)
+
+def atoi(text):
+    return int(text) if text.isdigit() else text
+        
+def natural_keys(text):
+    return [ atoi(c) for c in re.split('(\d+)', text) ]
+        
+def mean(data):
+    """Return the sample arithmetic mean of data."""
+    n = len(data)
+    if n < 1:
+        raise ValueError('mean requires at least one data point')
+    return sum(data)/n # in Python 2 use sum(data)/float(n)
+
+def _ss(data):
+    """Return sum of square deviations of sequence data."""
+    c = mean(data)
+    ss = sum((x-c)**2 for x in data)
+    return ss
+
+def pstdev(data):
+    """Calculates the population standard deviation."""
+    n = len(data)
+    if n < 2:
+        raise ValueError('variance requires at least two data points')
+    ss = _ss(data)
+    pvar = ss/n # the population variance
+    return pvar**0.5
 
 @cherrypy.expose
 class SLURMMonitor(object):
@@ -332,16 +365,6 @@ class SLURMMonitor(object):
         keys_id  =(u'job_id',u'user_id',u'qos', u'nodes','node_info',u'num_nodes', u'num_cpus',u'run_time',u'run_time_str',u'start_time')
         data_dash={i:{k:data[i][k] for k in keys_id} for i in list(data)}
 
-        def most_common(lst):
-            if len(lst)>0:
-                return max(set(lst), key=lst.count)
-
-        def atoi(text):
-            return int(text) if text.isdigit() else text
-        
-        def natural_keys(text):
-            return [ atoi(c) for c in re.split('(\d+)', text) ]
-        
         for n, v in sorted(data_dash.items()):
             nodes =list(v['node_info'])
             nodes.sort(key=natural_keys)
@@ -372,28 +395,6 @@ class SLURMMonitor(object):
         list_VMS_flat  =[item for sublist in list_VMS  for item in sublist]
         list_core_load_diff     =[data_dash[i]['list_core_load_diff']     for i in data_dash]
         list_core_load_diff_flat=[item for sublist in list_core_load_diff for item in sublist]
-
-        def mean(data):
-            """Return the sample arithmetic mean of data."""
-            n = len(data)
-            if n < 1:
-                raise ValueError('mean requires at least one data point')
-            return sum(data)/n # in Python 2 use sum(data)/float(n)
-
-        def _ss(data):
-            """Return sum of square deviations of sequence data."""
-            c = mean(data)
-            ss = sum((x-c)**2 for x in data)
-            return ss
-
-        def pstdev(data):
-            """Calculates the population standard deviation."""
-            n = len(data)
-            if n < 2:
-                raise ValueError('variance requires at least two data points')
-            ss = _ss(data)
-            pvar = ss/n # the population variance
-            return pvar**0.5
 
         load_mean =mean(list_loads_flat)
         load_sd   =pstdev(list_loads_flat)
@@ -492,16 +493,6 @@ class SLURMMonitor(object):
         keys_id=(u'job_id',u'user_id',u'qos', u'nodes','node_info',u'num_nodes', u'num_cpus',u'run_time',u'run_time_str',u'start_time')
         data_dash={i:{k:data[i][k] for k in keys_id} for i in list(data)}
 
-        def most_common(lst):
-            if len(lst)>0:
-                return max(set(lst), key=lst.count)
-
-        def atoi(text):
-            return int(text) if text.isdigit() else text
-
-        def natural_keys(text):
-            return [ atoi(c) for c in re.split('(\d+)', text) ]
-
         for n, v in sorted(data_dash.items()):
             nodes=list(v['node_info'])
             nodes.sort(key=natural_keys)
@@ -530,28 +521,6 @@ class SLURMMonitor(object):
         list_core_load_diff=[data_dash[i]['list_core_load_diff'] for i in data_dash]
         list_core_load_diff_flat=[item for sublist in list_core_load_diff for item in sublist]
 
-        def mean(data):
-            """Return the sample arithmetic mean of data."""
-            n = len(data)
-            if n < 1:
-                raise ValueError('mean requires at least one data point')
-            return sum(data)/n # in Python 2 use sum(data)/float(n)                                                                                                                  
-
-        def _ss(data):
-            """Return sum of square deviations of sequence data."""
-            c = mean(data)
-            ss = sum((x-c)**2 for x in data)
-            return ss
-
-        def pstdev(data):
-            """Calculates the population standard deviation."""
-            n = len(data)
-            if n < 2:
-                raise ValueError('variance requires at least two data points')
-            ss = _ss(data)
-            pvar = ss/n # the population variance                                                                                                                                    
-            return pvar**0.5
-        
         load_mean=mean(list_loads_flat)
         load_sd=pstdev(list_loads_flat)
         RSS_mean=mean(list_RSS_flat)
@@ -666,13 +635,11 @@ class SLURMMonitor(object):
         return j
         
             
-
     @cherrypy.expose
     def jobGraph(self,jobid,start='', stop=''):
         if type(self.data) == str: return self.data # error of some sort.
 
         jobid    = int(jobid)
-        print("--- jobGraph called %d---"%jobid)
         data     = self.jobData
 
         nodelist = list(data[jobid][u'cpus_allocated'])
@@ -682,7 +649,7 @@ class SLURMMonitor(object):
         uname    = pwd.getpwuid(uid).pw_name
         print (str(start) + "-" + str(stop))
 
-        # highcharts                                                                                                                 
+        # highcharts 
         getSMData = scanSMSplitHighcharts.getSMData
         lseries_all_nodes=[]
         mseries_all_nodes=[]
@@ -709,12 +676,7 @@ class SLURMMonitor(object):
         h = open(htmltemp).read()%{'tablenodegraphs' : t}
         return h
 
-    @cherrypy.expose
-    def sunburst(self):
-        def most_common(lst):
-            if len(lst)>0:
-                return max(set(lst), key=lst.count)
-        
+    def createNestedDict (self, rootSysname, levels, data_df, valColname):
         def find_element(children_list,name):
             """
             Find element in children list
@@ -731,7 +693,6 @@ class SLURMMonitor(object):
             The path is a list.  Each element is a name that corresponds 
             to a level in the final nested dictionary.  
             """
-
             #Get first name from path
             this_name = path.pop(0)
 
@@ -769,132 +730,105 @@ class SLURMMonitor(object):
                     #Still elements of path left so recurse
                     add_node(path,value, element, level+1)
 
-        print("--- sunburst called ---")
+        # createNestedDict
+        root   = {"name": "root", "children": []}
+        root["sysname"] = rootSysname
+
+        for row in data_df.iterrows():
+            r     = row[1]
+            path  = list(r[levels])
+            value = r[valColname]
+            add_node(path,value,root)
+
+        return root
+
+    @cherrypy.expose
+    def sunburst(self):
+
+        #sunburst
         if type(self.data) == str: return self.data # error of some sort.
 
-        selfdata_o = self.data
-        data_o     = self.jobData
-        selfdata   = {k:v for k,v in selfdata_o.items()}
-        data       = {k:v for k,v in data_o.items()}
-        more_data  = {i:selfdata[i][0:3] + selfdata[i][3][0:7] for i in selfdata if len(selfdata[i])>3 }
-        less_data  = {i:selfdata[i][0:3] for i in selfdata if len(selfdata[i])<=3}
+        #prepare required information in data_dash
+        more_data    = {k:v[0:3] + v[3][0:7] for k,v in self.data.items() if len(v)>3 } #flatten hostdata
+        less_data    = {k:v[0:3]             for k,v in self.data.items() if len(v)<=3 }
+        hostdata_flat= dict(more_data,**less_data)
 
-        selfdata_dict=dict(more_data,**less_data)
+        keys_id      =(u'job_id',u'user_id',u'qos', u'num_nodes', u'num_cpus')
+        data_dash    ={jid:{k:jinfo[k] for k in keys_id} for jid,jinfo in self.jobData.items()} #extract set of keys
         #this appends a dictionary for all of the node information to the job dataset
-        for jid, jinfo in data.items():
-            x = [node for node, coreCount in jinfo.get(u'cpus_allocated').items()]
-            d1 = {k: selfdata_dict[k] for k in x}
-            data[jid]["node_info"] = d1
+        for jid, jinfo in self.jobData.items():
+            data_dash[jid]["node_info"] = {n: hostdata_flat[n] for n in jinfo.get(u'cpus_allocated').keys()}
         
-        keys_id=(u'job_id',u'user_id',u'qos', u'nodes','node_info',u'num_nodes', u'num_cpus',u'run_time',u'run_time_str',u'start_time')
-        data_dash={i:{k:data[i][k] for k in keys_id} for i in data.keys()}
-        
-        for n, v in sorted(data_dash.items()):
-            data_dash[n]['uid'] = data[n][u'user_id']
-            data_dash[n]['username'] = pwd.getpwuid(data_dash[n]['uid']).pw_name
-            data_dash[n]['cpu_list']=[v['node_info'][i][5] for i in v['node_info'].keys() if len(v['node_info'][i])>=7]
-            if not data_dash[n]['cpu_list']:
-                print ('Pruning:', repr(v), file=sys.stderr)
-                data_dash.pop(n)
+        for jid, jinfo in sorted(data_dash.items()):
+            username = pwd.getpwuid(jinfo[u'user_id']).pw_name
+            data_dash[jid]['cpu_list'] = [jinfo['node_info'][i][5] for i in jinfo['node_info'].keys() if len(jinfo['node_info'][i])>=7]
+            if not data_dash[jid]['cpu_list']:
+                print ('Pruning:', repr(jinfo), file=sys.stderr)
+                data_dash.pop(jid)
                 continue
-            nodes = list(v['node_info'])
-            data_dash[n]['list_nodes'] = nodes
-            data_dash[n]['list_state']=[v['node_info'][i][0] for i in nodes]
-            data_dash[n]['list_cores']=[round(v['node_info'][i][5],3) if len(v['node_info'][i])>=7 else -1 for i in nodes]
-            data_dash[n]['list_load']=[round(v['node_info'][i][7],3)  if len(v['node_info'][i])>=7 else 0.0 for i in nodes]
-            data_dash[n]['list_RSS']=[v['node_info'][i][8] if len(v['node_info'][i])>=7 else 0 for i in nodes]
-            data_dash[n]['list_VMS']=[v['node_info'][i][9] if len(v['node_info'][i])>=7 else 0 for i in nodes]
-            data_dash[n]['list_core_load_diff']=[round(v['node_info'][i][5] -v['node_info'][i][7],3) if len(v['node_info'][i])>=7 else 0.0 for i in nodes]
+
+            nodes = list(jinfo['node_info'])
+            data_dash[jid]['list_nodes'] = nodes
+            data_dash[jid]['list_state'] =[jinfo['node_info'][i][0]          for i in nodes]
+            data_dash[jid]['list_cores'] =[round(jinfo['node_info'][i][5],3) if len(jinfo['node_info'][i])>=7 else -1 for i in nodes]
+            data_dash[jid]['list_load']  =[round(jinfo['node_info'][i][7],3) if len(jinfo['node_info'][i])>=7 else 0.0 for i in nodes]
+            data_dash[jid]['list_RSS']   =[jinfo['node_info'][i][8]          if len(jinfo['node_info'][i])>=7 else 0 for i in nodes]
+            data_dash[jid]['list_VMS']   =[jinfo['node_info'][i][9]          if len(jinfo['node_info'][i])>=7 else 0 for i in nodes]
+  
+            num_nodes = jinfo[u'num_nodes']
+            data_dash[jid]['list_jobid']   =[jid]          * num_nodes
+            data_dash[jid]['list_username']=[username]     * num_nodes
+            data_dash[jid]['list_qos']     =[jinfo[u'qos']]* num_nodes
         
         #need to filter data_dash so that it no longer contains users that are "None"->this was creating sunburst errors 
-        
-        open('/tmp/sunburst.tmp', 'w').write(repr(data_dash))
-        list_node      =[data_dash[i]['list_nodes'] for i in data_dash]
-        list_nodes_flat=[item for sublist in list_node for item in sublist]
-        num_nodes      =[data_dash[i][u'num_nodes'] for i in data_dash]
-        list_load      =[data_dash[i]['list_load'] for i in data_dash]
-        list_loads_flat=[item for sublist in list_load for item in sublist]
+        #open('/tmp/sunburst.tmp', 'w').write(repr(data_dash))
 
-        list_part      =[data_dash[i][u'qos'] for i in data_dash]
-        list_part_flat =[[list_part[i]]*num_nodes[i] for i in range(len(list_part))] #will not change item
-        list_part_flatn=[item for sublist in list_part_flat for item in sublist]
+        # get flat list corresponding to each node
+        list_nodes_flat=reduce((lambda x,y: x+y), [v['list_nodes'] for v in data_dash.values()])
+        list_loads_flat=reduce((lambda x,y: x+y), [v['list_load']  for v in data_dash.values()])
+        list_cpus_flat =reduce((lambda x,y: x+y), [v['cpu_list']   for v in data_dash.values()])
+        list_RSS_flat  =reduce((lambda x,y: x+y), [v['list_RSS']   for v in data_dash.values()])
+        list_VMS_flat  =reduce((lambda x,y: x+y), [v['list_VMS']   for v in data_dash.values()])
+        list_job_flatn =reduce((lambda x,y: x+y), [v['list_jobid'] for v in data_dash.values()])
+        list_part_flatn=reduce((lambda x,y: x+y), [v['list_qos']   for v in data_dash.values()])
+        list_usernames_flatn=reduce((lambda x,y: x+y), [v['list_username']   for v in data_dash.values()])
 
-        #jobs=data_dash.keys()
-        jobs           =list(data_dash)
-        list_job_flat  =[[jobs[i]]*num_nodes[i] for i in range(len(num_nodes))]
-        list_job_flatn =[item for sublist in list_job_flat for item in sublist]
-        list_usernames =[data_dash[i]['username'] for i in data_dash]
-        list_usernames_flat =[[list_usernames[i]]*num_nodes[i] for i in range(len(num_nodes))]
-        list_usernames_flatn=[item for sublist in list_usernames_flat for item in sublist]
-        list_cpus=[data_dash[i]['cpu_list'] for i in data_dash]
-        list_cpus_flat =[item for sublist in list_cpus for item in sublist]
-        list_RSS       =[data_dash[i]['list_RSS'] for i in data_dash]
-        list_RSS_flat  =[item for sublist in list_RSS for item in sublist]
-        list_VMS       =[data_dash[i]['list_VMS'] for i in data_dash]
-        list_VMS_flat  =[item for sublist in list_VMS for item in sublist]
-        print(repr((list_part_flatn, list_usernames_flatn, list_job_flatn, list_nodes_flat, list_loads_flat)))
-        listn=[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_loads_flat[i]] for i in range(len(list_nodes_flat))]
-        listrss=[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_RSS_flat[i]] for i in range(len(list_nodes_flat))]
-        listvms=[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_VMS_flat[i]] for i in range(len(list_nodes_flat))]
-        
-        listns      =[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i]] for i in range(len(list_nodes_flat))]
-        #node_states =[[j.encode("utf-8"),selfdata[j][0]] for j in selfdata.keys()]
-        node_states =[[j,selfdata[j][0]] for j in selfdata.keys()]
-        data_df     =pd.DataFrame(listns,columns=['partition','user','job','node'])
-        state       =pd.DataFrame(node_states,columns=['node','state'])
-        statedata_df=pd.merge(state, data_df, on='node',how='left')
-        statedata_df['partition'].fillna('Not_Allocated', inplace=True)
-        statedata_df['user'].fillna('Not_Allocated', inplace=True)
-        statedata_df['job'].fillna('Not_Allocated', inplace=True)
-        statedata_df['load']=28
-        order=['partition','user','job','state','node','load']
-        statedata_df=statedata_df[order]
-        
+        # merge above list into nested list
+        listn  =[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_loads_flat[i]] for i in range(len(list_nodes_flat))]
+        listrss=[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_RSS_flat[i]]   for i in range(len(list_nodes_flat))]
+        listvms=[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_VMS_flat[i]]   for i in range(len(list_nodes_flat))]
+        listns =[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i]]                    for i in range(len(list_nodes_flat))]
+        #print("listn=" + repr(listn))
+
         data_dfload =pd.DataFrame(listn,   columns=['partition','user','job','node','load'])
         data_dfrss  =pd.DataFrame(listrss, columns=['partition','user','job','node','rss'])
         data_dfvms  =pd.DataFrame(listvms, columns=['partition','user','job','node','vms'])
+        #print("data_dfload=" + repr(data_dfload))
         
-        d_rss  = {"name": "root","sysname":"RSS","children": []}
-        levels = ["partition","user","job","node"]
-        for row in data_dfrss.iterrows():
-            r = row[1]
-            path = list(r[levels])
-            value = r["rss"]
-            add_node(path,value,d_rss)
-        json_rss=json.dumps(d_rss, sort_keys=False, indent=2)
-
-        d_vms  = {"name": "root","sysname":"VMS","children": []}
-        levels = ["partition","user","job","node"]
-        for row in data_dfvms.iterrows():
-            r = row[1]
-            path = list(r[levels])
-            value = r["vms"]
-            add_node(path,value,d_vms)
-        json_vms=json.dumps(d_vms, sort_keys=False,indent=2)
-
-        d_state = {"name": "root", "sysname": "load","children": []}
-        levels  = ["partition","user","job","state","node"]
-        for row in statedata_df.iterrows():
-            r = row[1]
-            path = list(r[levels])
-            value = r["load"]
-            add_node(path,value,d_state)
-        json_state=json.dumps(d_state, sort_keys=False,indent=2)
-
-        d_load = {"name": "root", "sysname": "load","children": []}
-
-        levels = ["partition","user","job","node"]
-        for row in data_dfload.iterrows():
-            r = row[1]
-            path = list(r[levels])
-            value = r["load"]
-            add_node(path,value,d_load)
-        json_load=json.dumps(d_load, sort_keys=False,indent=2)
+        #node_states =[[j.encode("utf-8"),hostdata[j][0]] for j in hostdata.keys()]
+        node_states =[[j,hostdata_flat[j][0]] for j in hostdata_flat.keys()]
+        data_df     =pd.DataFrame(listns,     columns=['partition','user','job','node'])
+        state       =pd.DataFrame(node_states,columns=['node','state'])
+        data_dfstate=pd.merge(state, data_df, on='node',how='left')
+        data_dfstate['partition'].fillna('Not_Allocated', inplace=True)
+        data_dfstate['user'].fillna     ('Not_Allocated', inplace=True)
+        data_dfstate['job'].fillna      ('Not_Allocated', inplace=True)
+        data_dfstate['load']=28
+        order       =['partition','user','job','state','node','load']
+        data_dfstate=data_dfstate[order]
         
+        d_load    = self.createNestedDict("load",  ["partition","user","job","node"],          data_dfload,  "load")
+        json_load = json.dumps(d_load,  sort_keys=False, indent=2)
+        d_vms     = self.createNestedDict("VMS",   ["partition","user","job","node"],          data_dfvms,   "vms")
+        json_vms  =json.dumps(d_vms, sort_keys=False,indent=2)
+        d_rss     = self.createNestedDict("RSS",   ["partition","user","job","node"],          data_dfrss,   "rss")
+        json_rss  =json.dumps(d_rss, sort_keys=False, indent=2)
+        d_state   = self.createNestedDict("state", ["partition","user","job","state", "node"], data_dfstate, "load")
+        json_state= json.dumps(d_state, sort_keys=False, indent=2)
+
         htmltemp = os.path.join(wai, 'sunburst2.html')
         h = open(htmltemp).read()%{'data1' : json_load, 'data2' : json_state, 'data3' : json_vms, 'data4' : json_rss}
         return h
-
 
     sunburst.exposed = True
             
