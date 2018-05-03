@@ -54,6 +54,7 @@ $(function(){
 
 <script src="https://d3js.org/d3.v3.min.js"></script>
 <script type="text/javascript">
+  var users=%(users)s
   var load_data=%(data1)s
   var vms_data=%(data3)s
   var rss_data=%(data4)s
@@ -74,7 +75,8 @@ $(function(){
   var y = d3.scale.linear()
       .range([0, radius]);
 
-  var color = d3.scale.category20c();
+  var color = d3.scale.category20c().domain(users);
+  var fixedColor = {'cca':'#ce3232', 'ccb':'#81ad4a', 'ccq':'#855b8e', 'gen':'#537eba', 'ib':'#3f51b5', 'root':'1f77b4'}
 
   function createVisualization(data) {
       //console.log(data)
@@ -103,7 +105,7 @@ $(function(){
 
       var path = g.append("path")
 	  .attr("d", arc)
-	  .style("fill", function(d) {return color((d.children ? d : d.parent).name);})
+	  .style("fill", function(d) {var x= fixedColor[d.name]; if (x === undefined) return color((d.children ? d : d.parent).name); else return x})
 	  .on("click", click)
 	  .on("mouseover",function(d, i) {
 	      var totalSize = path.node().__data__.value;

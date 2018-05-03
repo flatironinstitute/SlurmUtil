@@ -826,8 +826,11 @@ class SLURMMonitor(object):
         d_state   = self.createNestedDict("state", ["partition","user","job","state", "node"], data_dfstate, "load")
         json_state= json.dumps(d_state, sort_keys=False, indent=2)
 
+        #get all the usernames
+        set_usernames = sorted(set(list_usernames_flatn))
+
         htmltemp = os.path.join(wai, 'sunburst2.html')
-        h = open(htmltemp).read()%{'data1' : json_load, 'data2' : json_state, 'data3' : json_vms, 'data4' : json_rss}
+        h = open(htmltemp).read()%{'data1' : json_load, 'data2' : json_state, 'data3' : json_vms, 'data4' : json_rss, 'users':set_usernames}
         return h
 
     sunburst.exposed = True
