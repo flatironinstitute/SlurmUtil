@@ -13,10 +13,7 @@ from IndexedDataFile import SearchIndex, IndexedHostData, compTimestamps
 
 def getSMData(SMDir, targetNode, start, stop):
     #print ("getSMdata %s"%targetNode)
-    sm = SearchIndex(SMDir+'/%s_sm.px'%targetNode, 40, compTimestamps)
-
-    #print (SMDir+'/%s_sm.p'%targetNode)
-    #smd = open(SMDir+'/%s_sm.p'%targetNode, 'rb')
+    sm  = SearchIndex(SMDir+'/%s_sm.px'%targetNode, 40, compTimestamps)
     smd = IndexedHostData(SMDir, targetNode)
 
     u2d = DD(list)

@@ -10,8 +10,8 @@ The incoming messages will be
 2) saved to local files at ${pData}/${hostname}_sm.p (data file) and ${hostname}_sm.px (index file); 
 3) updated to web interface (http://${webserver}:8126/updateSlurmData) to refresh the data
 
-## Web interface
-Web server is hosted by CherryPy at http://${webserver}:8126/
+## Web Interface
+Web server is hosted by CherryPy at http://${webserver}:8126/. You can see an example of it at http://scclin011:8126/
 
 You can see different user interfaces at
 1) http://${webserver}:8126/,

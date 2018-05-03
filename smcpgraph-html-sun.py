@@ -650,12 +650,10 @@ class SLURMMonitor(object):
         print (str(start) + "-" + str(stop))
 
         # highcharts 
-        getSMData = scanSMSplitHighcharts.getSMData
         lseries_all_nodes=[]
         mseries_all_nodes=[]
         for node in nodelist:
-            
-            lseries, mseries = getSMData(SMDir, node, start, stop)
+            lseries, mseries = scanSMSplitHighcharts.getSMData(SMDir, node, start, stop)
             for d in lseries:
                 if d['name'] == uname: break
                 else:

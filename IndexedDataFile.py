@@ -61,6 +61,10 @@ class SearchIndex(object):
         self.reclen = reclen
         assert (self.len * reclen) == fsize
 
+    def __del__ (self):
+      if ( self.idxFile != None ):
+         self.idxFile.close()
+
     def __len__(self):
         return self.len
 
