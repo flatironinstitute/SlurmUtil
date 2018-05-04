@@ -176,6 +176,7 @@ class SLURMMonitor(object):
         t = datetime.date.today() + datetime.timedelta(days=-SacctWindow)
         startDate = '%d-%02d-%02d'%(t.year, t.month, t.day)
         d = self.sacctData (['-S', startDate] + criteria)
+        print(repr(d))
 
         return d
 
@@ -289,7 +290,7 @@ class SLURMMonitor(object):
                 ac = loadSwitch(cores, tc, ' class="inform"', '', ' class="alarm"')
                 t += '<hr><em%s>%s</em> %d<pre>'%(ac, node, cores) + '\n'.join([' '.join(['%6d'%cmd[0], '%6.2f'%cmd[1], '%10.2e'%cmd[5], '%10.2e'%cmd[6]] + cmd[7]) for cmd in cmds]) + '\n</pre>\n'
         t += '<h4 id="sacctreport">sacct report (last %d days for user %s):</h4>\n'%(SacctWindow, user)
-        t += self.sacctReport(self.sacctDataInWindow['-u', user])
+        t += self.sacctReport(self.sacctDataInWindow(['-u', user]))
         t += '<a href="%s/index">&#8617</a>\n</body>\n</html>\n'%cherrypy.request.base
         return t
 

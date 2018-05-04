@@ -6,27 +6,31 @@
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 <script>
+const INC_ORDER      = 0
+const DEC_ORDER      = 1
+var currSortIdx      = 0
+var currSortOrder    = INC_ORDER
+var orderBy          =0 // 0: node inc, 1: node dec, ... (2*idx + inc?0:1)
 var load_data        =%(tableData)s
 var expDict          ={0:2, 1:0, 2:0, 3:2, 4:2, 5:0, 6:0, 7:0, 8:0, 9:0}  // 0:2 when sorted on 0, 2 is expandable 
 var typeDict         ={0:0, 1:0, 2:0, 3:2, 4:0, 5:1, 6:1, 7:2, 8:3, 9:3}  // 0:0 type of 0 is string(0), integer(1), float(2), float exp(3)
 var rightDict        ={0:0, 1:0, 2:0, 3:1, 4:0, 5:1, 6:1, 7:1, 8:1, 9:1}  // 9:1 include right class of 9
-var orderBy          =0 // 0: node inc, 1: node dec, ... (2*idx + inc?0:1)
 var summary_data     =[] // [[startIdx, endIdx, [summaryAttr ...]]...]
 
 // init
-orderData (1, 0)	// init page order by Status inc
+orderData (1, INC_ORDER)	// init page order by Status inc
 
-// order data by idx with inc/dec(subIdx=0,1) order, if idx is equal, order by secIdx
-function orderData(idx, subIdx, secIdx=0) {
-   var newOrder = idx * 2 + subIdx;
-   if ( newOrder == orderBy ) return
+// order data by idx with inc/dec order order, if idx is equal, order by secIdx
+function orderData(idx, order, secIdx=0) {
+   if ( (idx == currSortIdx) && (order == currSortOrder) ) return
 
    // sort load_data
    load_data.sort (function (a, b) {
-      if ( subIdx == 0 ) return incFunc(a, b, idx, secIdx)
-      else               return decFunc(a, b, idx, secIdx)
+      if ( order == INC_ORDER ) return incFunc(a, b, idx, secIdx)
+      else                      return decFunc(a, b, idx, secIdx)
    })
-   orderBy = newOrder
+   currSortIdx   = idx
+   currSortOrder = order
 
    summary_data= getSummaryData(load_data, idx, expDict[idx])  // 0=Node, 2=Jobs
    return
@@ -115,10 +119,10 @@ function getCategory (val, sep1, sep2, low, normal, high) {
 }
 
 function getPlusSign () {
-   return '<span class="glyphicon glyphicon-plus-sign"  style="float:right"></span>'
+   return '<span class="glyphicon glyphicon-plus-sign"></span>'
 }
 function getMinusSign() {
-   return '<span class="glyphicon glyphicon-minus-sign" style="float:right"></span>'
+   return '<span class="glyphicon glyphicon-minus-sign"></span>'
 }
 
 function getTDsHtml (r) {
@@ -159,7 +163,7 @@ function getTableBodyHtml() {
    var i      = 0
    var result = []
    var sarr   = summary_data.slice()
-   var orderIdx = Math.floor(orderBy / 2)
+   var orderIdx = currSortIdx 
 
    currS = sarr.shift()
    while (load_data[i]) {
@@ -194,44 +198,6 @@ function escapeSpecialSymbol(str) {
    }
 }
 
-// table body
-function setTableBody () {
-   $("#tbody").html(getTableBodyHtml())
-
-   // hide all the details
-   $(".detail").hide()
-   $(".glyphicon-minus-sign").hide()
-
-   var orderIdx = Math.floor(orderBy/2)
-
-   // set the color of sorted attribute
-   $("th").removeClass("sort")
-   $(`th:eq(${orderIdx})`).addClass("sort")
-
-   // plus click 
-   $(".glyphicon-plus-sign").click(function() {
-      var idx=$(".glyphicon-plus-sign").index(this)
-      var cls=escapeSpecialSymbol(summary_data[idx][2][orderIdx])
-      
-      // display detail record
-      $(`.detail.${cls}`).show()
-
-      // switch +, minus,  nth-of-type starts from 1 instead of 0
-      $(`.glyphicon-plus-sign:eq(${idx})`).hide()
-      $(`.glyphicon-minus-sign:eq(${idx})`).show()
-   });
-
-   // minus click
-   $(".glyphicon-minus-sign").click(function() {
-      var idx=$(".glyphicon-minus-sign").index(this)
-      var cls=escapeSpecialSymbol(summary_data[idx][2][orderIdx])
-
-      $(`.detail.${cls}`).hide()
-      $(`.glyphicon-minus-sign:eq(${idx})`).hide()
-      $(`.glyphicon-plus-sign:eq(${idx})`).show()
-   });
-}
-
 function incF (a, b, idx) {
    if ( idx >= a.length ) return -1
    if ( idx >= b.length ) return 1
@@ -260,24 +226,74 @@ function decFunc (a, b, idx, secIdx) {
       return cmp;
 }
 
+// table body
+function setTableBody () {
+   $("#tbody").html(getTableBodyHtml())
+
+   // hide all the details
+   $(".detail").hide()
+   $(".glyphicon-minus-sign").hide()
+
+   var orderIdx = currSortIdx
+
+   // plus click 
+   $(".glyphicon-plus-sign").click(function() {
+      var idx=$(".glyphicon-plus-sign").index(this)
+      var cls=escapeSpecialSymbol(summary_data[idx][2][orderIdx])
+      
+      // display detail record
+      $(`.detail.${cls}`).show()
+
+      // switch +, minus,  nth-of-type starts from 1 instead of 0
+      $(`.glyphicon-plus-sign:eq(${idx})`).hide()
+      $(`.glyphicon-minus-sign:eq(${idx})`).show()
+   });
+
+   // minus click
+   $(".glyphicon-minus-sign").click(function() {
+      var idx=$(".glyphicon-minus-sign").index(this)
+      var cls=escapeSpecialSymbol(summary_data[idx][2][orderIdx])
+
+      $(`.detail.${cls}`).hide()
+      $(`.glyphicon-minus-sign:eq(${idx})`).hide()
+      $(`.glyphicon-plus-sign:eq(${idx})`).show()
+   });
+}
+
+function setTableHead (sortIdx, order) {
+   // set the color of sorted attribute
+   $("th").removeClass("sort")
+   $(".glyphicon-triangle-top").hide()
+   $(".glyphicon-triangle-bottom").hide()
+
+   $(`th:eq(${sortIdx})`).addClass("sort")
+   if ( order == INC_ORDER ) {
+      $(`.glyphicon-triangle-top:eq(${sortIdx})`).show()
+   } else {
+      $(`.glyphicon-triangle-bottom:eq(${sortIdx})`).show()
+   }
+}
+
 $(document).ready(function(){
    //add menu
    $("#tabmenu").load("/getHeader?page=index")
 
    $("#comment").text("Status as of " + new Date())
 
+   setTableHead(1, INC_ORDER)
    setTableBody()
 
    // sort inc
-   $(".glyphicon-triangle-top").click(function() {
-      var idx=$(".glyphicon-triangle-top").index(this)
-      orderData(idx, 0)
-      setTableBody ()
-   });
-   // sort dec
-   $(".glyphicon-triangle-bottom").click(function() {
-      var idx=$(".glyphicon-triangle-bottom").index(this)
-      orderData(idx, 1)
+   $("th.sortable").click(function() {
+      var idx=$("th.sortable").index(this)
+      var order=INC_ORDER
+      if ( idx == currSortIdx ) {
+         // toggle order
+         order = (currSortOrder == INC_ORDER) ? DEC_ORDER: INC_ORDER
+      } 
+
+      orderData    (idx, order)
+      setTableHead (idx, order)
       setTableBody ()
    });
 
@@ -293,16 +309,16 @@ $(document).ready(function(){
 <table class="slurminfo">
 <thead>
 <tr>
-   <th>Node            <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div/></th>
-   <th>Status          <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div></th>
-   <th>Jobs            <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div></th>
-   <th>Delay           <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div></th>
-   <th>User            <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div></th>
-   <th>Cores Allocated <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div></th>
-   <th>Processes       <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div></th>
-   <th>Aggregate Load  <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div></th>
-   <th>RSS             <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div></th>
-   <th>VMS             <div class="sortDiv"><span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></div></th>
+   <th class="sortable">Node            <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
+   <th class="sortable">Status          <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
+   <th class="sortable">Jobs            <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
+   <th class="sortable">Delay           <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
+   <th class="sortable">User            <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
+   <th class="sortable">Cores Allocated <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
+   <th class="sortable">Processes       <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
+   <th class="sortable">Aggregate Load  <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
+   <th class="sortable">RSS             <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
+   <th class="sortable">VMS             <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
 </tr>
 </thead>
 <tbody id="tbody"> </tbody>

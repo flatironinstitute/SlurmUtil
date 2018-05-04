@@ -60,17 +60,6 @@ em.inform, .slurminfo td.inform, .slurminfo tr.alt td.inform {
     background-color: #D7DCEB;
 }
 
-.sortDiv {
-    float:            right;
-    margin:           auto;
-    display:          inline-block;
-    overflow:         hidden;
-    font-size:        0.8em;
-    border-style:     outset;
-    border-width:     thin;
-    background-color: lightblue;
-}
-
 .slurminfo tr.summary {
     color: #000000;
     background-color: #B7DCEB;
@@ -86,11 +75,15 @@ em.inform, .slurminfo td.inform, .slurminfo tr.alt td.inform {
     font-size: 1.2em;
 }
 
+.glyphicon{
+    float:right
+}
+
 .glyphicon-triangle-top{
-   color: #000000;
+   color: white;
 }
 .glyphicon-triangle-bottom{
-   color: #000000;
+   color: white;
 }
 
 /* Style the tab */
