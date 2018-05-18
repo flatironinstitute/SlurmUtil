@@ -4,7 +4,7 @@ import _pickle as cPickle
 import urllib.request as urllib2
 import json, pwd, sys, time, zlib
 import paho.mqtt.client as mqtt
-import pyslurm as SL
+import pyslurm
 
 from collections import defaultdict as DDict
 from IndexedDataFile import IndexedHostData
@@ -23,7 +23,7 @@ class DataReader:
     def __init__(self, prefix, urlfile):
         self.prefix  = prefix
         self.urlfile = urlfile
-        self.idxHD   = IndexedHostData(prefix)
+        self.idxHostData= IndexedHostData(prefix)
 
         self.mqtt_client = mqtt.Client()
         self.mqtt_client.on_connect = self.on_connect
@@ -38,7 +38,7 @@ class DataReader:
 
     def on_connect(self, client, userdata, flags, rc):
         #self.mqtt_client.subscribe("cluster/hostprocesses/worker1000")
-        print ("on_connect with code %d." %(rc) )
+        #print ("on_connect with code %d." %(rc) )
         self.mqtt_client.subscribe("cluster/hostprocesses/#")
 
     def on_message(self, client, userdata, msg):
@@ -51,7 +51,7 @@ class DataReader:
 
         t1 = time.time()
         if (t1 - self.t0) > Interval:  #deal message on interval
-            print (t1, self.msg_count, data, file=sys.stderr)
+            #print (t1, self.msg_count, data, file=sys.stderr)
             self.dealData (t1)
 
             self.t0 += Interval
@@ -59,8 +59,9 @@ class DataReader:
     def dealData (self, t1):
         global NodeStateHack
         # get job/node data from pyslurm
-        jobData  = SL.job().get()
-        nodeData = SL.node().get()
+        jobData  = pyslurm.job().get()
+        nodeData = pyslurm.node().get()
+        #print("nodeData=" + repr(nodeData))
 
         if NodeStateHack == None:
            sample = next(iter(nodeData.values()))
@@ -130,9 +131,10 @@ class DataReader:
                     hn2info[hostname] = [nodeData[hostname].get(NodeStateHack, '?STATE?'), delta, ts] + procsByUser
                         
             #save information to files
-            self.idxHD.writeData(hostname, t1, hn2info[hostname])
+            self.idxHostData.writeData(hostname, t1, hn2info[hostname])
                 
         self.discardMessage()
+        #print("hn2info=" + repr(hn2info))
         self.sendUpdate    (t1, jobData, hn2info, nodeData)
                 
 
@@ -143,7 +145,7 @@ class DataReader:
            #print ("url=", url, ",", ts, ",", len(jobData))
            try:
                resp = urllib2.urlopen(urllib2.Request(url, zps, {'Content-Type': 'application/octet-stream'}))
-               print ( resp.code, resp.read(), file=sys.stderr)
+               #print ( resp.code, resp.read(), file=sys.stderr)
            except Exception as e:
                print ( 'Failed to update slurm data (%s): %s'%(str(e), repr(url)), file=sys.stderr)
 

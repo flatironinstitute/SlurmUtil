@@ -2,6 +2,8 @@
 <meta charset="utf-8">
 <html>
   <head>
+    <link rel="stylesheet" href="/static/css/style.css">
+
     <style>
       rect.bordered {
         stroke: #E6E6E6;
@@ -23,20 +25,27 @@
       }
     </style>
     <script src="http://d3js.org/d3.v3.js"></script>
-    <h3>Worker Nodes Utilization</h3>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script>
+       $(function(){
+          $("#tabmenu").load("/getHeader?page=utilHeatmap")
+       });</script>
   </head>
   <body>
+    <div class="tab" id="tabmenu"></div>
+
+    <h3>Worker Nodes Utilization</h3>
     <div id="chart">
        <svg> </svg>
     </div>
 
     <script type="text/javascript">
-      var margin   = { top: 10, right: 0, bottom: 100, left: 30 },
+      var margin   = { top: 10, right: 0, bottom: 100, left: 120 },
           width    = 960  - margin.left - margin.right,
           height   = 900  - margin.top - margin.bottom,
           cntLine  = 32,
           buckets  = 10,
-          colors   = ["blue", "green","31a354", "#74c476","#c7e9c0","yellow", "#fdd0a2","#fd9d3c", "#f38d3c", "red"], 
+          colors   = ["blue", "#3192bd", "green","#74c476","#c7e9c0","ffffd9", "yellow", "#fdd0a2","#f38d3c", "red"], 
           //groups   = ["worker0", "worker1", "worker2", "workergpu", "workermem", "workerphi"],
           //gCnt     = [32, 240, 120, 13, 1, 1]
           gridSize = Math.floor(width / cntLine),
@@ -48,30 +57,44 @@
           .append("g")
              .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-      var iData = [];
-      var gID = 0;
-      var gIdx= 0;
-      var groups = [0,0,0,0,0,0];
-      var i;
-      //dataset1 is already sorted
-      for (i=0; i<dataset1.length; i++) {
+      var iData  = [];             // data that will be used later
+      var groups = [0,0,0,0,0,0];  // count for each group worker0..., ...
+      var labels = [];             // labels
+      //dataset1 is already sorted by group 
+      for (var i=0; i<dataset1.length; i++) {
           var obj = new Object();
+          var gID = -1;
           obj.name=dataset1[i][0];
           obj.util=dataset1[i][1];
           
           switch (dataset1[i][0].slice(6,7)) {
-                 case "0": obj.gID = 0; obj.gIdx=parseInt(dataset1[i][0].slice(7,10)); groups[0] ++; break; // worker0...
-                 case "1": obj.gID = 1; obj.gIdx=parseInt(dataset1[i][0].slice(7,10)); groups[1] ++; break; // worker1...
-                 case "2": obj.gID = 2; obj.gIdx=parseInt(dataset1[i][0].slice(7,10)); groups[2] ++; break; // worker2...
-                 case "g": obj.gID = 3; obj.gIdx=parseInt(dataset1[i][0].slice(9,11)); groups[3] ++; break; // workergpu..
-                 case "m": obj.gID = 4; obj.gIdx=parseInt(dataset1[i][0].slice(9,11)); groups[4] ++; break; // workermem..
-                 case "p": obj.gID = 5; obj.gIdx=parseInt(dataset1[i][0].slice(9,11)); groups[5] ++; break; // workerphi..
+                 case "0": obj.gID = 0; break; // worker0...
+                 case "1": obj.gID = 1; break; // worker1...
+                 case "2": obj.gID = 2; break; // worker2...
+                 case "g": obj.gID = 3; break; // workergpu..
+                 case "m": obj.gID = 4; break; // workermem..
+                 case "p": obj.gID = 5; break; // workerphi..
           }
-
+          gID = obj["gID"];
+          obj.gIdx           = groups[gID];
+          if ( Math.floor(groups[gID] / cntLine)*cntLine == groups[gID] )
+             labels.push(obj.name);
+   
+          groups[gID] ++;
           iData.push (obj);
       }
       //console.log(iData);
       //console.log(groups);
+      console.log(labels);
+
+      var nodeLabels = svg.selectAll (".nodeLabel")
+          .data (labels)
+          .enter().append("text")
+             .text(function (d) {return d+",...";})
+             .attr("x", 0)
+             .attr("y", function (d, i) { return (i+2)*gridSize;})
+            .style("text-anchor", "end")
+             .attr("transform", "translate(-6," + gridSize / 1.5 + ")");
 
       var heatmapChart = function(data) {
           var colorScale = d3.scale.quantize()
@@ -94,15 +117,16 @@
               .attr("height", gridSize)
               .attr("title", function (d) {return d["name"]})
               .attr("value", function (d) {return d["util"]})
+              .on("click", function(d) {location.href="nodeDetails?node="+d["name"]})
               .style("fill",  "gray");
           cards.transition().duration(1000)
               .style("fill", function(d) { console.log(d["util"]); if (d["util"]==0) return "gray"; else return colorScale(d["util"]); });
           cards.append("title");
-          cards.select("title").text(function(d) {return d["name"]+" util: " + d["util"]});
+          cards.select("title").text(function(d) {return d["name"]+" util: " + (d["util"]).toFixed(4); });
           cards.exit().remove();
 
           var legend = svg.selectAll(".legend")
-              .data([0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]);
+              .data([0,0.0001,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]);
           legend.enter().append("g")
               .attr("class", "legend");
           legend.append("rect")
@@ -110,10 +134,10 @@
             .attr("y", 0)
             .attr("width",  gridSize * 2)
             .attr("height", gridSize / 2)
-            .style("fill",  function(d, i) { return colors[i]; });
+            .style("fill",  function(d, i) { if (i==0) return "gray"; else return colors[i-1]; });
           legend.append("text")
             .attr("class", "mono")
-            .text(function(d, i) { if (i==0) return "alloc>0"; else return "≥ " + i/10; })
+            .text(function(d, i) { if (i==0) return "Unalloc"; else {if (i==1) return "Alloc"; else return "≥ " + d}; })
             .attr("x", function(d, i) { return gridSize * 2 * i; })
             .attr("y", gridSize);
           legend.exit().remove();

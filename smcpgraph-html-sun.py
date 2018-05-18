@@ -177,8 +177,8 @@ class SLURMMonitor(object):
 
     @cherrypy.expose
     def getHeader(self, page=None):
-        pages=["index", "sunburst", "usageGraph", "tymor", "tymor2"]
-        titles=["Tabular Summary", "Sunburst Graph", "Usage Graph", "Tymor", "Tymor2"]
+        pages=["index", "sunburst", "utilHeatmap", "usageGraph", "tymor", "tymor2"]
+        titles=["Tabular Summary", "Sunburst Graph", "Heatmap Graph", "Usage Graph", "Tymor", "Tymor2"]
  
         result=""
         for i in range (len(pages)):
