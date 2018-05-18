@@ -23,6 +23,7 @@ htmlPreamble = '''\
 '''
 
 SacctWindow = 3 # number of days of records to return from sacct.
+HOST_ALLOCINFO_IDX = 3
 
 def loadSwitch(c, l, low, normal, high):
     if c == -1 or c < l-1: return high
@@ -72,7 +73,7 @@ class SLURMMonitor(object):
         self.userJobData = None
 
     @cherrypy.expose
-    def getHostData(self):
+    def getNodeData(self):
         return repr(self.data)
 
     @cherrypy.expose
@@ -91,6 +92,10 @@ class SLURMMonitor(object):
     def getUserJobData(self):
         return repr(self.userJobData)
 
+    @cherrypy.expose
+    def getNode2JobsData(self):
+        return repr(self.getNode2Jobs(self.jobData))
+
     def getNode2Jobs (self, jobData):
         node2jobs = DDict(list)
         for jid, jinfo in jobData.items():
@@ -99,7 +104,8 @@ class SLURMMonitor(object):
 
         return node2jobs
         
-    def getTableCol(self, hostData, jobData):
+    def getSummaryTableData(self, hostData, jobData):
+        print("getSummaryTableData")
         node2jobs = self.getNode2Jobs (jobData)
 
         result=[]
@@ -109,8 +115,8 @@ class SLURMMonitor(object):
             else:          delay= None
             if ( node2jobs.get(node) ):
                for job in node2jobs.get(node):
-                  if len(v) > 3:
-                     for uname, uid, coreNum, proNum, load, rss, vms, pp in sorted(v[3:]):
+                  if len(v) > HOST_ALLOCINFO_IDX:
+                     for uname, uid, coreNum, proNum, load, rss, vms, pp in v[HOST_ALLOCINFO_IDX:]:
                         result.append([node, status, job, delay, uname, coreNum, proNum, load, rss, vms])
                   else:
                      result.append([node, status, job, delay ])
@@ -120,11 +126,54 @@ class SLURMMonitor(object):
         return result
         
     @cherrypy.expose
+    def getNodeUtil (self, **args):
+        return self.getNodeUtilData (self.rawNodeData, self.data)
+
+    def getCPUMemData (self, staData, dynData):
+        result = DDict(list)
+        for hostname, values in staData.items():
+            #mem in MB
+            result[hostname].extend([values[key] for key in ['cpus', 'cpu_load', 'alloc_cpus', 'real_memory', 'free_mem', 'alloc_mem']])
+
+        for hostname, values in dynData.items():
+            if len(values) > HOST_ALLOCINFO_IDX:
+               #mem in B?
+               for uname, uid, allocCore, procNum, load, rss, vms, pp in values[HOST_ALLOCINFO_IDX:]:
+                   result[hostname].extend([allocCore, load, rss, vms])
+
+        return result
+
+    def getNodeUtilData (self, staData, dynData):
+        rawData = self.getCPUMemData (staData, dynData)
+
+        result  = []
+        for hostname, values in rawData.items():
+            if len(values) > 7:
+               cpu_util = values[7] / values[0]
+               result.append([hostname, cpu_util])
+            else:
+               result.append([hostname, 0])
+        return repr(result)
+                   
+    @cherrypy.expose
     def test(self, **args):
-        htmltemp = os.path.join(wai, 'header.html')
-        h = open(htmltemp).read()
+        if type(self.data) == str: return self.data # error of some sort.
+
+        data     = self.getNodeUtilData (self.rawNodeData, self.data)
+        htmltemp = os.path.join(wai, 'heatmap.html')
+        h        = open(htmltemp).read()%{'data1' :  data}
  
-        return open("header.html")
+        return h 
+
+    @cherrypy.expose
+    def utilHeatmap(self, **args):
+        if type(self.data) == str: return self.data # error of some sort.
+
+        data     = self.getNodeUtilData (self.rawNodeData, self.data)
+        htmltemp = os.path.join(wai, 'heatmap.html')
+        h        = open(htmltemp).read()%{'data1' :  data}
+ 
+        return h 
 
     @cherrypy.expose
     def getHeader(self, page=None):
@@ -144,7 +193,7 @@ class SLURMMonitor(object):
     def index(self, **args):
         if type(self.data) == str: return self.data # error of some sort.
 
-        tableData = self.getTableCol(self.data, self.jobData)
+        tableData = self.getSummaryTableData(self.data, self.jobData)
         
         htmltemp = os.path.join(wai, 'index3.html')
         h = open(htmltemp).read()%{'tableData' : tableData}
@@ -269,7 +318,7 @@ class SLURMMonitor(object):
         try:    skew = d[1]
         except: skew = -9.99
         t += '<h3>Node: %s (<a href="%s/nodeGraph?node=%s">Graph</a>), Status: %s, Delay: %.2f, <a href="#sacctreport">(jump to sacct)</a></h3>\n'%(node, cherrypy.request.base, node, status, skew)
-        for user, uid, cores, procs, tc, trm, tvm, cmds in sorted(d[3:]):
+        for user, uid, cores, procs, tc, trm, tvm, cmds in sorted(d[HOST_ALLOCINFO_IDX:]):
             ac = loadSwitch(cores, tc, ' class="inform"', '', ' class="alarm"')
             t += '<hr><em%s>%s</em> %d<pre>'%(ac, user, cores) + '\n'.join([' '.join(['%6d'%cmd[0], '%6.2f'%cmd[1], '%10.2e'%cmd[5], '%10.2e'%cmd[6]] + cmd[7]) for cmd in cmds]) + '\n</pre>\n'
         t += '<h4 id="sacctreport">sacct report (last %d days for node %s):</h4>\n'%(SacctWindow, node)
@@ -284,8 +333,8 @@ class SLURMMonitor(object):
         t = htmlPreamble
         t += '<h3>User: %s, <a href="#sacctreport">(jump to sacct)</a></h3>\n'%(user)
         for node, d in sorted(self.data.items()):
-            if len(d) < 3: continue
-            for nuser, uid, cores, procs, tc, trm, tvm, cmds in sorted(d[3:]):
+            if len(d) < HOST_ALLOCINFO_IDX: continue
+            for nuser, uid, cores, procs, tc, trm, tvm, cmds in sorted(d[HOST_ALLOCINFO_IDX:]):
                 if nuser != user: continue
                 ac = loadSwitch(cores, tc, ' class="inform"', '', ' class="alarm"')
                 t += '<hr><em%s>%s</em> %d<pre>'%(ac, node, cores) + '\n'.join([' '.join(['%6d'%cmd[0], '%6.2f'%cmd[1], '%10.2e'%cmd[5], '%10.2e'%cmd[6]] + cmd[7]) for cmd in cmds]) + '\n</pre>\n'
@@ -311,10 +360,10 @@ class SLURMMonitor(object):
         for node, coreCount in jinfo.get(u'cpus_allocated', {}).items():
             d = self.data.get(node)
             
-            if len(d) < 3: 
+            if len(d) < HOST_ALLOCINFO_IDX: 
                 t += '<hr><em>%s</em> %d<pre>'%(node, coreCount) + '\n</pre>\n'
             else:
-                for user, uid, cores, procs, tc, trm, tvm, cmds in sorted(d[3:]):
+                for user, uid, cores, procs, tc, trm, tvm, cmds in sorted(d[HOST_ALLOCINFO_IDX:]):
                     ac = loadSwitch(cores, tc, ' class="inform"', '', ' class="alarm"')
                     t += '<hr><em%s>%s</em> %d<pre>'%(ac, node, coreCount) + '\n'.join([' '.join(['%6d'%cmd[0], '%6.2f'%cmd[1], '%10.2e'%cmd[5], '%10.2e'%cmd[6]] + cmd[7]) for cmd in cmds]) + '\n</pre>\n'
 
@@ -350,9 +399,9 @@ class SLURMMonitor(object):
         
         #1 Getting the data in the right form for the job view. Selfdata is the node information, we want to
         #turn the complicated nested lists into something simple
-        more_data      ={i:selfdata[i] for i in selfdata if len(selfdata[i]) > 3}
-        more_data_clean={i:more_data[i][0:3]+ more_data[i][j][0:7] for i in more_data for j in range(3,len(more_data[i])) if more_data[i][j][2]>=0 }
-        idle_data1     ={i:selfdata[i][0:3] for i in selfdata if len(selfdata[i])<=3}
+        more_data      ={i:selfdata[i] for i in selfdata if len(selfdata[i]) > HOST_ALLOCINFO_IDX}
+        more_data_clean={i:more_data[i][0:HOST_ALLOCINFO_IDX]+ more_data[i][j][0:7] for i in more_data for j in range(HOST_ALLOCINFO_IDX,len(more_data[i])) if more_data[i][j][2]>=0 }
+        idle_data1     ={i:selfdata[i][0:HOST_ALLOCINFO_IDX] for i in selfdata if len(selfdata[i])<=HOST_ALLOCINFO_IDX}
         idle_data2     ={i:more_data[i] for i in (set(more_data)-set(more_data_clean))}
         less_data      =dict(idle_data1,**idle_data2)
         selfdata_dict  =dict(more_data_clean,**less_data)
@@ -370,7 +419,7 @@ class SLURMMonitor(object):
             nodes =list(v['node_info'])
             nodes.sort(key=natural_keys)
             data_dash[n]['list_nodes']    = nodes
-            data_dash[n]['usernames_list']=[v['node_info'][i][3] for i in nodes if len(v['node_info'][i])>=7]
+            data_dash[n]['usernames_list']=[v['node_info'][i][HOST_ALLOCINFO_IDX] for i in nodes if len(v['node_info'][i])>=7]
             data_dash[n]['username']      =most_common(v['usernames_list'])
             data_dash[n]['list_state']    =[v['node_info'][i][0] for i in nodes]
             data_dash[n]['list_cores']    =[round(v['node_info'][i][5],3) for i in nodes if len(v['node_info'][i])>=7]
@@ -478,9 +527,9 @@ class SLURMMonitor(object):
         #1 Getting the data in the right form for the job view. Selfdata is the node information, we want to                                                                        
         #turn the complicated nested lists into something simple  
         
-        more_data={i:selfdata[i] for i in selfdata if len(selfdata[i]) > 3}
-        more_data_clean={i:more_data[i][0:3]+ more_data[i][j][0:7] for i in more_data for j in range(3,len(more_data[i])) if more_data[i][j][2]>=0 }
-        idle_data1={i:selfdata[i][0:3] for i in selfdata if len(selfdata[i])<=3}
+        more_data={i:selfdata[i] for i in selfdata if len(selfdata[i]) > HOST_ALLOCINFO_IDX}
+        more_data_clean={i:more_data[i][0:HOST_ALLOCINFO_IDX]+ more_data[i][j][0:7] for i in more_data for j in range(HOST_ALLOCINFO_IDX,len(more_data[i])) if more_data[i][j][2]>=0 }
+        idle_data1={i:selfdata[i][0:HOST_ALLOCINFO_IDX] for i in selfdata if len(selfdata[i])<=HOST_ALLOCINFO_IDX}
         idle_data2={i:more_data[i] for i in (set(more_data)-set(more_data_clean))}
         less_data=dict(idle_data1,**idle_data2)
         selfdata_dict=dict(more_data_clean,**less_data)
@@ -498,7 +547,7 @@ class SLURMMonitor(object):
             nodes=list(v['node_info'])
             nodes.sort(key=natural_keys)
             data_dash[n]['list_nodes'] = nodes
-            data_dash[n]['usernames_list']=[v['node_info'][i][3] for i in nodes if len(v['node_info'][i])>=7]
+            data_dash[n]['usernames_list']=[v['node_info'][i][HOST_ALLOCINFO_IDX] for i in nodes if len(v['node_info'][i])>=7]
             data_dash[n]['username']=most_common(v['usernames_list'])
             data_dash[n]['list_state']=[v['node_info'][i][0] for i in nodes]
             data_dash[n]['list_cores']=[round(v['node_info'][i][5],3) for i in nodes if len(v['node_info'][i])>=7]
@@ -570,8 +619,8 @@ class SLURMMonitor(object):
         selfdata = {k:v for k,v in selfdata_o.items()}
         data = {k:v for k,v in data_o.items()}
         
-        more_data={i:selfdata[i][0:3] + selfdata[i][3][0:7] for i in selfdata if len(selfdata[i])>3 }
-        less_data={i:selfdata[i][0:3] for i in selfdata if len(selfdata[i])<=3}
+        more_data={i:selfdata[i][0:HOST_ALLOCINFO_IDX] + selfdata[i][HOST_ALLOCINFO_IDX][0:7] for i in selfdata if len(selfdata[i])>HOST_ALLOCINFO_IDX }
+        less_data={i:selfdata[i][0:HOST_ALLOCINFO_IDX] for i in selfdata if len(selfdata[i])<=HOST_ALLOCINFO_IDX}
         selfdata_dict=dict(more_data,**less_data)
         #this appends a dictionary for all of the node information to the job dataset                                                                   
         for jid, jinfo in data.items():
@@ -748,8 +797,8 @@ class SLURMMonitor(object):
         if type(self.data) == str: return self.data # error of some sort.
 
         #prepare required information in data_dash
-        more_data    = {k:v[0:3] + v[3][0:7] for k,v in self.data.items() if len(v)>3 } #flatten hostdata
-        less_data    = {k:v[0:3]             for k,v in self.data.items() if len(v)<=3 }
+        more_data    = {k:v[0:HOST_ALLOCINFO_IDX] + v[HOST_ALLOCINFO_IDX][0:7] for k,v in self.data.items() if len(v)>HOST_ALLOCINFO_IDX } #flatten hostdata
+        less_data    = {k:v[0:HOST_ALLOCINFO_IDX]             for k,v in self.data.items() if len(v)<=HOST_ALLOCINFO_IDX }
         hostdata_flat= dict(more_data,**less_data)
 
         keys_id      =(u'job_id',u'user_id',u'qos', u'num_nodes', u'num_cpus')
