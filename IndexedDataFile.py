@@ -3,6 +3,41 @@ import bisect
 import _pickle as pickle
 import zlib
 
+class IndexedDataFile(object):
+    def __init__(self, prefix, name):
+        self.prefix    = prefix + '/'
+        self.name      = name
+        self.data_file = None
+
+    def __del__ (self):
+        if ( self.data_file != None):
+           self.data_file.close()
+
+    def writeData(self, ts, d):
+        #save information to files
+        with open(self.prefix+self.name+'.p', 'ab') as df, open(self.prefix+self.name+'.px', 'a') as idx:
+            zps = zlib.compress(pickle.dumps(d))
+            idx.write('%020d%020d'%(ts, df.tell()))
+
+            df.write('{:0>20}'.format(int(ts)).encode('utf-8'))
+            df.write('{:0>20}'.format(len(zps)).encode('utf-8'))
+            df.write(zps)
+
+    #read one piece of data starting at offset, return timestamp, data
+    def readData(self, offset, stopTime):
+      if ( self.data_file == None):
+          self.data_file = open (self.prefix + self.name+'.p', 'rb')
+
+      if offset != self.data_file.tell():
+         self.data_file.seek(offset, 0)
+
+      ts = int(self.data_file.read(20))
+      if ts > stopTime:  # no history saved
+         return ts, None
+      len = int(self.data_file.read(20))
+      return ts, pickle.loads(zlib.decompress(self.data_file.read(len)))
+
+
 class IndexedHostData(object):
     def __init__(self, prefix, hostname=None):
         self.prefix    = prefix
@@ -38,7 +73,6 @@ class IndexedHostData(object):
          return ts, None
       len = int(df.read(20))
       return ts, pickle.loads(zlib.decompress(df.read(len)))
-
 
     def readData4(self, hostname, offset, stopTime):
         with open(self.prefix+'/%s_sm.p'%hostname, 'rb') as df:
@@ -94,5 +128,5 @@ if __name__ == "__main__":
     print(type(d))
     f.writeData('test', 34567, d)
 
-    data=f.readData('test', 0, 2234567)
+    data=f.readData4('test', 0, 2234567)
     print(data)

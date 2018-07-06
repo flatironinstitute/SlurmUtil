@@ -5,6 +5,7 @@ from functools import reduce
 
 import fs2hc
 import scanSMSplitHighcharts
+from queryInflux import InfluxQueryClient
 
 wai = os.path.dirname(os.path.realpath(sys.argv[0]))
 
@@ -129,13 +130,13 @@ class SLURMMonitor(object):
     def getNodeUtil (self, **args):
         return self.getNodeUtilData (self.rawNodeData, self.data)
 
-    def getCPUMemData (self, staData, dynData):
+    def getCPUMemData (self, data1, data2):
         result = DDict(list)
-        for hostname, values in staData.items():
+        for hostname, values in data1.items():
             #mem in MB
             result[hostname].extend([values[key] for key in ['cpus', 'cpu_load', 'alloc_cpus', 'real_memory', 'free_mem', 'alloc_mem']])
 
-        for hostname, values in dynData.items():
+        for hostname, values in data2.items():
             if len(values) > HOST_ALLOCINFO_IDX:
                #mem in B?
                for uname, uid, allocCore, procNum, load, rss, vms, pp in values[HOST_ALLOCINFO_IDX:]:
@@ -143,13 +144,13 @@ class SLURMMonitor(object):
 
         return result
 
-    def getNodeUtilData (self, staData, dynData):
-        rawData = self.getCPUMemData (staData, dynData)
+    def getNodeUtilData (self, data1, data2):
+        rawData = self.getCPUMemData (data1, data2)
 
         result  = []
         for hostname, values in rawData.items():
             if len(values) > 7:
-               cpu_util = values[7] / values[0]
+               cpu_util = values[7] / values[0] #load/cpus
                result.append([hostname, cpu_util])
             else:
                result.append([hostname, 0])
@@ -684,7 +685,28 @@ class SLURMMonitor(object):
         j = open(htmlTemp).read()%{'data1' : node_alloc,'data2' : node_alloc_qos,'data3' : data_json}
         return j
         
+    @cherrypy.expose
+    def jobGraph(self,jobid,start='', stop=''):
+        if type(self.data) == str: return self.data # error of some sort.
+
+        influxClient = InfluxQueryClient()
+        jobid    = int(jobid)
+        nodelist = list(self.jobData[jobid][u'cpus_allocated'])
+        uid      = self.jobData[jobid][u'user_id']
+        start    = self.jobData[jobid][u'start_time']
+        if not stop:
+           stop     = time.time()
+        print ("jobGraph " + str(start) + "-" + str(stop))
+
+        # highcharts 
+        cpu_all_nodes,mem_all_nodes,io_all_nodes=influxClient.getSlumMonData(jobid, uid, nodelist,start,stop) 
             
+        t='<tr><td><div id="memchart" style= "min-width:1000px; height: 500px; margin: 0 auto"><script>graphSeries(%s,"memchart", "memory usage from %s to %s", "aggregate vms per node");</script></div></td></tr><hr><tr><td><div id="loadchart" style= "min-width:1000px; height: 500px; margin: 0 auto"><script>graphSeries(%s,"loadchart","aggregate load from %s to %s", "aggregate load per node");</script></div></td></tr>'%(mem_all_nodes,time.strftime('%y/%m/%d', time.localtime(start)),time.strftime('%y/%m/%d',time.localtime(stop)),cpu_all_nodes,time.strftime('%y/%m/%d', time.localtime(start)),time.strftime('%y/%m/%d', time.localtime(stop)))
+
+        htmltemp = os.path.join(wai, 'jobnodes_smGraphHighcharts.html')
+        h = open(htmltemp).read()%{'tablenodegraphs' : t}
+        return h
+
     @cherrypy.expose
     def jobGraph(self,jobid,start='', stop=''):
         if type(self.data) == str: return self.data # error of some sort.
@@ -697,7 +719,7 @@ class SLURMMonitor(object):
         stop     = time.time()
         uid      = data[jobid][u'user_id']
         uname    = pwd.getpwuid(uid).pw_name
-        print (str(start) + "-" + str(stop))
+        print ("jobGraph " + str(start) + "-" + str(stop))
 
         # highcharts 
         lseries_all_nodes=[]

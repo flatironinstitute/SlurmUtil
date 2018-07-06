@@ -23,7 +23,9 @@ class DataReader:
     def __init__(self, prefix, urlfile):
         self.prefix  = prefix
         self.urlfile = urlfile
-        self.idxHostData= IndexedHostData(prefix)
+
+        self.idxHostData    = IndexedHostData(prefix)
+        #self.idxClusterData = IndexedDataFile(prefix, 'cluster')
 
         self.mqtt_client = mqtt.Client()
         self.mqtt_client.on_connect = self.on_connect
@@ -33,6 +35,7 @@ class DataReader:
         self.msg_count = 0
         self.t0 = time.time()
 
+    def run(self):
         # Asynchronously receive messages
         self.mqtt_client.loop_forever()
 
@@ -58,10 +61,10 @@ class DataReader:
 
     def dealData (self, t1):
         global NodeStateHack
+
         # get job/node data from pyslurm
         jobData  = pyslurm.job().get()
         nodeData = pyslurm.node().get()
-        #print("nodeData=" + repr(nodeData))
 
         if NodeStateHack == None:
            sample = next(iter(nodeData.values()))
@@ -89,13 +92,13 @@ class DataReader:
                                   # have a msg for it.
             prevTs, pid2info, dummy = hn2pid2info[hostname]
             procsByUser = []
-            uid2pp = DDict(list)
+            uid2pp      = DDict(list)
             if hostname in self.msgs:
                     # TODO: any value in processing earlier messages if they exist?
                     m = self.msgs.pop(hostname)[-1]
                     
                     assert m['hdr']['hostname'] == hostname
-                    ts= m['hdr']['msg_ts']
+                    ts    = m['hdr']['msg_ts']
                     delta = 0.0 if -1.0 == prevTs else ts - prevTs
                     currentPids = set()
 
@@ -108,20 +111,20 @@ class DataReader:
                         else:
                             c0 = 0.0
                             t0 = process['create_time']
-                        intervalLoadAverage = (float(process['cpu']['user_time']) - c0)/max(.1, ts - t0) #TODO: Replace cheap trick to avoid div0.
-                        uid2pp[process['uid']].append([pid, intervalLoadAverage, process['create_time'], process['cpu']['user_time'], process['cpu']['system_time'], process['mem']['rss'], process['mem']['vms'], process['cmdline']])
+                        intervalUsertimeAvg = (float(process['cpu']['user_time']) - c0)/max(.1, ts - t0) #TODO: Replace cheap trick to avoid div0.
+                        uid2pp[process['uid']].append([pid, intervalUsertimeAvg, process['create_time'], process['cpu']['user_time'], process['cpu']['system_time'], process['mem']['rss'], process['mem']['vms'], process['cmdline']])
                         pid2info[pid] = process
 
                     retirePids = [pid for pid in pid2info if pid not in currentPids]
                     for pid in retirePids: pid2info.pop(pid)
 
                     for uid, pp in uid2pp.items():
-                        totILA, totRSS, totVMS = 0.0, 0, 0
+                        totIUA, totRSS, totVMS = 0.0, 0, 0
                         for p in pp:
-                            totILA += p[1]
+                            totIUA += p[1]
                             totRSS += p[5]
                             totVMS += p[6]
-                        procsByUser.append([pwd.getpwuid(uid).pw_name, uid, hn2uid2allocated.get(hostname, {}).get(uid, -1), len(pp), totILA, totRSS, totVMS, pp])
+                        procsByUser.append([pwd.getpwuid(uid).pw_name, uid, hn2uid2allocated.get(hostname, {}).get(uid, -1), len(pp), totIUA, totRSS, totVMS, pp])
 
                     hn2info[hostname] = [nodeData[hostname].get(NodeStateHack, '?STATE?'), delta, ts] + procsByUser
                     hn2pid2info[hostname] = (ts, pid2info, procsByUser)
@@ -161,7 +164,8 @@ class DataReader:
         if hdiscard: print ('Discarding %d messages from %d hosts (e.g., %s)'%(mmdiscard, hdiscard, h), file=sys.stderr)
 
 def main():
-    app = DataReader(sys.argv[1], sys.argv[2]);
+    app = DataReader(sys.argv[1], sys.argv[2])
+    app.run()
 
 
 main()

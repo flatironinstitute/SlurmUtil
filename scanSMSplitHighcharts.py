@@ -16,7 +16,7 @@ def getSMData(SMDir, targetNode, start, stop):
     sm  = SearchIndex(SMDir+'/%s_sm.px'%targetNode, 40, compTimestamps)
     smd = IndexedHostData(SMDir, targetNode)
 
-    u2d = DD(list)
+    usr2d = DD(list)
     pos = sm.find('%020d'%start)
     #print (pos)
     for x in range(pos, sm.len):
@@ -24,19 +24,21 @@ def getSMData(SMDir, targetNode, start, stop):
         ts, nd = smd.readData (offset, stop)
         if ( nd == None): break
 
-        for ud in nd[3:]:
-            u2d[ud[0]].append([ts] + list(ud[1:7]))
+        print("nd=" + repr(nd))
+        for usrdata in nd[3:]: # username, userdata
+            usr2d[usrdata[0]].append([ts] + list(usrdata[1:7]))
         
     lseries, mseries = [], []
-    for u in sorted(u2d.keys()):
+    for usrname in sorted(usr2d.keys()):
         l, m = [], []
-        for e in u2d[u]:
+        for e in usr2d[usrname]:
             ts = e[0]*1000
             l.append([ts, e[4]])
             m.append([ts, e[6]])
-        lseries.append({'data': l, 'name': u})
-        mseries.append({'data': m, 'name': u})
+        lseries.append({'data': l, 'name': usrname})
+        mseries.append({'data': m, 'name': usrname})
     
+    #[{'name':username, 'data':[[timestamp, value]...]} ...]
     return lseries, mseries
 
 if __name__ == '__main__':
