@@ -1,6 +1,6 @@
 import cherrypy, _pickle as cPickle, csv, datetime, json, os
 import pandas as pd, pwd, pyslurm as SL, re, subprocess as SUB, sys, time, zlib
-from collections import defaultdict as DDict
+from collections import defaultdict
 from functools import reduce
 
 import fs2hc
@@ -69,9 +69,11 @@ class SLURMMonitor(object):
     def __init__(self):
         self.data = 'No data received yet. Wait a few minutes and come back.'
         self.jobData = {}
-        self.rawNodeData = None
-        self.updateTime = 'BOOM'
+        self.pyslurmNodeData = None
+        self.updateTime  = None
         self.userJobData = None
+
+        self.cvtDict     = {}
 
     @cherrypy.expose
     def getNodeData(self):
@@ -87,7 +89,7 @@ class SLURMMonitor(object):
 
     @cherrypy.expose
     def getRawNodeData(self):
-        return repr(self.rawNodeData)
+        return repr(self.pyslurmNodeData)
 
     @cherrypy.expose
     def getUserJobData(self):
@@ -98,10 +100,10 @@ class SLURMMonitor(object):
         return repr(self.getNode2Jobs(self.jobData))
 
     def getNode2Jobs (self, jobData):
-        node2jobs = DDict(list)
+        node2jobs = defaultdict(list)
         for jid, jinfo in jobData.items():
-            for nd, coreCount in jinfo.get(u'cpus_allocated', {}).items():
-                node2jobs[nd].append(jid)
+            for nodename, coreCount in jinfo.get(u'cpus_allocated', {}).items():
+                node2jobs[nodename].append(jid)
 
         return node2jobs
         
@@ -128,10 +130,10 @@ class SLURMMonitor(object):
         
     @cherrypy.expose
     def getNodeUtil (self, **args):
-        return self.getNodeUtilData (self.rawNodeData, self.data)
+        return self.getNodeUtilData (self.pyslurmNodeData, self.data)
 
     def getCPUMemData (self, data1, data2):
-        result = DDict(list)
+        result = defaultdict(list)
         for hostname, values in data1.items():
             #mem in MB
             result[hostname].extend([values[key] for key in ['cpus', 'cpu_load', 'alloc_cpus', 'real_memory', 'free_mem', 'alloc_mem']])
@@ -144,6 +146,7 @@ class SLURMMonitor(object):
 
         return result
 
+    #data1=self.pyslurmNodeData, data2=self.data
     def getNodeUtilData (self, data1, data2):
         rawData = self.getCPUMemData (data1, data2)
 
@@ -156,25 +159,36 @@ class SLURMMonitor(object):
                result.append([hostname, 0])
         return repr(result)
                    
-    @cherrypy.expose
-    def test(self, **args):
-        if type(self.data) == str: return self.data # error of some sort.
+    def getHeatmapData (self):
+        node2job= self.getNode2Job   ()
 
-        data     = self.getNodeUtilData (self.rawNodeData, self.data)
-        htmltemp = os.path.join(wai, 'heatmap.html')
-        h        = open(htmltemp).read()%{'data1' :  data}
- 
-        return h 
+        result  = []
+        for hostname, values in self.data.items():
+            node_cores = self.pyslurmNodeData[hostname]['cpus']
+            if len(values) > HOST_ALLOCINFO_IDX:
+               cpu_load   = values[HOST_ALLOCINFO_IDX][4]
+               alloc_jobs = node2job[hostname]
+               state      = 1
+            else:
+               cpu_load   = -1
+               alloc_jobs = {}
+               state      = 0
 
+            result.append([hostname, state, node_cores, cpu_load, alloc_jobs])
+
+        return result
+                   
     @cherrypy.expose
     def utilHeatmap(self, **args):
         if type(self.data) == str: return self.data # error of some sort.
 
-        data     = self.getNodeUtilData (self.rawNodeData, self.data)
+        data     = self.getHeatmapData ()
+        
         htmltemp = os.path.join(wai, 'heatmap.html')
         h        = open(htmltemp).read()%{'data1' :  data}
  
         return h 
+        #return repr(data)
 
     @cherrypy.expose
     def getHeader(self, page=None):
@@ -201,16 +215,37 @@ class SLURMMonitor(object):
  
         return h
 
+    def updateCvtDict (self):
+        if len(self.cvtDict)==0 or self.cvtDict.get('timestamp') < self.updateTime:
+           node2job = defaultdict(dict)
+           job2node = defaultdict(dict)
+           for jid, jinfo in self.jobData.items():
+               for nodename, coreCount in jinfo.get(u'cpus_allocated', {}).items():
+                   node2job[nodename][jid]=coreCount
+                   job2node[jid][nodename]=coreCount
+
+           self.cvtDict['timestamp'] = self.updateTime
+           self.cvtDict['node2job']  = node2job
+           self.cvtDict['job2node']  = job2node
+
+    def getNode2Job (self):
+        self.updateCvtDict()
+        return self.cvtDict['node2job']
+           
+    def getJob2Node (self):
+        self.updateCvtDict()
+        return self.cvtDict['job2node']
+
     @cherrypy.expose
     def updateSlurmData(self, **args):
+        #updated the data
         d =  cherrypy.request.body.read()
-        ts, self.jobData, newdata, self.rawNodeData = cPickle.loads(zlib.decompress(d))
+        #jobData and pyslurmNodeData comes from pyslurm
+        self.updateTime, self.jobData, newdata, self.pyslurmNodeData = cPickle.loads(zlib.decompress(d))
 
         if type(self.data) != dict: self.data = {}
         for k,v in newdata.items(): self.data[k] = v
-        #open("/mnt/xfs1/home/thamamsy/projects/slurmonitor/current/tmp/tymorusd","w+").write(d)
-        self.updateTime = time.asctime(time.localtime(ts))
-        #print ('Got new data', self.updateTime, len(d), len(self.data), len(newdata), file=sys.stderr)
+        #print ('Got new data', time.asctime(time.localtime(self.updateTime)), len(d), len(self.data), len(newdata), file=sys.stderr)
 
     def sacctData (self, criteria):
         cmd = ['sacct', '-n', '-P', '-o', 'JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End'] + criteria
@@ -236,7 +271,7 @@ class SLURMMonitor(object):
 <table class="slurminfo">
 <tr><th>Job ID</th><th>Job Name</th><th>Allocated CPUS</th><th>State</th><th>Exit Code</th><th>User</th><th>Node List</th><th>Start</th><th>End</th></tr>
 '''
-        jid2info = DDict(list)
+        jid2info = defaultdict(list)
         for l in d.splitlines():
             print(l)
             if not l: continue
@@ -692,23 +727,51 @@ class SLURMMonitor(object):
         influxClient = InfluxQueryClient()
         jobid    = int(jobid)
         nodelist = list(self.jobData[jobid][u'cpus_allocated'])
-        uid      = self.jobData[jobid][u'user_id']
         start    = self.jobData[jobid][u'start_time']
         if not stop:
            stop     = time.time()
         print ("jobGraph " + str(start) + "-" + str(stop))
 
-        # highcharts 
-        cpu_all_nodes,mem_all_nodes,io_all_nodes=influxClient.getSlumMonData(jobid, uid, nodelist,start,stop) 
+        #{hostname: {ts: [cpu, io, mem] ... }}
+        monDict=influxClient.getSlurmUidMonData(self.jobData[jobid][u'user_id'], nodelist,start,stop)
+      
+        mem_all_nodes = []  ##[{'data': [[1531147508000(ms), value]...], 'name':'workerXXX'}] 
+        cpu_all_nodes = []  ##[{'data': [[1531147508000, value]...], 'name':'workerXXX'}] 
+        for hostname, hostdict in monDict.items():
+            mem_node={}
+            mem_node['name'] = hostname
+            mem_node['data']= [[ts, hostdict[ts][2]] for ts in hostdict.keys()]
+            mem_all_nodes.append (mem_node)
+
+            cpu_node={}
+            cpu_node['name'] = hostname
+            cpuLst  = []
+            cpu_node['data'] = cpuLst
+
+            # calculate cpu load
+            preTs = None
+            for ts in sorted(hostdict.keys()):
+                if preTs:
+                   newVal = (hostdict[ts][0] - preVal) * 1000 / (ts - preTs) 
+                   cpuLst.append([ts, newVal])
+
+                preTs  = ts
+                preVal = hostdict[ts][0]
+       
+                   
+            cpu_all_nodes.append (cpu_node)
             
-        t='<tr><td><div id="memchart" style= "min-width:1000px; height: 500px; margin: 0 auto"><script>graphSeries(%s,"memchart", "memory usage from %s to %s", "aggregate vms per node");</script></div></td></tr><hr><tr><td><div id="loadchart" style= "min-width:1000px; height: 500px; margin: 0 auto"><script>graphSeries(%s,"loadchart","aggregate load from %s to %s", "aggregate load per node");</script></div></td></tr>'%(mem_all_nodes,time.strftime('%y/%m/%d', time.localtime(start)),time.strftime('%y/%m/%d',time.localtime(stop)),cpu_all_nodes,time.strftime('%y/%m/%d', time.localtime(start)),time.strftime('%y/%m/%d', time.localtime(stop)))
+        # highcharts 
+        
+        #print("jobGraph: " + repr(mem_all_nodes))
+        t='<tr><td><div id="memchart" style= "min-width:1000px; height: 500px; margin: 0 auto"><script>graphSeries(%s,"memchart", "memory usage (rss) from %s to %s", "aggregate rss per node");</script></div></td></tr><hr><tr><td><div id="loadchart" style= "min-width:1000px; height: 500px; margin: 0 auto"><script>graphSeries(%s,"loadchart","aggregate load from %s to %s", "aggregate load per node");</script></div></td></tr>'%(mem_all_nodes,time.strftime('%y/%m/%d', time.localtime(start)),time.strftime('%y/%m/%d',time.localtime(stop)),cpu_all_nodes,time.strftime('%y/%m/%d', time.localtime(start)),time.strftime('%y/%m/%d', time.localtime(stop)))
 
         htmltemp = os.path.join(wai, 'jobnodes_smGraphHighcharts.html')
         h = open(htmltemp).read()%{'tablenodegraphs' : t}
         return h
 
     @cherrypy.expose
-    def jobGraph(self,jobid,start='', stop=''):
+    def oldJobGraph(self,jobid,start='', stop=''):
         if type(self.data) == str: return self.data # error of some sort.
 
         jobid    = int(jobid)
@@ -742,6 +805,7 @@ class SLURMMonitor(object):
                     
         t='<tr><td><div id="memchart" style= "min-width:1000px; height: 500px; margin: 0 auto"><script>graphSeries(%s,"memchart", "memory usage from %s to %s", "aggregate vms per node");</script></div></td></tr><hr><tr><td><div id="loadchart" style= "min-width:1000px; height: 500px; margin: 0 auto"><script>graphSeries(%s,"loadchart","aggregate load from %s to %s", "aggregate load per node");</script></div></td></tr>'%(mseries_all_nodes,time.strftime('%y/%m/%d', time.localtime(start)),time.strftime('%y/%m/%d',time.localtime(stop)),lseries_all_nodes,time.strftime('%y/%m/%d', time.localtime(start)),time.strftime('%y/%m/%d', time.localtime(stop)))
 
+        print(lseries_all_nodes)
         htmltemp = os.path.join(wai, 'jobnodes_smGraphHighcharts.html')
         h = open(htmltemp).read()%{'tablenodegraphs' : t}
         return h

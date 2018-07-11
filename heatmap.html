@@ -9,6 +9,10 @@
         stroke: #E6E6E6;
         stroke-width:2px;   
       }
+      rect.popout{
+        stroke: black;
+        stroke-width:4px;   
+      }
 
       text.mono {
         font-size: 9pt;
@@ -34,7 +38,10 @@
   <body>
     <div class="tab" id="tabmenu"></div>
 
+    <div>
     <h3>Worker Nodes Utilization</h3>
+    <p> "Click" to see the co-allocated worker nodes. "Double Click" to see the worker node details.
+    </div>
     <div id="chart">
        <svg> </svg>
     </div>
@@ -65,7 +72,13 @@
           var obj = new Object();
           var gID = -1;
           obj.name=dataset1[i][0];
-          obj.util=dataset1[i][1];
+          obj.stat=dataset1[i][1];
+          obj.core=dataset1[i][2];
+          obj.jobs=dataset1[i][4];
+          if ( obj.stat == 1)
+             obj.util=dataset1[i][3]/obj.core;
+          else
+             obj.util=-0.1
           
           switch (dataset1[i][0].slice(6,7)) {
                  case "0": obj.gID = 0; break; // worker0...
@@ -112,21 +125,27 @@
                             return (y + Math.floor(d["gIdx"]/cntLine) + 2)* gridSize; })
               .attr("rx", 4)
               .attr("ry", 4)
-              .attr("class", "bordered")
+              .attr("class", function(d) { return "bordered " + Object.keys(d["jobs"])})
               .attr("width",  gridSize)
               .attr("height", gridSize)
               .attr("title", function (d) {return d["name"]})
               .attr("value", function (d) {return d["util"]})
-              .on("click", function(d) {location.href="nodeDetails?node="+d["name"]})
+              .on("dblclick", function(d) {location.href="nodeDetails?node="+d["name"]})
+              .on("click", function(d) {
+                              var keyArr=Object.keys(d["jobs"]); 
+                              keyArr.forEach(function(e) {
+                                               $(".bordered").removeClass("popout");
+                                               $(`.${e}`).addClass("popout")})})
               .style("fill",  "gray");
           cards.transition().duration(1000)
-              .style("fill", function(d) { console.log(d["util"]); if (d["util"]==0) return "gray"; else return colorScale(d["util"]); });
+              .style("fill", function(d) { if (d["stat"]==0) return "gray"; else return colorScale(d["util"]); });
           cards.append("title");
-          cards.select("title").text(function(d) {return d["name"]+" util: " + (d["util"]).toFixed(4); });
+          cards.select("title").text(function(d) {if (d["stat"]==0) return d["name"] + " core:" + d["core"]; 
+                                                  else return d["name"]+" core:" + d["core"] + " util:" + (d["util"]).toFixed(4) + " jobs:" + JSON.stringify(d["jobs"]); });
           cards.exit().remove();
 
           var legend = svg.selectAll(".legend")
-              .data([0,0.0001,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]);
+              .data([-0.1,0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]);
           legend.enter().append("g")
               .attr("class", "legend");
           legend.append("rect")
