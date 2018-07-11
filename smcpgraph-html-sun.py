@@ -176,16 +176,27 @@ class SLURMMonitor(object):
 
             result.append([hostname, state, node_cores, cpu_load, alloc_jobs])
 
-        return result
+        jobs = []
+        for jobid, jobinfo in self.jobData.items():
+            job={}
+            job['jid']      =jobid
+            job['state']    =jobinfo['job_state']
+            if jobinfo['tres_alloc_str']:
+               job['alloc_str']=jobinfo['tres_alloc_str']
+            else:
+               job['req_str']  =jobinfo['tres_req_str']
+            jobs.append(job)
+
+        return result,jobs
                    
     @cherrypy.expose
     def utilHeatmap(self, **args):
         if type(self.data) == str: return self.data # error of some sort.
 
-        data     = self.getHeatmapData ()
+        data,jobDict     = self.getHeatmapData ()
         
         htmltemp = os.path.join(wai, 'heatmap.html')
-        h        = open(htmltemp).read()%{'data1' :  data}
+        h        = open(htmltemp).read()%{'data1' :  data, 'data2': jobDict}
  
         return h 
         #return repr(data)

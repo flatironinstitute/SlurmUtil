@@ -12,34 +12,12 @@ import influxdb
 import collections
 from collections import defaultdict as DDict
 import pyslurm
+import MyTool
 
 
 # Maps a host name to a tuple (time, pid2info), where time is the time
 # stamp of the last update, and pid2info maps a pid to a dictionary of
 # info about the process identified by the pid.
-
-def sub_dict(somedict, somekeys, default=None):
-    return dict([ (k, somedict.get(k, default)) for k in somekeys ])
-def sub_dict_remove(somedict, somekeys, default=None):
-    return dict([ (k, somedict.pop(k, default)) for k in somekeys ])
-
-def flatten(d, parent_key='', sep='_'):
-    items = []
-    for k, v in d.items():
-        new_key = parent_key + sep + k if parent_key else k
-
-        if k == 'cpus_allocated': print(d)
-        if isinstance(v, collections.MutableMapping):
-           if v:
-              items.extend(flatten(v, new_key, sep=sep).items())
-        elif isinstance(v, list): 
-           if v:
-           #unquoted string=boolean and cause invalid boolean error in influxDB
-              items.append((new_key, repr(v)))
-        elif v:
-           items.append((new_key, v))
-    return dict(items)
-
 
 class DataReader:
     Interval = 61
@@ -138,6 +116,8 @@ class DataReader:
                self.points['autogen'].append(point)
             elif point['measurement'] == 'cpu_proc_mon':
                self.points['one_week'].append(point)
+            elif point['measurement'] == 'cpu_uid_mon':
+               self.points['one_month'].append(point)
 
     #slurm_jobs, slurm_jobs_mon
     def process_slurmjob (self):
@@ -228,15 +208,16 @@ class DataReader:
         currPs   = {}
         cntNew   = 0
         cntOld   = 0
+        userDict = {} #uid: {total_mem, total_io, total_num_fds, total_cpu}
         for proc in msg['processes']:
             pid = proc['pid']
             if ( not pid in prePs):
                infopoint = {'measurement':'cpu_proc_info'}
                infopoint['time']   =self.getUTCDateTime(proc['create_time'])
-               infopoint['tags']   =sub_dict(proc, ['pid', 'uid'])
+               infopoint['tags']   =MyTool.sub_dict(proc, ['pid', 'uid'])
                infopoint['tags']['hostname'] = hostname
 
-               infopoint['fields'] =flatten(sub_dict(proc, ['cmdline', 'name', 'ppid']))
+               infopoint['fields'] =MyTool.flatten(MyTool.sub_dict(proc, ['cmdline', 'name', 'ppid']))
                points.append(infopoint)
 
                #add to self.activeProc
@@ -246,15 +227,35 @@ class DataReader:
                currPs[pid]=prePs.pop(pid)
                cntOld += 1
               
+            #measurement cpu_proc_mon
             point = {'measurement':'cpu_proc_mon'}
             point['time']   =ts
-            point['tags']   =sub_dict(proc, ['pid', 'uid', 'create_time'])
+            point['tags']   =MyTool.sub_dict(proc, ['pid', 'uid', 'create_time'])
             point['tags']['hostname'] = hostname
 
             del proc['cpu']['affinity']
-            point['fields'] =flatten(sub_dict(proc, ['status', 'mem', 'io', 'num_fds', 'cpu']))
+            point['fields'] =MyTool.flatten(MyTool.sub_dict(proc, ['status', 'mem', 'io', 'num_fds', 'cpu']))
             points.append (point)
-        
+
+            uid = proc['uid']
+            if uid not in userDict:
+               userDict[uid] = {'num_fds':0, 'mem_rss':0, 'mem_vms':0, 'cpu_system_time':0,'cpu_user_time':0,'io_read_bytes':0,'io_write_bytes':0}
+            userDict[uid]['num_fds'] += proc['num_fds']
+            userDict[uid]['mem_rss'] += proc['mem']['rss']
+            userDict[uid]['mem_vms'] += proc['mem']['vms']
+            userDict[uid]['cpu_system_time'] += proc['cpu']['system_time']
+            userDict[uid]['cpu_user_time']   += proc['cpu']['user_time']
+            userDict[uid]['io_read_bytes']   += proc['io']['read_bytes']
+            userDict[uid]['io_write_bytes']  += proc['io']['write_bytes']
+
+        for uid, fields in userDict.items():
+            point = {'measurement':'cpu_uid_mon'}
+            point['time']   =ts
+            point['tags']={'hostname':hostname, 'uid': uid}
+
+            point['fields'] =fields
+            points.append (point)
+    
         print(hostname + ": # of new processes=" + str(cntNew) + ",old processes=" + str(cntOld) + ",finished processes=" + str(len(prePs)))
         self.activeProc[hostname]=currPs
         return points
@@ -266,19 +267,19 @@ class DataReader:
         # slurm_jobs_mon: self.slurmTime, job_id
         point =  {'measurement':'slurm_jobs_mon'}
         point['time']   =self.getUTCDateTime(self.slurmTime).isoformat()
-        point['tags']   =sub_dict(item, ['job_id'])
-        point['fields'] =flatten(sub_dict(item, ['run_time']))
+        point['tags']   =MyTool.sub_dict(item, ['job_id'])
+        point['fields'] =MyTool.flatten(MyTool.sub_dict(item, ['run_time']))
         points.append(point)
 
         # slurm_jobs: submit_time, job_id, user_id
         infopoint = {'measurement':'slurm_jobs'}
         infopoint['time']   =self.getUTCDateTime(item.pop('submit_time')).isoformat()
-        infopoint['tags']   =sub_dict_remove(item, ['user_id', 'job_id'])
+        infopoint['tags']   =MyTool.sub_dict_remove(item, ['user_id', 'job_id'])
 
         cpu_allocated       = item.pop('cpus_allocated')
         for v in ['run_time_str', 'time_limit_str', 'std_err', 'std_out', 'work_dir', 'cpus_alloc_layout']: del item[v]
         #nodes = item.pop('nodes')
-        infopoint['fields'] =flatten(item)
+        infopoint['fields'] =MyTool.flatten(item)
         if cpu_allocated: infopoint['fields']['cpus_allocated']=repr(cpu_allocated)  #otherwise, two many fields
         
         first = True

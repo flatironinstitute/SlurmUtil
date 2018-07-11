@@ -12,6 +12,7 @@
       rect.popout{
         stroke: black;
         stroke-width:4px;   
+        z-index: 999 
       }
 
       text.mono {
@@ -40,8 +41,10 @@
 
     <div>
     <h3>Worker Nodes Utilization</h3>
-    <p> "Click" to see the co-allocated worker nodes. "Double Click" to see the worker node details.
+    <p> "Click" to see the co-allocated worker nodes for the same job. "Double Click" to see the worker node details.
+    <p> Choose a job id to see the allocated worker nodes: <select id="jobs"></select>
     </div>
+    
     <div id="chart">
        <svg> </svg>
     </div>
@@ -57,6 +60,7 @@
           //gCnt     = [32, 240, 120, 13, 1, 1]
           gridSize = Math.floor(width / cntLine),
           dataset1 = %(data1)s
+          dataset2 = %(data2)s
 
       var svg = d3.select("#chart").select("svg")
           .attr("width",  width + margin.left + margin.right)
@@ -98,7 +102,7 @@
       }
       //console.log(iData);
       //console.log(groups);
-      console.log(labels);
+      //console.log(labels);
 
       var nodeLabels = svg.selectAll (".nodeLabel")
           .data (labels)
@@ -125,7 +129,10 @@
                             return (y + Math.floor(d["gIdx"]/cntLine) + 2)* gridSize; })
               .attr("rx", 4)
               .attr("ry", 4)
-              .attr("class", function(d) { return "bordered " + Object.keys(d["jobs"])})
+              .attr("class", function(d) { 
+                                var str="bordered"; 
+                                Object.keys(d["jobs"]).forEach(function(e) {str += " " + e}); 
+                                return str;})
               .attr("width",  gridSize)
               .attr("height", gridSize)
               .attr("title", function (d) {return d["name"]})
@@ -162,7 +169,24 @@
           legend.exit().remove();
       };
 
+      var selectChart =function (data){
+          var jobsSel = d3.select("#jobs")
+                          .on('change', onchange);
+          jobsSel.selectAll("option")
+                 .data(data)
+                 .enter().append("option")
+                 .text(function(d) { var str=d["jid"] + " " + d["state"]; if ("alloc_str" in d) return str + " with " + d["alloc_str"]; else return str + " waiting " + d["req_str"]})
+                 .attr("value", function(d) {return d["jid"]})
+                 .attr("disabled", function(d) {if ("alloc_str" in d) return undefined; else return "disabled";});
+      };
+      function onchange() {
+         selectedJid=d3.select("#jobs").property("value");
+         $(".bordered").removeClass("popout");
+         $(`.${selectedJid}`).addClass("popout");
+      }
+ 
       heatmapChart(iData);
+      selectChart (dataset2);
     </script>
   </body>
 </html>
