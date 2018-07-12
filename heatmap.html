@@ -42,7 +42,7 @@
     <div>
     <h3>Worker Nodes Utilization</h3>
     <p> "Click" to see the co-allocated worker nodes for the same job. "Double Click" to see the worker node details.
-    <p> Choose a job id to see the allocated worker nodes: <select id="jobs"></select>
+    <p> Choose a job to see the allocated worker nodes: <select id="jobs"></select>
     </div>
     
     <div id="chart">
@@ -55,7 +55,7 @@
           height   = 900  - margin.top - margin.bottom,
           cntLine  = 32,
           buckets  = 10,
-          colors   = ["blue", "#3192bd", "green","#74c476","#c7e9c0","ffffd9", "yellow", "#fdd0a2","#f38d3c", "red"], 
+          colors   = ["blue", "#3192bd", "#c7e9c0", "#74c476","green","bcbd22", "ffff50", "#ffbb78","orange", "red"], 
           //groups   = ["worker0", "worker1", "worker2", "workergpu", "workermem", "workerphi"],
           //gCnt     = [32, 240, 120, 13, 1, 1]
           gridSize = Math.floor(width / cntLine),

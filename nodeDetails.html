@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+  <head>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  </head>
+  <body>
+    <div class="tab" id="tabmenu"></div>
+
+    <div id="title">
+         <h3>Node: {node} (<a href="./nodeGraph?node={node}">Graph</a>), Status:{nodeStatus}, Delay:{delay}, <a href="#sacctreport">(jump to sacct)</a></h3>  
+         <p id="jobs"> </p>
+    </div>
+    <div id="process">
+    </div>
+    <div id="sacct"><h4 id="sacctreport">sacct report (last {acctWindow} days for node {node}):</h4>  {acctReport}</div>
+
+    <script type="text/javascript">
+       var procData    = {procData}
+       var jobData     = {jobs}
+       var str         = ""
+       for (var i=0; i<procData.length; i++) {{
+           var user     = procData[i][0]
+           var coresCnt = procData[i][1]
+           var load     = procData[i][2]
+           var proc     = procData[i][3]
+           var proc2    = proc.map(myMapFunc)
+
+           str += "<hr><em>" + user + "</em>,  load " + load.toFixed(2) + " out of " + coresCnt + " <pre>" + proc2.join('\n') + "\n" 
+       }}
+       $("#process").append(str)
+
+       str = ""
+       Object.keys(jobData).forEach(function(e) 
+                                          {{if (str!="") str +=",";
+                                            str += " " + e + "(" + jobData[e] + " cores, <a href='./jobGraph?jobid=" + e + "'>Graph</a>)";
+                                            console.log (jobData[i] + " " + str)
+                                          }})
+       if ( str!="" )
+          $("#jobs").append("Jobs Allocated: " + str)
+
+       function myMapFunc(item, index, array) {{
+          var subArr = [item[0], ("      " + item[1].toFixed(2)).slice(-6), padding10Left(item[5].toExponential(2)), padding10Left(item[6].toExponential(2)), item[7]] 
+          return subArr.join(' ')       
+       }}
+
+       function padding10Left(value) {{
+          return ("          " + value).slice(-10);
+       }};
+    </script>
+
+  </body>
+</html>

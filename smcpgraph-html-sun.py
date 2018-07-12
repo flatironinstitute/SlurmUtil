@@ -67,7 +67,7 @@ def pstdev(data):
 class SLURMMonitor(object):
 
     def __init__(self):
-        self.data = 'No data received yet. Wait a few minutes and come back.'
+        self.data = 'No data received yet. Wait a minute and come back.'
         self.jobData = {}
         self.pyslurmNodeData = None
         self.updateTime  = None
@@ -78,10 +78,6 @@ class SLURMMonitor(object):
     @cherrypy.expose
     def getNodeData(self):
         return repr(self.data)
-
-    @cherrypy.expose
-    def hello(self):
-        return "hello, world"
 
     @cherrypy.expose
     def getJobData(self):
@@ -356,22 +352,28 @@ class SLURMMonitor(object):
 
     @cherrypy.expose
     def nodeDetails(self, node):
+        #yanbin: rewrite to seperate data and UI
         if type(self.data) == str: return self.data # error of some sort.
 
-        t = htmlPreamble
-        d = self.data.get(node, [])
-        try:    status = d[0]
-        except: status = 'Unknown'
-        try:    skew = d[1]
-        except: skew = -9.99
-        t += '<h3>Node: %s (<a href="%s/nodeGraph?node=%s">Graph</a>), Status: %s, Delay: %.2f, <a href="#sacctreport">(jump to sacct)</a></h3>\n'%(node, cherrypy.request.base, node, status, skew)
-        for user, uid, cores, procs, tc, trm, tvm, cmds in sorted(d[HOST_ALLOCINFO_IDX:]):
-            ac = loadSwitch(cores, tc, ' class="inform"', '', ' class="alarm"')
-            t += '<hr><em%s>%s</em> %d<pre>'%(ac, user, cores) + '\n'.join([' '.join(['%6d'%cmd[0], '%6.2f'%cmd[1], '%10.2e'%cmd[5], '%10.2e'%cmd[6]] + cmd[7]) for cmd in cmds]) + '\n</pre>\n'
-        t += '<h4 id="sacctreport">sacct report (last %d days for node %s):</h4>\n'%(SacctWindow, node)
-        t += self.sacctReport(self.sacctDataInWindow(['-N', node]))
-        t += '<a href="%s/index">&#8617</a>\n</body>\n</html>\n'%cherrypy.request.base
-        return t
+        nodeInfo = self.data.get(node, None)
+        if nodeInfo:
+           status = nodeInfo[0]
+           skew   = "{.2f}".format(nodeInfo[1])
+        else:
+           status = 'Unknown'
+           skew   = 'Undefined'
+
+        procData = []
+        for user, uid, cores, procs, load, trm, tvm, cmds in sorted(nodeInfo[HOST_ALLOCINFO_IDX:]):
+            procData.append ([user, cores, load, cmds])
+            
+        jobs_alloc = self.getNode2Job()[node]
+        acctReport = str(self.sacctReport(self.sacctDataInWindow(['-N', node])))
+        htmlTemp   = os.path.join(wai, 'nodeDetails.html')
+        #    ac = loadSwitch(cores, tc, ' class="inform"', '', ' class="alarm"')
+        parameters = {'node': node, 'procData': procData, 'acctReport':acctReport, 'acctWindow': SacctWindow, 'nodeStatus':status, 'delay':skew, 'jobs':jobs_alloc}
+        htmlStr    = open(htmlTemp).read().format(**parameters)
+        return htmlStr
 
     @cherrypy.expose
     def userDetails(self, user):
