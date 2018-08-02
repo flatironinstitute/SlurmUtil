@@ -7,6 +7,7 @@ import fs2hc
 import scanSMSplitHighcharts
 from queryInflux import InfluxQueryClient
 
+import MyTool
 wai = os.path.dirname(os.path.realpath(sys.argv[0]))
 
 WebPort = int(sys.argv[1])
@@ -926,6 +927,7 @@ class SLURMMonitor(object):
             data_dash[jid]['list_jobid']   =[jid]          * num_nodes
             data_dash[jid]['list_username']=[username]     * num_nodes
             data_dash[jid]['list_qos']     =[jinfo[u'qos']]* num_nodes
+            data_dash[jid]['list_group']   =[MyTool.getUserOrgGroup(username)]* num_nodes
         
         #need to filter data_dash so that it no longer contains users that are "None"->this was creating sunburst errors 
         #open('/tmp/sunburst.tmp', 'w').write(repr(data_dash))
@@ -939,9 +941,11 @@ class SLURMMonitor(object):
         list_job_flatn =reduce((lambda x,y: x+y), [v['list_jobid'] for v in data_dash.values()])
         list_part_flatn=reduce((lambda x,y: x+y), [v['list_qos']   for v in data_dash.values()])
         list_usernames_flatn=reduce((lambda x,y: x+y), [v['list_username']   for v in data_dash.values()])
+        list_group_flatn    =reduce((lambda x,y: x+y), [v['list_group']   for v in data_dash.values()])
 
         # merge above list into nested list
-        listn  =[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_loads_flat[i]] for i in range(len(list_nodes_flat))]
+        #listn  =[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_loads_flat[i]] for i in range(len(list_nodes_flat))]
+        listn  =[[list_group_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_loads_flat[i]] for i in range(len(list_nodes_flat))]
         listrss=[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_RSS_flat[i]]   for i in range(len(list_nodes_flat))]
         listvms=[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_VMS_flat[i]]   for i in range(len(list_nodes_flat))]
         listns =[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i]]                    for i in range(len(list_nodes_flat))]
