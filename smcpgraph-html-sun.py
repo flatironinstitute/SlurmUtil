@@ -199,8 +199,8 @@ class SLURMMonitor(object):
 
     @cherrypy.expose
     def getHeader(self, page=None):
-        pages=["index", "sunburst", "utilHeatmap", "usageGraph", "tymor", "tymor2"]
-        titles=["Tabular Summary", "Sunburst Graph", "Heatmap Graph", "Usage Graph", "Tymor", "Tymor2"]
+        pages =["index", "sunburst", "utilHeatmap", "usageGraph", "tymor", "tymor2"]
+        titles=["Tabular Summary", "Sunburst Graph", "Host Util.", "Usage Graph", "Tymor", "Tymor2"]
  
         result=""
         for i in range (len(pages)):
@@ -358,7 +358,7 @@ class SLURMMonitor(object):
         nodeInfo = self.data.get(node, None)
         if nodeInfo:
            status = nodeInfo[0]
-           skew   = "{.2f}".format(nodeInfo[1])
+           skew   = "{0:.2f}".format(nodeInfo[1])
         else:
            status = 'Unknown'
            skew   = 'Undefined'

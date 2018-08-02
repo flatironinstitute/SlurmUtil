@@ -143,7 +143,7 @@ class DataReader:
         if ( len(points) == 0 ):
            return
 
-        print ("write data to influx policy "  + ret_policy)
+        #print ("write data to influx policy "  + ret_policy)
         #print ("write data to influx type"     + repr(type(points)))
         #print ("write data to influx 1st data " + points[0])
         #for point in points:
@@ -153,7 +153,7 @@ class DataReader:
         try:
            self.influx_client.write_points (points,  retention_policy=ret_policy)
         except influxdb.exceptions.InfluxDBClientError as err:
-           print(repr(err))
+           print("writeInflux " + ret_policy + ":" + repr(err))
 
     def hostinfo2point (self, msg):
         #{'tcp_wmem': [16384, 1048576, 56623104], 'tcp_rmem': [16384, 1048576, 56623104], 'hostname_full': 'worker1000', 
@@ -268,7 +268,7 @@ class DataReader:
         point =  {'measurement':'slurm_jobs_mon'}
         point['time']   =self.getUTCDateTime(self.slurmTime).isoformat()
         point['tags']   =MyTool.sub_dict(item, ['job_id'])
-        point['fields'] =MyTool.flatten(MyTool.sub_dict(item, ['run_time']))
+        point['fields'] =MyTool.flatten(MyTool.sub_dict(item, ['run_time', 'job_state']))
         points.append(point)
 
         # slurm_jobs: submit_time, job_id, user_id
@@ -277,15 +277,10 @@ class DataReader:
         infopoint['tags']   =MyTool.sub_dict_remove(item, ['user_id', 'job_id'])
 
         cpu_allocated       = item.pop('cpus_allocated')
-        for v in ['run_time_str', 'time_limit_str', 'std_err', 'std_out', 'work_dir', 'cpus_alloc_layout']: del item[v]
+        for v in ['job_state', 'run_time_str', 'time_limit_str', 'std_err', 'std_out', 'work_dir', 'cpus_alloc_layout', 'std_in']: del item[v]
         #nodes = item.pop('nodes')
         infopoint['fields'] =MyTool.flatten(item)
         if cpu_allocated: infopoint['fields']['cpus_allocated']=repr(cpu_allocated)  #otherwise, two many fields
-        
-        first = True
-        if first: 
-           print ("slurm_jobs point " + repr(infopoint) )
-           first = False
         
         points.append(infopoint)
 

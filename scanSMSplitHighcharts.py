@@ -24,7 +24,7 @@ def getSMData(SMDir, targetNode, start, stop):
         ts, nd = smd.readData (offset, stop)
         if ( nd == None): break
 
-        print("nd=" + repr(nd))
+        #print("nd=" + repr(nd))
         for usrdata in nd[3:]: # username, userdata
             usr2d[usrdata[0]].append([ts] + list(usrdata[1:7]))
         
