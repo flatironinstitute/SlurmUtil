@@ -101,6 +101,7 @@ Clone the repository to your local machine
 Here is how to start the system on your local machine.
 
 ###StartSlurmMqtMonitoring 
+
 Customerize ${CmSlurmRoot}, ${pData}, ${WebPort}, python virtual environment in the script, list the web server update interface in mqt_urls, and run
 ```
 StartSlurmMqtMonitoring
@@ -110,10 +111,11 @@ It starts web server at http://localhost:${WebPort} and two deamons that 1) both
 The log files are saved in smcpsun_${cm}_mqt_$(date +%Y%m%d_%T).log and mms_${cm}_$(date +%Y%m%d_%T).log.
 
 The script starts 3 python processes, such as 
+```
 python3 /mnt/home/yliu/projects/slurm/utils/smcpgraph-html-sun.py 8126 /mnt/ceph/users/yliu/tmp/mqtMonTest
 python3 /mnt/home/yliu/projects/slurm/utils/mqtMon2Influx.py
 python3 /mnt/home/yliu/projects/slurm/utils/mqtMonStream.py /mnt/ceph/users/yliu/tmp/mqtMonTest mqt_urls
-
+```
 
 
 
