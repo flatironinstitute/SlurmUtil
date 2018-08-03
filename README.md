@@ -96,11 +96,19 @@ A step by step series of examples that tell you have to get a development env ru
 Clone the repository to your local machine
 ```
 
+Install Influxdb
+
+```
+wget https://dl.influxdata.com/influxdb/releases/influxdb-1.5.3.x86_64.rpm
+sudo yum install influxdb-1.5.3.x86_64.rpm
+service influxdb start
+```
+
 ## Execute
 
 Here is how to start the system on your local machine.
 
-###StartSlurmMqtMonitoring 
+### StartSlurmMqtMonitoring 
 
 Customerize ${CmSlurmRoot}, ${pData}, ${WebPort}, python virtual environment in the script, list the web server update interface in mqt_urls, and run
 ```
