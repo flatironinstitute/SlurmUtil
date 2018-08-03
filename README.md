@@ -116,14 +116,23 @@ StartSlurmMqtMonitoring
 ```
 It starts web server at http://localhost:${WebPort} and two deamons that 1) both subscribe to MQTT 2) one update the informaton of the web server, one update influxdb (WILL MERGE TWO DEAMONS LATER)
 
-The log files are saved in smcpsun_${cm}_mqt_$(date +%Y%m%d_%T).log and mms_${cm}_$(date +%Y%m%d_%T).log.
-
 The script starts 3 python processes, such as 
 ```
 python3 /mnt/home/yliu/projects/slurm/utils/smcpgraph-html-sun.py 8126 /mnt/ceph/users/yliu/tmp/mqtMonTest
 python3 /mnt/home/yliu/projects/slurm/utils/mqtMon2Influx.py
 python3 /mnt/home/yliu/projects/slurm/utils/mqtMonStream.py /mnt/ceph/users/yliu/tmp/mqtMonTest mqt_urls
 ```
+## Debug and Restart
 
+Check log files for errors. Log files are saved in smcpsun_${cm}_mqt_$(date +%Y%m%d_%T).log, mms_${cm}_$(date +%Y%m%d_%T).log and ifx_${cm}_$(date +%Y%m%d_%T).log.
+
+If missed, the python process will be automatically restarted every 60 seconds.
+
+In case, you need to restart
+```
+sudo service influxdb start
+cd /mnt/home/yliu/projects/slurm/utils
+. ./StartSlurmMqtMonitoring
+```
 
 
