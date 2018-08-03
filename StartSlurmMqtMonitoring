@@ -67,7 +67,8 @@ if pidfilestale ${cm}_monitor_mqt.pid
 then
     while [[ 1 ]] 
     do
-	python -m cProfile -o profile.log ${ScriptDir}/mqtMonStream.py ${pData} mqt_urls 2>&1 &
+#	python -m cProfile -o profile.log ${ScriptDir}/mqtMonStream.py ${pData} mqt_urls 2>&1 &
+	python ${ScriptDir}/mqtMonStream.py ${pData} mqt_urls 2>&1 &
 	pid=$!
 	echo ${pid} > ${cm}_monitor_mqt.pid
 	wait ${pid}
@@ -76,5 +77,20 @@ then
     done  > "mms_${cm}_$(date +%Y%m%d_%T).log" 2>&1 &
 else
     echo "monitor is already running ($(cat ${cm}_monitor_mqt.pid))."
+fi
+
+if pidfilestale ${cm}_monitor_mqt_influx.pid
+then
+    while [[ 1 ]] 
+    do
+	python ${ScriptDir}/mqtMon2Influx.py 2>&1 &
+	pid=$!
+	echo ${pid} > ${cm}_monitor_mqt_influx.pid
+	wait ${pid}
+	echo "Monitor returned: $(date). Restarting in 60 seconds."
+	sleep 60
+    done  > "ifx_${cm}_$(date +%Y%m%d_%T).log" 2>&1 &
+else
+    echo "monitor and convertor to Influx is already running ($(cat ${cm}_monitor_mqt_influx.pid))."
 fi
 

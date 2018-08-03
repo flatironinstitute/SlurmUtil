@@ -10,6 +10,8 @@ The incoming messages will be
 2) saved to local files at ${pData}/${hostname}_sm.p (data file) and ${hostname}_sm.px (index file); 
 3) updated to web interface (http://${webserver}:8126/updateSlurmData) to refresh the data
 
+Considering performance, we save incoming messages in InfluxDB (measurement slurmdb) and retrieve information from the measurement.
+
 ## Web Interface
 Web server is hosted by CherryPy at http://${webserver}:8126/. You can see an example of it at http://scclin011:8126/
 
@@ -29,6 +31,12 @@ A tabular summary of slurm jobs
 4) http://${webserver}:8126/tymor2,
 A tabular summary of slurm jobs
 
+You can also see the detailed informaiton and resource usage of a specific worker node or a running job. Some examples are:
+http://scclin011:8126/nodeDetails?node=worker1001
+http://scclin011:8126/nodeGraph?node=worker1001
+http://scclin011:8126/jobDetails?jobid=93585
+http://scclin011:8126/jobGraph?jobid=93585
+
 ## Getting Started
 
 These instructions will get you a copy of the project up and running on your local machine.  See deployment for notes on how to deploy the project on a live system.
@@ -46,10 +54,14 @@ Python 3.6
 
 Python virtual environment with packages:
 ```
+certifi (2018.4.16)
+chardet (3.0.4)
 cheroot (6.0.0)
 CherryPy (14.0.0)
-Cython (0.27.3)
+Cython (0.28.4)
 dnspython (1.15.0)
+idna (2.7)
+influxdb (5.1.0)
 more-itertools (4.1.0)
 numpy (1.14.2)
 paho-mqtt (1.3.1)
@@ -60,6 +72,7 @@ pyslurm (17.2.0)
 python-dateutil (2.7.0)
 python-etcd (0.4.5)
 pytz (2018.3)
+requests (2.19.0)
 setuptools (38.5.2)
 six (1.11.0)
 tempora (1.11)
@@ -69,6 +82,10 @@ wheel (0.30.0)
 
 ```
 MQTT server running on mon5.flatironinstitute.org
+```
+
+```
+Influxdb running on localhost
 ```
 
 ### Installing
@@ -88,8 +105,15 @@ Customerize ${CmSlurmRoot}, ${pData}, ${WebPort}, python virtual environment in 
 ```
 StartSlurmMqtMonitoring
 ```
-It starts web server at http://localhost:${WebPort} and a deamon that shall 1) subscribe to MQTT 2) update the informaton of the web server.
+It starts web server at http://localhost:${WebPort} and two deamons that 1) both subscribe to MQTT 2) one update the informaton of the web server, one update influxdb (WILL MERGE TWO DEAMONS LATER)
 
 The log files are saved in smcpsun_${cm}_mqt_$(date +%Y%m%d_%T).log and mms_${cm}_$(date +%Y%m%d_%T).log.
+
+The script starts 3 python processes, such as 
+python3 /mnt/home/yliu/projects/slurm/utils/smcpgraph-html-sun.py 8126 /mnt/ceph/users/yliu/tmp/mqtMonTest
+python3 /mnt/home/yliu/projects/slurm/utils/mqtMon2Influx.py
+python3 /mnt/home/yliu/projects/slurm/utils/mqtMonStream.py /mnt/ceph/users/yliu/tmp/mqtMonTest mqt_urls
+
+
 
 
