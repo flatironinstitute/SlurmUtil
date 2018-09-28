@@ -6,8 +6,11 @@ from functools import reduce
 import fs2hc
 import scanSMSplitHighcharts
 from queryInflux import InfluxQueryClient
+from querySlurm import SlurmCmdQuery
+from queryTextFile import TextfileQueryClient
 
 import MyTool
+
 wai = os.path.dirname(os.path.realpath(sys.argv[0]))
 
 WebPort = int(sys.argv[1])
@@ -24,8 +27,9 @@ htmlPreamble = '''\
 <body>
 '''
 
-SacctWindow = 3 # number of days of records to return from sacct.
+SACCT_WINDOW_DAYS  = 3 # number of days of records to return from sacct.
 HOST_ALLOCINFO_IDX = 3
+THREE_DAYS_SEC     = 3*24*3600
 
 def loadSwitch(c, l, low, normal, high):
     if c == -1 or c < l-1: return high
@@ -68,13 +72,21 @@ def pstdev(data):
 class SLURMMonitor(object):
 
     def __init__(self):
-        self.data = 'No data received yet. Wait a minute and come back.'
-        self.jobData = {}
+        self.data            = 'No data received yet. Wait a minute and come back.'
+        self.jobData         = {}
         self.pyslurmNodeData = None
-        self.updateTime  = None
-        self.userJobData = None
+        self.updateTime      = None
+        self.userJobData     = None
+        self.queryTxtClient  = TextfileQueryClient(os.path.join(wai, 'host_up_ts.txt'))
 
         self.cvtDict     = {}
+
+    @cherrypy.expose
+    def getTest(self):
+        htmltemp = os.path.join(wai, 'test.html')
+        h        = open(htmltemp).read()
+ 
+        return h 
 
     @cherrypy.expose
     def getNodeData(self):
@@ -161,18 +173,22 @@ class SLURMMonitor(object):
 
         result  = []
         for hostname, values in self.data.items():
-            node_cores = self.pyslurmNodeData[hostname]['cpus']
-            if len(values) > HOST_ALLOCINFO_IDX:
-               cpu_load   = values[HOST_ALLOCINFO_IDX][4]
-               alloc_jobs = node2job[hostname]
-               state      = 1
-            else:
-               cpu_load   = -1
-               alloc_jobs = {}
-               state      = 0
+            print (hostname)
+            try:
+               node_cores = self.pyslurmNodeData[hostname]['cpus']
+               if len(values) > HOST_ALLOCINFO_IDX:
+                  cpu_load   = values[HOST_ALLOCINFO_IDX][4]
+                  alloc_jobs = node2job[hostname]
+                  state      = 1
+               else:
+                  cpu_load   = -1
+                  alloc_jobs = {}
+                  state      = 0
 
-            result.append([hostname, state, node_cores, cpu_load, alloc_jobs])
-
+               result.append([hostname, state, node_cores, cpu_load, alloc_jobs])
+            except Exception as exp:
+               print("Error: {0}".format(exp))
+                               
         jobs = []
         for jobid, jobinfo in self.jobData.items():
             job={}
@@ -266,7 +282,7 @@ class SLURMMonitor(object):
         return d.decode('utf-8')
 
     def sacctDataInWindow(self, criteria):
-        t = datetime.date.today() + datetime.timedelta(days=-SacctWindow)
+        t = datetime.date.today() + datetime.timedelta(days=-SACCT_WINDOW_DAYS)
         startDate = '%d-%02d-%02d'%(t.year, t.month, t.day)
         d = self.sacctData (['-S', startDate] + criteria)
         print(repr(d))
@@ -324,29 +340,50 @@ class SLURMMonitor(object):
 
     @cherrypy.expose
     def nodeGraph(self, node, start='', stop=''):
-        threeDays = 3*24*3600
         if start:
             start = time.mktime(time.strptime(start, '%Y%m%d'))
             if stop:
                 stop = time.mktime(time.strptime(stop, '%Y%m%d'))
             else:
-                stop = start + threeDays
+                stop = start + THREE_DAYS_SEC
         else:
             if stop:
                 stop = time.mktime(time.strptime(stop, '%Y%m%d'))
             else:
                 stop = time.time()
-            start = max(0, stop - threeDays)
+            start = max(0, stop - THREE_DAYS_SEC)
 
         # highcharts
-        getSMData = scanSMSplitHighcharts.getSMData
+        influxClient = InfluxQueryClient('scclin011','slurmdb')
+        uid2seq      = influxClient.getSlurmNodeMonData(node,start,stop)
+
+        cpu_series = []  ##[{'data': [[1531147508000, value]...], 'name':'userXXX'}, ...] 
+        mem_series = []  ##[{'data': [[1531147508000(ms), value]...], 'name':'userXXX'}, ...] 
+        io_series  = []  ##[{'data': [[1531147508000, value]...], 'name':'userXXX'}, ...] 
+        for uid, d in uid2seq.items():
+            uname = MyTool.getUser(uid)
+            cpu_node={'name': uname}
+            cpu_node['data']= [[ts, d[ts][0]] for ts in d.keys()]
+            cpu_series.append (cpu_node)
+
+            mem_node={'name': uname}
+            mem_node['data']= [[ts, d[ts][2]] for ts in d.keys()]
+            mem_series.append (mem_node)
+
+            io_node={'name': uname}
+            io_node['data'] = [[ts, d[ts][1]] for ts in d.keys()]
+            io_series.append (io_node)
+        ann_series = self.queryTxtClient.getNodeUpTS([node])
+
+
+        #lseries, mseries = scanSMSplitHighcharts.getSMData(SMDir, node, start, stop)
         htmlTemp = os.path.join(wai, 'smGraphHighcharts.html')
-        lseries, mseries = getSMData(SMDir, node, start, stop)
-        h = open(htmlTemp).read()%{'node': node,
-                                          'start': time.strftime('%Y/%m/%d', time.localtime(start)),
-                                          'stop': time.strftime('%Y/%m/%d', time.localtime(stop)),
-                                          'lseries': lseries,
-                                          'mseries': mseries}
+        h = open(htmlTemp).read()%{'spec_title': ' on node  ' + str(node),
+                                   'start': time.strftime('%Y/%m/%d', time.localtime(start)),
+                                   'stop': time.strftime('%Y/%m/%d', time.localtime(stop)),
+                                   'lseries': cpu_series,
+                                   'iseries': io_series,
+                                   'mseries': mem_series}
 
         return h
 
@@ -372,7 +409,7 @@ class SLURMMonitor(object):
         acctReport = str(self.sacctReport(self.sacctDataInWindow(['-N', node])))
         htmlTemp   = os.path.join(wai, 'nodeDetails.html')
         #    ac = loadSwitch(cores, tc, ' class="inform"', '', ' class="alarm"')
-        parameters = {'node': node, 'procData': procData, 'acctReport':acctReport, 'acctWindow': SacctWindow, 'nodeStatus':status, 'delay':skew, 'jobs':jobs_alloc}
+        parameters = {'node': node, 'procData': procData, 'acctReport':acctReport, 'acctWindow': SACCT_WINDOW_DAYS, 'nodeStatus':status, 'delay':skew, 'jobs':jobs_alloc}
         htmlStr    = open(htmlTemp).read().format(**parameters)
         return htmlStr
 
@@ -388,7 +425,7 @@ class SLURMMonitor(object):
                 if nuser != user: continue
                 ac = loadSwitch(cores, tc, ' class="inform"', '', ' class="alarm"')
                 t += '<hr><em%s>%s</em> %d<pre>'%(ac, node, cores) + '\n'.join([' '.join(['%6d'%cmd[0], '%6.2f'%cmd[1], '%10.2e'%cmd[5], '%10.2e'%cmd[6]] + cmd[7]) for cmd in cmds]) + '\n</pre>\n'
-        t += '<h4 id="sacctreport">sacct report (last %d days for user %s):</h4>\n'%(SacctWindow, user)
+        t += '<h4 id="sacctreport">sacct report (last %d days for user %s):</h4>\n'%(SACCT_WINDOW_DAYS, user)
         t += self.sacctReport(self.sacctDataInWindow(['-u', user]))
         t += '<a href="%s/index">&#8617</a>\n</body>\n</html>\n'%cherrypy.request.base
         return t
@@ -399,7 +436,6 @@ class SLURMMonitor(object):
 
         jid    = int(jobid)
         jinfo  = self.jobData.get(jid)
-        print (jinfo)
         if ( jinfo is None):
             return "Cannot find information of the job"
 
@@ -735,160 +771,60 @@ class SLURMMonitor(object):
         return j
         
     @cherrypy.expose
+    def doneJobGraph(self,jobid,start='', stop=''):
+        #graph for jobs that are already finished
+        slurmClient  = SlurmCmdQuery()
+
+        info         = slurmClient.getSlurmJobInfo(jobid)       
+        return self.jobGraphData(jobid, info[1], info[2], info[3], info[4])
+    
+    def jobGraphData (self, jobid, userid, nodelist, start, stop):
+        #{hostname: {ts: [cpu, io, mem] ... }}
+        influxClient = InfluxQueryClient('scclin011','slurmdb')
+        node2seq     = influxClient.getSlurmUidMonData(userid, nodelist,start,stop)
+      
+        mem_all_nodes = []  ##[{'data': [[1531147508000(ms), value]...], 'name':'workerXXX'}, ...] 
+        cpu_all_nodes = []  ##[{'data': [[1531147508000, value]...], 'name':'workerXXX'}, ...] 
+        io_all_nodes  = []  ##[{'data': [[1531147508000, value]...], 'name':'workerXXX'}, ...] 
+        for hostname, hostdict in node2seq.items():
+            mem_node={'name': hostname}
+            mem_node['data']= [[ts, hostdict[ts][2]] for ts in hostdict.keys()]
+            mem_all_nodes.append (mem_node)
+
+            cpu_node={'name': hostname}
+            cpu_node['data']= [[ts, hostdict[ts][0]] for ts in hostdict.keys()]
+            cpu_all_nodes.append (cpu_node)
+
+            io_node={'name': hostname}
+            io_node['data']= [[ts, hostdict[ts][1]] for ts in hostdict.keys()]
+            io_all_nodes.append (io_node)
+
+        # highcharts 
+        htmltemp = os.path.join(wai, 'smGraphHighcharts.html')
+        h = open(htmltemp).read()%{'spec_title': ' of job ' + str(jobid),
+                                   'start'     : time.strftime('%Y/%m/%d', time.localtime(start)),
+                                   'stop'      : time.strftime('%Y/%m/%d', time.localtime(stop)),
+                                   'lseries'   : cpu_all_nodes,
+                                   'mseries'   : mem_all_nodes,
+                                   'iseries'   : io_all_nodes}
+        return h
+
+        
+    @cherrypy.expose
     def jobGraph(self,jobid,start='', stop=''):
         if type(self.data) == str: return self.data # error of some sort.
 
-        influxClient = InfluxQueryClient()
         jobid    = int(jobid)
+        if jobid not in self.jobData:
+           return self.doneJobGraph(jobid, start, stop) 
+
         nodelist = list(self.jobData[jobid][u'cpus_allocated'])
         start    = self.jobData[jobid][u'start_time']
         if not stop:
            stop     = time.time()
-        print ("jobGraph " + str(start) + "-" + str(stop))
-
-        #{hostname: {ts: [cpu, io, mem] ... }}
-        monDict=influxClient.getSlurmUidMonData(self.jobData[jobid][u'user_id'], nodelist,start,stop)
-      
-        mem_all_nodes = []  ##[{'data': [[1531147508000(ms), value]...], 'name':'workerXXX'}] 
-        cpu_all_nodes = []  ##[{'data': [[1531147508000, value]...], 'name':'workerXXX'}] 
-        for hostname, hostdict in monDict.items():
-            mem_node={}
-            mem_node['name'] = hostname
-            mem_node['data']= [[ts, hostdict[ts][2]] for ts in hostdict.keys()]
-            mem_all_nodes.append (mem_node)
-
-            cpu_node={}
-            cpu_node['name'] = hostname
-            cpuLst  = []
-            cpu_node['data'] = cpuLst
-
-            # calculate cpu load
-            preTs = None
-            for ts in sorted(hostdict.keys()):
-                if preTs:
-                   newVal = (hostdict[ts][0] - preVal) * 1000 / (ts - preTs) 
-                   cpuLst.append([ts, newVal])
-
-                preTs  = ts
-                preVal = hostdict[ts][0]
-       
-                   
-            cpu_all_nodes.append (cpu_node)
-            
-        # highcharts 
-        
-        #print("jobGraph: " + repr(mem_all_nodes))
-        t='<tr><td><div id="memchart" style= "min-width:1000px; height: 500px; margin: 0 auto"><script>graphSeries(%s,"memchart", "memory usage (rss) from %s to %s", "aggregate rss per node");</script></div></td></tr><hr><tr><td><div id="loadchart" style= "min-width:1000px; height: 500px; margin: 0 auto"><script>graphSeries(%s,"loadchart","aggregate load from %s to %s", "aggregate load per node");</script></div></td></tr>'%(mem_all_nodes,time.strftime('%y/%m/%d', time.localtime(start)),time.strftime('%y/%m/%d',time.localtime(stop)),cpu_all_nodes,time.strftime('%y/%m/%d', time.localtime(start)),time.strftime('%y/%m/%d', time.localtime(stop)))
-
-        htmltemp = os.path.join(wai, 'jobnodes_smGraphHighcharts.html')
-        h = open(htmltemp).read()%{'tablenodegraphs' : t}
-        return h
-
-    @cherrypy.expose
-    def oldJobGraph(self,jobid,start='', stop=''):
-        if type(self.data) == str: return self.data # error of some sort.
-
-        jobid    = int(jobid)
-        data     = self.jobData
-
-        nodelist = list(data[jobid][u'cpus_allocated'])
-        start    = data[jobid][u'start_time']
-        stop     = time.time()
-        uid      = data[jobid][u'user_id']
-        uname    = pwd.getpwuid(uid).pw_name
-        print ("jobGraph " + str(start) + "-" + str(stop))
-
-        # highcharts 
-        lseries_all_nodes=[]
-        mseries_all_nodes=[]
-        for node in nodelist:
-            lseries, mseries = scanSMSplitHighcharts.getSMData(SMDir, node, start, stop)
-            for d in lseries:
-                if d['name'] == uname: break
-                else:
-                    print ('ooops')
-            
-            for i in lseries:
-                if i['name'] == uname:
-                    i['name']=node
-                    lseries_all_nodes.append(i)
-            for i in mseries:
-                if i['name'] == uname:
-                    i['name']=node 
-                    mseries_all_nodes.append(i)
-                    
-        t='<tr><td><div id="memchart" style= "min-width:1000px; height: 500px; margin: 0 auto"><script>graphSeries(%s,"memchart", "memory usage from %s to %s", "aggregate vms per node");</script></div></td></tr><hr><tr><td><div id="loadchart" style= "min-width:1000px; height: 500px; margin: 0 auto"><script>graphSeries(%s,"loadchart","aggregate load from %s to %s", "aggregate load per node");</script></div></td></tr>'%(mseries_all_nodes,time.strftime('%y/%m/%d', time.localtime(start)),time.strftime('%y/%m/%d',time.localtime(stop)),lseries_all_nodes,time.strftime('%y/%m/%d', time.localtime(start)),time.strftime('%y/%m/%d', time.localtime(stop)))
-
-        print(lseries_all_nodes)
-        htmltemp = os.path.join(wai, 'jobnodes_smGraphHighcharts.html')
-        h = open(htmltemp).read()%{'tablenodegraphs' : t}
-        return h
-
-    def createNestedDict (self, rootSysname, levels, data_df, valColname):
-        def find_element(children_list,name):
-            """
-            Find element in children list
-            if exists or return none
-            """
-            for i in children_list:
-                if i["name"] == name:
-                    return i
-            #If not found return None
-            return None
-
-        def add_node(path,value,nest, level=0):
-            """
-            The path is a list.  Each element is a name that corresponds 
-            to a level in the final nested dictionary.  
-            """
-            #Get first name from path
-            this_name = path.pop(0)
-
-            #Does the element exist already?
-            element = find_element(nest["children"], this_name)
-
-            #If the element exists, we can use it, otherwise we need to create a new one
-            if element:
-
-                if len(path)>0:
-                    add_node(path,value, element, level+1)
-                    #Else it does not exist so create it and return its children
-            else:
-
-                if len(path) == 0:
-                    #TODO: Hack, Replace when we've redesigned the data representation.
-                    url = ''
-                    if level == 3:
-                        url = 'nodeDetails?node=' + this_name
-                        
-                    nest["children"].append({"name": this_name, "value": value, 'url': url})
-                else:
-                    #TODO: Hack, Replace when we've redesigned the data representation.
-                    url = ''
-                    if level == 2:
-                        url = 'jobDetails?jobid=' + str(this_name)
-                    elif level == 1:
-                        url = 'userDetails?user=' + this_name
-                    #Add new element
-                    nest["children"].append({"name": this_name, 'url': url, "children":[]})
-
-                    #Get added element 
-                    element = nest["children"][-1]
-
-                    #Still elements of path left so recurse
-                    add_node(path,value, element, level+1)
-
-        # createNestedDict
-        root   = {"name": "root", "children": []}
-        root["sysname"] = rootSysname
-
-        for row in data_df.iterrows():
-            r     = row[1]
-            path  = list(r[levels])
-            value = r[valColname]
-            add_node(path,value,root)
-
-        return root
+        userid  = self.jobData[jobid][u'user_id']
+ 
+        return self.jobGraphData(jobid, userid, nodelist, start, stop)
 
     @cherrypy.expose
     def sunburst(self):
@@ -968,13 +904,13 @@ class SLURMMonitor(object):
         order       =['partition','user','job','state','node','load']
         data_dfstate=data_dfstate[order]
         
-        d_load    = self.createNestedDict("load",  ["partition","user","job","node"],          data_dfload,  "load")
+        d_load    = MyTool.createNestedDict("load",  ["partition","user","job","node"],          data_dfload,  "load")
         json_load = json.dumps(d_load,  sort_keys=False, indent=2)
-        d_vms     = self.createNestedDict("VMS",   ["partition","user","job","node"],          data_dfvms,   "vms")
+        d_vms     = MyTool.createNestedDict("VMS",   ["partition","user","job","node"],          data_dfvms,   "vms")
         json_vms  =json.dumps(d_vms, sort_keys=False,indent=2)
-        d_rss     = self.createNestedDict("RSS",   ["partition","user","job","node"],          data_dfrss,   "rss")
+        d_rss     = MyTool.createNestedDict("RSS",   ["partition","user","job","node"],          data_dfrss,   "rss")
         json_rss  =json.dumps(d_rss, sort_keys=False, indent=2)
-        d_state   = self.createNestedDict("state", ["partition","user","job","state", "node"], data_dfstate, "load")
+        d_state   = MyTool.createNestedDict("state", ["partition","user","job","state", "node"], data_dfstate, "load")
         json_state= json.dumps(d_state, sort_keys=False, indent=2)
 
         #get all the usernames
