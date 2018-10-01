@@ -27,13 +27,13 @@ class TextfileQueryClient:
 
         print("refresh take time " + str(time.time()-t1))
 
-    # return the timestamp {'node':[], ...} for a list of nodes
+    # return the timestamp in ms {'node':[], ...} for a list of nodes
     def getNodeUpTS (self, nodes):
         
         if (self.up_ts== None) or (os.path.getmtime(self.ts_fname) > self.mod_time) :
            self.refresh()
  
-        result = {n:self.up_ts[n] for n in nodes}
+        result = {n:[i*1000 for i in self.up_ts[n]] for n in nodes}
         return result
 
 def main():

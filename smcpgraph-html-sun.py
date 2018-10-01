@@ -373,8 +373,8 @@ class SLURMMonitor(object):
             io_node={'name': uname}
             io_node['data'] = [[ts, d[ts][1]] for ts in d.keys()]
             io_series.append (io_node)
-        ann_series = self.queryTxtClient.getNodeUpTS([node])
-
+        ann_series = self.queryTxtClient.getNodeUpTS([node])[node]
+        print ('nodeGraph ann_series=' + repr(ann_series))
 
         #lseries, mseries = scanSMSplitHighcharts.getSMData(SMDir, node, start, stop)
         htmlTemp = os.path.join(wai, 'smGraphHighcharts.html')
@@ -383,7 +383,8 @@ class SLURMMonitor(object):
                                    'stop': time.strftime('%Y/%m/%d', time.localtime(stop)),
                                    'lseries': cpu_series,
                                    'iseries': io_series,
-                                   'mseries': mem_series}
+                                   'mseries': mem_series,
+                                   'aseries': ann_series}
 
         return h
 
@@ -798,6 +799,7 @@ class SLURMMonitor(object):
             io_node={'name': hostname}
             io_node['data']= [[ts, hostdict[ts][1]] for ts in hostdict.keys()]
             io_all_nodes.append (io_node)
+        ann_series = []
 
         # highcharts 
         htmltemp = os.path.join(wai, 'smGraphHighcharts.html')
@@ -806,7 +808,8 @@ class SLURMMonitor(object):
                                    'stop'      : time.strftime('%Y/%m/%d', time.localtime(stop)),
                                    'lseries'   : cpu_all_nodes,
                                    'mseries'   : mem_all_nodes,
-                                   'iseries'   : io_all_nodes}
+                                   'iseries'   : io_all_nodes,
+                                   'aseries'   : ann_series}
         return h
 
         
