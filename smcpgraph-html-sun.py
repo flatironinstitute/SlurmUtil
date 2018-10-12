@@ -76,17 +76,171 @@ class SLURMMonitor(object):
         self.jobData         = {}
         self.pyslurmNodeData = None
         self.updateTime      = None
-        self.userJobData     = None
         self.queryTxtClient  = TextfileQueryClient(os.path.join(wai, 'host_up_ts.txt'))
 
         self.cvtDict     = {}
 
     @cherrypy.expose
-    def getTest(self):
-        htmltemp = os.path.join(wai, 'test.html')
-        h        = open(htmltemp).read()
- 
-        return h 
+    def test(self, start='', stop=''):
+        if start:
+            start = time.mktime(time.strptime(start, '%Y%m%d'))
+            start = time.strftime('%Y/%m/%d', time.localtime(start))
+        if stop:
+            stop  = time.mktime(time.strptime(stop,  '%Y%m%d'))
+
+        if not start:
+            start = 'undefined'
+
+        return repr(start)
+
+    def getStartBetween(self, df, start, stop):
+        if start:
+            start = time.mktime(time.strptime(start, '%Y-%m-%d'))
+            df    = df[df['time_start'] >= start]
+        if stop:
+            stop  = time.mktime(time.strptime(stop,  '%Y-%m-%d'))
+            df    = df[df['time_start'] <= stop]
+
+        return df
+
+    @cherrypy.expose
+    def accountReport_hourly(self, start='', stop=''):
+
+        # get user's data in [start, stop]
+        df     = pd.read_csv("slurm_cluster_assoc_usage_hour_table.csv", names=['creation_time','mod_time','deleted','id','id_tres','time_start','alloc_secs'], usecols=['id','id_tres','time_start','alloc_secs'])
+        df     = self.getStartBetween (df, start, stop)
+
+        # get account's data
+        userDf = pd.read_csv("slurm_cluster_assoc_table.csv", names=['creation_time','mod_time','deleted','id_def','id_assoc','user','acct', 'partition', 'parent_acct', 'lft', 'rgt', 'shares', 'max_jobs', 'max_submit_jobs', 'max_tres_pj', 'max_tres_pn', 'max_tres_mins_pj', 'max_tres_run_mins', 'max_wall_pj', 'grp_jobs', 'grp_submit_jobs', 'grp_tres', 'grp_tres_mins', 'grp_tres_run_mins', 'grp_wall', 'def_qos_id', 'qos', 'delta_qos'], 
+                             usecols=['id_assoc','acct'], index_col=0)
+        # add acct to df
+        df['acct']= df['id'].map(userDf['acct'])
+        df.drop('id', axis=1, inplace=True)
+
+        # sum over the same id_tres, acct, time_start
+        sumDf       = df.groupby(['id_tres','acct', 'time_start']).sum()
+        sumDf['ts'] = sumDf.index.get_level_values('time_start') * 1000
+        sumDfg      = sumDf.groupby('id_tres')
+        tresSer     = {} # {1: [{'data': [[ms,value],...], 'name': uid},...], 2:...} 
+        for tres in sumDf.index.get_level_values('id_tres').unique():
+            tresSer[tres] = []
+            acctIdx       = sumDfg.get_group(tres).index.get_level_values('acct').unique()
+            for acct in acctIdx:
+                sumDf.loc[(tres,acct,), ]
+                tresSer[tres].append({'name': acct, 'data':sumDf.loc[(tres,acct,), ['ts', 'alloc_secs']].values.tolist()}) 
+                
+        #generate data
+        cpuLst   = tresSer[1]
+        start    = min(cpuLst, key=(lambda item: (item['data'][0][0])))['data'][0][0]  /1000
+        stop     = max(cpuLst, key=(lambda item: (item['data'][-1][0])))['data'][-1][0]/1000
+        htmlTemp = os.path.join(wai, 'userHC.html')
+        h = open(htmlTemp).read()%{
+                                   'start':   time.strftime('%Y/%m/%d', time.localtime(start)),
+                                   'stop':    time.strftime('%Y/%m/%d', time.localtime(stop)),
+                                   'series1': tresSer[1], 'title1': 'Account CPU usage hourly report',  'xlabel1': 'CPU core secs', 'aseries1':[], 
+                                   'series2': tresSer[2], 'title2': 'Account Mem usage hourly report',  'xlabel2': 'MEM MB secs',   'aseries2':[],
+                                   'series3': tresSer[4], 'title3': 'Account Node usage hourly report', 'xlabel3': 'Node secs',     'aseries3':[]}
+
+        return h
+
+    @cherrypy.expose
+    def userReport_hourly(self, start='', stop='', top=5):
+        # get top 5 user for each resource
+        df     = pd.read_csv("slurm_cluster_assoc_usage_day_table.csv", names=['creation_time','mod_time','deleted','id','id_tres','time_start','alloc_secs'], usecols=['id','id_tres', 'alloc_secs', 'time_start'])
+        df     = self.getStartBetween (df, start, stop)
+        sumDf  = df.groupby(['id_tres','id']).sum()
+
+        top    = int(top)
+        cpuIdx = sumDf.loc[(1,)].nlargest(top, 'alloc_secs').index
+        memIdx = sumDf.loc[(2,)].nlargest(top, 'alloc_secs').index
+        nodeIdx= sumDf.loc[(4,)].nlargest(top, 'alloc_secs').index
+        #topIdx = cpuIdx.union(memIdx).union(nodeIdx)
+        
+        userDf = pd.read_csv("slurm_cluster_assoc_table.csv", names=['creation_time','mod_time','deleted','id_def','id_assoc','user','acct', 'partition', 'parent_acct', 'lft', 'rgt', 'shares', 'max_jobs', 'max_submit_jobs', 'max_tres_pj', 'max_tres_pn', 'max_tres_mins_pj', 'max_tres_run_mins', 'max_wall_pj', 'grp_jobs', 'grp_submit_jobs', 'grp_tres', 'grp_tres_mins', 'grp_tres_run_mins', 'grp_wall', 'def_qos_id', 'qos', 'delta_qos'], 
+                             usecols=['id_assoc','user','acct'], index_col=0)
+        df     = pd.read_csv("slurm_cluster_assoc_usage_hour_table.csv", names=['creation_time','mod_time','deleted','id','id_tres','time_start','alloc_secs'], usecols=['id','id_tres','time_start','alloc_secs'])
+        df     = self.getStartBetween (df, start, stop)
+        # get top users data only
+        dfg    = df.groupby(['id_tres','id'])
+        tresSer= {1:[],     2:[],     4:[]} # {1: [{'data': [[ms,value],...], 'name': uid},...], 2:...} 
+        idxSer = {1:cpuIdx, 2:memIdx, 4:nodeIdx}
+        for tres in [1,2,4]:
+            for uid in idxSer[tres]:
+                topDf          = dfg.get_group((tres,uid))
+                topDf['ts_ms'] = topDf['time_start'] * 1000
+                topLst         = topDf[['ts_ms','alloc_secs']].values.tolist()
+                tresSer[tres].append({'data': topLst, 'name': userDf.loc[uid,'user']}) 
+        
+        cpuLst   = tresSer[1]
+        start    = min(cpuLst, key=(lambda item: (item['data'][0][0])))['data'][0][0]  /1000
+        stop     = max(cpuLst, key=(lambda item: (item['data'][-1][0])))['data'][-1][0]/1000
+        htmlTemp = os.path.join(wai, 'userHC.html')
+        h = open(htmlTemp).read()%{
+                                   'start':   time.strftime('%Y/%m/%d', time.localtime(start)),
+                                   'stop':    time.strftime('%Y/%m/%d', time.localtime(stop)),
+                                   'series1': tresSer[1], 'title1': 'User CPU usage hourly report', 'xlabel1': 'CPU core secs', 'aseries1':[], 
+                                   'series2': tresSer[2], 'title2': 'User Mem usage hourly report', 'xlabel2': 'MEM MB secs',   'aseries2':[],
+                                   'series3': tresSer[4], 'title3': 'User Node usage hourly report','xlabel3': 'Node secs', 'aseries3':[]}
+
+        return h
+
+    @cherrypy.expose
+    def clusterReport_hourly(self, start='', stop=''):
+
+        #read from csv, TODO: deleted=0 for all data now
+        df               = pd.read_csv("slurm_cluster_usage_hour_table.csv", names=['creation_time','mod_time','deleted','id_tres','time_start','count','alloc_secs','down_secs','pdown_secs','idle_secs','resv_secs','over_secs'], usecols=['id_tres','time_start','count','alloc_secs','down_secs','pdown_secs','idle_secs','resv_secs','over_secs'])
+        df               = self.getStartBetween(df, start, stop)
+        df['tdown_secs'] = df['down_secs']+df['pdown_secs']
+        df['total_secs'] = df['alloc_secs']+df['down_secs']+df['pdown_secs']+df['idle_secs']+df['resv_secs']
+        df['ts_ms']      = df['time_start'] * 1000
+
+        #convert to highchart format, cpu, mem, energy (all 0, ignore)
+        #get indexed of all cpu data, retrieve useful data
+        dfg    = df.groupby  ('id_tres')
+        cpuDf  = dfg.get_group(1)
+        memDf  = dfg.get_group(2)
+        eneDf  = dfg.get_group(3)
+
+        start  = cpuDf.loc[cpuDf.index.min(), 'time_start']
+        stop   = cpuDf.loc[cpuDf.index.max(), 'time_start']
+
+        cpu_alloc  = cpuDf.loc[:,['ts_ms', 'alloc_secs']].values.tolist()
+        cpu_down   = cpuDf.loc[:,['ts_ms', 'tdown_secs']].values.tolist()
+        cpu_idle   = cpuDf.loc[:,['ts_ms', 'idle_secs']].values.tolist()
+        cpu_resv   = cpuDf.loc[:,['ts_ms', 'resv_secs']].values.tolist()
+        cpu_over   = cpuDf.loc[:,['ts_ms', 'over_secs']].values.tolist()
+        cpu_series = [
+                      {'data': cpu_over,  'name': 'Over secs'},
+                      {'data': cpu_down,  'name': 'Down secs'},
+                      {'data': cpu_idle,  'name': 'Idle secs'},
+                      {'data': cpu_resv,  'name': 'Reserve secs'},
+                      {'data': cpu_alloc, 'name': 'Alloc secs'}
+                     ]  ##[{'data': [[1531147508000(ms), value]...], 'name':'userXXX'}, ...] 
+
+        mem_alloc  = memDf.loc[:,['ts_ms', 'alloc_secs']].values.tolist()
+        mem_down   = memDf.loc[:,['ts_ms', 'tdown_secs']].values.tolist()
+        mem_idle   = memDf.loc[:,['ts_ms', 'idle_secs']].values.tolist()
+        mem_resv   = memDf.loc[:,['ts_ms', 'resv_secs']].values.tolist()
+        mem_over   = memDf.loc[:,['ts_ms', 'over_secs']].values.tolist()
+        mem_series = [
+                      {'data': mem_over,  'name': 'Over secs'},
+                      {'data': mem_down,  'name': 'Down secs'},
+                      {'data': mem_idle,  'name': 'Idle secs'},
+                      {'data': mem_resv,  'name': 'Reserve secs'},
+                      {'data': mem_alloc, 'name': 'Alloc secs'} 
+                     ]  ##[{'data': [[1531147508, value]...], 'name':'userXXX'}, ...] 
+
+        cpu_ann    = cpuDf.groupby('count').first().loc[:,['ts_ms', 'total_secs']].reset_index().values.tolist()
+        mem_ann    = memDf.groupby('count').first().loc[:,['ts_ms', 'total_secs']].reset_index().values.tolist()
+
+        htmlTemp = os.path.join(wai, 'clusterHC.html')
+        h = open(htmlTemp).read()%{
+                                   'start':   time.strftime('%Y/%m/%d', time.localtime(start)),
+                                   'stop':    time.strftime('%Y/%m/%d', time.localtime(stop)),
+                                   'series1': cpu_series, 'title1': 'Cluster CPU usage hourly report', 'xlabel1': 'CPU core secs', 'aseries1':cpu_ann, 
+                                   'series2': mem_series, 'title2': 'Cluster Mem usage hourly report', 'xlabel2': 'MEM MB secs',   'aseries2':mem_ann}
+
+        return h
 
     @cherrypy.expose
     def getNodeData(self):
@@ -100,9 +254,13 @@ class SLURMMonitor(object):
     def getRawNodeData(self):
         return repr(self.pyslurmNodeData)
 
-    @cherrypy.expose
-    def getUserJobData(self):
-        return repr(self.userJobData)
+    def getUserJobStartTimes(self, uid):
+        uid   = int(uid)
+        stime = []
+        for jid, jinfo in self.jobData.items():
+            if ( jinfo.get('user_id',-1) == uid ): stime.append(jinfo.get('start_time', 0)) 
+
+        return stime
 
     @cherrypy.expose
     def getNode2JobsData(self):
@@ -215,9 +373,16 @@ class SLURMMonitor(object):
         #return repr(data)
 
     @cherrypy.expose
+    def report(self, page=None):
+        htmltemp = os.path.join(wai, 'report.html')
+        h = open(htmltemp).read()
+ 
+        return h
+
+    @cherrypy.expose
     def getHeader(self, page=None):
-        pages =["index", "sunburst", "utilHeatmap", "usageGraph", "tymor", "tymor2"]
-        titles=["Tabular Summary", "Sunburst Graph", "Host Util.", "Usage Graph", "Tymor", "Tymor2"]
+        pages =["index",           "sunburst",       "utilHeatmap", "usageGraph",  "tymor", "tymor2", "report"]
+        titles=["Tabular Summary", "Sunburst Graph", "Host Util.",  "Usage Graph", "Tymor", "Tymor2", "Report"]
  
         result=""
         for i in range (len(pages)):
@@ -374,9 +539,7 @@ class SLURMMonitor(object):
             io_node['data'] = [[ts, d[ts][1]] for ts in d.keys()]
             io_series.append (io_node)
         ann_series = self.queryTxtClient.getNodeUpTS([node])[node]
-        print ('nodeGraph ann_series=' + repr(ann_series))
 
-        #lseries, mseries = scanSMSplitHighcharts.getSMData(SMDir, node, start, stop)
         htmlTemp = os.path.join(wai, 'smGraphHighcharts.html')
         h = open(htmlTemp).read()%{'spec_title': ' on node  ' + str(node),
                                    'start': time.strftime('%Y/%m/%d', time.localtime(start)),
@@ -419,13 +582,14 @@ class SLURMMonitor(object):
         if type(self.data) == str: return self.data # error of some sort.
 
         t = htmlPreamble
-        t += '<h3>User: %s, <a href="#sacctreport">(jump to sacct)</a></h3>\n'%(user)
+        t += '<h3>User: %s (<a href="./userGraph?uname=%s">Graph</a>), <a href="#sacctreport">(jump to sacct)</a></h3>\n'%(user, user)
         for node, d in sorted(self.data.items()):
             if len(d) < HOST_ALLOCINFO_IDX: continue
             for nuser, uid, cores, procs, tc, trm, tvm, cmds in sorted(d[HOST_ALLOCINFO_IDX:]):
                 if nuser != user: continue
                 ac = loadSwitch(cores, tc, ' class="inform"', '', ' class="alarm"')
-                t += '<hr><em%s>%s</em> %d<pre>'%(ac, node, cores) + '\n'.join([' '.join(['%6d'%cmd[0], '%6.2f'%cmd[1], '%10.2e'%cmd[5], '%10.2e'%cmd[6]] + cmd[7]) for cmd in cmds]) + '\n</pre>\n'
+                t += '<hr><em{0}><a href="./nodeDetails?node={1}">{1}</em></a> {2}<pre>'.format(ac, node, cores)
+                t += '\n'.join([' '.join(['%6d'%cmd[0], '%6.2f'%cmd[1], '%10.2e'%cmd[5], '%10.2e'%cmd[6]] + cmd[7]) for cmd in cmds]) + '\n</pre>\n'
         t += '<h4 id="sacctreport">sacct report (last %d days for user %s):</h4>\n'%(SACCT_WINDOW_DAYS, user)
         t += self.sacctReport(self.sacctDataInWindow(['-u', user]))
         t += '<a href="%s/index">&#8617</a>\n</body>\n</html>\n'%cherrypy.request.base
@@ -828,6 +992,56 @@ class SLURMMonitor(object):
         userid  = self.jobData[jobid][u'user_id']
  
         return self.jobGraphData(jobid, userid, nodelist, start, stop)
+
+    def userGraphData (self, uid, uname, start, stop):
+        #{hostname: {ts: [cpu, io, mem] ... }}
+        influxClient = InfluxQueryClient('scclin011','slurmdb')
+        node2seq     = influxClient.getSlurmUidMonData_All(uid, start,stop)
+      
+        mem_all_nodes = []  ##[{'data': [[1531147508000(ms), value]...], 'name':'workerXXX'}, ...] 
+        cpu_all_nodes = []  ##[{'data': [[1531147508000, value]...], 'name':'workerXXX'}, ...] 
+        io_all_nodes  = []  ##[{'data': [[1531147508000, value]...], 'name':'workerXXX'}, ...] 
+        for hostname, hostdict in node2seq.items():
+            mem_node={'name': hostname}
+            mem_node['data']= [[ts, hostdict[ts][2]] for ts in hostdict.keys()]
+            mem_all_nodes.append (mem_node)
+
+            cpu_node={'name': hostname}
+            cpu_node['data']= [[ts, hostdict[ts][0]] for ts in hostdict.keys()]
+            cpu_all_nodes.append (cpu_node)
+
+            io_node={'name': hostname}
+            io_node['data']= [[ts, hostdict[ts][1]] for ts in hostdict.keys()]
+            io_all_nodes.append (io_node)
+        ann_series = []
+
+        # highcharts 
+        htmltemp = os.path.join(wai, 'smGraphHighcharts.html')
+        h = open(htmltemp).read()%{'spec_title': ' of user ' + uname,
+                                   'start'     : time.strftime('%Y/%m/%d', time.localtime(start)),
+                                   'stop'      : time.strftime('%Y/%m/%d', time.localtime(stop)),
+                                   'lseries'   : cpu_all_nodes,
+                                   'mseries'   : mem_all_nodes,
+                                   'iseries'   : io_all_nodes,
+                                   'aseries'   : ann_series}
+        return h
+
+    @cherrypy.expose
+    def userGraph(self,uname,start='', stop=''):
+        if type(self.data) == str: return self.data # error of some sort.
+
+        uid          = MyTool.getUid(uname)
+        #get the start time from jobData, the earliest time of all jobs belong to the user
+        if start:
+            start = time.mktime(time.strptime(start, '%Y%m%d'))
+        else:
+           start    = min(self.getUserJobStartTimes(uid))
+        if stop:
+            stop  = time.mktime(time.strptime(stop,  '%Y%m%d'))
+        else:
+           stop     = time.time()
+ 
+        return self.userGraphData(uid, uname, start, stop)
 
     @cherrypy.expose
     def sunburst(self):
