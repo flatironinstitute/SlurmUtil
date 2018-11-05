@@ -42,22 +42,48 @@ $(function(){
 <body>
 <div class="tab" id="tabmenu"></div>
 
-<div id="report">
-<h4><b>Report</b></h4>
-<p class="idented">
-  <form action="./clusterReport_hourly"> 
-        Cluster Hourly Usage from <input name="start" id="start" value="2017-09-18" type="date"> to <input name="stop" id="stop" value="" type="date">
+
+<div id="hourly" style="border:1px solid gray; margin: 10px; padding: 10px;">
+<legend style="color:#3A509C"> Hourly Report </legend>
+<form action="./clusterReport_hourly"> 
+        Slurm Cluster Allocation Usage from <input name="start" id="start" value="2017-09-18" type="date"> to <input name="stop" id="stop" value="" type="date">
         <button> Report </button></form>
-<p class="idented">
   <form action="./accountReport_hourly"> 
-        Account Hourly Usage from <input name="start" id="start" value="2017-09-25" type="date"> to <input name="stop" id="stop" value="" type="date">
+        Slurm Account Allocation Usage from <input name="start" id="start" value="2017-09-25" type="date"> to <input name="stop" id="stop" value="" type="date">
         <button> Report </button></form>
-<p class="idented">
   <form action="./userReport_hourly"> 
         Top <input name="top" id="top" size=2 value=5> 
-        Users Hourly Usage from   <input name="start" id="start" value="2017-10-05" type="date"> to <input name="stop" id="stop" value="" type="date">
+        Slurm Users Allocation Usage from   <input name="start" id="start" value="2017-10-05" type="date"> to <input name="stop" id="stop" value="" type="date">
         <button> Report </button></form>
 </div>
 
+<div id="daily" style="border:1px solid gray; margin: 10px; padding: 10px;">
+<legend style="color:#3A509C"> Daily Report </legend>
+<form action="./fileReport_daily"> 
+        Top <input name="top" id="top" size=2 value=5> Users 
+        File Count and Bytes Usage on 
+        <select name="fs">
+          <option value="home">      Home</option>
+          <option value="ceph_users">Ceph Users</option>
+          <option value="ceph_full"> Ceph Full</option>
+          <option value="xfs1">      Xfs1</option>
+        </select>
+        from <input name="start" id="start" value="2016-10-25" type="date"> to <input name="stop" id="stop" value="" type="date">
+        <button> Report </button></form>
+</div>
+
+<div id="CDF" style="border:1px solid gray; margin: 10px; padding: 10px;">
+<legend style="color:#3A509C"> CDF Report </legend>
+    <form action="./cdfReport"> 
+        CDF (up to <input name="upper" id="upper" size=3 value=90>th percentile)
+        of request/allocated CPUs/Nodes of ALLOCATED jobs 
+        from <input name="start" id="start" value="2017-10-05" type="date"> to <input name="stop" id="stop" value="" type="date">
+        <button> Report </button></form>
+    <form action="./cdfTimeReport"> 
+        CDF (up to <input name="upper" id="upper" size=3 value=90>th percentile)
+        of the execution time of RUNNING jobs 
+        from <input name="start" id="start" value="2017-10-05" type="date"> to <input name="stop" id="stop" value="" type="date">
+        <button> Report </button></form>
+</div>
 </body>
 </html>
