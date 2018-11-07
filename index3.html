@@ -8,6 +8,10 @@
 <script>
 const INC_ORDER      = 0
 const DEC_ORDER      = 1
+const NODE_IDX       = 0
+const JOB_IDX        = 2
+const USER_IDX       = 4
+
 var currSortIdx      = 0
 var currSortOrder    = INC_ORDER
 var orderBy          =0 // 0: node inc, 1: node dec, ... (2*idx + inc?0:1)
@@ -38,6 +42,7 @@ function orderData(idx, order, secIdx=0) {
 
 function getSum(total, curr) {return total+curr}
 
+// sortIdx is the column that current sorting is based on
 function getSingleSummaryData(table_data, startRow, endRow, sortIdx) {
    var currRow     = startRow
    var colVals     = []
@@ -54,9 +59,17 @@ function getSingleSummaryData(table_data, startRow, endRow, sortIdx) {
       currRow ++;
    } 
 
-   // loop over the column
    var totalCnt    = endRow - startRow +1
-   summary[sortIdx]= table_data[startRow][sortIdx]
+   summary[sortIdx]= table_data[startRow][sortIdx] 
+   if ( sortIdx == NODE_IDX ) {
+      summary[sortIdx] = "<a href=./nodeDetails?node=" + summary[sortIdx] + ">" + summary[sortIdx] + "</a>" 
+   } else if ( sortIdx == JOB_IDX) {
+      summary[sortIdx] = "<a href=./jobDetails?jobid=" + summary[sortIdx] + ">" + summary[sortIdx] + "</a>" 
+   } else if ( sortIdx == USER_IDX) {
+      summary[sortIdx] = "<a href=./userDetails?user=" + summary[sortIdx] + ">" + summary[sortIdx] + "</a>" 
+   }
+
+   // loop over the column
    for (var i=0; i< colVals.length; i++) {
       if ( i != sortIdx ) {
          //console.log("result " + i + "=" + result[i] + ",stat=" + stat[i]);
@@ -188,12 +201,15 @@ function getTableBodyHtml() {
 }
 
 //if selector contains $ @ error, + - * no response
-function escapeSpecialSymbol(str) {
+//also if it is <a...>...</a>, only return the text 
+function extractSelector(str) {
    if ( typeof str != 'string' ) {
       console.log (str)
       return str.toString()
    } else {
       // contains $ @ * +, replace it with \\$ ....
+      str = str.replace(/<a.*>(.*)<\/a>/g, "$1")
+      // if it is part of <a>...</a>
       return str.replace(/([\$\@\*\+])/g, "\\$1")
    }
 }
@@ -239,7 +255,7 @@ function setTableBody () {
    // plus click 
    $(".glyphicon-plus-sign").click(function() {
       var idx=$(".glyphicon-plus-sign").index(this)
-      var cls=escapeSpecialSymbol(summary_data[idx][2][orderIdx])
+      var cls=extractSelector(summary_data[idx][2][orderIdx])
       
       // display detail record
       $(`.detail.${cls}`).show()
@@ -252,7 +268,7 @@ function setTableBody () {
    // minus click
    $(".glyphicon-minus-sign").click(function() {
       var idx=$(".glyphicon-minus-sign").index(this)
-      var cls=escapeSpecialSymbol(summary_data[idx][2][orderIdx])
+      var cls=extractSelector(summary_data[idx][2][orderIdx])
 
       $(`.detail.${cls}`).hide()
       $(`.glyphicon-minus-sign:eq(${idx})`).hide()
