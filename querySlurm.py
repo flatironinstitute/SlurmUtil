@@ -6,6 +6,7 @@ from datetime import datetime, timezone, timedelta
 import subprocess
 import pyslurm
 import MyTool
+import pandas as pd
 
 class SlurmStatus:
     STATUS_LIST=['undefined', 'running', 'sleeping', 'disk-sleep', 'zombie', 'stopped', 'tracing-stop']
@@ -22,6 +23,34 @@ class SlurmStatus:
     @classmethod
     def getStatus (cls, idInt):
         return cls.STATUS_LIST[idInt]
+
+class SlurmDBQuery:
+    def __init__(self):
+        pass
+  
+    def updatDB (self):
+        subprocess.call('../mysqldump.sh')
+
+    def getAccountUsage_hourly (self, start, stop):
+        # check if the data too old
+        # if yes, generate data
+        # generate 
+
+        #cluster usage
+        df         = pd.read_csv("slurm_cluster_assoc_usage_hour_table.csv", names=['creation_time','mod_time','deleted','id','id_tres','time_start','alloc_secs'], usecols=['id','id_tres','time_start','alloc_secs'])
+        st, stp, df= MyTool.getDFBetween (df, 'time_start', start, stop)
+
+        # get account's data
+        userDf     = pd.read_csv("slurm_cluster_assoc_table.csv", usecols=['id_assoc','acct'], index_col=0)
+        # add acct to df
+        df['acct'] = df['id'].map(userDf['acct'])
+        df.drop('id', axis=1, inplace=True)
+
+        # sum over the same id_tres, acct, time_start
+        sumDf       = df.groupby(['id_tres','acct', 'time_start']).sum()
+        sumDf['ts'] = sumDf.index.get_level_values('time_start') * 1000
+
+        return st, stp, sumDf
 
 class SlurmCmdQuery:
     LOCAL_TZ = timezone(timedelta(hours=-4))
@@ -67,6 +96,10 @@ class SlurmCmdQuery:
     def getSlurmUidMonData(self, uid, nodelist, start_time, stop_time):
         pass
 
+def test1():
+    client = SlurmCmdQuery()
+    info = client.getSlurmJobInfo('110972')
+
 def main():
     #job= pyslurm.job().find_id ('88318')
     #job= pyslurm.slurmdb_jobs().get ()
@@ -75,9 +108,9 @@ def main():
     #print(SlurmStatus.getStatusID('running'))
     #print(SlurmStatus.getStatusID('running1'))
     #print(SlurmStatus.getStatus(1))
-    client = SlurmCmdQuery()
+    client = SlurmDBQuery()
     #info = client.getSlurmJobInfo('105179')
-    info = client.getSlurmJobInfo('110972')
+    info = client.test()
     print(repr(info))
     print("main take time " + str(time.time()-t1))
 
