@@ -57,20 +57,27 @@
           height   = 900  - margin.top - margin.bottom,
           cntLine  = 32,
           buckets  = 10,
-          colors   = ["blue", "#3192bd", "#c7e9c0", "#74c476","green","bcbd22", "ffff50", "#ffbb78","orange", "red"], 
+          colors   = ["#0d0dff", "#0d97ff", "#0dffff", "#0dff87","0dff0d","87ff0d", "ffff0d", "#ff870d","#ff5b5b", "red"], 
           acctColor   = false,
           accts       = ['cca', 'ccb', 'ccq', 'etc'],
-          redColor    = ["#ffeaea","#ffd0d0","#ffb6b6","#ff9c9c","#ff7575","#ff4e4e","#ff2727","#f30000","#c30000","#870000"], 
-          purpleColor = ["#f5eaff","#e8d0ff","#dbb6ff","#cf9cff","#bb75ff","#a84eff","#9527ff","#7a00f3","#6200c3","#440087"], 
-          greenColor  = ["#eaffea","#d0ffd0","#b6ffb6","#9cff9c","#75ff75","#4eff4e","#27ff27","#00f300","#00c300","#008700"],
+          redColor    = ["#ffeaea","#ffd0d0","#ffb6b6","#ff9c9c","#ff8282","#ff6868","#ff4e4e","#ff2727","#f30000","#cf0000"], 
+          purpleColor = ["#f5eaff","#e8d0ff","#dbb6ff","#cf9cff","#c282ff","#b568ff","#a84eff","#9527ff","#7a00f3","#6200cf"], 
+          greenColor  = ["#eaffea","#d0ffd0","#b6ffb6","#9cff9c","#82ff82","#68ff68","#4eff4e","#27ff27","#00f300","#00cf00"],
           orangeColor = ["#fff5ea","#ffe8d0","#ffdbb6","#ffcf9c","#ffbb75","#ffa84e","#ff9527","#f37a00","#cf6800","#ab5600"],
-          blueColor   = ["#eaeaff","#d0d0ff","#b6b6ff","#9c9cff","#7575ff","#4e4eff","#2727ff","#0000f3","#0000c3","#000087"],
+          blueColor   = ["#eaf5ff","#d0e8ff","#b6dbff","#9ccfff","#82c2ff","#68b5ff","#4ea8ff","#2795ff","#007af3","#0068cf"],
           acctColors  = {'cca': redColor, 'ccb': greenColor, 'ccm': orangeColor, 'ccq': purpleColor, 'etc': blueColor},
           gridSize = Math.floor(width / cntLine),
           dataset1 = %(data1)s
           dataset2 = %(data2)s
 
       console.log(dataset2)
+      var labels   = [];             // labels
+      var grpCnt   = [0,0,0,0,0,0];  // count for each group worker0..., ...
+      var iData  = prepareData (dataset1, grpCnt, labels)
+      console.log(iData);
+      console.log(labels);
+      console.log(grpCnt);
+
       var svgL = d3.select("#legend").select("svg")
           .attr("width",  width + margin.left + margin.right)
           .attr("height", 100)
@@ -83,43 +90,6 @@
           .append("g")
              .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-      var iData  = [];             // data that will be used later
-      var groups = [0,0,0,0,0,0];  // count for each group worker0..., ...
-      var labels = [];             // labels
-      //dataset1 is already sorted by group 
-      for (var i=0; i<dataset1.length; i++) {
-          var obj = new Object();
-          var gID = -1;
-          obj.name=dataset1[i][0];
-          obj.stat=dataset1[i][1];
-          obj.core=dataset1[i][2];
-          obj.jobs=dataset1[i][4];
-          obj.acct=dataset1[i][5];
-          if ( obj.stat == 1)
-             obj.util=dataset1[i][3]/obj.core;
-          else
-             obj.util=-0.1
-          
-          switch (dataset1[i][0].slice(6,7)) {
-                 case "0": obj.gID = 0; break; // worker0...
-                 case "1": obj.gID = 1; break; // worker1...
-                 case "2": obj.gID = 2; break; // worker2...
-                 case "3": obj.gID = 3; break; // worker2...
-                 case "g": obj.gID = 4; break; // workergpu..
-                 case "m": obj.gID = 5; break; // workermem..
-                 case "p": obj.gID = 6; break; // workerphi..
-          }
-          gID = obj["gID"];
-          obj.gIdx           = groups[gID];
-          if ( Math.floor(groups[gID] / cntLine)*cntLine == groups[gID] )
-             labels.push(obj.name);
-   
-          groups[gID] ++;
-          iData.push (obj);
-      }
-      console.log(iData);
-      //console.log(groups);
-      //console.log(labels);
 
       var nodeLabels = svg.selectAll (".nodeLabel")
           .data (labels)
@@ -137,7 +107,6 @@
           
           var colorScales = {}
           for (var acct of accts) {
-              //console.log ("set color " + acct + " to " + acctColors[acct])
               colorScales[acct] = d3.scale.quantize()
                  .domain([0, buckets - 1, 1])
                  .range(acctColors[acct]);
@@ -150,7 +119,7 @@
               .attr("y", function(d, i) { 
                             var y=0,i; 
                             for (i=0; i<d["gID"]; i++) 
-                                y += Math.ceil(groups[i]/cntLine); 
+                                y += Math.ceil(grpCnt[i]/cntLine); 
                             return (y + Math.floor(d["gIdx"]/cntLine) )* gridSize; })
               .attr("rx", 4)
               .attr("ry", 4)
@@ -170,22 +139,26 @@
                                                $(`.${e}`).addClass("popout")})})
               .style("fill",  "gray");
           cards.transition().duration(1000)
-              .style("fill", function(d) { if (d["stat"]==0) return "gray"; 
-                                           else if (d["stat"]==-1) return "black";
-                                           else if (d["acct"].length == 1 && d["acct"][0] in colorScales) {
-                                               var acct = d["acct"][0];
-                                               return colorScales[acct](d["util"])
+              .style("fill", function(d) { var currColorS = colorScale
+                                           if (acctColor ) {
+                                              if ( d["acct"].length == 1 && d["acct"][0] in colorScales)
+                                                 currColorS  = colorScales[d["acct"][0]]
+                                              else
+                                                 currColorS  = colorScales["etc"]
                                            }
-                                           else return colorScales['etc'](d["util"]); });
+                                           if (d["stat"]==0) return "gray"; 
+                                           else if (d["stat"]==-1) return "black";
+                                           else return currColorS(d["util"]); });
           cards.append("title");
           cards.select("title").text(function(d) {if (d["stat"]==0) return d["name"] + " core:" + d["core"]; 
                                                   else return d["name"]+" core:" + d["core"] + " util:" + (d["util"]).toFixed(4) + " jobs:" + JSON.stringify(d["jobs"]) + " accts:" + JSON.stringify(d["acct"]); });
           cards.exit().remove();
 
           var y=0
-          for (var acct of accts) {
-             var legend = svgL.selectAll(".legend")
+          var legend = svgL.selectAll(".legend")
                  .data([-0.2,-0.1,0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]);
+          if (acctColor) {
+            for (var acct of accts) {
              
              legend.enter().append("g")
                  .attr("class", "legend");
@@ -205,7 +178,23 @@
                .text(acct)
                .attr("x", -gridSize)
                .attr("y", y);
+             }
+           } else {
+             legend.enter().append("g")
+                 .attr("class", "legend");
+             legend.append("rect")
+               .attr("x", function(d, i) { return gridSize * 2 * i; })
+               .attr("y", y)
+               .attr("width",  gridSize * 2)
+               .attr("height", gridSize / 2)
+               .style("fill",  function(d, i) { if (i==0) return "black"; 
+                                                else if (i==1) return "gray";
+                                                else return colors[i-2]; });
+          
+             
+             y = y + gridSize/2
            }
+
            legend.append("text")
                .attr("class", "mono")
                .text(function(d, i) { if (i==0) return "Down"; 
@@ -213,9 +202,8 @@
                                       else if (i==2) return "Alloc"; 
                                       else return "≥ " + d; })
                .attr("x", function(d, i) { return gridSize * 2 * i; })
-               .attr("y", gridSize*2.5);
+               .attr("y", y+gridSize/2);
            legend.exit().remove();
-
       };
 
       var selectChart =function (data){
@@ -239,11 +227,46 @@
       
       d3.select("#colorCheckbox")
         .on('change', function () {
-           console.log(d3.event)
+           //console.log(d3.event)
            acctColor = d3.event.target.checked
            console.log("onchange of colorCheckbox set acctColor=" + acctColor)
-           svg.redraw()
+
+           d3.selectAll(".node").remove()
+           d3.selectAll(".legend").remove()
+           heatmapChart(iData)
          })
+
+      function prepareData (nodeData, grpCnt, labels) {
+        var objData  = [];             // data that will be used later
+
+        //nodeData is already sorted by group 
+        for (var i=0; i<nodeData.length; i++) {
+          var obj = {name: nodeData[i][0], stat: nodeData[i][1], core: nodeData[i][2], 
+                     jobs: nodeData[i][4], acct: nodeData[i][5]};
+          if ( obj.stat == 1)
+             obj.util=nodeData[i][3]/obj.core;
+          else
+             obj.util=0
+          
+          switch (nodeData[i][0].slice(6,7)) {
+                 case "0": obj.gID = 0; break; // worker0...
+                 case "1": obj.gID = 1; break; // worker1...
+                 case "2": obj.gID = 2; break; // worker2...
+                 case "3": obj.gID = 3; break; // worker2...
+                 case "g": obj.gID = 4; break; // workergpu..
+                 case "m": obj.gID = 5; break; // workermem..
+                 case "p": obj.gID = 6; break; // workerphi..
+          }
+          obj.gIdx        = grpCnt[obj.gID];
+          if ( Math.floor(grpCnt[obj.gID] / cntLine)*cntLine == grpCnt[obj.gID] )
+             labels.push(obj.name);
+          grpCnt[obj.gID] ++;
+   
+          objData.push (obj);
+        }
+
+        return objData
+      }
     </script>
   </body>
 </html>
