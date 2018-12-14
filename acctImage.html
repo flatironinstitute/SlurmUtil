@@ -1,0 +1,43 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <link rel="stylesheet" href="/static/css/style.css">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+
+	<script type="text/javascript" src="static/scripts/jquery-3.3.1.min.js"></script>
+        <script>
+$(document).ready(function(){
+   $("#acct").change(function() {
+      val = $(this).val();
+      $("#fc_img").attr     ({SRC: "static/images/" + val + "Forecast.png"});
+      $("#fc_comp_img").attr({SRC: "static/images/" + val + "ForecastComp.png"});
+      $("#fc_cv_img").attr  ({SRC: "static/images/" + val + "ForecastCV.png"});
+   });
+
+});
+         </script>
+    </head>
+    <body>
+	<div id="container_sel" style="min-width: 620px; max-width: 1200px; margin: 0 auto">	
+                <label for="acct"> Forecast of the CPU seconds of account using decompsable (trend+seasonality+holidays) model: </label>
+                <select id="acct" name="acct">
+                   <option value="cca" selected> CCA </option>
+                   <option value="ccb" >         CCB </option>
+                   <option value="ccq" >         CCQ </option>
+                </select>
+        </div>
+
+	<div id="container"      style="min-width: 620px; max-width: 1200px; margin: 0 auto">	
+        <IMG id="fc_img" SRC="static/images/ccaForecast.png"></img>
+        </div>
+        <center> Forecast Components </center>
+	<div id="container_comp" style="min-width: 620px; max-width: 1200px; margin: 0 auto">	
+        <IMG id="fc_comp_img" SRC="static/images/ccaForecastComp.png"></img>
+        </div>
+	<div id="container_cv"   style="min-width: 620px; max-width: 1200px; margin: 0 auto">	
+        <IMG id="fc_cv_img"   SRC="static/images/ccaForecastCV.png"></img>
+        </div>
+    </body>
+</html>
