@@ -52,33 +52,62 @@ slurm 17.02.2
 Python 3.6
 ```
 
+Create python virutal environment:
+```
+cd <dir>
+virtualenv monitor_env
+source ./monitor_env/bin/activate
+pip install Cython
+python setup.py install
+
+pip install pandas
+pip install cherrypy
+pip install fbprophet
+pip install influxdb
+pip install paho-mqtt
+```
+
 Python virtual environment with packages:
 ```
-certifi (2018.4.16)
-chardet (3.0.4)
-cheroot (6.0.0)
-CherryPy (14.0.0)
-Cython (0.28.4)
-dnspython (1.15.0)
-idna (2.7)
-influxdb (5.1.0)
-more-itertools (4.1.0)
-numpy (1.14.2)
-paho-mqtt (1.3.1)
-pandas (0.22.0)
-pip (9.0.1)
-portend (2.2)
-pyslurm (17.2.0)
-python-dateutil (2.7.0)
-python-etcd (0.4.5)
-pytz (2018.3)
-requests (2.19.0)
-setuptools (38.5.2)
-six (1.11.0)
-tempora (1.11)
-urllib3 (1.22)
-wheel (0.30.0)
+Package                       Version   
+----------------------------- ----------
+backports.functools-lru-cache 1.5       
+certifi                       2018.11.29
+chardet                       3.0.4     
+cheroot                       6.5.2     
+CherryPy                      18.1.0    
+cycler                        0.10.0    
+Cython                        0.29.2    
+fbprophet                     0.3.post2 
+idna                          2.8       
+influxdb                      5.2.1     
+jaraco.functools              1.20      
+kiwisolver                    1.0.1     
+matplotlib                    3.0.2     
+more-itertools                4.3.0     
+numpy                         1.15.4    
+paho-mqtt                     1.4.0     
+pandas                        0.23.4    
+pip                           18.1      
+portend                       2.3       
+pyparsing                     2.3.0     
+pyslurm                       17.11.0.14
+pystan                        2.18.0.0  
+python-dateutil               2.7.5     
+pytz                          2018.7    
+requests                      2.21.0    
+setuptools                    40.6.3    
+six                           1.12.0    
+tempora                       1.14      
+urllib3                       1.24.1    
+wheel                         0.32.3    
+zc.lockfile                   1.4       
 ```
+
+modify pyslurm installation:
+In pyslurm/pyslurm.pyx, changed line 1901 to:
+        self._ShowFlags = slurm.SHOW_DETAIL | slurm.SHOW_DETAIL2 | slurm.SHOW_ALL
+rebuild pyslurm
 
 ```
 MQTT server running on mon5.flatironinstitute.org

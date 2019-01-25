@@ -12,14 +12,13 @@ from querySlurm import SlurmCmdQuery, SlurmDBQuery
 from queryTextFile import TextfileQueryClient
 
 import MyTool
+import SlurmEntities
 
 wai = os.path.dirname(os.path.realpath(sys.argv[0]))
 
 WebPort = int(sys.argv[1])
 
 # Directory where processed monitoring data lives.
-SMDir = sys.argv[2]
-
 htmlPreamble = '''\
 <!DOCTYPE html>
 <html>
@@ -32,8 +31,9 @@ htmlPreamble = '''\
 SACCT_WINDOW_DAYS  = 3 # number of days of records to return from sacct.
 HOST_ALLOCINFO_IDX = 3
 THREE_DAYS_SEC     = 3*24*3600
-WAIT_MSG           = 'No data received yet. Wait a minute and come back.'
+WAIT_MSG           = 'No data received yet. Wait a minute and come back. '
 EMPTYDATA_MSG      = 'There is no data retrieved according to the constraints.'
+EMPTYPROCDATA_MSG  = 'There is no process data present in the retrieved data.'
 
 @cherrypy.expose
 class SLURMMonitor(object):
@@ -47,6 +47,7 @@ class SLURMMonitor(object):
         self.querySDBClient  = SlurmDBQuery()
 
         self.cvtDict     = {}
+        self.startTime   = time.time()
 
     def getDFBetween(self, df, field, start, stop):
         if start:
@@ -73,6 +74,18 @@ class SLURMMonitor(object):
 
         return x, cdf
 
+    @cherrypy.expose
+    def pending(self, start='', stop='', state=3):
+        ins        = SlurmEntities.SlurmEntities()
+        pendingLst = ins.getPendingJobs()
+        partLst    = ins.getPartitions ()
+        
+        htmlTemp   = os.path.join(wai, 'table.html')
+	#htmlStr    = open(htmlTemp).read()%{'partitions_input' : partLst}
+        timestr    = ins.update_time.ctime()
+        htmlStr    = open(htmlTemp).read().format(update_time=timestr, pending_jobs_input=pendingLst, partitions_input=partLst)
+        return htmlStr
+       
     @cherrypy.expose
     def topJobReport(self, start='', stop='', state=3):
 #job_db_inx,mod_time,deleted,account,admin_comment,array_task_str,array_max_tasks,array_task_pending,cpus_req,derived_ec,derived_es,exit_code,job_name,id_assoc,id_array_job,id_array_task,id_block,id_job,id_qos,id_resv,id_wckey,id_user,id_group,kill_requid,mem_req,nodelist,nodes_alloc,node_inx,partition,priority,state,timelimit,time_submit,time_eligible,time_start,time_end,time_suspended,gres_req,gres_alloc,gres_used,wckey,track_steps,tres_alloc,tres_req
@@ -523,8 +536,8 @@ class SLURMMonitor(object):
 
     @cherrypy.expose
     def getHeader(self, page=None):
-        pages =["index",           "sunburst",       "utilHeatmap", "usageGraph",  "tymor", "tymor2", "report", "forecast"]
-        titles=["Tabular Summary", "Sunburst Graph", "Host Util.",  "Usage Graph", "Tymor", "Tymor2", "Report", "Forecast"]
+        pages =["index",           "utilHeatmap", "pending",      "sunburst",       "usageGraph", "tymor", "tymor2", "report", "forecast"]
+        titles=["Tabular Summary", "Host Util.",  "Pending Jobs", "Sunburst Graph", "Usage Graph","Tymor", "Tymor2", "Report", "Forecast"]
  
         result=""
         for i in range (len(pages)):
@@ -742,6 +755,16 @@ class SLURMMonitor(object):
         parameters = {'node': node, 'procData': procData, 'acctReport':acctReport, 'acctWindow': SACCT_WINDOW_DAYS, 'nodeStatus':status, 'delay':skew, 'jobs':jobs_alloc}
         htmlStr    = open(htmlTemp).read().format(**parameters)
         return htmlStr
+
+    @cherrypy.expose
+    def test(self, user):
+
+        t = htmlPreamble
+        t += '<h3>User: %s (<a href="./userJobGraph?uname=%s">Graph</a>), <a href="#sacctreport">(jump to sacct)</a></h3>\n'%(user, user)
+        t += '<h4 id="sacctreport">sacct report (last %d days for user %s):</h4>\n'%(SACCT_WINDOW_DAYS, user)
+        t += self.sacctReport(self.sacctDataInWindow(['-u', user]))
+        t += '<a href="%s/index">&#8617</a>\n</body>\n</html>\n'%cherrypy.request.base
+        return t
 
     @cherrypy.expose
     def userDetails(self, user):
@@ -1197,13 +1220,13 @@ class SLURMMonitor(object):
         # get the current jobs of uid
         start, jobs = self.getUserCurrJobs (uid)
         if not jobs:
-            return None
+            return None, None, None
         
         # get nodes and period, TODO: mutiple jobs at one node at the same time is a problem
         # get the utilization of each jobs
         queryClient = InfluxQueryClient.getClientInstance()
-        jid2df     = {}
-        jid2dsc     = {}
+        jid2df      = {}
+        jid2dsc     = {}   # jid description
         for job in jobs:
             if job.get('num_nodes',-1) < 1 or not job.get('nodes', None):
                continue
@@ -1214,42 +1237,44 @@ class SLURMMonitor(object):
             if df.empty:
                 continue
 
-            df    = df[['hostname', 'time', 'cpu_system_time', 'cpu_user_time', 'io_read_bytes', 'io_write_bytes', 'mem_rss']]
+            df    = df[['hostname', 'time', 'cpu_system_util', 'cpu_user_util', 'io_read_bytes', 'io_write_bytes', 'mem_rss']]
             # sum over hostname to get jobs data
             sumDf = pd.DataFrame({})
             for name, group in df.groupby('hostname'):
-                group          = group.reset_index(drop=True)[['time', 'cpu_system_time', 'cpu_user_time', 'io_read_bytes', 'io_write_bytes', 'mem_rss']]
+                group          = group.reset_index(drop=True)[['time', 'cpu_system_util', 'cpu_user_util', 'io_read_bytes', 'io_write_bytes', 'mem_rss']]
                 group['count'] = 1
-                #print("group shape=" + repr(group.shape))
-                #print("group head=" + repr(group.head()))
                 if sumDf.empty:
                    sumDf = group
                 else:
-                   sumDf = sumDf.add(group, fill_value=0)
+                   sumDf = sumDf.add(group, fill_value=0)        #sum over the same artifical index, not accurate as assuming the same start time on all nodes of jobs
 
             sumDf['time'] = sumDf['time']/sumDf['count']
             print ("sumDf=" + repr(sumDf.head()))
                 
             jid = job['job_id']
-            jid2df[jid] = sumDf
+            jid2df[jid]  = sumDf
             jid2dsc[jid] = str(jid) + ' (' + job['nodes'] + ')' 
 
         return start, jid2df, jid2dsc
                 
+    def getWaitMsg (self):
+        elapse_time = (int)(time.time() - self.startTime)
+
+        return WAIT_MSG + repr(elapse_time) + " seconds since server restarted."
+
     @cherrypy.expose
     def userJobGraph(self,uname,start='', stop=''):
-        if not self.jobData: return WAIT_MSG
+        if not self.jobData: return self.getWaitMsg()
 
         #{jid: df, ...}
         uid                      = MyTool.getUid(uname)
         start, jid2df, jid2dsc   = self.getUserJobMeasurement (uid)
-        print ("userJobGraph dDf=" + repr(jid2df))
         if not jid2df:          return "User does not have running jobs at this time"
       
         #{'name': jid, 'data':[[ts, value], ...]
         series       = {'cpu':[], 'mem':[], 'io':[]}
         for jid, df in jid2df.items():
-            df['cpu_time'] = df['cpu_system_time'] + df['cpu_user_time']
+            df['cpu_time'] = df['cpu_system_util'] + df['cpu_user_util']
             df['io_bytes'] = df['io_read_bytes']   + df['io_write_bytes']
             series['cpu'].append({'name': jid2dsc[jid], 'data':df[['time','cpu_time']].values.tolist()})
             series['mem'].append({'name': jid2dsc[jid], 'data':df[['time','mem_rss']].values.tolist()})
@@ -1258,7 +1283,7 @@ class SLURMMonitor(object):
         htmltemp = os.path.join(wai, 'scatterHC.html')
         h = open(htmltemp).read()%{'start'  : time.strftime('%Y/%m/%d', time.localtime(start)),
                                    'stop'   : time.strftime('%Y/%m/%d', time.localtime(time.time())),
-                                   'series1': series['cpu'], 'title1': 'CPU usage of '    +uname, 'xlabel1': 'Accumulated CPU time', 'aseries1':[], 
+                                   'series1': series['cpu'], 'title1': 'CPU usage of '    +uname, 'xlabel1': 'CPU time', 'aseries1':[], 
                                    'series2': series['mem'], 'title2': 'Mem RSS usage of '+uname, 'xlabel2': 'Mem Bytes',               'aseries2':[], 
                                    'series3': series['io'],  'title3': 'IO usage of '     +uname, 'xlabel3': 'IO Bytes',             'aseries3':[], 
                                   }
@@ -1285,12 +1310,15 @@ class SLURMMonitor(object):
     def sunburst(self):
 
         #sunburst
-        if type(self.data) == str: return self.data # error of some sort.
+        if type(self.data) == str: return self.data# error of some sort.
 
         #prepare required information in data_dash
         more_data    = {k:v[0:HOST_ALLOCINFO_IDX] + v[HOST_ALLOCINFO_IDX][0:7] for k,v in self.data.items() if len(v)>HOST_ALLOCINFO_IDX } #flatten hostdata
-        less_data    = {k:v[0:HOST_ALLOCINFO_IDX]             for k,v in self.data.items() if len(v)<=HOST_ALLOCINFO_IDX }
+        less_data    = {k:v[0:HOST_ALLOCINFO_IDX]                              for k,v in self.data.items() if len(v)<=HOST_ALLOCINFO_IDX }
         hostdata_flat= dict(more_data,**less_data)
+        print("more_data=" + repr(more_data))
+        print("less_data=" + repr(less_data))
+        print("hostdata_flat=" + repr(hostdata_flat))
 
         keys_id      =(u'job_id',u'user_id',u'qos', u'num_nodes', u'num_cpus')
         data_dash    ={jid:{k:jinfo[k] for k in keys_id} for jid,jinfo in self.jobData.items()} #extract set of keys
@@ -1298,6 +1326,7 @@ class SLURMMonitor(object):
         for jid, jinfo in self.jobData.items():
             data_dash[jid]["node_info"] = {n: hostdata_flat[n] for n in jinfo.get(u'cpus_allocated').keys()}
         
+        print("data_dash=" + repr(data_dash))
         for jid, jinfo in sorted(data_dash.items()):
             username = pwd.getpwuid(jinfo[u'user_id']).pw_name
             data_dash[jid]['cpu_list'] = [jinfo['node_info'][i][5] for i in jinfo['node_info'].keys() if len(jinfo['node_info'][i])>=7]
@@ -1322,6 +1351,9 @@ class SLURMMonitor(object):
         
         #need to filter data_dash so that it no longer contains users that are "None"->this was creating sunburst errors 
         #open('/tmp/sunburst.tmp', 'w').write(repr(data_dash))
+
+        if len(data_dash) == 0:
+            return EMPTYPROCDATA_MSG + '\n\n' + repr(self.data)
 
         # get flat list corresponding to each node
         list_nodes_flat=reduce((lambda x,y: x+y), [v['list_nodes'] for v in data_dash.values()])
