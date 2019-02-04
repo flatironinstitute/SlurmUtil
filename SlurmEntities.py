@@ -77,27 +77,57 @@ class SlurmEntities:
 
     return lst1,lst2
 
-  #return job's assigned partition's current count
-  @staticmethod
-  def getJobPartition (jid, job_dict, partition_dict, qos_dict):
-    job          = job_dict[jid]
-    p_name       = job['partition']
-    gnCnt, gcCnt = SlurmEntities.getAcctAllocInPartition(job['account'], p_name, job_dict)
-    unCnt, ucCnt = SlurmEntities.getUserAllocInPartition(job['user_id'], p_name, job_dict)
+  def getPartitionNodes (self, p_name, fields=['name', 'state', 'tres_fmt_str', 'features', 'alloc_cpus','alloc_mem', 'cpu_load', 'run_jobs', 'wait_cpus', 'pend_jobs']):
+      node_names = MyTool.nl2flat(self.partition_dict[p_name]['nodes'])
+      nodes      = self.addUpdateNodeInfo (node_names)
 
-    qos          = qos_dict[partition_dict[p_name]['qos_char']]
-    gnLmt, gcLmt = SlurmEntities.getTresLimit(qos.get('grp_tres',    ''))
-    unLmt, ucLmt = SlurmEntities.getTresLimit(qos.get('max_tres_pu', ''))
+      return [MyTool.sub_dict(node, fields) for node in nodes]
 
-    return [p_name, gnCnt, gcCnt, unCnt, ucCnt, gnLmt, gcLmt, unLmt, ucLmt]
+  # return node allocate information of the partition
+  def addUpdateNodeInfo (self, node_names):
+    # should get newest data?
+    job_dict   = self.job_dict
+    node_dict  = self.node_dict
+
+    run_jobs   = [(jid,job) for jid, job in job_dict.items() if job['job_state']=='RUNNING']
+    pend_jobs  = [(jid,job) for jid, job in job_dict.items() if job['job_state']=='PENDING']
+    
+    # add job allocate information
+    for jid,job in run_jobs:
+        j_nodes = MyTool.nl2flat(job['nodes'])
+        for n in j_nodes:
+            if 'run_jobs' not in node_dict[n]: node_dict[n]['run_jobs'] = []
+            node_dict[n]['run_jobs'].append(jid)
+        
+    for jid,job in pend_jobs:
+        if job['sched_nodes']:
+           j_nodes = MyTool.nl2flat(job['alloc_nodes'])
+           for n in j_nodes:
+              if 'pend_jobs' not in node_dict[n]: node_dict[n]['pend_jobs'] = []
+              node_dict[n]['pend_jobs'].append(jid)
+
+    nodes = [node_dict[nm] for nm in node_names]
+    return nodes
 
   #return TRUE if it is shared
   def getSharedFlag(self, partition):
-    return partition['flags']['Shared'] == 'NO' 
+    return partition['flags']['Shared'] == 'NO'
+
+  # node['gres'] - node['gres_used'] >= gresReq) 
+  def nodeHaveGres (self, node, gresReq):
+      gresTotal = MyTool.gresList2Dict(node['gres'])
+      gresUsed  = MyTool.gresList2Dict(node['gres_used'])
+
+      for gres,count in gresReq.items():
+          if gres not in gresTotal:
+             return False
+          if (int(gresTotal[gres]) - int(gresUsed.get(gres,0))) < int(count):
+             return False
+      return True
 
   # modify self.partition_dict by adding attributes to partition p_name, flag_shared, avail_nodes, avail_cpus, running_jobs, pending_jobs
   # return avail_nodes, avail_cpus with the constrain of features and min_mem_per_node
-  def addPartitionInfo (self, p_name, features=[], min_mem_per_node=0):
+  def addUpdatePartitionInfo (self, p_name, features=[], min_mem_per_node=0, gres=[]):
       p = self.partition_dict[p_name]
       if p.get('flag_shared', None):
          return p['avail_nodes'], p['avail_cpus']
@@ -108,9 +138,11 @@ class SlurmEntities:
       if p['flag_shared'] == 'YES':     # count MIXED node with idle CPUs as well
          avail_nodes  += [n for n in nodes if (self.node_dict.get(n, {}).get('state', None) == 'MIXED') and (self.node_dict.get(n,{}).get('cpus', 0) > self.node_dict.get(n, {}).get('alloc_cpus', 0))]
 
-      avail_cpus,lst1  = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
-      p['avail_nodes'] = len(avail_nodes)
-      p['avail_cpus']  = avail_cpus
+      avail_cpus_cnt,lst1  = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
+      p['avail_nodes_cnt'] = len(avail_nodes)
+      p['avail_nodes']     = avail_nodes
+      p['avail_cpus_cnt']  = avail_cpus_cnt
+      p['avail_cpus']      = lst1
 
       # get running jobs on the parition
       part_jobs        = [j for j in self.job_dict.values() if j['partition'] == p_name]
@@ -119,26 +151,30 @@ class SlurmEntities:
 
       if features:             # restrain nodes with required features
          avail_nodes     = [n for n in avail_nodes if set(self.node_dict[n]['features_active'].split(',')).intersection(features)]
-         avail_cpus,lst1 = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
+         avail_cpus_cnt,lst1 = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
 
       if min_mem_per_node:      # restrain nodes with min memory 
          avail_nodes     = [n for n in avail_nodes if (self.node_dict[n]['real_memory'] - self.node_dict[n]['alloc_mem']) > min_mem_per_node]
-         avail_cpus,lst1 = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
+         avail_cpus_cnt,lst1 = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
          
+      if gres:
+         avail_nodes     = [n for n in avail_nodes if self.nodeHaveGres (self.node_dict[n], gres)]
+         avail_cpus_cnt,lst1 = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
       #if min_mem_per_cpu:      # restrain nodes with min memory 
       #   avail_cpus,lst1 = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
       #   avail_nodes     = [n for idx,n in enumerate(avail_nodes) if (self.node_dict[n]['real_memory'] - self.node_dict[n]['alloc_mem'])/lst1[idx] > min_mem_per_cpu]
 
-      return len(avail_nodes), avail_cpus
+      #print("addUpdatePartitionInfo return {}, {}".format(len(avail_nodes), avail_cpus_cnt))
+      return len(avail_nodes), avail_cpus_cnt
 
   # return list of partitions with fields, add attributes to partition_dict
-  def getPartitions(self, fields=['name', 'flag_shared', 'total_nodes', 'total_cpus', 'avail_nodes', 'avail_cpus', 'running_jobs', 'pending_jobs']):
+  def getPartitions(self, fields=['name', 'flag_shared', 'total_nodes', 'total_cpus', 'avail_nodes_cnt', 'avail_cpus_cnt', 'running_jobs', 'pending_jobs']):
     retList      = []
 
     for name in sorted(self.partition_dict.keys()):
         p = self.partition_dict[name]
         if not p.get('flag_shared', None):
-           self.addPartitionInfo (name)
+           self.addUpdatePartitionInfo (name)
 
         retList.append(MyTool.sub_dict(p, fields))
 
@@ -176,13 +212,18 @@ class SlurmEntities:
              a_node,     a_cpu     = SlurmEntities.getAllocInPartition(p_name, self.job_dict)
              job['state_exp']      = job['state_exp'].format(max_node_grp=a_node_qos, curr_node_grp=a_node, partition=p_name)
           elif job['state_reason'] == 'Resources':
+             # check features and memory requirement
              j_features            = job.get('features',[])
              j_min_mem_pn          = job.get('pn_min_memory', 0)  if job.get('mem_per_node') else 0
              j_min_mem_pc          = job.get('min_memory_cpu', 0) if job.get('mem_per_cpu') else 0
+             # check gres requirement
+             j_gres                = MyTool.gresList2Dict(job.get('gres', []))
              j_min_mem_pn          = max(j_min_mem_pn, j_min_mem_pc*job['num_cpus'])
-             pa_node,    pa_cpu    = self.addPartitionInfo (p_name, j_features, j_min_mem_pn)
+             pa_node,    pa_cpu    = self.addUpdatePartitionInfo (p_name, j_features, j_min_mem_pn, j_gres)
+             if j_gres:              j_features.append (MyTool.gresList2Str(job['gres']))
              if j_min_mem_pn:        j_features.append ('mem_per_node={}MB'.format(j_min_mem_pn))
              if j_min_mem_pc:        j_features.append ('mem_per_cpu={}MB'.format(j_min_mem_pc))
+             print("getPendingJobs {} {}".format(pa_node, pa_cpu))
              job['state_exp']      = job['state_exp'].format(partition=p_name, avail_node=pa_node, avail_cpu=pa_cpu, feature='({0})'.format(j_features), start_time=MyTool.getTimeString(job.get('start_time','')))
           elif job['state_reason'] == 'Priority':
              earlierJobs           = self.getSmallerJobIDs(job['job_id'], self.partition_dict[p_name].get('pending_jobs',[]))

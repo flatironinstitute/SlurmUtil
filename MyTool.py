@@ -2,6 +2,7 @@ import sys
 import re
 import collections
 from datetime import datetime, timezone, timedelta
+import time
 import pwd,grp
 import dateutil.parser
 
@@ -13,7 +14,19 @@ def getUid (user):
     return pwd.getpwnam(user).pw_gid
 
 def getUser (uid):
-    return pwd.getpwuid(int(uid)).pw_name
+    try:
+       p=pwd.getpwuid(int(uid))
+    except KeyError:
+       return('UidNotFound')
+
+    return p.pw_name
+
+def getUserGroups (user):
+    groups = [g.gr_name for g in grp.getgrall() if user in g.gr_mem]
+    gid    = pwd.getpwnam(user).pw_gid
+    groups.append(grp.getgrgid(gid).gr_name)
+
+    return groups
 
 def getUserOrgGroup (user):
     #groups = [g.gr_name for g in grp.getgrall() if user in g.gr_mem]
@@ -36,27 +49,27 @@ def expandList(matchobj, width=4):
     for item in l: rlt = rlt + matchobj.group(1) + str(item).zfill(width) +","
     return rlt[0:len(rlt)-1]
     
-def expandStr(s):
-    #print("input " + s)
-    #if s contains -
+def expandStr(s, numberWidth=4):
     if '-' in s:
        s  = re.sub('([0-9]+)-([0-9]+)',       expandRange, s)
     #print("expandRange " + s)
 
-    #if s1 contains []
     if '[' in s:
        s  = re.sub('([a-zA-Z0-9]+)\[(.*?)\]', expandList,  s)
     #print("expandList " + s)
    
     return s
 
-def convert2list(s):
+#convert job['nodes'] short format to list: worker[1015-1031,1066-1077,1137-1154,1180-1193,1200-1202] to [worker1015, worker1016, ... worker1202]
+def convert2list(s, numberWidth=4):
     #print("convert " + s)
-    lststr = expandStr (s)
+    lststr = expandStr (s, numberWidth)
     #print("expandStr " + lststr)
-    lst    = re.split(',\W*', lststr)
-    #print("result " + repr(lst))
-    return lst
+    return re.split(',\W*', lststr)
+
+def getTimeString (ts):
+    d = datetime.fromtimestamp(ts)
+    return d.isoformat(' ')
 
 def getUTCDateTime (local_ts):
     #print ("UTC " + datetime.fromtimestamp(local_ts, tz=DataReader.LOCAL_TZ).isoformat())
@@ -66,6 +79,10 @@ def getSlurmTimeStamp (slurm_datetime_str):
     d = dateutil.parser.parse(slurm_datetime_str)
     return d.timestamp()
     
+def upd_dict(d1, d2):
+    d2.update(d1)
+    return d2
+
 def sub_dict(somedict, somekeys, default=None):
     return dict([ (k, somedict.get(k, default)) for k in somekeys ])
 def sub_dict_remove(somedict, somekeys, default=None):
@@ -202,11 +219,61 @@ def pstdev(data):
 
 # extract 56 from "1=56,2=1024000,4=2"
 def extract1 (s):
-    lst = s.split(',')[0].split('=')
-    if len(lst) > 2:
-       return int(lst[1])
-    else
+    if not s:
+       print("extrac1 has a empty value")
        return 0
+    lst = s.split(',')[0].split('=')
+    if len(lst) > 1:
+       return int(lst[1])
+    else:
+       return 0
+
+def getDFBetween(df, field, start, stop):
+    if start:
+        start = time.mktime(time.strptime(start, '%Y-%m-%d'))
+        df    = df[df[field] >= start]
+    if stop:
+        stop  = time.mktime(time.strptime(stop,  '%Y-%m-%d'))
+        df    = df[df[field] <= stop]
+    if not df.empty:
+        start = df.iloc[0][field]
+        stop  = df.iloc[-1][field]
+
+    return start, stop, df
+
+# Expand slurm's cute compressed node listing scheme into a full list
+# of nodes.
+def nl2flat(nl):
+    flat = []
+    prefix = None
+    for x in re.split(r'(\[.*?\])', nl):
+        if x == '': continue
+        if x[0] == '[':
+            x = x[1:-1]
+            for r in x.split(','):
+                lo = hi = r
+                if '-' in r:
+                    lo, hi = r.split('-')
+                fmt = '%s%%0%dd'%(prefix, max(len(lo), len(hi)))
+                for x in range(int(lo), int(hi)+1): flat.append(fmt%x)
+            prefix = None
+        else:
+            if prefix: flat.append(prefix)
+            pp = x.split(',')
+            [flat.append(p) for p in pp[:-1] if p]
+            prefix = pp[-1]
+    if prefix: flat.append(prefix)
+    return flat
+
+def gresList2Dict(gresList):
+    return dict([tuple(gres.split(':')) for gres in gresList])
+ 
+def gresList2Str (gresList):
+    rlt = ''
+    for gres in gresList:
+        if rlt: rlt += ','
+        rlt += gres.replace(':','=')
+    return rlt
 
 def main(argv):
     for s in argv:

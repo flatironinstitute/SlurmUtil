@@ -75,6 +75,20 @@ class SLURMMonitor(object):
         return x, cdf
 
     @cherrypy.expose
+    def getPartitionNodes(self, partition='gpu'):
+        ins        = SlurmEntities.SlurmEntities()
+        nodes      = ins.getPartitionNodes(partition)
+
+        return repr(nodes)
+
+        #t = htmlPreamble
+        #t += '<h3>Running and Pending Jobs of user <a href="./userDetails?user={0}">{0}</a> (<a href="./userJobGraph?uname={0}">Graph</a>)</a></h3>Update time:{1}'.format(user, MyTool.getTimeString(int(time.time())))
+        #t += self.sacctReport(cmd.sacctCmd(['-u', user, '-s', 'RUNNING,PENDING'], output='JobID,JobName,State,Partition,NodeList,AllocCPUS,Submit,Start'),
+        #                      titles=['Job ID', 'Job Name', 'State', 'Partition','NodeList','Allocated CPUS', 'Submit','Start'])
+        #t += '<a href="%s/index">&#8617</a>\n</body>\n</html>\n'%cherrypy.request.base
+        #return t
+
+    @cherrypy.expose
     def pending(self, start='', stop='', state=3):
         ins        = SlurmEntities.SlurmEntities()
         pendingLst = ins.getPendingJobs()
@@ -415,16 +429,16 @@ class SLURMMonitor(object):
         node2jobs = self.getNode2Jobs (jobData)
 
         result=[]
-        for node, v in sorted(hostData.items()):
-            status = v[0]
+        for node, nodeInfo in sorted(hostData.items()):
+            status = nodeInfo[0]
             if status.endswith(('@','+','$','#','~','*')):
                status = status[:-1]
-            if len(v) > 1: delay= v[1]
+            if len(nodeInfo) > 1: delay= nodeInfo[1]
             else:          delay= None
             if ( node2jobs.get(node) ):
                for job in node2jobs.get(node):
-                  if len(v) > HOST_ALLOCINFO_IDX:
-                     for uname, uid, coreNum, proNum, load, rss, vms, pp in v[HOST_ALLOCINFO_IDX:]:
+                  if len(nodeInfo) > HOST_ALLOCINFO_IDX:
+                     for uname, uid, coreNum, proNum, load, rss, vms, pp in nodeInfo[HOST_ALLOCINFO_IDX:]:
                         result.append([node, status, job, delay, uname, coreNum, proNum, load, rss, vms])
                   else:
                      result.append([node, status, job, delay ])
@@ -605,19 +619,18 @@ class SLURMMonitor(object):
         t = datetime.date.today() + datetime.timedelta(days=-SACCT_WINDOW_DAYS)
         startDate = '%d-%02d-%02d'%(t.year, t.month, t.day)
         d = self.sacctData (['-S', startDate] + criteria)
-        print(repr(d))
+        #print(repr(d))
 
         return d
 
     @cherrypy.expose
-    def sacctReport(self, d, skipJobStep=True):
-        t = '''\
-<table class="slurminfo">
-<tr><th>Job ID</th><th>Job Name</th><th>Allocated CPUS</th><th>State</th><th>Exit Code</th><th>User</th><th>Node List</th><th>Start</th><th>End</th></tr>
-'''
+    def sacctReport(self, d, titles=['Job ID', 'Job Name', 'Allocated CPUS', 'State', 'Exit Code', 'User', 'Node List', 'Start', 'End'], skipJobStep=True):
+        t = '<table class="slurminfo"><tbody><tr>'
+        for th in titles: t += '<th>{}</th>'.format(th)
+        t += '</tr>'
+        
         jid2info = defaultdict(list)
         for l in d.splitlines():
-            print(l)
             if not l: continue
             ff = l.split(sep='|')
             if (skipJobStep and '.' in ff[0]): continue # indicates a job step --- under what circumstances should these be broken out?
@@ -757,12 +770,13 @@ class SLURMMonitor(object):
         return htmlStr
 
     @cherrypy.expose
-    def test(self, user):
+    def userJobs(self, user):
+        cmd = SlurmCmdQuery()
 
         t = htmlPreamble
-        t += '<h3>User: %s (<a href="./userJobGraph?uname=%s">Graph</a>), <a href="#sacctreport">(jump to sacct)</a></h3>\n'%(user, user)
-        t += '<h4 id="sacctreport">sacct report (last %d days for user %s):</h4>\n'%(SACCT_WINDOW_DAYS, user)
-        t += self.sacctReport(self.sacctDataInWindow(['-u', user]))
+        t += '<h3>Running and Pending Jobs of user <a href="./userDetails?user={0}">{0}</a> (<a href="./userJobGraph?uname={0}">Graph</a>)</a></h3>Update time:{1}'.format(user, MyTool.getTimeString(int(time.time())))
+        t += self.sacctReport(cmd.sacctCmd(['-u', user, '-s', 'RUNNING,PENDING'], output='JobID,JobName,State,Partition,NodeList,AllocCPUS,Submit,Start'),
+                              titles=['Job ID', 'Job Name', 'State', 'Partition','NodeList','Allocated CPUS', 'Submit','Start'])
         t += '<a href="%s/index">&#8617</a>\n</body>\n</html>\n'%cherrypy.request.base
         return t
 
@@ -808,7 +822,7 @@ class SLURMMonitor(object):
                     t += '<hr><em%s>%s</em> %d<pre>'%(ac, node, coreCount) + '\n'.join([' '.join(['%6d'%cmd[0], '%6.2f'%cmd[1], '%10.2e'%cmd[5], '%10.2e'%cmd[6]] + cmd[7]) for cmd in cmds]) + '\n</pre>\n'
 
         # get sacct report
-        t += self.sacctReport(self.sacctData (['-j', jobid]), False)
+        t += self.sacctReport(self.sacctData (['-j', jobid]), skipJobStep=False)
  
         t += '<a href="%s/index">&#8617</a>\n</body>\n</html>\n'%cherrypy.request.base
         return t

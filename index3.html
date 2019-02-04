@@ -11,18 +11,32 @@ const DEC_ORDER      = 1
 const NODE_IDX       = 0
 const JOB_IDX        = 2
 const USER_IDX       = 4
+const COL_COUNT      = 10
 
 var currSortIdx      = 0
 var currSortOrder    = INC_ORDER
 var orderBy          =0 // 0: node inc, 1: node dec, ... (2*idx + inc?0:1)
 var load_data        =%(tableData)s
-var expDict          ={0:2, 1:0, 2:0, 3:2, 4:2, 5:0, 6:0, 7:0, 8:0, 9:0}  // 0:2 when sorted on 0, 2 is expandable 
+var expDict          ={0:2, 1:0, 2:0, 3:2, 4:2, 5:0, 6:0, 7:2, 8:0, 9:0}  // 0:2 when sorted on 0, 2 is expandable 
 var typeDict         ={0:0, 1:0, 2:0, 3:2, 4:0, 5:1, 6:1, 7:2, 8:3, 9:3}  // 0:0 type of 0 is string(0), integer(1), float(2), float exp(3)
 var rightDict        ={0:0, 1:0, 2:0, 3:1, 4:0, 5:1, 6:1, 7:1, 8:1, 9:1}  // 9:1 include right class of 9
 var summary_data     =[] // [[startIdx, endIdx, [summaryAttr ...]]...]
 
+
 // init
-orderData (1, INC_ORDER)	// init page order by Status inc
+initData  ()
+orderData (1, INC_ORDER, expDict[1])	// init page order by Status inc
+
+function initData() {
+   // for float, fixed 2
+   for (i=0; i<load_data.length; i++) {
+      for (j=0; j<COL_COUNT; j++) {
+          if (typeDict[j]==2 && load_data[i][j]!=undefined && load_data[i][j]!=' ') {
+             load_data[i][j] = Math.round(load_data[i][j]*100)/100
+          }
+      }
+   }
+}
 
 // order data by idx with inc/dec order order, if idx is equal, order by secIdx
 function orderData(idx, order, secIdx=0) {
@@ -37,6 +51,7 @@ function orderData(idx, order, secIdx=0) {
    currSortOrder = order
 
    summary_data= getSummaryData(load_data, idx, expDict[idx])  // 0=Node, 2=Jobs
+   
    return
 }
 
@@ -47,20 +62,11 @@ function getSingleSummaryData(table_data, startRow, endRow, sortIdx) {
    var currRow     = startRow
    var colVals     = []
    var summary     = []
-   for ( var i=0; i<10; i++)
-      colVals[i]   = []
-
-   // loop over the row
-   while (currRow <= endRow) {
-      // loop over the col
-      for (var i=0; i< table_data[currRow].length; i++ ) {
-         if ( i != sortIdx && table_data[currRow][i]!= ' ') colVals[i].push(table_data[currRow][i]);
-      }
-      currRow ++;
-   } 
-
    var totalCnt    = endRow - startRow +1
+
+   // set sortIdx value
    summary[sortIdx]= table_data[startRow][sortIdx] 
+   // add link to sortIdx
    if ( sortIdx == NODE_IDX ) {
       summary[sortIdx] = "<a href=./nodeDetails?node=" + summary[sortIdx] + ">" + summary[sortIdx] + "</a>" 
    } else if ( sortIdx == JOB_IDX) {
@@ -69,22 +75,34 @@ function getSingleSummaryData(table_data, startRow, endRow, sortIdx) {
       summary[sortIdx] = "<a href=./userDetails?user=" + summary[sortIdx] + ">" + summary[sortIdx] + "</a>" 
    }
 
-   // loop over the column
+   for ( var i=0; i<COL_COUNT; i++)
+      colVals[i]   = []
+   // loop over the row to get the values of columns
+   while (currRow <= endRow) {
+      // loop over the col
+      for (var i=0; i< table_data[currRow].length; i++ ) {
+         if ( i != sortIdx && table_data[currRow][i]!= ' ') colVals[i].push(table_data[currRow][i]);
+      }
+      currRow ++;
+   } 
+   // loop over the column to compute the summary data
    for (var i=0; i< colVals.length; i++) {
       if ( i != sortIdx ) {
-         //console.log("result " + i + "=" + result[i] + ",stat=" + stat[i]);
          switch ( typeDict[i] ) {
          case 0: // string
             var setTmp = new Set(colVals[i])
             summary[i] = "Count " + setTmp.size
-            if ( setTmp.size > 0 )
-               summary[i]  += " [" + colVals[i][0] + "...]";  
+            if ( setTmp.size == 1 )
+               summary[i]  += " [" + colVals[i][0] + "]";  
+            else if (setTmp.size > 1)
+               summary[i]  += " [" + colVals[i][0] + ",...]";  
             break;
          case 1: //integer
             summary[i] = "Total " + colVals[i].reduce(getSum, 0);  
             break
          case 2: // float
-            summary[i] = "Avg. " + (colVals[i].reduce(getSum, 0.0)/totalCnt).toFixed(2);       break
+            summary[i] = "Avg. " + (colVals[i].reduce(getSum, 0.0)/totalCnt).toFixed(2);       
+            break
          case 3:
             summary[i] = "Avg. " + (colVals[i].reduce(getSum, 0.0)/totalCnt).toExponential(2); break
          }
@@ -94,7 +112,30 @@ function getSingleSummaryData(table_data, startRow, endRow, sortIdx) {
    return summary
 }
 
+function equal (r1, r2, idx) {
+   if ( !r1 || !r2)
+      return false
+
+   if ( typeDict[idx] == 0 ) {//string
+      if (r1[idx] && r2[idx]) {
+         if (r1[idx] == ' ' || r2[idx] == ' ')
+            return false
+
+         return r1[idx] == r2[idx]
+      }
+   } else { //int and float
+      if (r1[idx] && r2[idx]) 
+         return r1[idx] == r2[idx]
+
+      if (r1[idx]==0 && r2[idx]==0)
+         return true
+      else
+         return false
+   }
+}
+
 //summary sIdx over the same load_data[idx] value
+//format [[startRow, endRow, record], ...]
 function getSummaryData(table_data, sortIdx, expIdx ) {
    var result = []
 
@@ -103,12 +144,10 @@ function getSummaryData(table_data, sortIdx, expIdx ) {
    while (table_data[i]) {
       var curr = table_data[i]
       var j=i+1
-      if ( curr[sortIdx] && (curr[sortIdx] != ' ') 
-           && table_data[j] && table_data[j][sortIdx] 
-           && (curr[sortIdx] == table_data[j][sortIdx]) ) {
+      if ( equal(curr, table_data[j], sortIdx) ) {
          //if same value with next item
          //loop to next different value, summarize information during loop
-         while ( table_data[j] && table_data[j][sortIdx] && (curr[sortIdx] == table_data[j][sortIdx]) ) j++;
+         while ( equal(curr, table_data[j], sortIdx) ) j++;
          //save summary information
          summaryRecord       = getSingleSummaryData(table_data, i, j-1, sortIdx)
          summaryRecord[expIdx] += getPlusSign() + getMinusSign()
@@ -118,7 +157,7 @@ function getSummaryData(table_data, sortIdx, expIdx ) {
 
       i=j
    }
-   console.log(result)
+   //console.log(result)
    
    return result
 }
@@ -141,12 +180,12 @@ function getMinusSign() {
 function getTDsHtml (r) {
    // 0:Node, Status, Jobs, Delay, User, 5:Cores Allocated, Processes, Aggregate Load, RSS, 9:VMS
    var delayC= getCategory(r[3], 120, '"right"', '"right"', '"right alarm"')
-   var tds   = `<td><a href="./nodeDetails?node=${r[0]}">${r[0]}</a></td><td>${r[1]}</td><td><a href="./jobDetails?jobid=${r[2]}">${r[2]}</td><td class=${delayC}>${r[3].toFixed(2)}</td>`
+   var tds   = `<td><a href="./nodeDetails?node=${r[0]}">${r[0]}</a></td><td>${r[1]}</td><td><a href="./jobDetails?jobid=${r[2]}">${r[2]}</td><td class=${delayC}>${r[3]}</td>`
    var tds2  = '<td></td><td></td><td></td><td></td><td></td><td></td>'
    if ( r.length > 4 ) {
       var userC = getCategory(r[7], r[5]-1, r[5]+1, '', '', '"alarm"') 
       var loadC = getCategory(r[7], r[5]-1, r[5]+1, '"right inform"', '"right"', '"right"') 
-      tds2   = `<td class=${userC}><a href="./userDetails?user=${r[4]}">${r[4]}</a></td><td class="right">${r[5]}</td><td class="right">${r[6]}</td><td class=${loadC}>${r[7].toFixed(2)}</td><td class="right">${r[8].toExponential(2)}</td><td class="right">${r[9].toExponential(2)}</td></tr>`
+      tds2   = `<td class=${userC}><a href="./userDetails?user=${r[4]}">${r[4]}</a></td><td class="right">${r[5]}</td><td class="right">${r[6]}</td><td class=${loadC}>${r[7]}</td><td class="right">${r[8].toExponential(2)}</td><td class="right">${r[9].toExponential(2)}</td></tr>`
    }
 
    return tds + tds2
@@ -156,8 +195,13 @@ function getTRecordHtml (r, sortIdx) {
    return "<tr>" + getTDsHtml(r) + "</tr>"
 }
 function getDetailTRecordHtml (r, sortIdx) {
-   return `<tr class="detail ${r[sortIdx]}">`  + getTDsHtml(r) + '</tr>'
+   if (typeDict[sortIdx]==2 ) {// float
+      var n = Math.round(r[sortIdx] * 100)
+      return `<tr class="detail ${n}">`  + getTDsHtml(r) + '</tr>';
+   } else
+      return `<tr class="detail ${r[sortIdx]}">`  + getTDsHtml(r) + '</tr>'
 }
+
 function getSummaryTRecordHtml (r, expIdx) {
    // 0:Node, Status, Jobs, Delay, User, 5:Cores Allocated, Processes, Aggregate Load, RSS, 9:VMS
    var tr= '<tr class="summary">'
@@ -180,7 +224,7 @@ function getTableBodyHtml() {
 
    currS = sarr.shift()
    while (load_data[i]) {
-      if (load_data[i].length > orderIdx && load_data[i][orderIdx] != ' ') { 
+      if (load_data[i].length > orderIdx && (load_data[i][orderIdx]==0 || load_data[i][orderIdx] != ' ')) { 
          if ( currS && currS[0] == i ) {
             //console.log("found insert place before " + i)
             result.push (getSummaryTRecordHtml(currS[2], expDict[orderIdx]))
@@ -193,7 +237,9 @@ function getTableBodyHtml() {
             result.push (getTRecordHtml(load_data[i], orderIdx))
          }
       } // else skip the other records
-
+      //else {
+      //   console.log("getTableBodyHtml skip record " + load_data[i] + " " + load_data[i][orderIdx])
+      //}
       i++
    }
 
@@ -202,9 +248,11 @@ function getTableBodyHtml() {
 
 //if selector contains $ @ error, + - * no response
 //also if it is <a...>...</a>, only return the text 
-function extractSelector(str) {
+function extractSelector(str, sortIdx) {
    if ( typeof str != 'string' ) {
-      console.log (str)
+      if (typeDict[sortIdx]==2) {
+         return Math.round(str*100).toString()
+      }
       return str.toString()
    } else {
       // contains $ @ * +, replace it with \\$ ....
@@ -227,8 +275,10 @@ function incF (a, b, idx) {
 function incFunc (a, b, idx, secIdx) {
    var cmp = incF (a, b, idx)
 
-   if ( secIdx != idx && cmp == 0 ) 
+   if ( cmp==0 && secIdx != idx ) {
+      console.log("incFunc " + idx + "," + secIdx + " " + a + " " + b + " " + incF(a,b,secIdx)) 
       return incF (a, b, secIdx)
+   }
    else            
       return cmp;
 }
@@ -236,7 +286,7 @@ function incFunc (a, b, idx, secIdx) {
 function decFunc (a, b, idx, secIdx) {
    var cmp = -incF (a, b, idx)
 
-   if ( secIdx != idx && cmp == 0 ) 
+   if ( cmp==0 && secIdx != idx ) 
       return incF (a, b, secIdx)
    else            
       return cmp;
@@ -255,7 +305,8 @@ function setTableBody () {
    // plus click 
    $(".glyphicon-plus-sign").click(function() {
       var idx=$(".glyphicon-plus-sign").index(this)
-      var cls=extractSelector(summary_data[idx][2][orderIdx])
+      var cls=extractSelector(summary_data[idx][2][orderIdx], orderIdx)
+      console.log("detail selector " + cls)
       
       // display detail record
       $(`.detail.${cls}`).show()
@@ -268,7 +319,7 @@ function setTableBody () {
    // minus click
    $(".glyphicon-minus-sign").click(function() {
       var idx=$(".glyphicon-minus-sign").index(this)
-      var cls=extractSelector(summary_data[idx][2][orderIdx])
+      var cls=extractSelector(summary_data[idx][2][orderIdx], orderIdx)
 
       $(`.detail.${cls}`).hide()
       $(`.glyphicon-minus-sign:eq(${idx})`).hide()
@@ -308,7 +359,7 @@ $(document).ready(function(){
          order = (currSortOrder == INC_ORDER) ? DEC_ORDER: INC_ORDER
       } 
 
-      orderData    (idx, order)
+      orderData    (idx, order, expDict[idx])
       setTableHead (idx, order)
       setTableBody ()
    });
@@ -332,7 +383,7 @@ $(document).ready(function(){
    <th class="sortable">User            <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">CPUs Allocated <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">Processes       <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
-   <th class="sortable">Aggregate Load  <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
+   <th class="sortable">Agg. CPU Util   <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">RSS             <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">VMS             <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
 </tr>
