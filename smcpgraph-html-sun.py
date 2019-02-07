@@ -424,6 +424,11 @@ class SLURMMonitor(object):
 
         return node2jobs
         
+    def getJobUID (self, jid):
+        job = self.jobData[jid]
+        uid = job['user_id']
+        return uid
+
     def getSummaryTableData(self, hostData, jobData):
         #print("getSummaryTableData")
         node2jobs = self.getNode2Jobs (jobData)
@@ -436,12 +441,17 @@ class SLURMMonitor(object):
             if len(nodeInfo) > 1: delay= nodeInfo[1]
             else:          delay= None
             if ( node2jobs.get(node) ):
-               for job in node2jobs.get(node):
+               for jid in node2jobs.get(node):
+                  # add explictly job, uname mapping
+                  uid = self.getJobUID (jid)
                   if len(nodeInfo) > HOST_ALLOCINFO_IDX:
-                     for uname, uid, coreNum, proNum, load, rss, vms, pp in nodeInfo[HOST_ALLOCINFO_IDX:]:
-                        result.append([node, status, job, delay, uname, coreNum, proNum, load, rss, vms])
+                     for uname, p_uid, coreNum, proNum, load, rss, vms, pp in nodeInfo[HOST_ALLOCINFO_IDX:]:
+                        if p_uid == uid:
+                           result.append([node, status, jid, delay, uname, coreNum, proNum, load, rss, vms])
+                        else:
+                           print ("getSummaryTableData proc_uid {} != job_uid {}".format(p_uid, uid))
                   else:
-                     result.append([node, status, job, delay ])
+                     result.append([node, status, jid, delay ])
             else:
                result.append([node, status, ' ', delay])
                 
@@ -599,11 +609,11 @@ class SLURMMonitor(object):
         #updated the data
         d =  cherrypy.request.body.read()
         #jobData and pyslurmNodeData comes from pyslurm
-        self.updateTime, self.jobData, newdata, self.pyslurmNodeData = cPickle.loads(zlib.decompress(d))
+        self.updateTime, self.jobData, hn2info, self.pyslurmNodeData = cPickle.loads(zlib.decompress(d))
 
         if type(self.data) != dict: self.data = {}
-        for k,v in newdata.items(): self.data[k] = v
-        #print ('Got new data', time.asctime(time.localtime(self.updateTime)), len(d), len(self.data), len(newdata), file=sys.stderr)
+        for k,v in hn2info.items(): self.data[k] = v
+        #print ('Got new data', time.asctime(time.localtime(self.updateTime)), len(d), len(self.data), len(hn2info), file=sys.stderr)
 
     def sacctData (self, criteria):
         cmd = ['sacct', '-n', '-P', '-o', 'JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End'] + criteria

@@ -9,9 +9,18 @@ import influxdb
 import collections
 import MyTool
 
+
 class InfluxQueryClient:
     Interval = 61
     LOCAL_TZ = timezone(timedelta(hours=-4))
+    CLIENT_INS = None
+
+    @classmethod
+    def getClientInstance (cls):
+        if not cls.CLIENT_INS:
+           cls.CLIENT_INS = InfluxQueryClient('scclin011','slurmdb')
+
+        return cls.CLIENT_INS
 
     def __init__(self, influxServer='scclin011', dbname='slurmdb'):
         t1 = time.time()
@@ -22,6 +31,7 @@ class InfluxQueryClient:
     def connectInflux (self, host, port=8086, dbname='slurmdb'):
         return influxdb.InfluxDBClient(host, 8086, "yliu", "", dbname)
 
+        
     # given a jid, return the timed history on its assigned nodes
     def getSlurmJobHistory (self, jid):
         #select nodes from slurm_jobs where job_id = jid
@@ -130,7 +140,7 @@ class InfluxQueryClient:
         #prepare query
         g =('('+n+')' for n in nodelist)
         hostnames = '|'.join(g)
-        query= "select * from one_month.cpu_uid_mon where uid = '" + str(uid) + "' and hostname=~/"+ hostnames + "/ and time >= " + str(int(start_time)) + "000000000 and time <= " + str(int(stop_time)+1) + "000000000"
+        query= "select * from autogen.cpu_uid_mon where uid = '" + str(uid) + "' and hostname=~/"+ hostnames + "/ and time >= " + str(int(start_time)) + "000000000 and time <= " + str(int(stop_time)+1) + "000000000"
         print ("getSlurmUidNodeMon " + query)
 
         #execute query, returned time is local timestamp, epoch is for returned result, not for query
@@ -149,12 +159,59 @@ class InfluxQueryClient:
         print("getSlurmUidMonData take time " + str(time.time()-t1))
         return node2seq
 
+    #return the query result list of dictionaries
+    def queryUidMonData (self, uid, start_time='', stop_time='', nodelist=[]):
+        t1=time.time()
+
+        query = "select * from autogen.cpu_uid_mon where uid = '" + str(uid) + "'"
+        if nodelist:
+           g =('('+n+')' for n in nodelist)
+           hostnames = '|'.join(g)
+           query += " and hostname=~/"+ hostnames + "/"
+        if start_time:
+           query += " and time >= " + str(int(start_time)) + "000000000"
+        if stop_time:
+           query += " and time <= " + str(int(stop_time)+1) + "000000000"
+
+        print ("queryUidMonData " + query)
+
+        #execute query, returned time is local timestamp, epoch is for returned result, not for query
+        results = self.influx_client.query(query, epoch='ms')
+        points  = results.get_points() # lists of dictionaries
+
+        print("getSlurmUidMonData_All take time " + str(time.time()-t1))
+        return points
+
+    #return time series of the a uid on all nodes, {hostname: {ts: [cpu, io, mem] ... }, ...}
+    def getSlurmUidMonData_All(self, uid, start_time, stop_time):
+        t1=time.time()
+
+        #prepare query
+        query= "select * from one_month.cpu_uid_mon where uid = '" + str(uid) + "' and time >= " + str(int(start_time)) + "000000000 and time <= " + str(int(stop_time)+1) + "000000000"
+        print ("getSlurmUidMonData_All " + query)
+
+        #execute query, returned time is local timestamp, epoch is for returned result, not for query
+        results = self.influx_client.query(query, epoch='ms')
+        points  = results.get_points() # lists of dictionaries
+
+        node2seq = {}
+        for point in points: #points are sorted by point['time']
+            ts       = point['time']
+            node     = point['hostname']
+            if node not in node2seq: node2seq[node]={}
+            node2seq[node][ts] = [ MyTool.getDictNumValue(point, 'cpu_system_util') + MyTool.getDictNumValue(point, 'cpu_user_util'), 
+                                   MyTool.getDictNumValue(point, 'io_read_bytes')   + MyTool.getDictNumValue(point, 'io_write_bytes'), 
+                                   MyTool.getDictNumValue(point, 'mem_rss')]
+        #print(repr(node2seq))
+        print("getSlurmUidMonData_All take time " + str(time.time()-t1))
+        return node2seq
+
     #return all uid sequence of a node, {uid: {ts: [cpu, io, mem] ... }, ...}
     def getSlurmNodeMonData(self, node, start_time, stop_time):
         t1=time.time()
 
         #prepare query
-        query= "select * from one_month.cpu_uid_mon where hostname = '" + node + "' and time >= " + str(int(start_time)) + "000000000 and time <= " + str(int(stop_time)+1) + "000000000"
+        query= "select * from autogen.cpu_uid_mon where hostname = '" + node + "' and time >= " + str(int(start_time)) + "000000000 and time <= " + str(int(stop_time)+1) + "000000000"
         print ("getSlurmNodeMonData " + query)
 
         #execute query, returned time is local timestamp, epoch is for returned result, not for query
@@ -192,10 +249,10 @@ class InfluxQueryClient:
         return nodeDataDict
         
 #uidDict = {uid: {'cpu_system_util':0, ...}, ...}
-def createUidMonPoint (utcTS, node, uidDict):
+def createUidMonPoint (ts, node, uidDict):
     points = []
     for uid, fields in uidDict.items():
-        point           = {'measurement':'cpu_uid_mon', 'time':utcTS, 'tags':{'uid':uid, 'hostname':node}}
+        point           = {'measurement':'cpu_uid_mon', 'time':(int)(ts*1000), 'tags':{'uid':uid, 'hostname':node}}
         point['fields'] = fields
      
         points.append (point)

@@ -41,7 +41,7 @@ class DataReader:
 
     def on_connect(self, client, userdata, flags, rc):
         #self.mqtt_client.subscribe("cluster/hostprocesses/worker1000")
-        #print ("on_connect with code %d." %(rc) )
+        print ("on_connect with code %d." %(rc) )
         self.mqtt_client.subscribe("cluster/hostprocesses/#")
 
     def on_message(self, client, userdata, msg):
@@ -61,6 +61,7 @@ class DataReader:
 
     def dealData (self, t1):
         global NodeStateHack
+        print ("dealData")
 
         # get job/node data from pyslurm
         jobData  = pyslurm.job().get()
@@ -95,7 +96,8 @@ class DataReader:
             uid2pp      = DDict(list)
             if hostname in self.msgs:
                     # TODO: any value in processing earlier messages if they exist?
-                    m = self.msgs.pop(hostname)[-1]
+                    msgs = self.msgs.pop(hostname)
+                    m    = msgs[-1]               # get the latest message
                     
                     assert m['hdr']['hostname'] == hostname
                     ts    = m['hdr']['msg_ts']
@@ -106,13 +108,13 @@ class DataReader:
                         pid = process['pid']
                         currentPids.add(pid)
                         if pid in pid2info:
-                            c0 = pid2info[pid]['cpu']['user_time']
+                            c0 = pid2info[pid]['cpu']['user_time']+pid2info[pid]['cpu']['system_time']
                             t0 = prevTs
                         else:
                             c0 = 0.0
                             t0 = process['create_time']
-                        intervalUsertimeAvg = (float(process['cpu']['user_time']) - c0)/max(.1, ts - t0) #TODO: Replace cheap trick to avoid div0.
-                        uid2pp[process['uid']].append([pid, intervalUsertimeAvg, process['create_time'], process['cpu']['user_time'], process['cpu']['system_time'], process['mem']['rss'], process['mem']['vms'], process['cmdline']])
+                        intervalCPUtimeAvg = (float(process['cpu']['user_time']+process['cpu']['system_time']) - c0)/max(.1, ts - t0) #TODO: Replace cheap trick to avoid div0.
+                        uid2pp[process['uid']].append([pid, intervalCPUtimeAvg, process['create_time'], process['cpu']['user_time'], process['cpu']['system_time'], process['mem']['rss'], process['mem']['vms'], process['cmdline']])
                         pid2info[pid] = process
 
                     retirePids = [pid for pid in pid2info if pid not in currentPids]

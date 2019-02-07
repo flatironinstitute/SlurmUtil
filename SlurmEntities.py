@@ -189,6 +189,13 @@ class SlurmEntities:
   def getSmallerJobIDs (self, job_id, job_list):
       return [jid for jid in job_list if jid < job_id]
 
+  #return list of current pending jobs sorted by jid, no explaination
+  def getCurrentPendingJobs (self, fields=['job_id', 'submit_time', 'user_id', 'account', 'qos', 'partition', 'state_reason']):
+      job_dict = pyslurm.job().get()
+      pending  = [MyTool.sub_dict(job, fields) for jid,job in job_dict.items() if job['job_state']=='PENDING']
+
+      return datetime.now().timestamp(), pending
+
   #return list of jobs sorted by jid
   def getPendingJobs (self, fields=['job_id', 'submit_time', 'num_nodes', 'num_cpus', 'user_id', 'account', 'qos', 'partition', 'state_reason', 'user', 'submit_time_str', 'state_exp']):
       #pending = [(MyTool.sub_dict(job, fields)).update({'user', MyTool.getUser(job['user_id'])}) for jid,job in self.job_dict.items() if job['job_state']=='PENDING']
