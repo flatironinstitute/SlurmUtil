@@ -252,7 +252,7 @@ class InfluxQueryClient:
 def createUidMonPoint (ts, node, uidDict):
     points = []
     for uid, fields in uidDict.items():
-        point           = {'measurement':'cpu_uid_mon', 'time':(int)(ts*1000), 'tags':{'uid':uid, 'hostname':node}}
+        point           = {'measurement':'cpu_uid_mon', 'time':(int)(ts), 'tags':{'uid':uid, 'hostname':node}}
         point['fields'] = fields
      
         points.append (point)
