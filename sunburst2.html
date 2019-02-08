@@ -176,8 +176,6 @@ $(function(){
 	  if(d3.event.shiftKey){
 	      var url = window.location.href;
               var base_url = RemoveLastDirectoryPartOf(url);
-              //return "<a href='" + base_url + "/jobDetails?jobid=" + id + "'>Click Here</a>";
-	      //alert(base_url+"/jobDetails?jobid="+d.name);
 	      if (window.confirm('Click "ok" to be redirected to the job graph'))
 	      {
 		  window.location.href=base_url+"/jobDetails?jobid="+d.name;

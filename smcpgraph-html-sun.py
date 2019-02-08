@@ -75,19 +75,18 @@ class SLURMMonitor(object):
         return x, cdf
 
     @cherrypy.expose
-    def getPartitionNodes(self, partition='gpu'):
+    def partitionDetail(self, partition='gpu'):
         ins        = SlurmEntities.SlurmEntities()
-        nodes      = ins.getPartitionNodes(partition)
+        fields     = ['name', 'state', 'tres_fmt_str', 'features', 'gres', 'alloc_cpus','alloc_mem', 'cpu_load', 'gres_used', 'run_jobs']
+        titles     = ['Node', 'State', 'TRES',         'Features', 'Gres', 'Alloc CPU', 'Alloc Mem', 'CPU Load', 'Gres_used', 'Run Job']
+        p, nodes   = ins.getPartitionInfo (partition, fields)
+        #titles     = list(set([key for n in nodes for key in n]))
+        t          = dict(zip(fields, titles))
 
-        return repr(nodes)
-
-        #t = htmlPreamble
-        #t += '<h3>Running and Pending Jobs of user <a href="./userDetails?user={0}">{0}</a> (<a href="./userJobGraph?uname={0}">Graph</a>)</a></h3>Update time:{1}'.format(user, MyTool.getTimeString(int(time.time())))
-        #t += self.sacctReport(cmd.sacctCmd(['-u', user, '-s', 'RUNNING,PENDING'], output='JobID,JobName,State,Partition,NodeList,AllocCPUS,Submit,Start'),
-        #                      titles=['Job ID', 'Job Name', 'State', 'Partition','NodeList','Allocated CPUS', 'Submit','Start'])
-        #t += '<a href="%s/index">&#8617</a>\n</body>\n</html>\n'%cherrypy.request.base
-        #return t
-
+        htmlTemp   = os.path.join(wai, 'partitionDetail.html')
+        htmlStr    = open(htmlTemp).read().format(p_name=partition, p_detail=p, p_nodes=nodes, n_titles=t)
+        return htmlStr
+       
     @cherrypy.expose
     def pending(self, start='', stop='', state=3):
         ins        = SlurmEntities.SlurmEntities()
@@ -435,11 +434,16 @@ class SLURMMonitor(object):
 
         result=[]
         for node, nodeInfo in sorted(hostData.items()):
+            #status display no extra
             status = nodeInfo[0]
             if status.endswith(('@','+','$','#','~','*')):
                status = status[:-1]
-            if len(nodeInfo) > 1: delay= nodeInfo[1]
-            else:          delay= None
+
+            if len(nodeInfo) < HOST_ALLOCINFO_IDX:
+               print("getSummaryTableData nodeInfo format error {}:{}".format(node, nodeInfo)) 
+               continue
+
+            delay= nodeInfo[1]
             if ( node2jobs.get(node) ):
                for jid in node2jobs.get(node):
                   # add explictly job, uname mapping

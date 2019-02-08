@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link href="/static/css/style.css" rel="stylesheet">
+
+<script src="http://code.jquery.com/jquery-1.12.4.min.js"></script>
+<script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+<script type="text/javascript">
+
+    function addTable (data, titles_dict, div_id) {{
+        console.log(titles_dict);
+        console.log(Object.keys(titles_dict));
+        console.log(data)
+        var sortAscending = true;
+        var table         = d3.select(div_id).append('table');
+        var firstKey      = Object.keys(titles_dict)[0]   <!--use jobid as tie breaker for sorting -->
+        //var titles        = d3.keys(data[0]);
+
+        var headers = table.append('thead')
+                           .append('tr')
+                           .selectAll('th')
+                           .data(Object.keys(titles_dict)).enter()
+                           .append('th')
+                           .text(function (d) {{ return titles_dict[d]; }})
+                           .on('click', function (d) {{
+                               console.log ('on click ' + d)
+                               headers.attr('class', 'header');
+                                           
+                               if (sortAscending) {{
+                                  rows.sort(function(a, b) {{
+                                      console.log('cmp ' + d + ' value ' + JSON.stringify(b[d]) + '<' + JSON.stringify(a[d])); 
+                                      if (a[d] == b[d]) {{console.log('ret ' + (b[firstKey]<a[firstKey])); return b[firstKey]<a[firstKey];}} 
+                                      else {{console.log('ret ' + (b[d]<a[d])); return b[d] < a[d];}} }});
+                                  sortAscending  = false;
+                                  this.className = 'aes';
+                               }} else {{
+                                  rows.sort(function(a, b) {{ if (b[d] == a[d]) {{return b[firstKey]>a[firstKey];}} else {{return b[d] > a[d];}} }});
+                                  sortAscending  = true;
+                                  this.className = 'des';
+                               }}
+                                           
+                            }});
+        var rows = table.append('tbody').selectAll('tr')
+                               .data(data).enter()
+                               .append('tr')
+                               .attr('class', function(d) {{
+                                   return d['state']
+                               }});
+        rows.selectAll('td')
+            .data(function (d) {{
+                return Object.keys(titles_dict).map(function (k) {{
+                    return {{ 'value': d[k], 'name': k}};
+                }});
+            }}).enter()
+            .append('td')
+            .attr('data-th', function (d) {{
+                        return d.name;
+            }})
+            .html(function (d) {{
+                 return d.value;
+            }});
+
+    }};
+
+</script>
+</head>
+<body>
+  <h3>Partition: {p_name}</h3> <hr>
+  <p>{p_detail}
+  <h3>Partition Nodes:</h3> <hr>
+  <div id="nodes"> </div>
+
+<script type="text/javascript">
+    var nodes      = {p_nodes};
+    var titles     = {n_titles};
+    addTable (nodes, titles, '#nodes');
+</script>
+</body>
+</html>
+

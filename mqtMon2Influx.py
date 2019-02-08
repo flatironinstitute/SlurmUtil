@@ -33,17 +33,18 @@ class InfluxWriter (threading.Thread):
 
         self.influx_client = self.connectInflux (influxServer)
         self.source        = []
-        logging.info("influx_client= " + repr(self.influx_client._baseurl))
+        logging.info("Start InfluxWriter with influx_client={}, interval={}".format(self.influx_client._baseurl, self.INTERVAL))
 
     def connectInflux (self, host, port=8086, user="yliu", db="slurmdb"):
         return influxdb.InfluxDBClient(host, port, user, "", db)
 
-    def writeInflux (self, points, ret_policy="autogen", t_precision='s'):
+    def writeInflux (self, points, ret_policy="autogen", t_precision="s"):
         if ( len(points) == 0 ):
            return
 
         try:
-           logging.debug ("writeInflux {}".format(points))
+           logging.info  ("writeInflux {}".format(len(points)))
+           #logging.debug ("writeInflux {}".format(points))
            self.influx_client.write_points (points,  retention_policy=ret_policy, time_precision=t_precision)
         except influxdb.exceptions.InfluxDBClientError as err:
            logging.error ("writeInflux " + ret_policy + " ERROR:" + repr(err) + repr(points))
@@ -86,6 +87,8 @@ class MQTTReader (threading.Thread):
         else:
            self.cpu_up_ts      = {}
         self.cpu_up_ts_count   = 0
+
+        logging.info("Start MQTTReader with mqtt_client={}".format(self.mqtt_client))
 
     def run(self):
         # Asynchronously receive messages
@@ -318,6 +321,7 @@ class MQTTReader (threading.Thread):
             uid2proc[uid][pid] = MyTool.flatten(MyTool.sub_dict(proc, ['cpu', 'mem', 'io', 'num_fds'], default=0))
 
             #print ("node2ts2uid2proc=" + repr(self.node2ts2uid2proc))
+            
 
         return points
 
@@ -334,6 +338,7 @@ class SlurmDataReader (threading.Thread):
         self.slurm  = SlurmEntities.SlurmEntities()
         self.points = []
         self.lock   = threading.Lock()
+        logging.info("Start SlurmDataReader with interval={}".format(self.INTERVAL))
 
     def run(self):
         while True:
