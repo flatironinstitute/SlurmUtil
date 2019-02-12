@@ -7,9 +7,23 @@
 <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
 <script type="text/javascript">
 
+    function addList  (data_dict, div_id) {{
+        var data = []
+        for ( var k in data_dict) {{
+            if ( data_dict.hasOwnProperty(k)) {{
+               data.push ({{key:k, value:data_dict[k]}})
+            }}
+        }}
+
+        console.log(data)
+        var ul = d3.select(div_id).append ('ul');
+        ul.selectAll('li')
+          .data  (data).enter()
+          .append('li')
+          .text  (function(d) {{return d['key'] + ':\t' + d['value']}})
+    }};
+
     function addTable (data, titles_dict, div_id) {{
-        console.log(titles_dict);
-        console.log(Object.keys(titles_dict));
         console.log(data)
         var sortAscending = true;
         var table         = d3.select(div_id).append('table');
@@ -66,13 +80,14 @@
 </head>
 <body>
   <h3>Partition: {p_name}</h3> <hr>
-  <p>{p_detail}
+  <div id="details"> </div>
   <h3>Partition Nodes:</h3> <hr>
   <div id="nodes"> </div>
 
 <script type="text/javascript">
     var nodes      = {p_nodes};
     var titles     = {n_titles};
+    addList  ({p_detail},    '#details');
     addTable (nodes, titles, '#nodes');
 </script>
 </body>

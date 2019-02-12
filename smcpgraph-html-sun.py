@@ -79,6 +79,8 @@ class SLURMMonitor(object):
         ins        = SlurmEntities.SlurmEntities()
         fields     = ['name', 'state', 'tres_fmt_str', 'features', 'gres', 'alloc_cpus','alloc_mem', 'cpu_load', 'gres_used', 'run_jobs']
         titles     = ['Node', 'State', 'TRES',         'Features', 'Gres', 'Alloc CPU', 'Alloc Mem', 'CPU Load', 'Gres_used', 'Run Job']
+        p_keys     = ['allow_accounts', 'allow_alloc_nodes', 'allow_groups', 'allow_qos', 'def_mem_per_cpu', 'default_time_str', 'flags', 
+                      'max_cpus_per_node', 'max_mem_per_node', 'max_nodes', 'max_share']
         p, nodes   = ins.getPartitionInfo (partition, fields)
         #titles     = list(set([key for n in nodes for key in n]))
         t          = dict(zip(fields, titles))

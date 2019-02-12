@@ -77,35 +77,34 @@ class SlurmEntities:
 
     return lst1,lst2
 
-  def getPartitionNodes (self, p_name, fields=['name', 'state', 'tres_fmt_str', 'features', 'alloc_cpus','alloc_mem', 'cpu_load', 'run_jobs', 'wait_cpus', 'pend_jobs']):
-      node_names = MyTool.nl2flat(self.partition_dict[p_name]['nodes'])
+  def getPartitionInfo (self, p_name, fields=['name', 'state', 'tres_fmt_str', 'features', 'gres', 'alloc_cpus','alloc_mem', 'cpu_load', 'gres_used', 'run_jobs']):
+      partition  = self.partition_dict[p_name]
+      node_names = MyTool.nl2flat(partition['nodes'])
       nodes      = self.addUpdateNodeInfo (node_names)
 
-      return [MyTool.sub_dict(node, fields) for node in nodes]
+      #get rid of None and UNLIMITED in partition
+      partition  = dict((key, value) for key, value in partition.items() if value and value not in ['UNLIMITED','1', 1, 'NONE'] and key not in ['default_time', 'total_cpus', 'total_nodes', 'state'])
+      partition['flags'] = repr(partition['flags'])
+      rlt        = []
+      for n in nodes:
+          rlt.append(dict([(f, n[f]) for f in fields if n.get(f, None)]))
+          
+      return partition, rlt
 
   # return node allocate information of the partition
   def addUpdateNodeInfo (self, node_names):
     # should get newest data?
-    job_dict   = self.job_dict
-    node_dict  = self.node_dict
+    job_dict   = pyslurm.job().get()
+    node_dict  = pyslurm.node().get()
 
     run_jobs   = [(jid,job) for jid, job in job_dict.items() if job['job_state']=='RUNNING']
-    pend_jobs  = [(jid,job) for jid, job in job_dict.items() if job['job_state']=='PENDING']
     
     # add job allocate information
     for jid,job in run_jobs:
-        j_nodes = MyTool.nl2flat(job['nodes'])
-        for n in j_nodes:
+        for n in MyTool.nl2flat(job['nodes']):
             if 'run_jobs' not in node_dict[n]: node_dict[n]['run_jobs'] = []
             node_dict[n]['run_jobs'].append(jid)
         
-    for jid,job in pend_jobs:
-        if job['sched_nodes']:
-           j_nodes = MyTool.nl2flat(job['alloc_nodes'])
-           for n in j_nodes:
-              if 'pend_jobs' not in node_dict[n]: node_dict[n]['pend_jobs'] = []
-              node_dict[n]['pend_jobs'].append(jid)
-
     nodes = [node_dict[nm] for nm in node_names]
     return nodes
 
