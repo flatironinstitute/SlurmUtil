@@ -1171,10 +1171,6 @@ class SLURMMonitor(object):
         cpu_all_nodes = []  ##[{'data': [[1531147508000, value]...], 'name':'workerXXX'}, ...] 
         io_all_nodes  = []  ##[{'data': [[1531147508000, value]...], 'name':'workerXXX'}, ...] 
         for hostname, hostdict in node2seq.items():
-            mem_node={'name': hostname}
-            mem_node['data']= [[ts, hostdict[ts][2]] for ts in hostdict.keys()]
-            mem_all_nodes.append (mem_node)
-
             cpu_node={'name': hostname}
             cpu_node['data']= [[ts, hostdict[ts][0]] for ts in hostdict.keys()]
             cpu_all_nodes.append (cpu_node)
@@ -1182,6 +1178,11 @@ class SLURMMonitor(object):
             io_node={'name': hostname}
             io_node['data']= [[ts, hostdict[ts][1]] for ts in hostdict.keys()]
             io_all_nodes.append (io_node)
+
+            mem_node={'name': hostname}
+            mem_node['data']= [[ts, hostdict[ts][2]] for ts in hostdict.keys()]
+            mem_all_nodes.append (mem_node)
+
         ann_series = []
 
         # highcharts 

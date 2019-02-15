@@ -44,7 +44,6 @@ class InfluxWriter (threading.Thread):
 
         try:
            logging.info  ("writeInflux {}".format(len(points)))
-           #logging.debug ("writeInflux {}".format(points))
            self.influx_client.write_points (points,  retention_policy=ret_policy, time_precision=t_precision)
         except influxdb.exceptions.InfluxDBClientError as err:
            logging.error ("writeInflux " + ret_policy + " ERROR:" + repr(err) + repr(points))
@@ -66,15 +65,16 @@ class MQTTReader (threading.Thread):
     TS_FNAME = 'host_up_ts.txt'
 
     #mqtt client to receive data and save it in influx
+    #two threads: one for mqtt client, one for the reader
     def __init__(self, mqttServer='mon5.flatironinstitute.org'):
         threading.Thread.__init__(self)
 
         self.mqtt_client   = self.connectMqtt   (mqttServer)
 
-        self.lock          = threading.Lock()
         self.cpuinfo       = {} 		#static information
-        self.node2ts2uid2proc = {}                 #used by hostproc2point
-        self.node2uid2ts2done = {}                 #used by hostproc2point
+        self.nodeUidTs2points = DDict(lambda: DDict(lambda: DDict(dict))) #{node:{uid:{ts:{pid:procPoint, ...]},...}, hostproc2point provider, create_uid_point use it
+       
+        self.lock          = threading.Lock()   #guard the message list hostperf_msgs, ...
         self.hostperf_msgs = []
         self.hostinfo_msgs = []
         self.hostproc_msgs = []
@@ -137,6 +137,8 @@ class MQTTReader (threading.Thread):
         points.extend(self.process_list(self.hostperf_msgs, self.hostperf2point))
         #autogen.cpu_proc_info, cpu_proc_mon
         points.extend(self.process_list(self.hostproc_msgs, self.hostproc2point))
+        if self.nodeUidTs2points:
+           points.extend(self.create_uid_points())
 
         if self.cpu_up_ts_count > 0:
            with open (self.TS_FNAME, 'w') as f:
@@ -201,132 +203,84 @@ class MQTTReader (threading.Thread):
         return [point]
 
     #ts2uid2procs have 2 ts (preTs, ts) 
-    def getUidAggLoad (self, node, ts2uid2procs):
-
-        result      = {}
-        preTs,ts    = sorted(ts2uid2procs.keys())
-        uid2proc    = ts2uid2procs[ts]
-        preUid2proc = ts2uid2procs[preTs]
-        for uid, procs in uid2proc.items():
-            # self.node2uid2ts2done save the done proc's sum cpu time to avoid drop in accumulated cpu time of a job/uid
-            if node not in self.node2uid2ts2done:       self.node2uid2ts2done[node]={}
-            if uid  not in self.node2uid2ts2done[node]: self.node2uid2ts2done[node][uid]={}
-            
-            if uid in preUid2proc:
-               donePids    = [pid for pid in preUid2proc[uid].keys() if pid not in procs.keys()]
-               if donePids:
-                  logging.debug ("getUidAggLoad donePids = " + repr(donePids))
-                  doneSum1    = sum(preUid2proc[uid][pid].get('cpu_system_time',0) for pid in donePids)
-                  doneSum2    = sum(preUid2proc[uid][pid].get('cpu_user_time',  0) for pid in donePids)
-                  if (preTs in self.node2uid2ts2done[node][uid]):
-                     doneSum     = [self.node2uid2ts2done[node][uid][preTs][0] + doneSum1, self.node2uid2ts2done[node][uid][preTs][1] + doneSum2]
-                  else:
-                     doneSum     = [doneSum1, doneSum2]
-                  self.node2uid2ts2done[node][uid] = {ts: doneSum}
-                  logging.debug ("getUidAggLoad node2uid2ts2done = " + repr(self.node2uid2ts2done[node][uid]))
-                  
-            # calculate util
-            procFldList = list(procs.values())                  #key is pid, [{'cpu_sys_time'}:0,...},...]
-            # sum over field keys such as cpu_sys_time
-            if (len(procFldList) == 0): 
-               logging.warn ("getUidAggLoad WARNING: no process running on the node for user " + str(uid))
-               continue
-
-            #TODO: change to field list
-            sumDict     = {fKey: sum(fields.get(fKey,0) for fields in procFldList) for fKey in procFldList[0].keys()}
-               
-            #cpu utilization is different
-            pids           = procs.keys()
-            #print ("uid=" + repr(uid) + ",ts=" + repr(ts) + ",preUid2proc.keys()=" + repr(preUid2proc.keys()))
-            if uid in preUid2proc:
-               preProcs       = preUid2proc[uid]
-               sum1  = sum(preProcs[pid].get('cpu_system_time',0) for pid in pids if pid in preProcs)
-               sum2  = sum(preProcs[pid].get('cpu_user_time',  0) for pid in pids if pid in preProcs)
-               preSysTimeSum = 0
-               preUsrTimeSum = 0
-               for pid in pids:
-                   if pid in preProcs: 
-                      preSysTimeSum += preProcs[pid].get('cpu_system_time',0)
-                      preUsrTimeSum += preProcs[pid].get('cpu_user_time',  0)
-               if ( sum1 != preSysTimeSum or sum2 != preUsrTimeSum):
-                   logging.error("getUidAggLoad ERROR: sum1 wrong")
-
-               sumDict['cpu_system_util'] = ( sumDict.get('cpu_system_time') - preSysTimeSum ) / max(0.01, ts - preTs)
-               sumDict['cpu_user_util']   = ( sumDict.get('cpu_user_time')   - preUsrTimeSum ) / max(0.01, ts - preTs)
-               if (sumDict['cpu_system_util'] < 0) or (sumDict['cpu_user_util'] < 0):
-                  logging.error("getUidAggLoad ERROR: negative value for utilization " + repr(procs) + " - " + repr(preProcs))
-               
-               
-               if (ts in self.node2uid2ts2done[node][uid]):
-                  sumDict['cpu_system_time'] += self.node2uid2ts2done[node][uid][ts][0]
-                  sumDict['cpu_user_time']   += self.node2uid2ts2done[node][uid][ts][1]
-
-               result[uid] = sumDict
-
-        return ts,preTs,result
-        
     #ingore non-slurm node
+    #nodeUidTs2points = DDict(DDict(list))        #{uid:{pid:[procPoint, ...]},...}
     def hostproc2point (self, msg):
         #{'processes': [{'status': 'sleeping', 'uid': 1083, 'mem': {'lib': 0, 'text': 905216, 'shared': 1343488, 'data': 487424, 'vms': 115986432, 'rss': 1695744}, 'pid': 23825, 'cmdline': ['/bin/bash', '/cm/local/apps/slurm/var/spool/job65834/slurm_script'], 'create_time': 1528790822.57, 'io': {'write_bytes': 40570880, 'read_count': 9712133, 'read_bytes': 642359296, 'write_count': 1067292080}, 'num_fds': 4, 'num_threads': 1, 'name': 'slurm_script', 'ppid': 23821, 'cpu': {'system_time': 0.21, 'affinity': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27], 'user_time': 0.17}}, 
         #...
         #'hdr': {'hostname': 'worker1000', 'msg_process': 'cluster_host_mon', 'msg_type': 'cluster/hostprocesses', 'msg_ts': 1528901819.82538}} 
-        points   = []
-        ts       = msg['hdr']['msg_ts']
-        node     = msg['hdr']['hostname']
-
+        ts   = (int)(msg['hdr']['msg_ts'])
+        node = msg['hdr']['hostname']
         if ( len(msg['processes']) == 0 ):   return []
         if ( not self.isSlurmNode(node) ):   return []
 
-        if ( node not in self.node2ts2uid2proc ):  self.node2ts2uid2proc[node] = {}
+        infoPoints   = []
+        procPoints   = []
 
-        ts2uid2proc = self.node2ts2uid2proc[node]                 #{ts: {uid: {pid:cpu_time} } }
-        if ( ts not in ts2uid2proc and len(ts2uid2proc) == 2 ):     # ts should be non-decreasing
-           # a newer ts, summerize and write the old data to influx, only 2 ts in ts2uid2proc
-           preTs,prepreTs,uidSum = self.getUidAggLoad (node, ts2uid2proc)
-           
-           # create cpu_uid_mon point
-           uidPoint     = queryInflux.createUidMonPoint (preTs, node, uidSum)
-           #print ("hostproc2point uidPoint=" + repr(uidPoint))
-           points.extend (uidPoint)
-           #remove the old record
-           del ts2uid2proc[prepreTs]
-        
-        # record the data
-        if ts not in ts2uid2proc:  self.node2ts2uid2proc[node][ts] = {}
-        uid2proc  = self.node2ts2uid2proc[node][ts]
+        # generate cpu_proc_info and cpu_proc_mon
         for proc in msg['processes']:
-            if (not 'user_time' in proc['cpu'] or not 'system_time' in proc['cpu']): logging.error ("CPU info missing ERROR: " + repr(proc))
+            if (not 'user_time' in proc['cpu'] or not 'system_time' in proc['cpu']): logging.error ("CPU info missing ERROR: {}".format(proc))
 
-            pid                           = proc['pid']
-            uid                           = proc['uid']
-            infopoint                     = {'measurement':'cpu_proc_info'}
-            infopoint['time']             = (int)(proc['create_time'])
-            infopoint['tags']             = MyTool.sub_dict(proc, ['pid', 'uid'])
-            infopoint['tags']['hostname'] = node
-            infopoint['fields']           = MyTool.flatten(MyTool.sub_dict(proc, ['cmdline', 'name', 'ppid']))
-            points.append(infopoint)
+            uid                       = proc['uid']
+            pid                       = proc['pid']
+            point                     = {'measurement':'cpu_proc_info', 'time': (int)(proc['create_time'])}
+            point['tags']             = MyTool.sub_dict(proc, ['pid', 'uid'])
+            point['tags']['hostname'] = node
+            point['fields']           = MyTool.flatten(MyTool.sub_dict(proc, ['cmdline', 'name', 'ppid']))
+            #TODO: check if duplicate
+            infoPoints.append(point)
 
             #measurement cpu_proc_mon
-            point                     = {'measurement':'cpu_proc_mon'}
-            point['time']             = (int)(ts)
+            point                     = {'measurement':'cpu_proc_mon', 'time': ts}
             point['tags']             = MyTool.sub_dict(proc, ['pid', 'uid', 'create_time'])
             point['tags']['hostname'] = node
-            del proc['cpu']['affinity']
+            if 'affinity' in proc['cpu']:
+               del proc['cpu']['affinity']  # not including cpu.affinity
             point['fields']           = MyTool.flatten(MyTool.sub_dict(proc, ['mem', 'io', 'num_fds', 'cpu'], default=0))
             point['fields']['status'] = querySlurm.SlurmStatus.getStatusID(proc['status'])
-            points.append (point)
+            procPoints.append (point)
 
-            #save data from cpu_uid_mon
-            if uid not in uid2proc: uid2proc[uid]={}
-            uid2proc[uid][pid] = MyTool.flatten(MyTool.sub_dict(proc, ['cpu', 'mem', 'io', 'num_fds'], default=0))
+            self.nodeUidTs2points[node][uid][ts][pid]=point
+        logging.debug('hostproc2point generate {} cpu_proc_info and {} cpu_proc_mon points'.format(len(infoPoints), len(procPoints)))
 
-            #print ("node2ts2uid2proc=" + repr(self.node2ts2uid2proc))
-            
+        return infoPoints.extend(procPoints)
 
-        return points
+    # generate cpu_uid_mon
+    def create_uid_points (self):
+      uidPoints             = []
+
+      for node, uidTs2points in self.nodeUidTs2points.items():
+        for uid, ts2points in uidTs2points.items():
+            tsLst = sorted(ts2points.keys())   #sorted ts
+            # calculate rate and only keep the newest point inside ts2points
+            #for each uid on the node, only keep the newest record
+            for idx in range(1, len(tsLst)):
+                currTs   = tsLst[idx]
+                currDict = ts2points[currTs]     # dict {pid, point}
+                preDict  = ts2points.pop(tsLst[idx-1])
+                period   = currTs-tsLst[idx-1]
+                if ( period < 0.01 ):
+                   logging.error("Period is almost 0 between points {} and {}. Ignore.".format(preDict, currDict))
+                   continue
+                if ( period > 120 ):
+                   logging.error("Period is {} bigger than 60 seconds between {} and {}.".format(period, preDict, currDict))
+
+                point         = {'measurement':'cpu_uid_mon', 'time':currTs, 'fields': {}}
+                point['tags'] = {'uid':uid, 'hostname':node}
+                for field, attr in [('cpu_system_util','cpu_system_time'), ('cpu_user_util','cpu_user_time'), ('io_read_rate','io_read_bytes'), ('io_write_rate','io_write_bytes')]:
+                    # if curr have pid (pre not),           return curr value
+                    # if curr does not have pid (pre have), return 0
+                    point['fields'][field] = sum([currDict[pid]['fields'][attr] - preDict.get(pid, {}).get('fields',{}).get(attr,0) for pid in currDict.keys()])/period
+                for attr in ['mem_data', 'mem_rss', 'mem_shared', 'mem_text', 'mem_vms', 'num_fds']:
+                    point['fields'][attr] = sum([currDict[pid]['fields'][attr] for pid in currDict.keys()])
+                uidPoints.append (point)
+               
+            #logging.debug("self.nodeUidTs2points[{}][{}]={}".format(node,uid,self.nodeUidTs2points[node][uid]))
+
+      logging.debug('create_uid_points generate {} cpu_uid_mon points'.format(len(uidPoints)))
+      return uidPoints
 
     #pyslurm.slurm_pid2jobid only on slurm node with slurmd running
-
     def isSlurmNode (self, hostname):
         return (hostname in self.nodeData )
 
