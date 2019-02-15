@@ -1167,9 +1167,10 @@ class SLURMMonitor(object):
         influxClient = InfluxQueryClient('scclin011','slurmdb')
         node2seq     = influxClient.getSlurmUidMonData(userid, nodelist,start,stop)
       
-        mem_all_nodes = []  ##[{'data': [[1531147508000(ms), value]...], 'name':'workerXXX'}, ...] 
-        cpu_all_nodes = []  ##[{'data': [[1531147508000, value]...], 'name':'workerXXX'}, ...] 
-        io_all_nodes  = []  ##[{'data': [[1531147508000, value]...], 'name':'workerXXX'}, ...] 
+        mem_all_nodes  = []  ##[{'data': [[1531147508000(ms), value]...], 'name':'workerXXX'}, ...] 
+        cpu_all_nodes  = []  ##[{'data': [[1531147508000, value]...], 'name':'workerXXX'}, ...] 
+        io_r_all_nodes = []  ##[{'data': [[1531147508000, value]...], 'name':'workerXXX'}, ...] 
+        io_w_all_nodes = []  ##[{'data': [[1531147508000, value]...], 'name':'workerXXX'}, ...] 
         for hostname, hostdict in node2seq.items():
             cpu_node={'name': hostname}
             cpu_node['data']= [[ts, hostdict[ts][0]] for ts in hostdict.keys()]
@@ -1177,23 +1178,25 @@ class SLURMMonitor(object):
 
             io_node={'name': hostname}
             io_node['data']= [[ts, hostdict[ts][1]] for ts in hostdict.keys()]
-            io_all_nodes.append (io_node)
+            io_r_all_nodes.append (io_node)
+
+            io_node={'name': hostname}
+            io_node['data']= [[ts, hostdict[ts][2]] for ts in hostdict.keys()]
+            io_w_all_nodes.append (io_node)
 
             mem_node={'name': hostname}
-            mem_node['data']= [[ts, hostdict[ts][2]] for ts in hostdict.keys()]
+            mem_node['data']= [[ts, hostdict[ts][3]] for ts in hostdict.keys()]
             mem_all_nodes.append (mem_node)
-
-        ann_series = []
 
         # highcharts 
         htmltemp = os.path.join(wai, 'smGraphHighcharts.html')
-        h = open(htmltemp).read()%{'spec_title': ' of job ' + str(jobid),
+        h = open(htmltemp).read()%{'spec_title': ' of job {}'.format(jobid),
                                    'start'     : time.strftime('%Y/%m/%d', time.localtime(start)),
                                    'stop'      : time.strftime('%Y/%m/%d', time.localtime(stop)),
                                    'lseries'   : cpu_all_nodes,
                                    'mseries'   : mem_all_nodes,
-                                   'iseries'   : io_all_nodes,
-                                   'aseries'   : ann_series}
+                                   'iseries_r' : io_r_all_nodes,
+                                   'iseries_w' : io_w_all_nodes}
         return h
 
         
@@ -1441,6 +1444,7 @@ class SLURMMonitor(object):
     sunburst.exposed = True
             
 cherrypy.config.update({#'environment': 'production',
+                        'log.access_file':    '/tmp/slurm_util/smcpgraph-html-sun.log',
                         'server.socket_host': '0.0.0.0', 
                         'server.socket_port': WebPort})
 conf = {

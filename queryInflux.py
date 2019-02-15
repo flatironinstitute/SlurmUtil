@@ -152,7 +152,8 @@ class InfluxQueryClient:
             ts       = point['time']
             node     = point['hostname']
             node2seq[node][ts] = [ MyTool.getDictNumValue(point, 'cpu_system_util') + MyTool.getDictNumValue(point, 'cpu_user_util'), 
-                                   MyTool.getDictNumValue(point, 'io_read_bytes')   + MyTool.getDictNumValue(point, 'io_write_bytes'), 
+                                   MyTool.getDictNumValue(point, 'io_read_rate'),
+                                   MyTool.getDictNumValue(point, 'io_write_rate'), 
                                    MyTool.getDictNumValue(point, 'mem_rss')]
 
         #print(repr(node2seq))
