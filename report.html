@@ -31,7 +31,7 @@
 }
 </style>
 
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script type="text/javascript" src="static/scripts/jquery-3.3.1.min.js"></script>
 <script>
 $(function(){
    $("#tabmenu").load("/getHeader?page=report")
@@ -43,15 +43,8 @@ $(function(){
 <div class="tab" id="tabmenu"></div>
 
 
-<div id="secondly" style="border:1px solid gray; margin: 10px; padding: 10px;">
-<legend style="color:#3A509C"> Report </legend>
-  <form action="./queueLengthReport"> 
-        Slurm Cluster Queue Length from <input name="start" id="start" value="2017-09-18" type="date"> to <input name="stop" id="stop" value="" type="date"> with job wait time bigger than <input name="queueTime" id="queueTime" size=2 value=1> seconds &nbsp
-        <button> Report </button></form>
-</div>
-
 <div id="hourly" style="border:1px solid gray; margin: 10px; padding: 10px;">
-<legend style="color:#3A509C"> Hourly Report </legend>
+<legend style="color:#3A509C"> Cluster and User Usage Report </legend>
   <form action="./clusterReport_hourly"> 
         Slurm Cluster Hourly Usage from <input name="start" id="start" value="2017-09-18" type="date"> to <input name="stop" id="stop" value="" type="date"> &nbsp
         <button> Report </button></form>
@@ -65,10 +58,10 @@ $(function(){
 </div>
 
 <div id="daily" style="border:1px solid gray; margin: 10px; padding: 10px;">
-<legend style="color:#3A509C"> Daily Report </legend>
+<legend style="color:#3A509C"> File Usage Daily Report </legend>
 <form action="./fileReport_daily"> 
         Top <input name="top" id="top" size=2 value=5> Users 
-        File Count and Bytes Usage on 
+        File Count and Bytes Daily Usage on 
         <select name="fs">
           <option value="home">      Home</option>
           <option value="ceph_users">Ceph Users</option>
@@ -76,6 +69,13 @@ $(function(){
           <option value="xfs1">      Xfs1</option>
         </select>
         from <input name="start" id="start" value="2016-10-25" type="date"> to <input name="stop" id="stop" value="" type="date">
+        <button> Report </button></form>
+</div>
+
+<div id="secondly" style="border:1px solid gray; margin: 10px; padding: 10px;">
+<legend style="color:#3A509C"> Pending Queue Report </legend>
+  <form action="./queueLengthReport"> 
+        Slurm Cluster Queue Length from <input name="start" id="start" value="2017-09-18" type="date"> to <input name="stop" id="stop" value="" type="date"> with job wait time bigger than <input name="queueTime" id="queueTime" size=2 value=1> seconds &nbsp
         <button> Report </button></form>
 </div>
 
@@ -92,5 +92,14 @@ $(function(){
         from <input name="start" id="start" value="2017-10-05" type="date"> to <input name="stop" id="stop" value="" type="date">
         <button> Report </button></form>
 </div>
+<script>
+  today = new Date() 
+  month = "0" + (today.getMonth()+1)
+  console.log(month)
+  day   = "0" + today.getDate()
+  startDate = today.getFullYear()-1 + "-" + month.substr(month.length-2) + "-" + day.substr(day.length-2);
+  console.log(today)
+  $("input[name='start'").val(startDate)
+</script>
 </body>
 </html>
