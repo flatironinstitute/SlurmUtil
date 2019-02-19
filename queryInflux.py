@@ -225,7 +225,8 @@ class InfluxQueryClient:
             uid     = point['uid']
             if uid not in uid2seq: uid2seq[uid] = {}
             uid2seq[uid][ts] = [ MyTool.getDictNumValue(point, 'cpu_system_util') + MyTool.getDictNumValue(point, 'cpu_user_util'), 
-                                 MyTool.getDictNumValue(point, 'io_read_bytes')   + MyTool.getDictNumValue(point, 'io_write_bytes'), 
+                                 MyTool.getDictNumValue(point, 'io_read_rate'),
+                                 MyTool.getDictNumValue(point, 'io_write_rate'), 
                                  MyTool.getDictNumValue(point, 'mem_rss')]
 
         #print(repr(uid2seq))

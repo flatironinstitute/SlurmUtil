@@ -451,9 +451,9 @@ class SLURMMonitor(object):
                   # add explictly job, uname mapping
                   uid = self.getJobUID (jid)
                   if len(nodeInfo) > HOST_ALLOCINFO_IDX:
-                     for uname, p_uid, coreNum, proNum, load, rss, vms, pp in nodeInfo[HOST_ALLOCINFO_IDX:]:
+                     for uname, p_uid, coreNum, proNum, load, rss, vms, pp, io in nodeInfo[HOST_ALLOCINFO_IDX:]:
                         if p_uid == uid:
-                           result.append([node, status, jid, delay, uname, coreNum, proNum, load, rss, vms])
+                           result.append([node, status, jid, delay, uname, coreNum, proNum, load, rss, vms, io*8])
                         else:
                            print ("getSummaryTableData proc_uid {} != job_uid {}".format(p_uid, uid))
                   else:
@@ -566,8 +566,8 @@ class SLURMMonitor(object):
 
     @cherrypy.expose
     def getHeader(self, page=None):
-        pages =["index",           "utilHeatmap", "pending",      "sunburst",       "usageGraph", "tymor", "tymor2", "report", "forecast"]
-        titles=["Tabular Summary", "Host Util.",  "Pending Jobs", "Sunburst Graph", "Usage Graph","Tymor", "Tymor2", "Report", "Forecast"]
+        pages =["index",           "utilHeatmap", "pending",      "sunburst",       "usageGraph", "tymor2", "report", "forecast"]
+        titles=["Tabular Summary", "Host Util.",  "Pending Jobs", "Sunburst Graph", "Usage Graph","Tymor", "Report", "Forecast"]
  
         result=""
         for i in range (len(pages)):
@@ -730,7 +730,8 @@ class SLURMMonitor(object):
 
         cpu_series = []  ##[{'data': [[1531147508000, value]...], 'name':'userXXX'}, ...] 
         mem_series = []  ##[{'data': [[1531147508000(ms), value]...], 'name':'userXXX'}, ...] 
-        io_series  = []  ##[{'data': [[1531147508000, value]...], 'name':'userXXX'}, ...] 
+        io_series_r  = []  ##[{'data': [[1531147508000, value]...], 'name':'userXXX'}, ...] 
+        io_series_w  = []  ##[{'data': [[1531147508000, value]...], 'name':'userXXX'}, ...] 
         for uid, d in uid2seq.items():
             uname = MyTool.getUser(uid)
             cpu_node={'name': uname}
@@ -738,12 +739,17 @@ class SLURMMonitor(object):
             cpu_series.append (cpu_node)
 
             mem_node={'name': uname}
-            mem_node['data']= [[ts, d[ts][2]] for ts in d.keys()]
+            mem_node['data']= [[ts, d[ts][3]] for ts in d.keys()]
             mem_series.append (mem_node)
 
             io_node={'name': uname}
             io_node['data'] = [[ts, d[ts][1]] for ts in d.keys()]
-            io_series.append (io_node)
+            io_series_r.append (io_node)
+
+            io_node={'name': uname}
+            io_node['data'] = [[ts, d[ts][2]] for ts in d.keys()]
+            io_series_w.append (io_node)
+
         ann_series = self.queryTxtClient.getNodeUpTS([node])[node]
         #ann_series=[]
         print ('nodeGraph annotation=' + repr(ann_series))
@@ -753,7 +759,8 @@ class SLURMMonitor(object):
                                    'start': time.strftime('%Y/%m/%d', time.localtime(start)),
                                    'stop': time.strftime('%Y/%m/%d', time.localtime(stop)),
                                    'lseries': cpu_series,
-                                   'iseries': io_series,
+                                   'iseries_r': io_series_r,
+                                   'iseries_w': io_series_w,
                                    'mseries': mem_series,
                                    'aseries': ann_series}
 
@@ -774,7 +781,7 @@ class SLURMMonitor(object):
            skew   = 'Undefined'
 
         procData = []
-        for user, uid, cores, procs, load, trm, tvm, cmds in sorted(nodeInfo[HOST_ALLOCINFO_IDX:]):
+        for user, uid, cores, procs, load, trm, tvm, cmds, io in sorted(nodeInfo[HOST_ALLOCINFO_IDX:]):
             procData.append ([user, cores, load, cmds])
             
         jobs_alloc = self.getNode2Job()[node]
@@ -804,7 +811,7 @@ class SLURMMonitor(object):
         t += '<h3>User: %s (<a href="./userJobGraph?uname=%s">Graph</a>), <a href="#sacctreport">(jump to sacct)</a></h3>\n'%(user, user)
         for node, d in sorted(self.data.items()):
             if len(d) < HOST_ALLOCINFO_IDX: continue
-            for nuser, uid, cores, procs, tc, trm, tvm, cmds in sorted(d[HOST_ALLOCINFO_IDX:]):
+            for nuser, uid, cores, procs, tc, trm, tvm, cmds, io in sorted(d[HOST_ALLOCINFO_IDX:]):
                 if nuser != user: continue
                 ac = MyTool.loadSwitch(cores, tc, ' class="inform"', '', ' class="alarm"')
                 t += '<hr><em{0}><a href="./nodeDetails?node={1}">{1}</em></a> {2}<pre>'.format(ac, node, cores)
@@ -833,7 +840,7 @@ class SLURMMonitor(object):
             if len(d) < HOST_ALLOCINFO_IDX: 
                 t += '<hr><em>%s</em> %d<pre>'%(node, coreCount) + '\n</pre>\n'
             else:
-                for user, uid, cores, procs, tc, trm, tvm, cmds in sorted(d[HOST_ALLOCINFO_IDX:]):
+                for user, uid, cores, procs, tc, trm, tvm, cmds, io in sorted(d[HOST_ALLOCINFO_IDX:]):
                     ac = MyTool.loadSwitch(cores, tc, ' class="inform"', '', ' class="alarm"')
                     t += '<hr><em%s>%s</em> %d<pre>'%(ac, node, coreCount) + '\n'.join([' '.join(['%6d'%cmd[0], '%6.2f'%cmd[1], '%10.2e'%cmd[5], '%10.2e'%cmd[6]] + cmd[7]) for cmd in cmds]) + '\n</pre>\n'
 

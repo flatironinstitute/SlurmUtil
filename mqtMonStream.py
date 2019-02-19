@@ -110,11 +110,14 @@ class DataReader:
                         if pid in pid2info:
                             c0 = pid2info[pid]['cpu']['user_time']+pid2info[pid]['cpu']['system_time']
                             t0 = prevTs
+                            i0 = pid2info[pid]['io']['read_bytes']+pid2info[pid]['io']['write_bytes']
                         else:
                             c0 = 0.0
                             t0 = process['create_time']
+                            i0 = 0
                         intervalCPUtimeAvg = (float(process['cpu']['user_time']+process['cpu']['system_time']) - c0)/max(.1, ts - t0) #TODO: Replace cheap trick to avoid div0.
-                        uid2pp[process['uid']].append([pid, intervalCPUtimeAvg, process['create_time'], process['cpu']['user_time'], process['cpu']['system_time'], process['mem']['rss'], process['mem']['vms'], process['cmdline']])
+                        intervalIOByteAvg  = int((process['io']['read_bytes']+process['io']['write_bytes'] - i0)/max(1, ts - t0))
+                        uid2pp[process['uid']].append([pid, intervalCPUtimeAvg, process['create_time'], process['cpu']['user_time'], process['cpu']['system_time'], process['mem']['rss'], process['mem']['vms'], process['cmdline'], intervalIOByteAvg])
                         pid2info[pid] = process
 
                     retirePids = [pid for pid in pid2info if pid not in currentPids]
@@ -122,11 +125,13 @@ class DataReader:
 
                     for uid, pp in uid2pp.items():
                         totIUA, totRSS, totVMS = 0.0, 0, 0
+                        totIO = 0
                         for p in pp:
                             totIUA += p[1]
                             totRSS += p[5]
                             totVMS += p[6]
-                        procsByUser.append([pwd.getpwuid(uid).pw_name, uid, hn2uid2allocated.get(hostname, {}).get(uid, -1), len(pp), totIUA, totRSS, totVMS, pp])
+                            totIO  += p[8]
+                        procsByUser.append([pwd.getpwuid(uid).pw_name, uid, hn2uid2allocated.get(hostname, {}).get(uid, -1), len(pp), totIUA, totRSS, totVMS, pp, totIO])
 
                     hn2info[hostname] = [nodeData[hostname].get(NodeStateHack, '?STATE?'), delta, ts] + procsByUser
                     hn2pid2info[hostname] = (ts, pid2info, procsByUser)
