@@ -83,7 +83,8 @@ class SlurmEntities:
       nodes      = self.addUpdateNodeInfo (node_names)
 
       #get rid of None and UNLIMITED in partition
-      partition  = dict((key, value) for key, value in partition.items() if value and value not in ['UNLIMITED','1', 1, 'NONE'] and key not in ['default_time', 'total_cpus', 'total_nodes', 'state'])
+      partition  = dict((key, value) for key, value in partition.items() if value and value not in ['UNLIMITED','1', 1, 'NONE'] 
+                                                                            and key not in ['default_time', 'max_time', 'total_cpus', 'total_nodes', 'name', 'state'])
       partition['flags'] = repr(partition['flags'])
       rlt        = []
       for n in nodes:
@@ -128,25 +129,23 @@ class SlurmEntities:
   # return avail_nodes, avail_cpus with the constrain of features and min_mem_per_node
   def addUpdatePartitionInfo (self, p_name, features=[], min_mem_per_node=0, gres=[]):
       p = self.partition_dict[p_name]
-      if p.get('flag_shared', None):
-         return p['avail_nodes'], p['avail_cpus']
+      if not p.get('flag_shared', None):
+         p['flag_shared'] = 'YES' if self.getSharedFlag(p) else 'NO'
+         nodes            = MyTool.nl2flat(p['nodes'])
+         avail_nodes      = [n for n in nodes if self.node_dict.get(n, {}).get('state', None) == 'IDLE']
+         if p['flag_shared'] == 'YES':     # count MIXED node with idle CPUs as well
+            avail_nodes  += [n for n in nodes if (self.node_dict.get(n, {}).get('state', None) == 'MIXED') and (self.node_dict.get(n,{}).get('cpus', 0) > self.node_dict.get(n, {}).get('alloc_cpus', 0))]
 
-      p['flag_shared'] = 'YES' if self.getSharedFlag(p) else 'NO'
-      nodes            = MyTool.nl2flat(p['nodes'])
-      avail_nodes      = [n for n in nodes if self.node_dict.get(n, {}).get('state', None) == 'IDLE']
-      if p['flag_shared'] == 'YES':     # count MIXED node with idle CPUs as well
-         avail_nodes  += [n for n in nodes if (self.node_dict.get(n, {}).get('state', None) == 'MIXED') and (self.node_dict.get(n,{}).get('cpus', 0) > self.node_dict.get(n, {}).get('alloc_cpus', 0))]
+         avail_cpus_cnt,lst1  = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
+         p['avail_nodes_cnt'] = len(avail_nodes)
+         p['avail_nodes']     = avail_nodes
+         p['avail_cpus_cnt']  = avail_cpus_cnt
+         p['avail_cpus']      = lst1
 
-      avail_cpus_cnt,lst1  = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
-      p['avail_nodes_cnt'] = len(avail_nodes)
-      p['avail_nodes']     = avail_nodes
-      p['avail_cpus_cnt']  = avail_cpus_cnt
-      p['avail_cpus']      = lst1
-
-      # get running jobs on the parition
-      part_jobs        = [j for j in self.job_dict.values() if j['partition'] == p_name]
-      p['running_jobs']= [j['job_id'] for j in part_jobs if j['job_state']=='RUNNING']
-      p['pending_jobs']= [j['job_id'] for j in part_jobs if j['job_state']=='PENDING']
+         # get running jobs on the parition
+         part_jobs        = [j for j in self.job_dict.values() if j['partition'] == p_name]
+         p['running_jobs']= [j['job_id'] for j in part_jobs if j['job_state']=='RUNNING']
+         p['pending_jobs']= [j['job_id'] for j in part_jobs if j['job_state']=='PENDING']
 
       if features:             # restrain nodes with required features
          avail_nodes     = [n for n in avail_nodes if set(self.node_dict[n]['features_active'].split(',')).intersection(features)]
@@ -201,6 +200,9 @@ class SlurmEntities:
       pending = [job for jid,job in self.job_dict.items() if job['job_state']=='PENDING']
       for job in pending:
           p_name                = job['partition']
+          if ',' in p_name:
+             #TODO: only get the explaination for the first partition listed
+             p_name             = p_name.split(',')[0]
           job['user']           = MyTool.getUser(job['user_id'])
           job['submit_time_str']= str(datetime.fromtimestamp(job['submit_time']))
           job['state_exp']      = PEND_EXP.get(job['state_reason'], '')
