@@ -225,3 +225,8 @@ tr.IDLE {
 tr.MIXED {
   background: #c6dbef;
 }
+li span{
+  width: 20ch;
+  font-weight: bold;
+  display: inline-block;
+}

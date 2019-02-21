@@ -20,7 +20,7 @@
         ul.selectAll('li')
           .data  (data).enter()
           .append('li')
-          .text  (function(d) {{return d['key'] + ':\t' + d['value']}})
+          .html  (function(d) {{return '<span>' + d['key'] + ':</span>' + d['value']}})
     }};
 
     function addTable (data, titles_dict, div_id) {{
