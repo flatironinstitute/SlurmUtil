@@ -146,6 +146,8 @@ class SlurmEntities:
          part_jobs        = [j for j in self.job_dict.values() if j['partition'] == p_name]
          p['running_jobs']= [j['job_id'] for j in part_jobs if j['job_state']=='RUNNING']
          p['pending_jobs']= [j['job_id'] for j in part_jobs if j['job_state']=='PENDING']
+      else:
+         avail_nodes      = p['avail_nodes']
 
       if features:             # restrain nodes with required features
          avail_nodes     = [n for n in avail_nodes if set(self.node_dict[n]['features_active'].split(',')).intersection(features)]
@@ -242,6 +244,18 @@ class SlurmEntities:
              job['state_exp']      = job['state_exp'].format(array_task_str=job.get('array_task_str', ''), array_max_tasks=job.get('array_max_tasks', ''), array_tasks=array_tasks_lst)
           elif job['state_reason'] == 'Dependency':
              job['state_exp']      = job['state_exp'].format(dependency=job.get('dependency'))
+
+          if job['sched_nodes']:
+             job['state_exp']      += ' Job is scheduled on {}'.format(job['sched_nodes'])
+             running    = [job for jid,job in self.job_dict.items() if job['job_state']=='RUNNING']
+             schedNode  = set([nm for nm in MyTool.nl2flat (job['sched_nodes']) if self.node_dict[nm]['state']!='IDLE'])
+             waitForJob = [job['job_id'] for job in running if schedNode.intersection(set(MyTool.nl2flat(job['nodes'])))]
+             if waitForJob:
+                job['state_exp']      += ', waiting for running jobs {}.'.format(waitForJob)
+             else:
+                job['state_exp']      += '.'
+             
+             #waitForJobs           = [jid for node in job['sched_nodes'] j_dict[jid]['nodes']
              
 
       pending = [MyTool.sub_dict(job, fields) for job in pending]
