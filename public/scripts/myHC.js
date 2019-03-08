@@ -184,3 +184,70 @@ function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit)
     });
 }
 
+function timeSeriesScatterPlot(series, chartTag, title, yCap, aSeries) {
+             function crtLabel (vx, vy, txt) {
+                return {
+                      point: {
+                          xAxis: 0,
+                          yAxis: 0,
+                          x    : vx,
+                          y    : vy
+                      },
+                      text: txt }
+             }
+
+             console.log(series)
+             if ( aSeries.length > 0 ) {
+                baseY = series[0]['data'][0][1]
+                cus_labels = aSeries.map(function(x) {return crtLabel(x[0], baseY, x[1])})
+                cus_anno = [{
+                   labelOptions: {
+                        backgroundColor: 'rgba(255,255,255,0.5)',
+                    },
+                    labels: cus_labels
+                 }]
+             } else
+                cus_anno = []
+
+             $('#'+chartTag).highcharts({
+                 chart: {
+                     panKey: 'shift',
+                     panning: true,
+                     type: 'scatter',
+                     zoomType: 'xy'
+                 },
+                 title: {
+                     text: title,
+                 },
+                 credits: {
+                     enabled: false,
+                 },
+                 subtitle: {
+                     text: document.ontouchstart === undefined ?
+                     'Click and drag in the plot area to zoom in. Shift-click to pan.' : 'Pinch the chart to zoom in'
+                 },
+                 annotations: cus_anno,
+                 xAxis: {
+                     type: 'datetime'
+                 },
+                 yAxis: {
+                     title: {
+                         text: yCap
+                     }
+                 },
+                 legend: {
+                     enabled: true
+                 },
+                 plotOptions: {
+                     scatter: {
+                         marker: { radius: 2, },
+                         tooltip: {
+                             pointFormatter: function() {
+                                 return '<br/>' + Highcharts.dateFormat('%%H:%%M', new Date(this.x)) + ': ' + this.y.toFixed(2);
+                             }
+                         },
+                     },
+                 },
+                 series: series
+             });
+}

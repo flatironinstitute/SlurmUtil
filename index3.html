@@ -345,7 +345,7 @@ $(document).ready(function(){
    //add menu
    $("#tabmenu").load("/getHeader?page=index")
 
-   $("#comment").text("Status as of " + new Date())
+   $("#comment").text("Status as of %(update_time)s")
 
    setTableHead(1, INC_ORDER)
    setTableBody()

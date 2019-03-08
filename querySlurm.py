@@ -28,7 +28,7 @@ class SlurmDBQuery:
     def __init__(self):
         pass
   
-    def updatDB (self):
+    def updateDB (self):
         subprocess.call('../mysqldump.sh')
 
     def getAccountUsage_hourly (self, start='', stop=''):
@@ -120,30 +120,6 @@ class SlurmDBQuery:
         return start, stop, df_time.reset_index()
 
     # get jobs information as eligible_time, start_time, id_job, id_user, account, cpus_req, nodes_alloc
-    def getClusterRunJobs (self, start='', stop=''):
-        # index is id_job
-        df            = pd.read_csv("slurm_cluster_job_table.csv",usecols=['account', 'cpus_req','id_job','id_qos', 'id_user', 'nodes_alloc', 'state', 'time_submit', 'time_eligible', 'time_start', 'time_end', 'tres_alloc', 'tres_req'],index_col=2)
-        start,stop,df = MyTool.getDFBetween (df, 'time_submit', start, stop)
-
-        df               = df[(df['time_start'] > 0) & (df['time_start'] < stop)]
-        # reppared for counting
-        df['inc_count']  = 1
-        df['dec_count']  = -1
-        df['inc_count2'] = df['cpus_req']
-        df['dec_count2'] = -df['cpus_req']
-
-        # there is 2 way to count executtion 1) stop at time_end, 2) still on with time_end=0,
-        df            = df[(df['time_start'] < df['time_end']) | (df['time_end']==0)]
-
-        # counting
-        df_t1           = self.getTimeIndexValue(df,                   'time_start', ['inc_count', 'inc_count2'])
-        df_t2           = self.getTimeIndexValue(df[df['time_end']>0], 'time_end',   ['dec_count', 'dec_count2'])
-        df_time         = df_t1.add(df_t2, fill_value=0)
-        df_time         = df_time.sort_index().cumsum()
-
-        return start, stop, df_time.reset_index()
-
-    # get jobs information as eligible_time, start_time, id_job, id_user, account, cpus_req, nodes_alloc
     def getJobsName (self, start='', stop=''):
         # index is id_job
         df            = pd.read_csv("slurm_cluster_job_table.csv",usecols=['account', 'cpus_req','job_name', 'id_job','id_qos', 'id_user', 'nodes_alloc', 'state', 'time_submit', 'time_eligible', 'time_start', 'time_end', 'tres_alloc', 'tres_req'],index_col=3)
@@ -176,6 +152,21 @@ class SlurmDBQuery:
         #{'worker0001': {u'features': u'ib', u'weight': 1, u'energy': {u'current_watts': 0, u'consumed_energy': 0, u'base_watts': 0, u'previous_consumed_energy': 0, u'base_consumed_energy': 0}, u'cpus': 44, u'cpu_spec_list': [], u'owner': None, u'gres_drain': u'N/A', u'real_memory': 384000L, u'tmp_disk': 0, u'slurmd_start_time': 1544199176, u'features_active': u'ib', u'reason_time': None, u'mcs_label': None, u'sockets': 2, u'alloc_mem': 0L, u'state': u'REBOOT*', u'version': None, u'node_hostname': u'worker0001', u'partitions': [], u'power_mgmt': {u'cap_watts': None}, u'core_spec_cnt': 0, u'err_cpus': 0, u'reason': None, u'alloc_cpus': 0, u'threads': 1, u'boot_time': 1544198661, u'cores': 22, u'reason_uid': 0, u'node_addr': u'worker0001', u'arch': u'x86_64', u'name': u'worker0001', u'boards': 1, u'gres': [], u'free_mem': None, u'tres_fmt_str': u'cpu=44,mem=375G', u'gres_used': [u'gpu:0', u'mic:0'], u'mem_spec_limit': 0L, u'os': u'Linux', u'cpu_load': 2}, ...}
 
         return nodes
+
+    #return jobs that run on node during [start, stop]
+    def getNodeRunJobs (self, node, start, stop):
+        df            = pd.read_csv("slurm_cluster_job_table.csv",usecols=['id_job','id_user','nodelist','nodes_alloc','state','time_start','time_end','time_suspended'])
+        #df            = pd.read_csv("slurm_cluster_job_table.csv",usecols=['id_job','id_user','nodelist','nodes_alloc','state','time_start','time_end','time_suspended'],index_col=0)
+        start,stop,df = MyTool.getDFBetween (df, 'time_start', start, stop)
+        df            = df[df['nodes_alloc'] > 0]
+
+        #jobs running on node
+        if node:
+           criterion      = df['nodelist'].map(lambda x: node in MyTool.nl2flat(x))
+           df             = df[criterion]
+           df['user']     = df['id_user'].map(lambda x: MyTool.getUser(x))
+
+        return df[['id_job', 'user', 'time_start', 'time_end', 'time_suspended']]
 
 class SlurmCmdQuery:
     LOCAL_TZ = timezone(timedelta(hours=-4))

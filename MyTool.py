@@ -67,6 +67,11 @@ def convert2list(s, numberWidth=4):
     #print("expandStr " + lststr)
     return re.split(',\W*', lststr)
 
+#return string represention of ts in seconds
+def getTS_strftime (ts, fmt='%Y/%m/%d'):
+    d = datetime.fromtimestamp(ts)
+    return d.strftime(fmt)
+  
 def getTimeString (ts):
     d = datetime.fromtimestamp(ts)
     return d.isoformat(' ')
@@ -230,10 +235,12 @@ def extract1 (s):
 
 def getDFBetween(df, field, start, stop):
     if start:
-        start = time.mktime(time.strptime(start, '%Y-%m-%d'))
+        if (type(start) != int):
+           start = time.mktime(time.strptime(start, '%Y-%m-%d'))
         df    = df[df[field] >= start]
     if stop:
-        stop  = time.mktime(time.strptime(stop,  '%Y-%m-%d'))
+        if (type(stop) != int):
+           stop  = time.mktime(time.strptime(stop,  '%Y-%m-%d'))
         df    = df[df[field] <= stop]
     if not df.empty:
         start = df.iloc[0][field]

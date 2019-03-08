@@ -6,7 +6,7 @@ import json, pwd, sys
 from datetime import datetime, timezone, timedelta
 
 import influxdb
-import collections
+from collections import defaultdict
 import MyTool
 
 
@@ -55,84 +55,6 @@ class InfluxQueryClient:
         print("getSlurmJobInfo take time " + str(time.time()-t1))
         return point
         
-    def getSlurmNodeMon (self, hostname, uid, start_time, end_time):
-        t1=time.time()
-        st=int(start_time)
-        et=int(end_time)
-
-        query= "select * from one_week.cpu_proc_mon where hostname='" + hostname + "' and uid = '" + uid + "' and time >= " + str(st) + "000000000 and time <= " + str(et) + "000000000"
-        print ("getSlurmNodeMon " + query)
-        #returned time is local timestamp, epoch is for returned result, not for query
-        results = self.influx_client.query(query, epoch='s')
-        points  = results.get_points()
-
-        #combine the result
-        #for each ts, add up the cpu, io and mem {ts: [cpu, .., io, .. mem] ... } over pids
-        nodeDataDict = {}
-        pids = {}  #pid: pidcount
-        for point in points:
-            #print (repr(point))
-            #MyTool.sub_dict(point, ['cpu_system_time', 'cpu_user_time', 'io_read_bytes', 'io_write_bytes', 'mem_data', 'mem_rss', 'mem_shared', 'mem_text', 'mem_vms', 'num_fds'])
-            if point['time'] not in nodeDataDict: nodeDataDict[point['time']] = {'cpu_time':0, 'io_bytes':0, 'mem_rss':0}
-            nodeDataDict[point['time']]['cpu_time'] += (MyTool.getDictNumValue(point, 'cpu_system_time') + MyTool.getDictNumValue(point, 'cpu_user_time'))
-
-            nodeDataDict[point['time']]['io_bytes'] += (MyTool.getDictNumValue(point, 'io_read_bytes')   + MyTool.getDictNumValue(point, 'io_write_bytes'))
-            nodeDataDict[point['time']]['mem_rss']  += MyTool.getDictNumValue(point, 'mem_rss') 
-            if point['pid'] not in pids: pids[point['pid']]=0
-            pids[point['pid']] += 1
-         
-        #print ("nodeDataDict size" + str(len(nodeDataDict)))
-        #for pid, count in pids.items():
-        #    print (str(pid) + " size " + str(count))
-        preTs = None
-        for ts, v in nodeDataDict.items():
-            if preTs:
-               if v['cpu_time'] < preV['cpu_time']:
-                  #two possiblities 1. there is a lower value in between, 2. missing/incorrect measurements 
-                  #v['cpu_perc'] = (v['cpu_time']) / (ts - preTs)
-                  v['cpu_perc'] = 0
-               else:
-                  v['cpu_perc'] = (v['cpu_time'] - preV['cpu_time']) / (ts - preTs)
-               #if v['cpu_perc'] > 1: v['cpu_perc']=1
-               
-            preTs = ts
-            preV  = v
-            
-        #print(hostname + ":" + repr(nodeDataDict))
-        print("getSlurmNodeMon take time " + str(time.time()-t1))
-
-    #return [[...],[...],[...]], each of which
-    #[{'node':nodename, 'data':[[timestamp, value]...]} ...]
-    def getSlurmJobMonData(self, jid, uid, nodelist, start_time, stop_time):
-        t1=time.time()
-        st=int(start_time)
-        et=int(stop_time)
-        g =('('+n+')' for n in nodelist)
-        hostnames = '|'.join(g)
-
-        query= "select * from one_week.cpu_proc_mon where uid = '" + str(uid) + "' and hostname=~/"+ hostnames + "/ and time >= " + str(st) + "000000000 and time <= " + str(et) + "000000000"
-        print ("getSlurmJobNodeMon " + query)
-        #returned time is local timestamp, epoch is for returned result, not for query
-        results = self.influx_client.query(query, epoch='ms')
-        points  = results.get_points()
-
-        #for each nodename and ts, add up the cpu, io and mem {hostname: {ts: [cpu, io, mem] ... }}: over pids
-        nodeDataDict = dict([(node, {}) for node in nodelist])
-        for point in points:
-            #print (repr(point))
-            ts       = point['time']
-            nodeData = nodeDataDict [point['hostname']]
-               
-            if ts not in nodeData: nodeData[ts] = [0,0,0]
-            nodeData[ts][0] += (MyTool.getDictNumValue(point, 'cpu_system_time') + MyTool.getDictNumValue(point, 'cpu_user_time'))
-            nodeData[ts][1] += (MyTool.getDictNumValue(point, 'io_read_bytes')   + MyTool.getDictNumValue(point, 'io_write_bytes'))
-            nodeData[ts][2] +=  MyTool.getDictNumValue(point, 'mem_rss') 
-         
-        #print(nodeDataDict)
-        print("getSMon take time " + str(time.time()-t1))
-     
-        return nodeDataDict
-
     #return nodelist's time series of the a uid, {hostname: {ts: [cpu, io, mem] ... }, ...}
     def getSlurmUidMonData(self, uid, nodelist, start_time, stop_time):
         t1=time.time()
@@ -249,7 +171,68 @@ class InfluxQueryClient:
         print("getSMon take time " + str(time.time()-t1))
      
         return nodeDataDict
+    
+    # query autogen.slurm_pending and return {ts_in_sec:{state_reason:count}], ...}  
+    def getPendingCount (self, st, et):
+        t1=time.time()
         
+        # data before is not reliable
+        st = max (int(st), 1550868105)
+
+        query= "select * from autogen.slurm_pending where time >= " + str(int(st)) + "000000000 and time <= " + str(int(et)) + "000000000"
+        print ("getPendingCount " + query)
+
+        results      = self.influx_client.query(query, epoch='ms')
+        points       = list(results.get_points())
+        jidSet       = set([point['job_id'] for point in points])
+        print("jidSet={}".format(jidSet))
+
+        tsState2jobCnt = defaultdict(lambda:defaultdict(int))
+        tsState2cpuCnt = defaultdict(lambda:defaultdict(int))
+        for point in points:
+            state_reason = point['state_reason']
+            tsState2jobCnt[point['time']][state_reason] += 1
+        
+        return tsState2jobCnt
+        
+    #return information of hostname
+    #return all uid sequence of a node, {uid: {ts: [cpu, io, mem] ... }, ...}
+    def getNodeMonData_1(self, node, start_time, stop_time):
+        t1=time.time()
+
+        #prepare query
+        query= "select * from autogen.cpu_load where hostname = '" + node + "' and time >= " + str(int(start_time)) + "000000000 and time <= " + str(int(stop_time)+1) + "000000000"
+        print ("getNodeMonData_1 " + query)
+
+        #execute query, returned time is local timestamp, epoch is for returned result, not for query
+        results = self.influx_client.query(query, epoch='ms')
+        points  = results.get_points()
+
+        ts2data = defaultdict(dict)
+        preP    = None
+        for point in points: #points are sorted by point['time']
+            if not preP:
+               preP   = point
+            else:
+               ts     = point['time']
+               period = (ts - preP['time'])/1000
+               if period < 1:  continue
+               for key in ['cpu_times_iowait','cpu_times_system','cpu_times_user', 'disk_io_read_time','disk_io_write_time', 'disk_io_read_bytes', 'disk_io_write_bytes', 'net_io_rx_bytes', 'net_io_tx_bytes']:
+                   valueDiff = point[key]-preP[key]
+                   if valueDiff >= 0:
+                      if key in ['disk_io_read_time','disk_io_write_time']:
+                         valueDiff /= 1000
+                      ts2data[ts][key] = (valueDiff/ period)
+                   else: 
+                      print("getNodeMonData_1 ERROR {}: negative diff value {} of {} from {} to {}".format(ts, valueDiff, key, preP[key], point[key]))
+               for key in ['mem_buffers', 'mem_cached', 'mem_used']:
+                   ts2data[ts][key] = point[key]
+   
+               preP   = point
+
+        print("getNodeMonData_1 take time " + str(time.time()-t1))
+        return ts2data
+
 def main():
     t1=time.time()
     app   = InfluxQueryClient()

@@ -44,7 +44,7 @@ class SLURMMonitor(object):
         self.pyslurmNodeData = None
         self.updateTime      = None
         self.queryTxtClient  = TextfileQueryClient(os.path.join(wai, 'host_up_ts.txt'))
-        self.querySDBClient  = SlurmDBQuery()
+        self.querySlurmClient  = SlurmDBQuery()
 
         self.cvtDict     = {}
         self.startTime   = time.time()
@@ -231,7 +231,8 @@ class SLURMMonitor(object):
     @cherrypy.expose
     def accountReport_hourly(self, start='', stop=''):
         #sumDf index ['id_tres','acct', 'time_start'], 
-        start, stop, sumDf = self.querySDBClient.getAccountUsage_hourly(start, stop)
+        
+        start, stop, sumDf = self.querySlurmClient.getAccountUsage_hourly(start, stop)
 
         sumDfg      = sumDf.groupby('id_tres')
         tresSer     = {} # {1: [{'data': [[ms,value],...], 'name': uid},...], 2:...} 
@@ -259,7 +260,7 @@ class SLURMMonitor(object):
     @cherrypy.expose
     def userReport_hourly(self, start='', stop='', top=5):
         # get top 5 user for each resource
-        tresSer  = self.querySDBClient.getUserReport_hourly(start, stop, top)
+        tresSer  = self.querySlurmClient.getUserReport_hourly(start, stop, top)
         
         cpuLst   = tresSer[1]
         start    = min(cpuLst, key=(lambda item: (item['data'][0][0])))['data'][0][0]  /1000
@@ -305,11 +306,67 @@ class SLURMMonitor(object):
 
         return h
 
+    #stop default to current time, start default to 3 days before stop
+    def getStartStopTS (self, start='', stop='', formatStr='%Y%m%d'):
+        if stop:
+            stop = time.mktime(time.strptime(stop, formatStr))
+        else:
+            stop = time.time()
+        if start:
+            start = time.mktime(time.strptime(start, formatStr))
+        else:
+            start = max(0, stop - THREE_DAYS_SEC)
+
+        return int(start), int(stop)
+    
+    @cherrypy.expose
+    def test(self, start='', stop=''):
+        start, stop  = self.getStartStopTS (start, stop)
+
+        influxClient = InfluxQueryClient.getClientInstance()
+        tsReason2Cnt = influxClient.getPendingCount(start, stop)
+        bySched      = ['Dependency', 'Priority','BeginTime', 'JobArrayTaskLimit'] 
+        byResource   = ['Resources', 'ReqNodeNotAvail']
+        byQOS        = ['QOSMaxNodePerUserLimit', 'QOSMaxCpuPerUserLimit','QOSGrpNodeLimit']
+        
+        reasons      = [set(reasons.keys()) for ts, reasons in tsReason2Cnt.items()]
+        reasons      = set([i2 for item in reasons for i2 in item])
+        
+        #reformat the tsReason2Cnt to cate2ts_cnt
+        cate2ts_cnt  = defaultdict(list)
+        for ts, reason2Cnt in tsReason2Cnt.items():
+            for reason, cnt in reason2Cnt.items():
+                reason = reason.split(',')[0]
+                cate = 'Other'
+                if reason in bySched:
+                   cate = 'Sched'
+                elif reason in byResource:
+                   cate = 'Resource'
+                elif reason in byQOS:
+                   cate = 'QoS'
+                else:
+                   print("Test state_reason {} not in defined category".format(reason))
+
+                cate2ts_cnt[cate].append ([ts, cnt])
+
+        series1   = [{'name': 'Constrained by Resource', 'data':cate2ts_cnt['Resource']},
+                     {'name': 'Constrained by QoS',      'data':cate2ts_cnt['QoS']},
+                     {'name': 'Constrained by Job Defination', 'data':cate2ts_cnt['Sched']},
+                     {'name': 'Constrained by Other',    'data':cate2ts_cnt['Other']}]
+
+        htmlTemp = os.path.join(wai, 'pendingJobReport.html')
+        h = open(htmlTemp).read()%{'start':   time.strftime('%Y/%m/%d', time.localtime(start)),
+                                   'stop':    time.strftime('%Y/%m/%d', time.localtime(stop)),
+                                   'series1': series1, 'title1': 'Cluster Job Queue Length', 'xlabel1': 'Queue Length', 
+                                   'series2': series1, 'title2': 'Cluster Job Queue Length', 'xlabel2': 'Queue Length'} 
+
+        return h
+
     @cherrypy.expose
     def queueLengthReport(self, start='', stop='', queueTime=0):
     #def clusterJobQueueReport(self, start='', stop=''):
 
-        start, stop, df = self.querySDBClient.getClusterJobQueue (start, stop, int(queueTime))
+        start, stop, df = self.querySlurmClient.getClusterJobQueue (start, stop, int(queueTime))
         
         #df = index | time | value 
         #convert to highchart format, cpu, mem, energy (all 0, ignore)
@@ -545,7 +602,8 @@ class SLURMMonitor(object):
         data,jobDict     = self.getHeatmapData ()
         
         htmltemp = os.path.join(wai, 'heatmap.html')
-        h        = open(htmltemp).read()%{'data1' :  data, 'data2': jobDict}
+        
+        h        = open(htmltemp).read()%{'update_time': datetime.datetime.fromtimestamp(self.updateTime).ctime(), 'data1' :  data, 'data2': jobDict}
  
         return h 
         #return repr(data)
@@ -585,7 +643,7 @@ class SLURMMonitor(object):
         tableData = self.getSummaryTableData(self.data, self.jobData)
         
         htmltemp = os.path.join(wai, 'index3.html')
-        h = open(htmltemp).read()%{'tableData' : tableData}
+        h = open(htmltemp).read()%{'tableData' : tableData, 'update_time': datetime.datetime.fromtimestamp(self.updateTime).ctime()}
  
         return h
 
@@ -713,19 +771,56 @@ class SLURMMonitor(object):
 
         return h
 
+    #retrieve data from cpu_load, thus no user information 
+    @cherrypy.expose
+    def nodeGraph_1(self, node, start='', stop=''):
+        start, stop = self.getStartStopTS (start, stop, '%Y-%m-%d')
+
+        influxClient = InfluxQueryClient.getClientInstance()
+        ts2data      = influxClient.getNodeMonData_1(node,start,stop)
+        #{1551721265000: {'cpu_times_idle': 1631079.17, 'cpu_times_iowait': 138.63, 'cpu_times_system': 47880.6, 'cpu_times_user': 2567541.02, 'disk_io_read_bytes': 1970365952, 'disk_io_read_count': 79077, 'disk_io_read_time': 176227, 'disk_io_write_bytes': 882140160, 'disk_io_write_count': 51308, 'disk_io_write_time': 1193976, 'load_15min': 44.11, 'load_1min': 44.06, 'load_5min': 44.05, 'mem_available': 372355952640, 'mem_buffers': 2265088, 'mem_cached': 1858367488, 'mem_free': 375478579200, 'mem_total': 405661532160, 'mem_used': 28322320384, 'net_io_rx_bytes': 676755879, 'net_io_rx_drop': 0, 'net_io_rx_err': 0, 'net_io_rx_packets': 2895866, 'net_io_tx_bytes': 683209239, 'net_io_tx_drop': 0, 'net_io_tx_err': 0, 'net_io_tx_packets': 2000433, 'proc_run': 44, 'proc_total': 1173}, 
+       
+        t1 = time.time()
+        cpu_series = []  ##[{'data': [[1531147508000, value]...], 'name':'cpu_times_xx'}, ...] 
+        for key in ['cpu_times_iowait','cpu_times_system','cpu_times_user']:
+            cpu_series.append({'name': key,   'data': [[ts, d.get(key,0)]   for ts, d in ts2data.items()]})
+        io_series = []
+        for key in ['disk_io_read_bytes','disk_io_write_bytes','net_io_rx_bytes', 'net_io_tx_bytes']:
+            io_series.append({'name': key,   'data': [[ts, d.get(key,0)]   for ts, d in ts2data.items()]})
+        mem_series = []
+        for key in ['mem_buffers', 'mem_cached', 'mem_used']:
+            mem_series.append({'name': key,   'data': [[ts, d.get(key,0)]   for ts, d in ts2data.items()]})
+
+        #node restart time
+        restart_ts = self.queryTxtClient.getNodeUpTS([node])[node]
+        ann_series = [[ts, 'Node Restart'] for ts in restart_ts]
+        #job start/stop time
+        job_df     = self.querySlurmClient.getNodeRunJobs(node, start, stop)
+        print ('nodeGraph_1 job_df={}'.format(job_df))
+        lst  = job_df[['time_start', 'id_job', 'user']].values.tolist()
+        ann_series.extend ([[ts*1000, 'Job {} ({}) Start'.format(jid, user)] for [ts, jid, user] in lst])
+        lst  = job_df[['time_end', 'id_job']].values.tolist()
+        ann_series.extend ([[ts*1000, 'Job {} End'.format(jid)]     for [ts, jid] in lst if ts > 0])
+        lst  = job_df[['time_suspended', 'id_job']].values.tolist()
+        ann_series.extend ([[ts*1000, 'Job {} Suspend'.format(jid)] for [ts, jid] in lst if ts > 0])
+        #print ('nodeGraph_1 ann_series={}'.format(ann_series))
+        print("nodeGraph_1 prepare format take time {}".format(time.time()-t1))
+        
+        htmlTemp = os.path.join(wai, 'nodeGraph_1.html')
+        h = open(htmlTemp).read().format(
+                                   ltitle= 'CPU Usage of Node {} from {} to {}'.format(node, MyTool.getTS_strftime(start), MyTool.getTS_strftime(stop)),
+                                   mtitle= 'Mem Usage of Node {} from {} to {}'.format(node, MyTool.getTS_strftime(start), MyTool.getTS_strftime(stop)),
+                                   ititle= 'I/O Usage of Node {} from {} to {}'.format(node, MyTool.getTS_strftime(start), MyTool.getTS_strftime(stop)),
+                                   lseries= cpu_series, iseries=io_series, mseries=mem_series,
+                                   aseries= ann_series)
+        return h
+
     @cherrypy.expose
     def nodeGraph(self, node, start='', stop=''):
-        if stop:
-            stop = time.mktime(time.strptime(stop, '%Y%m%d'))
-        else:
-            stop = time.time()
-        if start:
-            start = time.mktime(time.strptime(start, '%Y%m%d'))
-        else:
-            start = max(0, stop - THREE_DAYS_SEC)
+        start, stop = self.getStartStopTS (start, stop)
 
         # highcharts
-        influxClient = InfluxQueryClient.getClientInstance()
+        influxClient = InfluxQueryClient()
         uid2seq      = influxClient.getSlurmNodeMonData(node,start,stop)
 
         cpu_series = []  ##[{'data': [[1531147508000, value]...], 'name':'userXXX'}, ...] 
@@ -751,8 +846,7 @@ class SLURMMonitor(object):
             io_series_w.append (io_node)
 
         ann_series = self.queryTxtClient.getNodeUpTS([node])[node]
-        #ann_series=[]
-        print ('nodeGraph annotation=' + repr(ann_series))
+        #print ('nodeGraph annotation=' + repr(ann_series))
 
         htmlTemp = os.path.join(wai, 'smGraphHighcharts.html')
         h = open(htmlTemp).read()%{'spec_title': ' on node  ' + str(node),
@@ -1162,7 +1256,7 @@ class SLURMMonitor(object):
         return j
         
     @cherrypy.expose
-    def doneJobGraph(self,jobid,start='', stop=''):
+    def doneJobGraph(self,jobid):
         #graph for jobs that are already finished
         slurmClient  = SlurmCmdQuery()
 
@@ -1213,7 +1307,7 @@ class SLURMMonitor(object):
 
         jobid    = int(jobid)
         if jobid not in self.jobData:
-           return self.doneJobGraph(jobid, start, stop) 
+           return self.doneJobGraph(jobid) 
 
         nodelist = list(self.jobData[jobid][u'cpus_allocated'])
         start    = self.jobData[jobid][u'start_time']
@@ -1357,9 +1451,9 @@ class SLURMMonitor(object):
         more_data    = {k:v[0:HOST_ALLOCINFO_IDX] + v[HOST_ALLOCINFO_IDX][0:7] for k,v in self.data.items() if len(v)>HOST_ALLOCINFO_IDX } #flatten hostdata
         less_data    = {k:v[0:HOST_ALLOCINFO_IDX]                              for k,v in self.data.items() if len(v)<=HOST_ALLOCINFO_IDX }
         hostdata_flat= dict(more_data,**less_data)
-        print("more_data=" + repr(more_data))
-        print("less_data=" + repr(less_data))
-        print("hostdata_flat=" + repr(hostdata_flat))
+        #print("more_data=" + repr(more_data))
+        #print("less_data=" + repr(less_data))
+        #print("hostdata_flat=" + repr(hostdata_flat))
 
         keys_id      =(u'job_id',u'user_id',u'qos', u'num_nodes', u'num_cpus')
         data_dash    ={jid:{k:jinfo[k] for k in keys_id} for jid,jinfo in self.jobData.items()} #extract set of keys
@@ -1367,7 +1461,7 @@ class SLURMMonitor(object):
         for jid, jinfo in self.jobData.items():
             data_dash[jid]["node_info"] = {n: hostdata_flat[n] for n in jinfo.get(u'cpus_allocated').keys()}
         
-        print("data_dash=" + repr(data_dash))
+        #print("data_dash=" + repr(data_dash))
         for jid, jinfo in sorted(data_dash.items()):
             username = pwd.getpwuid(jinfo[u'user_id']).pw_name
             data_dash[jid]['cpu_list'] = [jinfo['node_info'][i][5] for i in jinfo['node_info'].keys() if len(jinfo['node_info'][i])>=7]
@@ -1445,7 +1539,7 @@ class SLURMMonitor(object):
         set_usernames = sorted(set(list_usernames_flatn))
 
         htmltemp = os.path.join(wai, 'sunburst2.html')
-        h = open(htmltemp).read()%{'data1' : json_load, 'data2' : json_state, 'data3' : json_vms, 'data4' : json_rss, 'users':set_usernames}
+        h = open(htmltemp).read()%{'update_time': datetime.datetime.fromtimestamp(self.updateTime).ctime(), 'data1' : json_load, 'data2' : json_state, 'data3' : json_vms, 'data4' : json_rss, 'users':set_usernames}
         return h
 
     sunburst.exposed = True
