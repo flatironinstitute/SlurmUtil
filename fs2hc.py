@@ -1,15 +1,19 @@
 
 import glob, pwd, sys
+import os, re
+import pandas as pd
+import MyTool
 
+from datetime import datetime, date
 from random import randint
 from math import log
 
 FileSystems = {
     # Label displayed in web page, path to directory with summary data, suffix for appropriate summary data file
-    'ceph_users': ['Ceph Users', '/mnt/xfs1/home/carriero/projects/fileCensus/cephdata', '_full.sum', 0, 3, 4],
-    'ceph_full': ['Ceph Full', '/mnt/xfs1/home/carriero/projects/fileCensus/cephdata', '_full.sum', 0, 1, 2],
-    'home': ['Home', '/mnt/xfs1/home/carriero/projects/fileCensus/data', '_full.sum', 0, 3, 4],
-    'xfs1': ['xfs1', '/mnt/xfs1/home/carriero/projects/fileCensus/data', '_full.sum', 0, 1, 2],
+    'ceph_users': ['Ceph Users', '/mnt/xfs1/home/carriero/projects/fileCensus/cephdata', '_full.sum', 0, 3, 4, '(\d{8})_full.sum'],
+    'ceph_full':  ['Ceph Full',  '/mnt/xfs1/home/carriero/projects/fileCensus/cephdata', '_full.sum', 0, 1, 2, '(\d{8})_full.sum'],
+    'home':       ['Home',       '/mnt/xfs1/home/carriero/projects/fileCensus/data',     '_full.sum', 0, 3, 4, '(\d{8})_.*_full.sum'],
+    'xfs1':       ['xfs1',       '/mnt/xfs1/home/carriero/projects/fileCensus/data',     '_full.sum', 0, 1, 2, '(\d{8})_.*_full.sum'],
 }    
 
 def anonimize(s):
@@ -21,19 +25,92 @@ def anonimize(s):
             ns += 'bcdfghlmnprstvy'[randint(0, 14)]
     return ns
 
+#return {date: filenames, ...} sorted by date
+def getFilenames(dataDir, rge):
+    rlt = {}
+    for fname in os.listdir(dataDir):
+        match = re.fullmatch(rge, fname)
+        if match: 
+           d = int(datetime.strptime(match.group(1), '%Y%m%d').timestamp())
+           rlt[d] = os.path.join(dataDir, fname)
+
+    return rlt
+
+def getFilehead (uidx, fcx, bcx):
+    fhead      =['col0', 'col1', 'col2', 'col3', 'col4']
+    fhead[uidx]='uid'
+    fhead[fcx] ='fc'
+    fhead[bcx] ='bc'
+    return fhead
+
+def getDateFromFilename (dataDir, rge, fname):
+    x = dataDir + '/' + rge
+    mo = re.match(x, fname)
+    if mo:
+       return mo[1]
+    else:
+       return None
+
+def gendata_all(fs, start='', stop='', topN=5):
+    if fs not in FileSystems: return 'Unknown file system: "%s"'%fs, ''
+    label, dataDir, suffix, uidx, fcx, bcx, rge = FileSystems[fs] #uidx is uid index in file
+
+    fsDict   = getFilenames (dataDir, rge)
+    # read files one by one to save the data in u2s
+    #print("gendata_all fsDict=" + repr(fsDict))
+
+    dDict   = {}
+    fhead   = getFilehead(uidx, fcx, bcx)
+    for d, fname in fsDict.items():
+        #print (repr(d) + ": " + fname)
+        flag = True
+        if start: flag &= ( d>=start)
+        if stop:  flag &= ( d<= stop)
+        if flag:
+           df            = pd.read_table(fname, names=fhead,usecols=['uid','fc','bc'],index_col=uidx)
+           dDict[d*1000] = df
+
+    if not dDict:
+       return [], []
+
+    df      = pd.concat  (dDict, names=['ts','uid'])
+    dfg     = df.groupby ('uid')
+    # loop over dfg to generate uid2seq
+    sumDf   = dfg.sum()
+    sumDf1  = sumDf.sort_values (['fc', 'bc'], ascending=False)
+    sumDf2  = sumDf.sort_values (['bc', 'fc'], ascending=False)
+
+    # for each uid, dfg.get_group
+    uid2seq1 = []  #{ uid: [(ts, value), ...], ...}
+    for uid in sumDf1.head(n=topN).index.values:
+        uidDf         = dfg.get_group(uid).reset_index()
+        uname         = MyTool.getUser(uid)
+        uid2seq1.append ({'name': uname, 'data': uidDf.loc[:,['ts','fc']].values.tolist()})
+        
+    uid2seq2 = []  #{ uid: [(ts, value), ...], ...}
+    for uid in sumDf2.head(n=topN).index.values:
+        uidDf         = dfg.get_group(uid).reset_index()
+        uname         = MyTool.getUser(uid)
+        uid2seq2.append ({'name': uname, 'data': uidDf.loc[:,['ts','bc']].values.tolist()})
+        
+    return uid2seq1, uid2seq2
+
 def gendata(yyyymmdd, fs, anon=False):
     if fs not in FileSystems: return 'Unknown file system: "%s"'%fs, ''
-    label, dataDir, suffix, uidx, fcx, bcx = FileSystems[fs]
+    label, dataDir, suffix, uidx, fcx, bcx, rge = FileSystems[fs]
     ff = sorted(glob.glob(dataDir+'/2*'+suffix))
     me = 0
     for x, f in enumerate(ff):
         if yyyymmdd in f:
             me = x
             break
-    else: return 'Date not found', ''
+    else: 
+        me = len(ff)-1
+        print('gendata: Date {}:{} not found. Use most recent {} instead.'.format(fs, yyyymmdd, ff[me]))
+        yyyymmdd = getDateFromFilename(dataDir, rge, ff[me])
 
     u2s = {}
-    tdfc, tdfb = 0, 0
+    tdfc, tdfb = 0, 0  # total dfc(delta file count), dfb(delta file bytes)
     for x, f in enumerate(ff[me-1:me+1]):
         for l in open(f):
             ff = l[:-1].split('\t')
@@ -72,8 +149,9 @@ def gendata(yyyymmdd, fs, anon=False):
             continue
         r +=  '\t{ x: %d, y: %d, z: %d, dfb: %d, dfc: %d, name: "%s"%s},\n' %(v[3], v[2], log(max(2**20, v[1]), 2)-19, v[1], v[0], uname, marker)
 
-    return (label, r)
+    return (label, r, yyyymmdd)
 
 if '__main__' == __name__:
-    print (gendata(*sys.argv[1:]))
+    #print (gendata(*sys.argv[1:]))
+    print (gendata_all(*sys.argv[1:], 2))
 

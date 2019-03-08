@@ -738,7 +738,7 @@ class SLURMMonitor(object):
         if not yyyymmdd:
             # only have census date up to yesterday, so we use that as the default.
             yyyymmdd = (datetime.date.today() + datetime.timedelta(days=-1)).strftime('%Y%m%d')
-        label, usageData = fs2hc.gendata(yyyymmdd, fs)
+        label, usageData, yyyymmdd = fs2hc.gendata(yyyymmdd, fs)
         htmlTemp = 'fileCensus.html'
 
         h = open(htmlTemp).read()%{'yyyymmdd': yyyymmdd, 'label': label, 'data': usageData}
