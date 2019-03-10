@@ -76,6 +76,7 @@
           dataset1 = %(data1)s
           dataset2 = %(data2)s
 
+      console.log(dataset1)
       console.log(dataset2)
       var labels   = [];             // labels
       var grpCnt   = [0,0,0,0,0,0];  // count for each group worker0..., ...
@@ -156,8 +157,7 @@
                                            else if (d["stat"]==-1) return "black";
                                            else return currColorS(d["util"]); });
           cards.append("title");
-          cards.select("title").text(function(d) {if (d["stat"]==0) return d["name"] + " core:" + d["core"]; 
-                                                  else return d["name"]+" core:" + d["core"] + " util:" + (d["util"]).toFixed(4) + " jobs:" + JSON.stringify(d["jobs"]) + " accts:" + JSON.stringify(d["acct"]); });
+          cards.select("title").text(function(d) {return d["labl"]});
           cards.exit().remove();
 
           var y=0
@@ -219,9 +219,9 @@
           jobsSel.selectAll("option")
                  .data(data)
                  .enter().append("option")
-                 .text(function(d) { var str=d["jid"] + " " + d["state"]; if ("alloc_str" in d) return str + " with " + d["alloc_str"]; else return str + " waiting " + d["req_str"]})
-                 .attr("value",    function(d) {return d["jid"]})
-                 .attr("disabled", function(d) {if ("alloc_str" in d) return undefined; else return "disabled";});
+                 .text(function(d) { return d["long_label"]})
+                 .attr("value",    function(d) {return d["job_id"]})
+                 .attr("disabled", function(d) {if (d["disabled"]) return d["disabled"]; else return undefined});
       };
       function onchange() {
          selectedJid=d3.select("#jobs").property("value");
@@ -250,7 +250,7 @@
         //nodeData is already sorted by group 
         for (var i=0; i<nodeData.length; i++) {
           var obj = {name: nodeData[i][0], stat: nodeData[i][1], core: nodeData[i][2], 
-                     jobs: nodeData[i][4], acct: nodeData[i][5]};
+                     jobs: nodeData[i][4], acct: nodeData[i][5], labl: nodeData[i][6]};
           if ( obj.stat == 1)
              obj.util=nodeData[i][3]/obj.core;
           else

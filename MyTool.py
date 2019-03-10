@@ -92,6 +92,9 @@ def sub_dict(somedict, somekeys, default=None):
     return dict([ (k, somedict.get(k, default)) for k in somekeys ])
 def sub_dict_remove(somedict, somekeys, default=None):
     return dict([ (k, somedict.pop(k, default)) for k in somekeys ])
+#return only existing keys
+def sub_dict_exist(somedict, somekeys):
+    return dict([ (k, somedict[k]) for k in somekeys if (k in somedict) and (somedict[k])])
 
 #did not consider str to int
 def getDictNumValue (d, key):

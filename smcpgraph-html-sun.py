@@ -470,10 +470,6 @@ class SLURMMonitor(object):
 
         return stime
 
-    @cherrypy.expose
-    def getNode2JobsData(self):
-        return repr(self.getNode2Jobs(self.jobData))
-
     def getNode2Jobs (self, jobData):
         node2jobs = defaultdict(list)
         for jid, jinfo in jobData.items():
@@ -552,23 +548,25 @@ class SLURMMonitor(object):
         return repr(result)
                    
     def getHeatmapData (self):
-        node2job= self.getNode2Job   ()
+        node2job= self.getNode2Jobs  (self.jobData)
 
         jobs = []
         for jobid, jobinfo in self.jobData.items():
-            job={}
-            job['jid']      =jobid
-            job['state']    =jobinfo['job_state']
-            job['account']  =jobinfo.get('account', None)
+            user=MyTool.getUser(jobinfo['user_id'])
             if jobinfo['tres_alloc_str']:
-               job['alloc_str']=jobinfo['tres_alloc_str']
+               long_label = '{}({}) {} with {}'.format(jobid, user, jobinfo['job_state'], jobinfo['tres_alloc_str'])
+               disabled   = ""
             else:
-               job['req_str']  =jobinfo['tres_req_str']
+               long_label = '{}({}) {} waiting {}'.format(jobid, user, jobinfo['job_state'], jobinfo['tres_req_str'])
+               disabled   = "disabled"
+            job = {"job_id":jobid, "long_label":long_label, "disabled":disabled}
+ 
+            #jobinfo['user']=MyTool.getUser(jobinfo['user_id'])
+            #job=MyTool.sub_dict_exist(jobinfo, ['job_id', 'user', 'job_state', 'account', 'tres_alloc_str', 'tres_req_str'])
             jobs.append(job)
 
-        result  = []
+        result  = []  #dataset1 in heatmap
         for hostname, values in self.data.items():
-            #print (hostname)
             try:
                node_cores = self.pyslurmNodeData[hostname]['cpus']
                if len(values) > HOST_ALLOCINFO_IDX: #ALLOCATED, MIXED
@@ -584,12 +582,17 @@ class SLURMMonitor(object):
                   else:
                       state  = -1
 
-               job_accounts  = []
-               for j in alloc_jobs:
-                   print (j)
-                   job_accounts.append(self.jobData[j].get('account', None))
-                   
-               result.append([hostname, state, node_cores, cpu_load, alloc_jobs, job_accounts])
+               job_accounts  = [self.jobData[jid].get('account', None)        for jid in alloc_jobs]
+               job_users     = [MyTool.getUser(self.jobData[jid]['user_id'])  for jid in alloc_jobs]
+               job_cores     = [self.jobData[jid]['cpus_allocated'][hostname] for jid in alloc_jobs]
+               print('{} {}'.format(hostname, job_cores))                   
+
+               if len(values) > HOST_ALLOCINFO_IDX:
+                  lst   = list(zip(alloc_jobs, job_users, job_cores))
+                  label = '{} util:{:.1%} core:{} jobs:{}'.format(hostname, cpu_load/node_cores, node_cores, lst)
+               else:
+                  label = '{} core:{} state:{}'.format(hostname, node_cores, values[0])
+               result.append([hostname, state, node_cores, cpu_load, alloc_jobs, job_accounts, label])
             except Exception as exp:
                print("Error: {0}".format(exp))
                                
@@ -602,7 +605,6 @@ class SLURMMonitor(object):
         data,jobDict     = self.getHeatmapData ()
         
         htmltemp = os.path.join(wai, 'heatmap.html')
-        
         h        = open(htmltemp).read()%{'update_time': datetime.datetime.fromtimestamp(self.updateTime).ctime(), 'data1' :  data, 'data2': jobDict}
  
         return h 
