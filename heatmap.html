@@ -132,7 +132,7 @@
               .attr("ry", 4)
               .attr("class", function(d) { 
                                 var str="bordered"; 
-                                Object.keys(d["jobs"]).forEach(function(e) {str += " " + e}); 
+                                d["jobs"].forEach(function(e) {str += " " + e}); 
                                 return str;})
               .attr("width",  gridSize)
               .attr("height", gridSize)
@@ -140,7 +140,7 @@
               .attr("value", function (d) {return d["util"]})
               .on("dblclick", function(d) {location.href="nodeDetails?node="+d["name"]})
               .on("click", function(d) {
-                              var keyArr=Object.keys(d["jobs"]); 
+                              var keyArr=d["jobs"]; 
                               keyArr.forEach(function(e) {
                                                $(".bordered").removeClass("popout");
                                                $(`.${e}`).addClass("popout")})})
