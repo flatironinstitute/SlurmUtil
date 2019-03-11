@@ -37,7 +37,7 @@ def getFilenames(dataDir, rge):
     return rlt
 
 def getFilehead (uidx, fcx, bcx):
-    fhead      =['col0', 'col1', 'col2', 'col3', 'col4']
+    fhead      =['col0', 'col1', 'col2', 'col3', 'col4', 'col5', 'col6']
     fhead[uidx]='uid'
     fhead[fcx] ='fc'
     fhead[bcx] ='bc'
@@ -60,14 +60,15 @@ def gendata_all(fs, start='', stop='', topN=5):
     #print("gendata_all fsDict=" + repr(fsDict))
 
     dDict   = {}
-    fhead   = getFilehead(uidx, fcx, bcx)
     for d, fname in fsDict.items():
-        #print (repr(d) + ": " + fname)
         flag = True
         if start: flag &= ( d>=start)
         if stop:  flag &= ( d<= stop)
         if flag:
-           df            = pd.read_table(fname, names=fhead,usecols=['uid','fc','bc'],index_col=uidx)
+           #df            = pd.read_table(fname, names=fhead,usecols=['uid','fc','bc'],index_col=uidx)
+           #0: uid, 3: fc, 4: bc
+           df            = pd.read_csv(fname, sep='\t', header=None, usecols=[0,3,4])
+           df.columns    = ['uid', 'fc', 'bc']
            dDict[d*1000] = df
 
     if not dDict:
@@ -106,7 +107,7 @@ def gendata(yyyymmdd, fs, anon=False):
             break
     else: 
         me = len(ff)-1
-        print('gendata: Date {}:{} not found. Use most recent {} instead.'.format(fs, yyyymmdd, ff[me]))
+        print('gendata WARNING: Date {}:{} not found. Use most recent {} instead.'.format(fs, yyyymmdd, ff[me]))
         yyyymmdd = getDateFromFilename(dataDir, rge, ff[me])
 
     u2s = {}

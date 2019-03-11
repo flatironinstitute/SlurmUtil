@@ -252,8 +252,8 @@ class SLURMMonitor(object):
                                    'start':   time.strftime('%Y/%m/%d', time.localtime(start)),
                                    'stop':    time.strftime('%Y/%m/%d', time.localtime(stop)),
                                    'series1': tresSer[1], 'title1': 'Account CPU usage hourly report',  'xlabel1': 'CPU core secs', 'aseries1':[], 
-                                   'series2': tresSer[2], 'title2': 'Account Mem usage hourly report',  'xlabel2': 'MEM MB secs',   'aseries2':[],
-                                   'series3': tresSer[4], 'title3': 'Account Node usage hourly report', 'xlabel3': 'Node secs',     'aseries3':[]}
+                                   'series2': tresSer[4], 'title2': 'Account Node usage hourly report', 'xlabel2': 'Node secs',     'aseries2':[],
+                                   'series3': tresSer[2], 'title3': 'Account Mem usage hourly report',  'xlabel3': 'MEM MB secs',   'aseries3':[]}
 
         return h
 
@@ -749,11 +749,7 @@ class SLURMMonitor(object):
 
     @cherrypy.expose
     def fileReport_daily(self, fs='home', start='', stop='', top=5):
-        if start:
-            start = time.mktime(time.strptime(start, '%Y-%m-%d'))
-        if stop:
-            stop  = time.mktime(time.strptime(stop,  '%Y-%m-%d'))
-
+        start, stop  = self.getStartStopTS (start, stop, '%Y-%m-%d')
         fcSer, bcSer = fs2hc.gendata_all(fs, start, stop, int(top))
         if not fcSer:
            return EMPTYDATA_MSG 
