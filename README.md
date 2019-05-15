@@ -54,14 +54,26 @@ Python 3.6
 
 Create python virutal environment:
 ```
+
+#install pyslurm
+#download pyslurm, untar,
+cd <pyslurm_source_dir>
+#modify setup.py
+SLURM_DIR = ""
+SLURM_LIB = ""
+SLURM_INC = ""
+python setup.py build
+
 cd <dir>
 virtualenv monitor_env
 source ./monitor_env/bin/activate
 pip install Cython
 python setup.py install
 
+#install other packages
 pip install pandas
 pip install cherrypy
+pip install pystan
 pip install fbprophet
 pip install influxdb
 pip install paho-mqtt
