@@ -85,6 +85,9 @@ class SLURMMonitor(object):
         #titles     = list(set([key for n in nodes for key in n]))
         t          = dict(zip(fields, titles))
 
+        for node in nodes:
+            node['name']='<a href="./nodeDetails?node={nm}">{nm}</a>'.format(nm=node['name'])
+
         htmlTemp   = os.path.join(wai, 'partitionDetail.html')
         htmlStr    = open(htmlTemp).read().format(p_name=partition, p_detail=p, p_nodes=nodes, n_titles=t)
         return htmlStr
@@ -313,7 +316,8 @@ class SLURMMonitor(object):
         else:
             stop = time.time()
         if start:
-            start = time.mktime(time.strptime(start, formatStr))
+            if isinstance (start, str):
+               start = time.mktime(time.strptime(start, formatStr))
         else:
             start = max(0, stop - THREE_DAYS_SEC)
 
@@ -470,8 +474,12 @@ class SLURMMonitor(object):
 
         return stime
 
+    @cherrypy.expose
+    def getNode2Jobs1 (self):
+        return "{}".format(self.getNode2Jobs(self.jobData))
+
     def getNode2Jobs (self, jobData):
-        node2jobs = defaultdict(list)
+        node2jobs = defaultdict(list)  #nodename: joblist
         for jid, jinfo in jobData.items():
             for nodename, coreCount in jinfo.get(u'cpus_allocated', {}).items():
                 node2jobs[nodename].append(jid)
@@ -491,6 +499,7 @@ class SLURMMonitor(object):
         for node, nodeInfo in sorted(hostData.items()):
             #status display no extra
             status = nodeInfo[0]
+            ts     = nodeInfo[2]
             if status.endswith(('@','+','$','#','~','*')):
                status = status[:-1]
 
@@ -504,11 +513,13 @@ class SLURMMonitor(object):
                   # add explictly job, uname mapping
                   uid = self.getJobUID (jid)
                   if len(nodeInfo) > HOST_ALLOCINFO_IDX:
-                     for uname, p_uid, coreNum, proNum, load, rss, vms, pp, io in nodeInfo[HOST_ALLOCINFO_IDX:]:
+                     for uname, p_uid, coreNum, proNum, load, rss, vms, pp, io, total_cpu_time in nodeInfo[HOST_ALLOCINFO_IDX:]:
                         if p_uid == uid:
-                           result.append([node, status, jid, delay, uname, coreNum, proNum, load, rss, vms, io*8])
+                           job_stime = self.jobData[jid].get('start_time', 0)
+                           job_avg_cpu = float(total_cpu_time) / (ts-job_stime) if job_stime > 0 else 0 #TODO: have problem is one user has multiple job on the same node
+                           result.append([node, status, jid, delay, uname, coreNum, proNum, load, rss, vms, io*8, job_avg_cpu])
                         else:
-                           print ("getSummaryTableData proc_uid {} != job_uid {}".format(p_uid, uid))
+                           print ("getSummaryTableData WARNING: proc_uid {} != job_uid {}, ignore {}".format(p_uid, uid, nodeInfo))
                   else:
                      result.append([node, status, jid, delay ])
             else:
@@ -566,18 +577,20 @@ class SLURMMonitor(object):
             jobs.append(job)
 
         result  = []  #dataset1 in heatmap
-        for hostname, values in self.data.items():
+        for hostname, values in sorted(self.data.items()):
             try:
                node_cores = self.pyslurmNodeData[hostname]['cpus']
+               alloc_jobs = node2job.get(hostname, [])
                if len(values) > HOST_ALLOCINFO_IDX: #ALLOCATED, MIXED
                   cpu_load   = values[HOST_ALLOCINFO_IDX][4]
-                  alloc_jobs = node2job[hostname]
                   state      = 1
                else:
                   cpu_load   = -1
-                  alloc_jobs = []
                   
-                  if values[0] == 'IDLE':
+                  if values[0] in ['ALLOCATED$','ALLOCATED','ALLOCATED@']:
+                      state    = 1
+                      cpu_load = 0
+                  elif values[0] == 'IDLE':
                       state  = 0
                   else:
                       state  = -1
@@ -662,10 +675,13 @@ class SLURMMonitor(object):
            self.cvtDict['node2job']  = node2job
            self.cvtDict['job2node']  = job2node
 
+    
+    @cherrypy.expose
     def getNode2Job (self):
         self.updateCvtDict()
         return self.cvtDict['node2job']
            
+    @cherrypy.expose
     def getJob2Node (self):
         self.updateCvtDict()
         return self.cvtDict['job2node']
@@ -794,7 +810,7 @@ class SLURMMonitor(object):
         ann_series = [[ts, 'Node Restart'] for ts in restart_ts]
         #job start/stop time
         job_df     = self.querySlurmClient.getNodeRunJobs(node, start, stop)
-        print ('nodeGraph_1 job_df={}'.format(job_df))
+        #print ('nodeGraph_1 job_df={}'.format(job_df))
         lst  = job_df[['time_start', 'id_job', 'user']].values.tolist()
         ann_series.extend ([[ts*1000, 'Job {} ({}) Start'.format(jid, user)] for [ts, jid, user] in lst])
         lst  = job_df[['time_end', 'id_job']].values.tolist()
@@ -921,22 +937,29 @@ class SLURMMonitor(object):
         jinfo  = self.jobData.get(jid)
         if ( jinfo is None):
             return "Cannot find information of the job"
-
-        t = htmlPreamble
-        t += '<h3>Job: %s (<a href="%s/jobGraph?jobid=%s">Graph</a>), State: %s, Num_Nodes: %d, Num_CPUs: %d <a href="#sacctreport">(jump to sacct)</a></h3>\n'%(jobid, cherrypy.request.base, jobid, jinfo.get(u'job_state'), jinfo.get(u'num_nodes'), jinfo.get(u'num_cpus'))
-
+        start      = jinfo.get('start_time', '')
+        if not start:
+           start, stop=self.getStartStopTS ('', '')
+        
         # get current report
+        alloc_str = ''
+        node_str  = ''
         for node, coreCount in jinfo.get(u'cpus_allocated', {}).items():
-            d = self.data.get(node)
+            d          = self.data.get(node)
+            node_str  += '&var-hostname={}'.format(node)
             
             if len(d) < HOST_ALLOCINFO_IDX: 
-                t += '<hr><em>%s</em> %d<pre>'%(node, coreCount) + '\n</pre>\n'
+                alloc_str += '<hr><em>%s</em> %d<pre>'%(node, coreCount) + '\n</pre>\n'
             else:
                 for user, uid, cores, procs, tc, trm, tvm, cmds, io in sorted(d[HOST_ALLOCINFO_IDX:]):
                     ac = MyTool.loadSwitch(cores, tc, ' class="inform"', '', ' class="alarm"')
-                    t += '<hr><em%s>%s</em> %d<pre>'%(ac, node, coreCount) + '\n'.join([' '.join(['%6d'%cmd[0], '%6.2f'%cmd[1], '%10.2e'%cmd[5], '%10.2e'%cmd[6]] + cmd[7]) for cmd in cmds]) + '\n</pre>\n'
+                    alloc_str += '<hr><em%s>%s</em> %d<pre>'%(ac, node, coreCount) + '\n'.join([' '.join(['%6d'%cmd[0], '%6.2f'%cmd[1], '%10.2e'%cmd[5], '%10.2e'%cmd[6]] + cmd[7]) for cmd in cmds]) + '\n</pre>\n'
 
+        grafana_url = 'http://mon8:3000/d/jYgoAfiWz/yanbin-slurm-node-util?orgId=1&from={}{}&var-jobID={}&theme=light'.format(start*1000, node_str,jid)
+        t = htmlPreamble
+        t += '<h3>Job: {0} (<a href="{1}/jobGraph?jobid={0}">Graph</a>, <a href="{5}">Grafana Graph</a>), State: {2}, Num_Nodes: {3}, Num_CPUs: {4} <a href="#sacctreport">(jump to sacct)</a></h3>\n'.format(jobid, cherrypy.request.base, jinfo.get(u'job_state'), jinfo.get(u'num_nodes'), jinfo.get(u'num_cpus'), grafana_url)
         # get sacct report
+        t += alloc_str    
         t += self.sacctReport(self.sacctData (['-j', jobid]), skipJobStep=False)
  
         t += '<a href="%s/index">&#8617</a>\n</body>\n</html>\n'%cherrypy.request.base
@@ -1370,7 +1393,12 @@ class SLURMMonitor(object):
             if df.empty:
                 continue
 
-            df    = df[['hostname', 'time', 'cpu_system_util', 'cpu_user_util', 'io_read_bytes', 'io_write_bytes', 'mem_rss']]
+            if 'io_read_bbytes' in df.columns:
+               df    = df[['hostname', 'time', 'cpu_system_util', 'cpu_user_util', 'io_read_bytes', 'io_write_bytes', 'mem_rss']]
+            else:
+               df    = df[['hostname', 'time', 'cpu_system_util', 'cpu_user_util', 'mem_rss']]
+               df['io_read_bytes'] = 0
+               df['io_write_bytes'] = 0
             # sum over hostname to get jobs data
             sumDf = pd.DataFrame({})
             for name, group in df.groupby('hostname'):
@@ -1464,7 +1492,7 @@ class SLURMMonitor(object):
             username = pwd.getpwuid(jinfo[u'user_id']).pw_name
             data_dash[jid]['cpu_list'] = [jinfo['node_info'][i][5] for i in jinfo['node_info'].keys() if len(jinfo['node_info'][i])>=7]
             if not data_dash[jid]['cpu_list']:
-                print ('Pruning:', repr(jinfo), file=sys.stderr)
+                #print ('Pruning:', repr(jinfo), file=sys.stderr)
                 data_dash.pop(jid)
                 continue
 

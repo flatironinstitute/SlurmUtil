@@ -123,15 +123,16 @@ class DataReader:
                     retirePids = [pid for pid in pid2info if pid not in currentPids]
                     for pid in retirePids: pid2info.pop(pid)
 
+                    # get summary over processes of uid
                     for uid, pp in uid2pp.items():
-                        totIUA, totRSS, totVMS = 0.0, 0, 0
-                        totIO = 0
-                        for p in pp:
+                        totIUA, totRSS, totVMS, totIO, totCPU = 0.0, 0, 0, 0, 0
+                        for p in pp:  # pp: pid, intervalCPUtimeAvg, create_time, user_time, system_time, mem_rss, mem_vms, cmdline, intervalIOByteAvg
                             totIUA += p[1]
                             totRSS += p[5]
                             totVMS += p[6]
                             totIO  += p[8]
-                        procsByUser.append([pwd.getpwuid(uid).pw_name, uid, hn2uid2allocated.get(hostname, {}).get(uid, -1), len(pp), totIUA, totRSS, totVMS, pp, totIO])
+                            totCPU += (p[3] + p[4])
+                        procsByUser.append([pwd.getpwuid(uid).pw_name, uid, hn2uid2allocated.get(hostname, {}).get(uid, -1), len(pp), totIUA, totRSS, totVMS, pp, totIO, totCPU])
 
                     hn2info[hostname] = [nodeData[hostname].get(NodeStateHack, '?STATE?'), delta, ts] + procsByUser
                     hn2pid2info[hostname] = (ts, pid2info, procsByUser)

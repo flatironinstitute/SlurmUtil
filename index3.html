@@ -11,22 +11,24 @@ const DEC_ORDER      = 1
 const NODE_IDX       = 0
 const JOB_IDX        = 2
 const USER_IDX       = 4
-const COL_COUNT      = 11
+const COL_COUNT      = 12
 
 var currSortIdx      = 0
 var currSortOrder    = INC_ORDER
 var orderBy          =0 // 0: node inc, 1: node dec, ... (2*idx + inc?0:1)
 var load_data        =%(tableData)s
-var expDict          ={0:2, 1:0, 2:0, 3:2, 4:2, 5:0, 6:0, 7:2, 8:0, 9:0, 10:0}  // 0:2 when sorted on 0, 2 is expandable 
-var typeDict         ={0:0, 1:0, 2:0, 3:2, 4:0, 5:1, 6:1, 7:2, 8:3, 9:3, 10:1}  // 0:0 type of 0 is string(0), integer(1), float(2), float exp(3)
-var rightDict        ={0:0, 1:0, 2:0, 3:1, 4:0, 5:1, 6:1, 7:1, 8:1, 9:1}  // 9:1 include right class of 9
+var expDict          ={0:2, 1:0, 2:0, 3:2, 4:2, 5:0, 6:0, 7:2, 8:0, 9:0, 10:0, 11:0}  // 0:2 when sorted on 0, 2 is expandable 
+var typeDict         ={0:0, 1:0, 2:0, 3:2, 4:0, 5:1, 6:1, 7:2, 8:3, 9:3, 10:1, 11:2}  // 0:0 type of 0 is string(0), integer(1), float(2), float exp(3)
+var rightDict        ={0:0, 1:0, 2:0, 3:1, 4:0, 5:1, 6:1, 7:1, 8:1, 9:1, 10:1, 11:1}  // 9:1 include right class of 9
 var summary_data     =[] // [[startIdx, endIdx, [summaryAttr ...]]...]
 
 
 // init
+console.log(load_data)
 initData  ()
 orderData (1, INC_ORDER, expDict[1])	// init page order by Status inc
 
+// node, status, jid, delay, uname, coreNum, proNum, load, rss, vms, io*8, job_avg_cpu
 function initData() {
    // for float, fixed 2
    for (i=0; i<load_data.length; i++) {
@@ -185,7 +187,7 @@ function getTDsHtml (r) {
    if ( r.length > 4 ) {
       var userC = getCategory(r[7], r[5]-1, r[5]+1, '', '', '"alarm"') 
       var loadC = getCategory(r[7], r[5]-1, r[5]+1, '"right inform"', '"right"', '"right"') 
-      tds2   = `<td class=${userC}><a href="./userDetails?user=${r[4]}">${r[4]}</a></td><td class="right">${r[5]}</td><td class="right">${r[6]}</td><td class=${loadC}>${r[7]}</td><td class="right">${r[8].toExponential(2)}</td><td class="right">${r[9].toExponential(2)}</td><td class="right">${r[10]}</td></tr>`
+      tds2   = `<td class=${userC}><a href="./userDetails?user=${r[4]}">${r[4]}</a></td><td class="right">${r[5]}</td><td class="right">${r[6]}</td><td class=${loadC}>${r[7]}</td><td class="right">${r[8].toExponential(2)}</td><td class="right">${r[9].toExponential(2)}</td><td class="right">${r[10]}</td><td class=${loadC}>${r[11]}</td></tr>`
    }
 
    return tds + tds2
@@ -276,7 +278,7 @@ function incFunc (a, b, idx, secIdx) {
    var cmp = incF (a, b, idx)
 
    if ( cmp==0 && secIdx != idx ) {
-      console.log("incFunc " + idx + "," + secIdx + " " + a + " " + b + " " + incF(a,b,secIdx)) 
+//      console.log("incFunc " + idx + "," + secIdx + " " + a + " " + b + " " + incF(a,b,secIdx)) 
       return incF (a, b, secIdx)
    }
    else            

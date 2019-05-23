@@ -17,7 +17,6 @@ from collections import defaultdict as DDict
 import pyslurm
 import MyTool
 import querySlurm
-import queryInflux
 import SlurmEntities
 
 
@@ -28,14 +27,14 @@ import SlurmEntities
 class InfluxWriter (threading.Thread):
     INTERVAL = 61
 
-    def __init__(self, influxServer='scclin011'):
+    def __init__(self, influxServer='scclin011', influxDB='slurmdb'):
         threading.Thread.__init__(self)
 
-        self.influx_client = self.connectInflux (influxServer)
+        self.influx_client = self.connectInflux (influxServer, influxDB)
         self.source        = []
         logging.info("Start InfluxWriter with influx_client={}, interval={}".format(self.influx_client._baseurl, self.INTERVAL))
 
-    def connectInflux (self, host, port=8086, user="yliu", db="slurmdb"):
+    def connectInflux (self, host, db, port=8086, user="yliu"):
         return influxdb.InfluxDBClient(host, port, user, "", db)
 
     def writeInflux (self, points, ret_policy="autogen", t_precision="s"):
@@ -44,7 +43,7 @@ class InfluxWriter (threading.Thread):
 
         try:
            logging.info  ("writeInflux {}".format(len(points)))
-           self.influx_client.write_points (points,  retention_policy=ret_policy, time_precision=t_precision)
+           #self.influx_client.write_points (points,  retention_policy=ret_policy, time_precision=t_precision)
         except influxdb.exceptions.InfluxDBClientError as err:
            logging.error ("writeInflux " + ret_policy + " ERROR:" + repr(err) + repr(points))
 
@@ -58,6 +57,7 @@ class InfluxWriter (threading.Thread):
           points = []
           for s in self.source:
               points.extend(s.retrievePoints ())
+              logging.info ("InfluxWriter have {} points after checking source {}".format(len(points), s))
 
           self.writeInflux (points)
 
@@ -131,13 +131,14 @@ class MQTTReader (threading.Thread):
         self.nodeData = pyslurm.node().get()
 
         points        = []
-        #autogen.cpu_info, time, hostname, total_socket, total_thread, total_cores, cpu_model, is_vm
+        #autogen.cpu_info: time, hostname, total_socket, total_thread, total_cores, cpu_model, is_vm
         points.extend(self.process_list(self.hostinfo_msgs, self.hostinfo2point))
-        #autogen.cpu_load, time, hostname, proc_*, load_*, cpu_*, mem_*, net_*, disk_*
+        #autogen.cpu_load: time, hostname, proc_*, load_*, cpu_*, mem_*, net_*, disk_*
         points.extend(self.process_list(self.hostperf_msgs, self.hostperf2point))
         #autogen.cpu_proc_info, cpu_proc_mon
         points.extend(self.process_list(self.hostproc_msgs, self.hostproc2point))
         if self.nodeUidTs2points:
+           #autogen.cpu_uid_mon
            points.extend(self.create_uid_points())
 
         if self.cpu_up_ts_count > 0:
@@ -177,8 +178,7 @@ class MQTTReader (threading.Thread):
         if ((host not in self.cpuinfo) or (self.cpuinfo[host] != repr(msg['cpu'])) ):
            self.cpuinfo[host]    = repr(msg['cpu'])
 
-           point = {'measurement':'cpu_info'}
-           point['time']   = (int)(ts)
+           point = {'measurement':'cpu_info', 'time': (int)(ts)}
            point['tags']   = {'hostname':host}
            point['fields'] = msg['cpu']
 
@@ -241,7 +241,7 @@ class MQTTReader (threading.Thread):
             procPoints.append (point)
 
             self.nodeUidTs2points[node][uid][ts][pid]=point
-        logging.debug('hostproc2point generate {} cpu_proc_info and {} cpu_proc_mon points'.format(len(infoPoints), len(procPoints)))
+        #logging.debug('hostproc2point generate {} cpu_proc_info and {} cpu_proc_mon points'.format(len(infoPoints), len(procPoints)))
 
         return infoPoints.extend(procPoints)
 
@@ -263,7 +263,7 @@ class MQTTReader (threading.Thread):
                    logging.error("Period is almost 0 between points {} and {}. Ignore.".format(preDict, currDict))
                    continue
                 if ( period > 120 ):
-                   logging.error("Period is {} bigger than 60 seconds between {} and {}.".format(period, preDict, currDict))
+                   logging.error("create_uid_points: Period is {} bigger than 60 seconds between {} and {}.".format(period, preDict.keys(), currDict.keys()))
 
                 point         = {'measurement':'cpu_uid_mon', 'time':currTs, 'fields': {}}
                 point['tags'] = {'uid':uid, 'hostname':node}
@@ -291,22 +291,25 @@ class SlurmDataReader (threading.Thread):
 
         self.slurm  = SlurmEntities.SlurmEntities()
         self.points = []
-        self.lock   = threading.Lock()
-        logging.info("Start SlurmDataReader with interval={}".format(self.INTERVAL))
+        self.lock   = threading.Lock()       #protect self.points
+        logging.info("Init SlurmDataReader with interval={}".format(self.INTERVAL))
 
     def run(self):
+        logging.info("Start running SlurmDataReader ...")
         while True:
+          #logging.info("SlurmDataReader run loop {}".format(self.slurm))
           ts, jobList = self.slurm.getCurrentPendingJobs()
-          #print ("{}:{}".format(ts, jobList))
+          #logging.debug("SlurmDataReader run {}:{}:{}".format(ts, len(jobList), jobList))
           self.cvt2points (ts, jobList)
           time.sleep (SlurmDataReader.INTERVAL)
 
     #return influxdb points
+    #add job_id to tag set to avoid duplicate removal, thus only valid records after 1550868105
     def cvt2points (self, ts_sec, jobList):
         points = []
         for job in jobList:
             point           = {'measurement':'slurm_pending', 'time': int(ts_sec)}  # time in ms
-            point['tags']   = {'state_reason':job.pop('state_reason')}
+            point['tags']   = {'job_id': job.pop('job_id'), 'state_reason':job.pop('state_reason')}
             point['fields'] = job
 
             #print ("point {}".format(point))
@@ -351,24 +354,34 @@ class SlurmDataReader (threading.Thread):
 
         return points
 
-def main(influxServer):
+def main(influxServer, influxDB):
     r1   = MQTTReader()
     r1.start()
+    time.sleep(5)
     r2   = SlurmDataReader ()
     r2.start()
+    time.sleep(5)
 
-    ifdb = InfluxWriter    (influxServer)
+    ifdb = InfluxWriter    (influxServer, influxDB)
     ifdb.addSource (r1)
     ifdb.addSource (r2)
     ifdb.start()
 
 if __name__=="__main__":
    #Usage: python mqtMon2Influx.py [influx_server]
-   logging.basicConfig(filename='/tmp/slurm_util/mqtMon2Influx.log',level=logging.DEBUG, format='%(asctime)s %(levelname)s:%(message)s') # must before InfluxDB
 
    influxServer = 'scclin011'
+   influxDB     = 'slurmdb'
+   logFile      = '/tmp/slurm_util/mqtMon2Influx.log'
    if len(sys.argv) > 1:
       influxServer = sys.argv[1]
+   elif os.path.isfile('./config.json'):
+      with open('./config.json') as config_file:
+           config = json.load(config_file)
+      influxServer = config['influxdb']['host']
+      influxDB     = config['influxdb']['db']
+      logFile      = config['log']['file']
 
-   main(influxServer)
+   logging.basicConfig(filename=logFile,level=logging.DEBUG, format='%(asctime)s %(levelname)s:%(message)s') # must before influxdb
+   main(influxServer, influxDB)
 
