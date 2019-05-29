@@ -61,7 +61,6 @@ class DataReader:
 
     def dealData (self, t1):
         global NodeStateHack
-        print ("dealData")
 
         # get job/node data from pyslurm
         jobData  = pyslurm.job().get()
@@ -79,7 +78,7 @@ class DataReader:
 
         hn2uid2allocated = DDict(lambda: DDict(int))
         for jid, jdata in jobData.items():
-           # if jdata['job_state'] != 'RUNNING': continue
+           if jdata['job_state'] != 'RUNNING': continue
            uid = jdata['user_id']
            for hn, c in jdata.get('cpus_allocated', {}).items():
               hn2uid2allocated[hn][uid] += c
