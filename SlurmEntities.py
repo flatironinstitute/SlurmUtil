@@ -6,18 +6,21 @@ import pyslurm
 import sys
 
 import MyTool
+import logging
 
 from time import gmtime, strftime, sleep
 from datetime import datetime
 
 PEND_EXP={
+    'QOSMaxCpuPerUserLimit': 'QoS User CPU  limit ({max_cpu_user})  exceeded. User {user} already alloc {curr_cpu_user}  CPUs in {partition}.', # QOS MaxTRESPerUser exceeded (CPU) 
+    'QOSMaxNodePerUserLimit':'QoS User Node limit ({max_node_user}) exceeded. User {user} already alloc {curr_node_user} Nodes in {partition}',	                         # QOS MaxTRESPerUser exceeded (Node)
+    'QOSGrpNodeLimit':       'QoS Group Node limit ({max_node_grp}) exceeded. Group already alloc {curr_node_grp} Nodes in {partition}.', # QOS GrpTRES exceeded (Node)
+    'QOSGrpCpuLimit':        'QoS Group CPU limit  ({max_cpu_grp})  exceeded. Group already alloc {curr_cpu_grp}  Nodes in {partition}.',
+    'QOSMaxWallDurationPerJobLimit': 'Job time {job_time_limit} exceed QoS {qos}\'s MaxWallDurationPerJob limit ({qos_limit}).',
     'Dependency':            'Dependent jobs ({dependency}) have not completed', #/* dependent job has not completed */
     'Priority':              'Higher priority jobs exist. Partition {partition} queue higher priority jobs {higher_job}.', #/* higher priority jobs exist */
-    'QOSMaxCpuPerUserLimit': 'QoS Max User CPU limit ({max_cpu_user}) exceeded. User {user} alloc {curr_cpu_user} CPUs in {partition}.', # QOS MaxTRESPerUser exceeded (CPU) 
-    'QOSMaxNodePerUserLimit':'QoS Max User Node limit ({max_node_user}) exceeded. User {user} alloc {curr_node_user} Nodes in {partition}',	                         # QOS MaxTRESPerUser exceeded (Node)
-    'QOSGrpNodeLimit':       'QoS Max Group Node limit ({max_node_grp}) exceeded. Users alloc {curr_node_grp} Nodes in {partition}.', # QOS GrpTRES exceeded (Node)
     'Resources':             'Required resources not available. Partition {partition} have {avail_node} requested {feature} nodes and {avail_cpu} CPUs. Resources will be availble no later than {start_time}.', #required resources not available
-    'JobArrayTaskLimit':     'Job array ({array_task_str}) reach max task limit {array_max_tasks}. Tasks {array_tasks} are running.'
+    'JobArrayTaskLimit':     'Job array ({array_task_str}) reach max task limit {array_max_tasks}. Tasks {array_tasks} are running.',
 }
 class SlurmEntities:
   #two's complement -1
@@ -77,6 +80,18 @@ class SlurmEntities:
 
     return lst1,lst2
 
+  def getMaxWallPJ (self, job):
+      qos_set = set ()
+      #partition QoS
+      if job['partition']:
+         qos_set.add(self.partition_dict[job['partition']].get('qos_char',''))
+      #Job QoS
+      qos_set.add(job['qos'])
+      #User Association QoS
+
+      qos, lmt= min([ (qos, self.qos_dict[qos].get('max_wall_pj', 4294967295)) for qos in qos_set], key=lambda x: x[1])
+      return qos, lmt
+
   def getPartitionInfo (self, p_name, fields=['name', 'state', 'tres_fmt_str', 'features', 'gres', 'alloc_cpus','alloc_mem', 'cpu_load', 'gres_used', 'run_jobs']):
       partition  = self.partition_dict[p_name]
       node_names = MyTool.nl2flat(partition['nodes'])
@@ -129,12 +144,17 @@ class SlurmEntities:
   # return avail_nodes, avail_cpus with the constrain of features and min_mem_per_node
   def addUpdatePartitionInfo (self, p_name, features=[], min_mem_per_node=0, gres=[]):
       p = self.partition_dict[p_name]
+
       if not p.get('flag_shared', None):
          p['flag_shared'] = 'YES' if self.getSharedFlag(p) else 'NO'
-         nodes            = MyTool.nl2flat(p['nodes'])
-         avail_nodes      = [n for n in nodes if self.node_dict.get(n, {}).get('state', None) == 'IDLE']
-         if p['flag_shared'] == 'YES':     # count MIXED node with idle CPUs as well
-            avail_nodes  += [n for n in nodes if (self.node_dict.get(n, {}).get('state', None) == 'MIXED') and (self.node_dict.get(n,{}).get('cpus', 0) > self.node_dict.get(n, {}).get('alloc_cpus', 0))]
+
+         if p['nodes']:
+            nodes             = MyTool.nl2flat(p['nodes'])
+            avail_nodes       = [n for n in nodes if self.node_dict.get(n, {}).get('state', None) == 'IDLE']
+            if p['flag_shared'] == 'YES':     # count MIXED node with idle CPUs as well
+               avail_nodes  += [n for n in nodes if (self.node_dict.get(n, {}).get('state', None) == 'MIXED') and (self.node_dict.get(n,{}).get('cpus', 0) > self.node_dict.get(n, {}).get('alloc_cpus', 0))]
+         else:
+            avail_nodes       = []
 
          avail_cpus_cnt,lst1  = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
          p['avail_nodes_cnt'] = len(avail_nodes)
@@ -148,6 +168,7 @@ class SlurmEntities:
          p['pending_jobs']= [j['job_id'] for j in part_jobs if j['job_state']=='PENDING']
       else:
          avail_nodes      = p['avail_nodes']
+         avail_cpus_cnt,lst1  = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
 
       if features:             # restrain nodes with required features
          avail_nodes     = [n for n in avail_nodes if set(self.node_dict[n]['features_active'].split(',')).intersection(features)]
@@ -191,6 +212,7 @@ class SlurmEntities:
 
   #return list of current pending jobs sorted by jid, no explaination
   def getCurrentPendingJobs (self, fields=['job_id', 'submit_time', 'user_id', 'account', 'qos', 'partition', 'state_reason']):
+      logging.debug ("getCurrentPendingJobs")
       job_dict = pyslurm.job().get()
       pending  = [MyTool.sub_dict(job, fields) for jid,job in job_dict.items() if job['job_state']=='PENDING']
 
@@ -221,6 +243,10 @@ class SlurmEntities:
              a_node_qos, a_cpu_qos = self.getPartitionTres (p_name, 'grp_tres')
              a_node,     a_cpu     = SlurmEntities.getAllocInPartition(p_name, self.job_dict)
              job['state_exp']      = job['state_exp'].format(max_node_grp=a_node_qos, curr_node_grp=a_node, partition=p_name)
+          elif job['state_reason'] == 'QOSGrpCpuLimit':
+             a_node_qos, a_cpu_qos = self.getPartitionTres (p_name, 'grp_tres')
+             a_node,     a_cpu     = SlurmEntities.getAllocInPartition(p_name, self.job_dict)
+             job['state_exp']      = job['state_exp'].format(max_cpu_grp=a_cpu_qos, curr_cpu_grp=a_cpu, partition=p_name)
           elif job['state_reason'] == 'Resources':
              # check features and memory requirement
              j_features            = job.get('features',[])
@@ -233,7 +259,7 @@ class SlurmEntities:
              if j_gres:              j_features.append (MyTool.gresList2Str(job['gres']))
              if j_min_mem_pn:        j_features.append ('mem_per_node={}MB'.format(j_min_mem_pn))
              if j_min_mem_pc:        j_features.append ('mem_per_cpu={}MB'.format(j_min_mem_pc))
-             print("getPendingJobs {} {}".format(pa_node, pa_cpu))
+             #print("getPendingJobs {} {}".format(pa_node, pa_cpu))
              job['state_exp']      = job['state_exp'].format(partition=p_name, avail_node=pa_node, avail_cpu=pa_cpu, feature='({0})'.format(j_features), start_time=MyTool.getTimeString(job.get('start_time','')))
           elif job['state_reason'] == 'Priority':
              earlierJobs           = self.getSmallerJobIDs(job['job_id'], self.partition_dict[p_name].get('pending_jobs',[]))
@@ -244,6 +270,10 @@ class SlurmEntities:
              job['state_exp']      = job['state_exp'].format(array_task_str=job.get('array_task_str', ''), array_max_tasks=job.get('array_max_tasks', ''), array_tasks=array_tasks_lst)
           elif job['state_reason'] == 'Dependency':
              job['state_exp']      = job['state_exp'].format(dependency=job.get('dependency'))
+          elif job['state_reason'] == 'QOSMaxWallDurationPerJobLimit':
+             qos, lmt              = self.getMaxWallPJ(job)
+             job['state_exp']      = job['state_exp'].format(job_time_limit=job.get('time_limit_str'), qos=qos, qos_limit=lmt)
+          
 
           if job['sched_nodes']:
              job['state_exp']      += ' Job is scheduled on {}'.format(job['sched_nodes'])

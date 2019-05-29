@@ -6,6 +6,13 @@
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 <script>
+const INTERVAL_REFRESH=600
+function timedRefresh(timeoutPeriod) {
+	setTimeout("location.reload(true);",timeoutPeriod);
+}
+window.onload = timedRefresh(INTERVAL_REFRESH * 1000);
+
+
 const INC_ORDER      = 0
 const DEC_ORDER      = 1
 const NODE_IDX       = 0
@@ -348,6 +355,8 @@ $(document).ready(function(){
    $("#tabmenu").load("/getHeader?page=index")
 
    $("#comment").text("Status as of %(update_time)s")
+   $("#comment1").text("(Refreshed every 10 minutes automatically)")
+
 
    setTableHead(1, INC_ORDER)
    setTableBody()
@@ -375,6 +384,7 @@ $(document).ready(function(){
 <div class="tab" id="tabmenu"></div>
 <div>
 <h4 id="comment"></h4>
+<p id="comment1"></p>
 <table class="slurminfo">
 <thead>
 <tr>
@@ -383,12 +393,12 @@ $(document).ready(function(){
    <th class="sortable">Jobs            <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">Delay           <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">User            <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
-   <th class="sortable">CPUs Allocated <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
+   <th class="sortable">CPUs Allocated  <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">Processes       <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">CPU Util        <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">RSS             <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">VMS             <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
-   <th class="sortable">I/O bps          <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
+   <th class="sortable">I/O bps         <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
 </tr>
 </thead>
 <tbody id="tbody"> </tbody>
