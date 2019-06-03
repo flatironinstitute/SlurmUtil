@@ -230,3 +230,15 @@ li span{
   font-weight: bold;
   display: inline-block;
 }
+.page-wrap {
+  margin: 40px;
+}
+td.group_plus:before {
+   content: "\25b8\ ";
+}
+td.group_minus:before {
+   content: "\25be\ ";
+}
+td.group_sub:before {
+   content: "\2001"
+}

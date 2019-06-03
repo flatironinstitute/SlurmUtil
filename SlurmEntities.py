@@ -221,7 +221,7 @@ class SlurmEntities:
   #return list of jobs sorted by jid
   def getPendingJobs (self, fields=['job_id', 'submit_time', 'num_nodes', 'num_cpus', 'user_id', 'account', 'qos', 'partition', 'state_reason', 'user', 'submit_time_str', 'state_exp']):
       #pending = [(MyTool.sub_dict(job, fields)).update({'user', MyTool.getUser(job['user_id'])}) for jid,job in self.job_dict.items() if job['job_state']=='PENDING']
-      pending = [job for jid,job in self.job_dict.items() if job['job_state']=='PENDING']
+      pending = [job for jid,job in sorted(self.job_dict.items()) if job['job_state']=='PENDING']
       for job in pending:
           p_name                = job['partition']
           if ',' in p_name:
