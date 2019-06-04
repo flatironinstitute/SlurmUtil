@@ -42,8 +42,8 @@ class InfluxWriter (threading.Thread):
            return
 
         try:
-           logging.info  ("writeInflux {}".format(len(points)))
-           #self.influx_client.write_points (points,  retention_policy=ret_policy, time_precision=t_precision)
+           #logging.info  ("writeInflux {}".format(len(points)))
+           self.influx_client.write_points (points,  retention_policy=ret_policy, time_precision=t_precision)
         except influxdb.exceptions.InfluxDBClientError as err:
            logging.error ("writeInflux " + ret_policy + " ERROR:" + repr(err) + repr(points))
 
@@ -263,7 +263,7 @@ class MQTTReader (threading.Thread):
                    logging.error("Period is almost 0 between points {} and {}. Ignore.".format(preDict, currDict))
                    continue
                 if ( period > 120 ):
-                   logging.error("create_uid_points: Period is {} bigger than 60 seconds between {} and {}.".format(period, preDict.keys(), currDict.keys()))
+                   logging.error("create_uid_points: Period is {} bigger than 60 seconds between {} and {}.".format(period, tsLst[idx-1], currTs))
 
                 point         = {'measurement':'cpu_uid_mon', 'time':currTs, 'fields': {}}
                 point['tags'] = {'uid':uid, 'hostname':node}

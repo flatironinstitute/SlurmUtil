@@ -176,23 +176,30 @@ class InfluxQueryClient:
     def getPendingCount (self, st, et):
         t1=time.time()
         
-        # data before is not reliable
+        # data before is not reliable, add tres_per_node after 06/04/3019 11:59AM
         st = max (int(st), 1550868105)
 
         query= "select * from autogen.slurm_pending where time >= " + str(int(st)) + "000000000 and time <= " + str(int(et)) + "000000000"
-        print ("getPendingCount " + query)
+        print ("getPendingCount {}".format(query))
 
         results      = self.influx_client.query(query, epoch='ms')
         points       = list(results.get_points())
         jidSet       = set([point['job_id'] for point in points])
-        print("jidSet={}".format(jidSet))
+        #print("jidSet={}".format(jidSet))
 
         tsState2jobCnt = defaultdict(lambda:defaultdict(int))
         tsState2cpuCnt = defaultdict(lambda:defaultdict(int))
         for point in points:
             state_reason = point['state_reason']
-            tsState2jobCnt[point['time']][state_reason] += 1
-        
+            if (state_reason == 'Resources'):
+              tres = point.get('tres_per_node','')
+              if (tres and 'gpu' in tres):
+                 tsState2jobCnt[point['time']]['Resources_GPU'] += 1
+              else:
+                 tsState2jobCnt[point['time']][state_reason] += 1
+            else:
+              tsState2jobCnt[point['time']][state_reason] += 1
+            
         return tsState2jobCnt
         
     #return information of hostname

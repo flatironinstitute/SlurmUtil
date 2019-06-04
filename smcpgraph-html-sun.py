@@ -352,34 +352,39 @@ class SLURMMonitor(object):
 
         influxClient = InfluxQueryClient.getClientInstance()
         tsReason2Cnt = influxClient.getPendingCount(start, stop)
-        bySched      = ['Dependency', 'Priority','BeginTime', 'JobArrayTaskLimit'] 
-        byResource   = ['Resources', 'ReqNodeNotAvail']
-        byQOS        = ['QOSMaxNodePerUserLimit', 'QOSMaxCpuPerUserLimit','QOSGrpNodeLimit']
+        bySched      = 'Dependency|Priority|BeginTime|JobArrayTaskLimit|Nodes_required_for_job_are_DOWN*' 
+        byResource   = 'Resources|ReqNodeNotAvail*'
+        byQOS        = 'QOS*'
+        byGPU        = 'Resources_GPU'
         
         reasons      = [set(reasons.keys()) for ts, reasons in tsReason2Cnt.items()]
         reasons      = set([i2 for item in reasons for i2 in item])
+        print("INFO: reasons {}".format(reasons))
         
         #reformat the tsReason2Cnt to cate2ts_cnt
         cate2ts_cnt  = defaultdict(list)
         for ts, reason2Cnt in tsReason2Cnt.items():
             for reason, cnt in reason2Cnt.items():
-                reason = reason.split(',')[0]
                 cate = 'Other'
-                if reason in bySched:
+                if re.match(bySched, reason):
                    cate = 'Sched'
-                elif reason in byResource:
+                elif re.match(byResource, reason):
                    cate = 'Resource'
-                elif reason in byQOS:
+                elif re.match(byGPU, reason):
+                   cate = 'GPU'
+                elif re.match(byQOS, reason):
                    cate = 'QoS'
-                else:
-                   print("Test state_reason {} not in defined category".format(reason))
+                elif reason and reason!='None':    #excluding None value
+                   print("INFO: Test state_reason {} is not in defined category".format(reason))
 
                 cate2ts_cnt[cate].append ([ts, cnt])
 
-        series1   = [{'name': 'Constrained by Resource', 'data':cate2ts_cnt['Resource']},
-                     {'name': 'Constrained by QoS',      'data':cate2ts_cnt['QoS']},
-                     {'name': 'Constrained by Job Defination', 'data':cate2ts_cnt['Sched']},
-                     {'name': 'Constrained by Other',    'data':cate2ts_cnt['Other']}]
+        series1   = [
+                     {'name': 'Queued by QoS',      'data':cate2ts_cnt['QoS']},
+                     {'name': 'Queued by Resource', 'data':cate2ts_cnt['Resource']},
+                     {'name': 'Queued by GPU Resource',   'data':cate2ts_cnt['GPU']},
+                     {'name': 'Queued by Job Defination', 'data':cate2ts_cnt['Sched']},
+                     {'name': 'Queued by Other',    'data':cate2ts_cnt['Other']}]
 
         htmlTemp = os.path.join(wai, 'pendingJobReport.html')
         h = open(htmlTemp).read()%{'start':   time.strftime('%Y/%m/%d', time.localtime(start)),

@@ -211,7 +211,7 @@ class SlurmEntities:
       return [jid for jid in job_list if jid < job_id]
 
   #return list of current pending jobs sorted by jid, no explaination
-  def getCurrentPendingJobs (self, fields=['job_id', 'submit_time', 'user_id', 'account', 'qos', 'partition', 'state_reason']):
+  def getCurrentPendingJobs (self, fields=['job_id', 'submit_time', 'user_id', 'account', 'qos', 'partition', 'state_reason', 'tres_per_node']):
       logging.debug ("getCurrentPendingJobs")
       job_dict = pyslurm.job().get()
       pending  = [MyTool.sub_dict(job, fields) for jid,job in job_dict.items() if job['job_state']=='PENDING']
