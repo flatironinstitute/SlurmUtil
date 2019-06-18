@@ -96,7 +96,13 @@ def gendata_all(fs, start='', stop='', topN=5):
         
     return uid2seq1, uid2seq2
 
-def gendata(yyyymmdd, fs, anon=False):
+def gendata(yyyymmdd, anon=False):
+    rlt = {}
+    for fs in FileSystems.keys():
+        rlt[fs] = gendata_fs(yyyymmdd, fs, anon)
+    return rlt
+
+def gendata_fs(yyyymmdd, fs, anon=False):
     if fs not in FileSystems: return 'Unknown file system: "%s"'%fs, ''
     label, dataDir, suffix, uidx, fcx, bcx, rge = FileSystems[fs]
     ff = sorted(glob.glob(dataDir+'/2*'+suffix))
@@ -133,7 +139,8 @@ def gendata(yyyymmdd, fs, anon=False):
 
     if 4*x > len(u2s): cutoff = 2
 
-    r = ''
+    #r = ''
+    r=[]
     for uid, v in u2s.items():
         if uid < 1000: continue
         try:
@@ -148,9 +155,10 @@ def gendata(yyyymmdd, fs, anon=False):
         if 0 == v[2] or 0 == v[3]:
             # non-home user, skip
             continue
-        r +=  '\t{ x: %d, y: %d, z: %d, dfb: %d, dfc: %d, name: "%s"%s},\n' %(v[3], v[2], log(max(2**20, v[1]), 2)-19, v[1], v[0], uname, marker)
+        #r +=  '\t{ x: %d, y: %d, z: %d, dfb: %d, dfc: %d, name: "%s"%s},\n' %(v[3], v[2], log(max(2**20, v[1]), 2)-19, v[1], v[0], uname, marker)
+        r.append({'x':v[3], 'y':v[2], 'z':log(max(2**20, v[1]),2)-19, 'dfb':v[1], 'dfc':v[0], 'name':'{}{}'.format(uname,marker)})
 
-    return (label, r, yyyymmdd)
+    return [label, r, yyyymmdd]
 
 if '__main__' == __name__:
     #print (gendata(*sys.argv[1:]))

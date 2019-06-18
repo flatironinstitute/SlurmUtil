@@ -8,6 +8,7 @@
 	<title>%(label)s usage</title>
 
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script src="http://www.d3plus.org/js/d3.js"></script>
 	<!--<script type="text/javascript" src="static/scripts/jquery-2.1.3.min.js"></script>-->
 	<script type="text/javascript" src="static/scripts/highcharts.js"></script>
 	<script type="text/javascript" src="static/scripts/highcharts-more.js"></script>
@@ -21,16 +22,22 @@
 
 	<script type="text/javascript">
 	 var chart;
-	 var titleString = '%(label)s: File count and bytes by user %(yyyymmdd)s';
+         var data        = %(data)s
+         console.log (data)
 	 $(function () {
              $("#tabmenu").load("/getHeader?page=usageGraph")
+             fillOptions (%(file_systems)s)
+             displayData (data['home'])
+         })
 
+         function displayData (fs_data) {
+             console.log(fs_data[1])
+	     var titleString = fs_data[0] + ': File Count and Bytes of Users on ' + fs_data[2];
 	     chart = Highcharts.chart('container', {
 		 bubble: {
 		     minSize: 3,
 		     maxSize: 10,
 		 },
-
 		 chart: {
 		     panKey: 'shift',
 		     panning: true,
@@ -38,19 +45,15 @@
 		     type: 'bubble',
 		     zoomType: 'xy'
 		 },
-
 		 credits: {
 		     enabled: false,
 		 },
-
 		 legend: {
 		     enabled: false,
 		 },
-
 		 title: {
 		     text: titleString,
 		 },
-
 		 xAxis: {
 		     type: 'logarithmic',
 		     gridLineWidth: 1,
@@ -58,7 +61,6 @@
 			 text: 'Total bytes'
 		     },
 		 },
-
 		 yAxis: {
 		     type: 'logarithmic',
 		     startOnTick: false,
@@ -68,7 +70,6 @@
 		     },
 		     maxPadding: 0.2,
 		 },
-
 		 tooltip: {
 		     useHTML: true,
 		     headerFormat: '<table>',
@@ -80,7 +81,6 @@
 		     footerFormat: '</table>',
 		     followPointer: true
 		 },
-
 		 plotOptions: {
 		     series: {
 			 dataLabels: {
@@ -89,11 +89,8 @@
 			 }
 		     }
 		 },
-
 		 series: [{
-		     data: [
-			 %(data)s
-		     ]
+		     data: fs_data[1]
 		 }]
 
 	     });
@@ -102,7 +99,7 @@
 	     $('#usernameLabel').css('font-family', hcff);
 
              
-	 });
+	 }
 	 function selectUser() {
 	     var username = $('input[id=username]').val();
 	     for (d of chart.series[0].data) {
@@ -116,16 +113,40 @@
 	     alert('Did not find user: '+ username);
 	     return false
 	 }
+
+         // file_systems is dict of value:[description,...] 
+         function fillOptions (fs) {
+            console.log (fs)
+            d3.select("#fsList").selectAll("option")
+              .data(Object.keys(fs))
+              .enter()
+              .append("option")
+              .attr("value", function (d) {return d})
+              .text(function (d) {return fs[d][0]})
+
+            $("#fsList").val("home");
+            $("#fsList").change(function() {
+               var val=$("#fsList option:selected").attr("value");
+               displayData(data[val])
+               console.log("Changed to ", val)
+            })
+         }
 	</script>
     </head>
     <body>
         <div class="tab" id="tabmenu"></div>
-
-	<div id="container" style="height: 640px; min-width: 620px; max-width: 1200px; margin: 0 auto">	</div>
-	<div style="margin: auto; width: 300px">
+        <p>
+        <div id="fsSelect"><label>Select a File System:</label>
+            <select id="fsList">
+            </select>
+            <br/>
+        </div>
+	<div id="userSelect">
 	    <form action="javascript:selectUser()">
-		<label id="usernameLabel" for="username">Center on user:&nbsp;</label><input type="text" id="username">
+		<label id="usernameLabel" for="username">Center on User:&nbsp;</label><input type="text" id="username">
 	    </form>
 	</div>
+
+	<div id="container" style="height: 640px; min-width: 620px; max-width: 1200px; margin: 0 auto">	</div>
     </body>
 </html>

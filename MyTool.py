@@ -95,22 +95,14 @@ def sub_dict_remove(somedict, somekeys, default=None):
 #return only existing keys
 def sub_dict_exist(somedict, somekeys):
     return dict([ (k, somedict[k]) for k in somekeys if (k in somedict) and (somedict[k])])
-
-#did not consider str to int
-def getDictNumValue (d, key):
-    value = d.get(key, 0)
-    if ( type(value) == int or type(value) == float):
-       return value
-    else:
-       print("WARNING: getDictIntValue has a non-int type " + repr(type(value)))
-       return 0
+def sub_dict_exist_remove(somedict, somekeys):
+    return dict([ (k, somedict.pop(k)) for k in somekeys if (k in somedict) and (somedict[k])])
 
 def flatten(d, parent_key='', sep='_'):
     items = []
     for k, v in d.items():
         new_key = parent_key + sep + k if parent_key else k
 
-        #if k == 'cpus_allocated': print(d)
         if isinstance(v, collections.MutableMapping):
            if v:
               items.extend(flatten(v, new_key, sep=sep).items())
@@ -121,6 +113,49 @@ def flatten(d, parent_key='', sep='_'):
         else:
            items.append((new_key, v))
     return dict(items)
+
+#update fields who are dict or other to string
+def update_dict_value2string (d):
+    emptyKey = []
+    for k, v in d.items():
+        if (not v) or (v == 'N/A'):
+           emptyKey.append (k)
+        elif not isinstance (v, (int, float, str, bool)):
+           if isinstance(v, dict):
+              v=dict([(k1,v1) for k1,v1 in v.items() if v1])
+           if v:
+              d[k] = repr(v)
+           else:
+              emptyKey.append(k)
+    for k in emptyKey:
+        d.pop(k)
+
+    return d
+
+#update fields who are dict or other to string
+def remove_dict_empty (d):
+    emptyKey = []
+    for k, v in d.items():
+        if (not v) or (v in ['N/A', 'NONE', 'UNLIMITED']):
+           emptyKey.append (k)
+        elif isinstance(v, dict):
+           v=dict([(k1,v1) for k1,v1 in v.items() if v1])
+           if v:
+              d[k] = v
+           else:
+              emptyKey.append(k)
+    for k in emptyKey:
+        d.pop(k)
+    return d
+
+#did not consider str to int
+def getDictNumValue (d, key):
+    value = d.get(key, 0)
+    if ( type(value) == int or type(value) == float):
+       return value
+    else:
+       print("WARNING: getDictIntValue has a non-int type " + repr(type(value)))
+       return 0
 
 def createNestedDict (rootSysname, levels, data_df, valColname):
         def find_element(children_list,name):

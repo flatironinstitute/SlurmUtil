@@ -317,7 +317,6 @@ class SLURMMonitor(object):
         start, stop, df = self.getClusterUsageHourTable (start, stop)
 
         htmlTemp = os.path.join(wai, 'image.html')
-        print(htmlTemp)
         h = open(htmlTemp).read()
 
         return h
@@ -351,9 +350,9 @@ class SLURMMonitor(object):
         start, stop  = self.getStartStopTS (start, stop)
 
         influxClient = InfluxQueryClient.getClientInstance()
-        tsReason2Cnt = influxClient.getPendingCount(start, stop)
-        bySched      = 'Dependency|Priority|BeginTime|JobArrayTaskLimit|Nodes_required_for_job_are_DOWN*' 
-        byResource   = 'Resources|ReqNodeNotAvail*'
+        tsReason2Cnt, jidSet = influxClient.getPendingCount(start, stop)
+        bySched      = 'Dependency|Priority|BeginTime|JobArrayTaskLimit' 
+        byResource   = 'Resources|ReqNodeNotAvail*|Nodes_required_for_job_are_DOWN*'
         byQOS        = 'QOS*'
         byGPU        = 'Resources_GPU'
         
@@ -363,6 +362,7 @@ class SLURMMonitor(object):
         
         #reformat the tsReason2Cnt to cate2ts_cnt
         cate2ts_cnt  = defaultdict(list)
+        other_reason_set = set()
         for ts, reason2Cnt in tsReason2Cnt.items():
             for reason, cnt in reason2Cnt.items():
                 cate = 'Other'
@@ -374,8 +374,10 @@ class SLURMMonitor(object):
                    cate = 'GPU'
                 elif re.match(byQOS, reason):
                    cate = 'QoS'
-                elif reason and reason!='None':    #excluding None value
-                   print("INFO: Test state_reason {} is not in defined category".format(reason))
+                else:
+                   other_reason_set.add(reason)
+                #elif reason and reason!='None':    #excluding None value
+                #   print("INFO: Test state_reason {} is not in defined category".format(reason))
 
                 cate2ts_cnt[cate].append ([ts, cnt])
 
@@ -386,11 +388,10 @@ class SLURMMonitor(object):
                      {'name': 'Queued by Job Defination', 'data':cate2ts_cnt['Sched']},
                      {'name': 'Queued by Other',    'data':cate2ts_cnt['Other']}]
 
-        htmlTemp = os.path.join(wai, 'pendingJobReport.html')
-        h = open(htmlTemp).read()%{'start':   time.strftime('%Y/%m/%d', time.localtime(start)),
-                                   'stop':    time.strftime('%Y/%m/%d', time.localtime(stop)),
-                                   'series1': series1, 'title1': 'Cluster Job Queue Length', 'xlabel1': 'Queue Length', 
-                                   'series2': series1, 'title2': 'Cluster Job Queue Length', 'xlabel2': 'Queue Length'} 
+        htmlTemp = os.path.join(wai, 'pendingJobReport1.html')
+        h = open(htmlTemp).read().format(start=time.strftime('%Y/%m/%d', time.localtime(start)),
+                                         stop=time.strftime('%Y/%m/%d', time.localtime(stop)),
+                                         series1=series1, title1='Cluster Job Queue Length', xlabel1='Queue Length', other_reason=list(other_reason_set))
 
         return h
 
@@ -804,14 +805,14 @@ class SLURMMonitor(object):
         return t
 
     @cherrypy.expose
-    def usageGraph(self, yyyymmdd='', fs='home'):
+    def usageGraph(self, yyyymmdd=''):
         if not yyyymmdd:
             # only have census date up to yesterday, so we use that as the default.
             yyyymmdd = (datetime.date.today() + datetime.timedelta(days=-1)).strftime('%Y%m%d')
-        label, usageData, yyyymmdd = fs2hc.gendata(yyyymmdd, fs)
+        usageData_dict= fs2hc.gendata(yyyymmdd)
         htmlTemp = 'fileCensus.html'
 
-        h = open(htmlTemp).read()%{'yyyymmdd': yyyymmdd, 'label': label, 'data': usageData}
+        h = open(htmlTemp).read()%{'file_systems':fs2hc.FileSystems, 'yyyymmdd': 'yyyymmdd', 'label': "label", 'data': usageData_dict}
 
         return h
 
@@ -887,7 +888,7 @@ class SLURMMonitor(object):
 
         # highcharts
         influxClient = InfluxQueryClient()
-        uid2seq      = influxClient.getSlurmNodeMonData(node,start,stop)
+        uid2seq,start,stop = influxClient.getSlurmNodeMonData(node,start,stop)
 
         cpu_series = []  ##[{'data': [[1531147508000, value]...], 'name':'userXXX'}, ...] 
         mem_series = []  ##[{'data': [[1531147508000(ms), value]...], 'name':'userXXX'}, ...] 
