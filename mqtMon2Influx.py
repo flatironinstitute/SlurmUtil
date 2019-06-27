@@ -14,18 +14,18 @@ import influxdb
 
 import collections
 from collections import defaultdict as DDict
-import pyslurm
 import MyTool
 import querySlurm
-import SlurmEntities
 
+import pdb
 
 # Maps a host name to a tuple (time, pid2info), where time is the time
 # stamp of the last update, and pid2info maps a pid to a dictionary of
 # info about the process identified by the pid.
 
 class InfluxWriter (threading.Thread):
-    INTERVAL = 61
+    INTERVAL   = 61
+    BATCH_SIZE = 8000
 
     def __init__(self, influxServer='scclin011', influxDB='slurmdb'):
         threading.Thread.__init__(self)
@@ -38,28 +38,41 @@ class InfluxWriter (threading.Thread):
         return influxdb.InfluxDBClient(host, port, user, "", db)
 
     def writeInflux (self, points, ret_policy="autogen", t_precision="s"):
-        if ( len(points) == 0 ):
-           return
-
         try:
-           #logging.info  ("writeInflux {}".format(len(points)))
-           self.influx_client.write_points (points,  retention_policy=ret_policy, time_precision=t_precision)
+           logging.info  ("writeInflux {}".format(len(points)))
+           if debug:
+              print("writeInflux {}\n".format(len(points)))
+              for idx in range(min(len(points),10)):
+                  print("{}".format(points[idx]))
+              return True
+           else:
+              #ret = self.influx_client.write_points (points,  retention_policy=ret_policy, time_precision=t_precision, batch_size=BATCH_SIZE)
+              ret = self.influx_client.write_points (points,  retention_policy=ret_policy, time_precision=t_precision)
+              return ret
         except influxdb.exceptions.InfluxDBClientError as err:
            logging.error ("writeInflux " + ret_policy + " ERROR:" + repr(err) + repr(points))
+           return False
 
     def addSource(self, source):
         self.source.append(source)
 
     def run(self):
+        points = []
         while True:
           time.sleep (InfluxWriter.INTERVAL)
           
-          points = []
           for s in self.source:
               points.extend(s.retrievePoints ())
               logging.info ("InfluxWriter have {} points after checking source {}".format(len(points), s))
 
-          self.writeInflux (points)
+          if len(points) == 0: continue
+          ret = self.writeInflux (points)
+          logging.debug("writeInflux return {}".format(ret))
+          if ret:
+             points = []
+          else: 
+             # show the users list, still failed, reconnect with it
+             logging.error("write_points return False")
 
 class MQTTReader (threading.Thread):
     TS_FNAME = 'host_up_ts.txt'
@@ -126,7 +139,7 @@ class MQTTReader (threading.Thread):
 
     # retrieve points
     def retrievePoints (self):
-        self.slurmTime= datetime.now().timestamp()
+        #self.pyslurmQueryTime= datetime.now().timestamp()
         self.jobData  = pyslurm.job().get()
         self.nodeData = pyslurm.node().get()
 
@@ -284,42 +297,68 @@ class MQTTReader (threading.Thread):
     def isSlurmNode (self, hostname):
         return (hostname in self.nodeData )
 
-class SlurmDataReader (threading.Thread):
+class PyslurmReader (threading.Thread):
     INTERVAL = 30            #10s
     def __init__(self, influxServer='scclin011'):
         threading.Thread.__init__(self)
 
-        self.slurm  = SlurmEntities.SlurmEntities()
         self.points = []
-        self.lock   = threading.Lock()       #protect self.points
-        logging.info("Init SlurmDataReader with interval={}".format(self.INTERVAL))
+        self.lock   = threading.Lock()       #protect self.points as it is read and write by different threads
+   
+        self.sav_job_dict = {}               #save job_id:json.dumps(infopoint)
+        self.sav_node_dict = {}              #save name:json.dumps(infopoint)
+        self.sav_part_dict = {}              #save value
+        self.sav_qos_dict  = {}              #save value
+        self.sav_res_dict  = {}              #save value
+        logging.info("Init PyslurmReader with interval={}".format(self.INTERVAL))
 
     def run(self):
-        logging.info("Start running SlurmDataReader ...")
+        #pdb.set_trace()
+        logging.info("Start running PyslurmReader ...")
         while True:
-          #logging.info("SlurmDataReader run loop {}".format(self.slurm))
-          ts, jobList = self.slurm.getCurrentPendingJobs()
-          #logging.debug("SlurmDataReader run {}:{}:{}".format(ts, len(jobList), jobList))
-          self.cvt2points (ts, jobList)
-          time.sleep (SlurmDataReader.INTERVAL)
+          # pyslurm query
+          ts       = int(datetime.now().timestamp())
+          job_dict = pyslurm.job().get()
+          node_dict= pyslurm.node().get()
+          part_dict= pyslurm.partition().get()
+          qos_dict = pyslurm.qos().get()
+          res_dict = pyslurm.reservation().get()
+          #js_dict  = pyslurm.jobstep().get()
 
-    #return influxdb points
-    #add job_id to tag set to avoid duplicate removal, thus only valid records after 1550868105
-    def cvt2points (self, ts_sec, jobList):
-        points = []
-        for job in jobList:
-            point           = {'measurement':'slurm_pending', 'time': int(ts_sec)}  # time in ms
-            point['tags']   = {'job_id': job.pop('job_id'), 'state_reason':job.pop('state_reason')}
-            point['fields'] = job
+          #convert to points
+          points   = []
+          for jid,job in job_dict.items():
+              self.slurmJob2point(ts, job, points)
+          finishJob = [jid for jid in self.sav_job_dict.keys() if jid not in job_dict.keys()]
+          logging.debug ("Finish jobs {}".format(finishJob))
+          for jid in finishJob:
+              del self.sav_job_dict[jid]
 
-            #print ("point {}".format(point))
-            points.append(point)
+          for node in node_dict.values():
+              self.slurmNode2point(ts, node, points)
 
-        with self.lock:
-            self.points.extend(points)
-            logging.debug ("SlurmDataReader data size {}".format(len(self.points)))
+          if json.dumps(part_dict) != json.dumps(self.sav_part_dict):
+              for pname, part in part_dict.items():
+                 self.slurmPartition2point(ts, pname, part, points)
+              self.sav_part_dict = part_dict
 
-    #return the points 
+          if json.dumps(qos_dict) != json.dumps(self.sav_qos_dict):
+              for qname, qos in qos_dict.items():
+                 self.slurmQOS2point(ts, qname, qos, points)
+              self.sav_qos_dict = qos_dict
+
+          if json.dumps(res_dict) != json.dumps(self.sav_res_dict):
+              for rname, res in res_dict.items():
+                 self.slurmReservation2point(ts, rname, res, points)
+              self.sav_res_dict = res_dict
+
+          with self.lock:
+              logging.info("PyslurmReade.run add points {}".format(len(points)))
+              self.points.extend(points)
+
+          time.sleep (PyslurmReader.INTERVAL)
+
+    #return the points, called by InfluxDBWriter 
     def retrievePoints (self):
         with self.lock:
             sav         = self.points
@@ -327,30 +366,114 @@ class SlurmDataReader (threading.Thread):
 
         return sav
 
-    def slurmjob2point (self, item):
+
+    def slurmJob2point (self, ts, item, points):
     #{'account': 'cca', 'admin_comment': None, 'alloc_node': 'rusty2', 'alloc_sid': 18879, 'array_job_id': None, 'array_task_id': None, 'array_task_str': None, 'array_max_tasks': None, 'assoc_id': 14, 'batch_flag': 1, 'batch_host': 'worker1200', 'batch_script': None, 'billable_tres': None, 'bitflags': 0, 'boards_per_node': 0, 'burst_buffer': None, 'burst_buffer_state': None, 'command': '/mnt/ceph/users/dangles/SMAUG/h113_HR_sn156/bh7_ref2_m000097656_SS01_r01/iron_start', 'comment': None, 'contiguous': False, 'core_spec': None, 'cores_per_socket': None, 'cpus_per_task': 1, 'cpu_freq_gov': None, 'cpu_freq_max': None, 'cpu_freq_min': None, 'dependency': None, 'derived_ec': '0:0', 'eligible_time': 1529184154, 'end_time': 1529788955, 'exc_nodes': [], 'exit_code': '0:0', 'features': [], 'fed_origin': None, 'fed_siblings': None, 'gres': [], 'group_id': 1119, 'job_id': 69021, 'job_state': 'RUNNING', 'licenses': {}, 'max_cpus': 0, 'max_nodes': 0, 'name': 'bh7_ref2_m000097656_SS01_r01', 'network': None, 'nodes': 'worker[1200-1203]', 'nice': 0, 'ntasks_per_core': None, 'ntasks_per_core_str': 'UNLIMITED', 'ntasks_per_node': 28, 'ntasks_per_socket': None, 'ntasks_per_socket_str': 'UNLIMITED', 'ntasks_per_board': 0, 'num_cpus': 112, 'num_nodes': 4, 'partition': 'cca', 'mem_per_cpu': False, 'min_memory_cpu': None, 'mem_per_node': True, 'min_memory_node': 512000, 'pn_min_memory': 512000, 'pn_min_cpus': 28, 'pn_min_tmp_disk': 0, 'power_flags': 0, 'preempt_time': None, 'priority': 4294901702, 'profile': 0, 'qos': 'cca', 'reboot': 0, 'req_nodes': [], 'req_switch': 0, 'requeue': False, 'resize_time': 0, 'restart_cnt': 0, 'resv_name': None, 'run_time': 232295, 'run_time_str': '2-16:31:35', 'sched_nodes': None, 'shared': '0', 'show_flags': 7, 'sockets_per_board': 0, 'sockets_per_node': None, 'start_time': 1529184155, 'state_reason': 'None', 'std_err': '/mnt/ceph/users/dangles/SMAUG/h113_HR_sn156/bh7_ref2_m000097656_SS01_r01/out.log', 'std_in': '/dev/null', 'std_out': '/mnt/ceph/users/dangles/SMAUG/h113_HR_sn156/bh7_ref2_m000097656_SS01_r01/out.log', 'submit_time': 1529184154, 'suspend_time': 0, 'time_limit': 10080, 'time_limit_str': '7-00:00:00', 'time_min': 0, 'threads_per_core': None, 'tres_req_str': 'cpu=112,node=4', 'tres_alloc_str': 'cpu=112,mem=2000G,node=4', 'user_id': 1119, 'wait4switch': 0, 'wckey': None, 'work_dir': '/mnt/ceph/users/dangles/SMAUG/h113_HR_sn156/bh7_ref2_m000097656_SS01_r01', 'altered': None, 'block_id': None, 'blrts_image': None, 'cnode_cnt': None, 'ionodes': None, 'linux_image': None, 'mloader_image': None, 'ramdisk_image': None, 'resv_id': None, 'rotate': False, 'conn_type': 'n/a', 'cpus_allocated': {'worker1200': 28, 'worker1201': 28, 'worker1202': 28, 'worker1203': 28}, 'cpus_alloc_layout': {}}
-        points   = []
+        # remove empty values
+        job_id = item['job_id']
 
-        # slurm_jobs_mon: self.slurmTime, job_id
-        point =  {'measurement':'slurm_jobs_mon', 'time': (int)(self.slurmTime)}
-        point['tags']   =MyTool.sub_dict(item, ['job_id'])
-        point['fields'] =MyTool.flatten(MyTool.sub_dict(item, ['run_time', 'job_state']))
-        #ATTENTION: not saving slurm_jobs_mon as it is only elpased time and not useful
-        #points.append(point)
+        MyTool.remove_dict_empty(item)
+        for v in ['run_time_str', 'time_limit_str']: item.pop(v, None)
 
-        # slurm_jobs: submit_time, job_id, user_id
-        infopoint = {'measurement':'slurm_jobs', 'time': (int)(item.pop('submit_time'))}
-        infopoint['tags']   =MyTool.sub_dict_remove(item, ['user_id', 'job_id'])
+        # pending_job
+        if item['job_state'] == 'PENDING':
+           pendpoint          = {'measurement':'slurm_pending', 'time': ts} 
+           pendpoint['tags']  = MyTool.sub_dict_exist (item, ['job_id', 'state_reason'])
+           pendpoint['fields']= MyTool.sub_dict_exist (item, ['submit_time', 'user_id', 'account', 'qos', 'partition', 'tres_per_node', 'last_sched_eval', 'time_limit', 'start_time'])
+           points.append(pendpoint)
 
-        cpu_allocated       = item.pop('cpus_allocated')
-        for v in ['job_state', 'run_time_str', 'time_limit_str', 'std_err', 'std_out', 'work_dir', 'cpus_alloc_layout', 'std_in']: del item[v]
-        infopoint['fields'] =MyTool.flatten(item)
-        if cpu_allocated: infopoint['fields']['cpus_allocated']=repr(cpu_allocated)  #otherwise, two many fields
-        if infopoint['fields']['time_limit'] == 'UNLIMITED':
-           infopoint['fields']['time_limit'] = -1
-        
-        #ATTENTION: not saving slurm_jobs as it can be retrived from slurm db
-        #points.append(infopoint)
+        # slurm_job_mon: ts, job_id
+        point =  {'measurement':'slurm_job_mon', 'time': ts}
+        point['tags']   = MyTool.sub_dict_remove       (item, ['job_id', 'user_id'])
+        point['fields'] = MyTool.sub_dict_exist_remove (item, ['job_state', 'num_cpus', 'num_nodes', 'state_reason', 'run_time', 'suspend_time'])
+        points.append(point)
+
+        # slurm_job_info: submit_time, job_id, user_id
+        infopoint = {'measurement':'slurm_job', 'time': (int)(item.pop('submit_time'))}
+        infopoint['tags']   = MyTool.sub_dict (point['tags'], ['job_id', 'user_id'])
+        infopoint['fields'] = item
+        infopoint['fields'].update (MyTool.sub_dict(point['fields'], ['job_state', 'num_cpus', 'num_nodes', 'state_reason']))
+        MyTool.update_dict_value2string(infopoint['fields'])
+       
+        newValue = json.dumps(infopoint)
+        if (job_id not in self.sav_job_dict) or (self.sav_job_dict[job_id] != newValue):
+           points.append(infopoint)
+           self.sav_job_dict[job_id] = newValue
+        #else:
+        #   logging.info("duplicate job info for {}".format(job_id))
+
+        points.append(infopoint)
+
+        return points
+
+    def slurmNode2point (self, ts, item, points):
+#{'arch': 'x86_64', 'boards': 1, 'boot_time': 1560203329, 'cores': 14, 'core_spec_cnt': 0, 'cores_per_socket': 14, 'cpus': 28, 'cpu_load': 2, 'cpu_spec_list': [], 'features': 'k40', 'features_active': 'k40', 'free_mem': 373354, 'gres': ['gpu:k40c:1', 'gpu:k40c:1'], 'gres_drain': 'N/A', 'gres_used': ['gpu:k40c:0(IDX:N/A)', 'mic:0'], 'mcs_label': None, 'mem_spec_limit': 0, 'name': 'workergpu00', 'node_addr': 'workergpu00', 'node_hostname': 'workergpu00', 'os': 'Linux 3.10.0-957.10.1.el7.x86_64 #1 SMP Mon Mar 18 15:06:45 UTC 2019', 'owner': None, 'partitions': ['gpu'], 'real_memory': 384000, 'slurmd_start_time': 1560203589, 'sockets': 2, 'threads': 1, 'tmp_disk': 0, 'weight': 1, 'tres_fmt_str': 'cpu=28,mem=375G,billing=28,gres/gpu=2', 'version': '18.08', 'reason': None, 'reason_time': None, 'reason_uid': None, 'power_mgmt': {'cap_watts': None}, 'energy': {'current_watts': 0, 'base_consumed_energy': 0, 'consumed_energy': 0, 'base_watts': 0, 'previous_consumed_energy': 0}, 'alloc_cpus': 0, 'err_cpus': 0, 'state': 'IDLE', 'alloc_mem': 0}
+#REBOOT state, boot_time and slurmd_start_time is 0
+
+        MyTool.remove_dict_empty(item)
+
+        name = item['name']
+        # slurm_node_mon: ts, name
+        point           =  {'measurement':'slurm_node_mon', 'time': ts}
+        point['tags']   = MyTool.sub_dict_exist_remove (item, ['name', 'boot_time', 'slurmd_start_time'])
+        point['fields'] = MyTool.sub_dict_exist_remove (item, ['cpus', 'cpu_load', 'alloc_cpus', 'state', 'free_mem', 'gres', 'gres_used', 'partitions', 'reason', 'reason_time', 'reason_uid', 'err_cpus', 'alloc_mem'])
+        MyTool.update_dict_value2string(point['fields'])
+        points.append(point)
+
+        # slurm_jobs: slurmd_start_time
+        if ( 'boot_time' in point['tags']):
+           infopoint = {'measurement':'slurm_node', 'time': (int)(point['tags']['boot_time'])}
+           infopoint['tags']   = MyTool.sub_dict_exist (point['tags'],   ['name', 'slurmd_start_time'])
+           infopoint['fields'] = MyTool.sub_dict_exist (point['fields'], ['cpus', 'partitions'])
+           infopoint['fields'].update (item)
+           MyTool.update_dict_value2string(infopoint['fields'])
+      
+           newValue = json.dumps(infopoint)
+           if (name not in self.sav_node_dict) or (self.sav_node_dict[name] != newValue):
+              points.append(infopoint)
+              self.sav_node_dict[name] = newValue
+
+        return points
+
+    def slurmPartition2point (self, ts, name, item, points):
+#{'allow_accounts': 'ALL', 'deny_accounts': None, 'allow_alloc_nodes': 'ALL', 'allow_groups': ['cca'], 'allow_qos': ['gen', 'cca'], 'deny_qos': None, 'alternate': None, 'billing_weights_str': None, 'cr_type': 0, 'def_mem_per_cpu': None, 'def_mem_per_node': 'UNLIMITED', 'default_time': 604800, 'default_time_str': '7-00:00:00', 'flags': {'Default': 0, 'Hidden': 0, 'DisableRootJobs': 0, 'RootOnly': 0, 'Shared': 'EXCLUSIVE', 'LLN': 0, 'ExclusiveUser': 0}, 'grace_time': 0, 'max_cpus_per_node': 'UNLIMITED', 'max_mem_per_cpu': None, 'max_mem_per_node': 'UNLIMITED', 'max_nodes': 'UNLIMITED', 'max_share': 0, 'max_time': 604800, 'max_time_str': '7-00:00:00', 'min_nodes': 1, 'name': 'cca', 'nodes': 'worker[1000-1239,3000-3191]', 'over_time_limit': 0, 'preempt_mode': 'OFF', 'priority_job_factor': 1, 'priority_tier': 1, 'qos_char': 'cca', 'state': 'UP', 'total_cpus': 14400, 'total_nodes': 432, 'tres_fmt_str': 'cpu=14400,mem=264000G,node=432,billing=14400'}
+
+        MyTool.remove_dict_empty(item)
+
+        point           = {'measurement':'slurm_partition_0618', 'time': ts}
+        name            = item.pop('name')
+        point['tags']   = {'name':name}
+        point['fields'] = item
+
+        MyTool.update_dict_value2string(point['fields'])
+        points.append(point)
+
+        return points
+
+    def slurmQOS2point (self, ts, name, item, points):
+#{'description': 'cca', 'flags': 0, 'grace_time': 0, 'grp_jobs': 4294967295, 'grp_submit_jobs': 4294967295, 'grp_tres': '1=6000', 'grp_tres_mins': None, 'grp_tres_run_mins': None, 'grp_wall': 4294967295, 'max_jobs_pu': 4294967295, 'max_submit_jobs_pu': 4294967295, 'max_tres_mins_pj': None, 'max_tres_pj': None, 'max_tres_pn': None, 'max_tres_pu': '1=840', 'max_tres_run_mins_pu': None, 'max_wall_pj': 10080, 'min_tres_pj': None, 'name': 'cca', 'preempt_mode': 'OFF', 'priority': 15, 'usage_factor': 1.0, 'usage_thres': 4294967295.0}
+
+        MyTool.remove_dict_empty(item)
+
+        point           = {'measurement':'slurm_qos', 'time': ts}
+        point['tags']   = {'name': item.pop('name')}
+        point['fields'] = item
+
+        MyTool.update_dict_value2string(point['fields'])
+        points.append(point)
+
+        return points
+
+    def slurmReservation2point (self, ts, name, item, points):
+#{'andras_test': {'accounts': [], 'burst_buffer': [], 'core_cnt': 28, 'end_time': 1591885549, 'features': [], 'flags': 'MAINT,SPEC_NODES', 'licenses': {}, 'node_cnt': 1, 'node_list': 'worker1010', 'partition': None, 'start_time': 1560349549, 'tres_str': ['cpu=28'], 'users': ['root', 'apataki', 'ifisk', 'carriero', 'ntrikoupis']}}
+        MyTool.remove_dict_empty(item)
+
+        point           = {'measurement':'slurm_reservation', 'time': ts}
+        point['tags']   = {'name': name}
+        point['fields'] = item
+
+        MyTool.update_dict_value2string(point['fields'])
+        points.append(point)
 
         return points
 
@@ -358,7 +481,7 @@ def main(influxServer, influxDB):
     r1   = MQTTReader()
     r1.start()
     time.sleep(5)
-    r2   = SlurmDataReader ()
+    r2   = PyslurmReader ()
     r2.start()
     time.sleep(5)
 
@@ -373,6 +496,7 @@ if __name__=="__main__":
    influxServer = 'scclin011'
    influxDB     = 'slurmdb'
    logFile      = '/tmp/slurm_util/mqtMon2Influx.log'
+   debug        = False
    if len(sys.argv) > 1:
       influxServer = sys.argv[1]
    elif os.path.isfile('./config.json'):
@@ -381,7 +505,9 @@ if __name__=="__main__":
       influxServer = config['influxdb']['host']
       influxDB     = config['influxdb']['db']
       logFile      = config['log']['file']
+      debug        = config['debug']
 
    logging.basicConfig(filename=logFile,level=logging.DEBUG, format='%(asctime)s %(levelname)s:%(message)s') # must before influxdb
+   print("Start ... influxServer={}:{}, logfile={}, debug={}".format(influxServer, influxDB, logFile, debug))
    main(influxServer, influxDB)
 

@@ -139,7 +139,7 @@ class InfluxQueryClient:
 
         #execute query, returned time is local timestamp, epoch is for returned result, not for query
         results = self.influx_client.query(query, epoch='ms')
-        points  = results.get_points()
+        points  = list(results.get_points())
 
         uid2seq = {}
         for point in points: #points are sorted by point['time']
@@ -151,9 +151,13 @@ class InfluxQueryClient:
                                  MyTool.getDictNumValue(point, 'io_write_rate'), 
                                  MyTool.getDictNumValue(point, 'mem_rss')]
 
+        if len(points)>0:
+           start_time = points[0]['time']/1000
+           stop_time  = points[len(points)-1]['time']/1000
+          
         #print(repr(uid2seq))
         print("getSlurmUidMonData take time " + str(time.time()-t1))
-        return uid2seq
+        return uid2seq, start_time, stop_time
 
     # return list [[ts, run_time] ... ]
     def getSlurmJobRuntimeHistory (self, jobid, st, et):
@@ -173,6 +177,31 @@ class InfluxQueryClient:
         return nodeDataDict
     
     # query autogen.slurm_pending and return {ts_in_sec:{state_reason:count}], ...}  
+    def getRunningJob_NodeCPUHistory(self, st, et):
+        t1=time.time()
+        
+        query= "select * from autogen.slurm_job_mon where time >= " + str(int(st)) + "000000000 and time <= " + str(int(et)) + "000000000"
+        print ("getJobMonHistory query {}".format(query))
+
+        results    = self.influx_client.query(query, epoch='ms')
+        points     = list(results.get_points())
+        #point['tags']   = MyTool.sub_dict_remove       (item, ['job_id', 'user_id'])
+        #point['fields'] = MyTool.sub_dict_exist_remove (item, ['job_state', 'num_cpus', 'num_nodes', 'state_reason', 'run_time', 'suspend_time'])
+ 
+        jidSet     = set()   #use set to remove duplicate ids
+        ts2NodeCnt = defaultdict(int)
+        ts2CPUCnt  = defaultdict(int)
+        for point in points:
+            ts = point['time']
+            if point['job_state'] in ['RUNNING']: # running state
+               jidSet.add(point['job_id'])
+               ts2NodeCnt[ts] += point['num_nodes']
+               ts2CPUCnt[ts]  += point['num_cpus']
+
+        print("getRunningJobHistory between {} and {} take time {}".format(st, et, time.time()-t1))
+        return ts2NodeCnt, ts2CPUCnt, jidSet
+       
+
     def getPendingCount (self, st, et):
         t1=time.time()
         
@@ -184,23 +213,24 @@ class InfluxQueryClient:
 
         results      = self.influx_client.query(query, epoch='ms')
         points       = list(results.get_points())
-        jidSet       = set([point['job_id'] for point in points])
+        jidSet       = set([point['job_id'] for point in points])   #use set to remove duplicate ids
         #print("jidSet={}".format(jidSet))
 
-        tsState2jobCnt = defaultdict(lambda:defaultdict(int))
+        tsReason2jobCnt = defaultdict(lambda:defaultdict(int))
         tsState2cpuCnt = defaultdict(lambda:defaultdict(int))
         for point in points:
+            ts = point['time']
             state_reason = point['state_reason']
             if (state_reason == 'Resources'):
               tres = point.get('tres_per_node','')
               if (tres and 'gpu' in tres):
-                 tsState2jobCnt[point['time']]['Resources_GPU'] += 1
+                 tsReason2jobCnt[ts]['Resources_GPU'] += 1
               else:
-                 tsState2jobCnt[point['time']][state_reason] += 1
+                 tsReason2jobCnt[ts][state_reason] += 1
             else:
-              tsState2jobCnt[point['time']][state_reason] += 1
+              tsReason2jobCnt[ts][state_reason] += 1
             
-        return tsState2jobCnt
+        return tsReason2jobCnt, jidSet
         
     #return information of hostname
     #return all uid sequence of a node, {uid: {ts: [cpu, io, mem] ... }, ...}
