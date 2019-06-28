@@ -6,10 +6,12 @@ import time
 import pwd,grp
 import dateutil.parser
 
+THREE_DAYS_SEC     = 3*24*3600
+
 LOCAL_TZ   = timezone(timedelta(hours=-4))
 #ORG_GROUPS = list(map((lambda x: grp.getgrnam(x)), ['genedata','cca','ccb','ccm', 'ccq', 'scc']))
 ORG_GROUPS = list(map((lambda x: grp.getgrnam(x)), ['genedata','cca','ccb','ccq', 'scc']))
-
+    
 def getUid (user):
     return pwd.getpwnam(user).pw_gid
 
@@ -114,32 +116,25 @@ def flatten(d, parent_key='', sep='_'):
            items.append((new_key, v))
     return dict(items)
 
+def emptyValue (v):
+    return (not v) or (v in ['N/A', 'None', 'NONE', 'UNLIMITED', 'Unknown'])
+
+#assume remove_dict_empty has been called before
 #update fields who are dict or other to string
 def update_dict_value2string (d):
-    emptyKey = []
     for k, v in d.items():
-        if (not v) or (v == 'N/A'):
-           emptyKey.append (k)
-        elif not isinstance (v, (int, float, str, bool)):
-           if isinstance(v, dict):
-              v=dict([(k1,v1) for k1,v1 in v.items() if v1])
-           if v:
-              d[k] = repr(v)
-           else:
-              emptyKey.append(k)
-    for k in emptyKey:
-        d.pop(k)
-
+        if not isinstance (v, (int, float, str, bool)):
+           d[k] = repr(v)
     return d
 
 #update fields who are dict or other to string
 def remove_dict_empty (d):
     emptyKey = []
     for k, v in d.items():
-        if (not v) or (v in ['N/A', 'NONE', 'UNLIMITED']):
+        if emptyValue(v):
            emptyKey.append (k)
         elif isinstance(v, dict):
-           v=dict([(k1,v1) for k1,v1 in v.items() if v1])
+           v=dict([(k1,v1) for k1,v1 in v.items() if not emptyValue(v1)])
            if v:
               d[k] = v
            else:
@@ -156,6 +151,19 @@ def getDictNumValue (d, key):
     else:
        print("WARNING: getDictIntValue has a non-int type " + repr(type(value)))
        return 0
+
+def getStartStopTS (start='', stop='', formatStr='%Y%m%d'):
+    if stop:
+        stop = time.mktime(time.strptime(stop, formatStr))
+    else:
+        stop = time.time()
+    if start:
+        if isinstance (start, str):
+           start = time.mktime(time.strptime(start, formatStr))
+    else:
+        start = max(0, stop - THREE_DAYS_SEC)
+
+    return int(start), int(stop)
 
 def createNestedDict (rootSysname, levels, data_df, valColname):
         def find_element(children_list,name):
@@ -270,6 +278,16 @@ def extract1 (s):
        return int(lst[1])
     else:
        return 0
+
+#a=1,b=2 to {a:1, b:2}
+def str2dict (dict_str):
+    if not dict_str:
+       return None
+    d = {}
+    for item_str in dict_str.split(','):
+        k, v     = item_str.split('=')
+        d[k]     = v
+    return d
 
 def getDFBetween(df, field, start, stop):
     if start:
