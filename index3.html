@@ -12,7 +12,6 @@ function timedRefresh(timeoutPeriod) {
 }
 window.onload = timedRefresh(INTERVAL_REFRESH * 1000);
 
-
 const INC_ORDER      = 0
 const DEC_ORDER      = 1
 const NODE_IDX       = 0
@@ -25,14 +24,14 @@ var currSortOrder    = INC_ORDER
 var orderBy          =0 // 0: node inc, 1: node dec, ... (2*idx + inc?0:1)
 var load_data        =%(tableData)s
 var expDict          ={0:2, 1:0, 2:0, 3:2, 4:2, 5:0, 6:0, 7:2, 8:0, 9:0, 10:0, 11:0}  // 0:2 when sorted on 0, 2 is expandable 
-var typeDict         ={0:0, 1:0, 2:0, 3:2, 4:0, 5:1, 6:1, 7:2, 8:3, 9:3, 10:1, 11:2}  // 0:0 type of 0 is string(0), integer(1), float(2), float exp(3)
+var typeDict         ={0:0, 1:0, 2:0, 3:2, 4:0, 5:1, 6:1, 7:2, 8:2, 9:3, 10:3, 11:1}  // 0:0 type of column 0 is string(0), integer(1), float(2), float exp(3)
 var rightDict        ={0:0, 1:0, 2:0, 3:1, 4:0, 5:1, 6:1, 7:1, 8:1, 9:1, 10:1, 11:1}  // 9:1 include right class of 9
 var summary_data     =[] // [[startIdx, endIdx, [summaryAttr ...]]...]
 
 
 // init
-console.log(load_data)
 initData  ()
+console.log(load_data)
 orderData (1, INC_ORDER, expDict[1])	// init page order by Status inc
 
 // node, status, jid, delay, uname, coreNum, proNum, load, rss, vms, io*8, job_avg_cpu
@@ -190,11 +189,12 @@ function getTDsHtml (r) {
    // 0:Node, Status, Jobs, Delay, User, 5:Cores Allocated, Processes, Aggregate Load, RSS, 9:VMS
    var delayC= getCategory(r[3], 120, '"right"', '"right"', '"right alarm"')
    var tds   = `<td><a href="./nodeDetails?node=${r[0]}">${r[0]}</a></td><td>${r[1]}</td><td><a href="./jobDetails?jobid=${r[2]}">${r[2]}</td><td class=${delayC}>${r[3]}</td>`
-   var tds2  = '<td></td><td></td><td></td><td></td><td></td><td></td><td></td>'
+   var tds2  = '<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>'
    if ( r.length > 4 ) {
       var userC = getCategory(r[7], r[5]-1, r[5]+1, '', '', '"alarm"') 
-      var loadC = getCategory(r[7], r[5]-1, r[5]+1, '"right inform"', '"right"', '"right"') 
-      tds2   = `<td class=${userC}><a href="./userDetails?user=${r[4]}">${r[4]}</a></td><td class="right">${r[5]}</td><td class="right">${r[6]}</td><td class=${loadC}>${r[7]}</td><td class="right">${r[8].toExponential(2)}</td><td class="right">${r[9].toExponential(2)}</td><td class="right">${r[10]}</td><td class=${loadC}>${r[11]}</td></tr>`
+      var utilC = getCategory(r[7], r[5]-1, r[5]+1, '"right inform"', '"right"', '"right"') 
+      var avgC  = getCategory(r[8], r[5]-1, r[5]+1, '"right inform"', '"right"', '"right"') 
+      tds2   = `<td class=${userC}><a href="./userDetails?user=${r[4]}">${r[4]}</a></td><td class="right">${r[5]}</td><td class="right">${r[6]}</td><td class=${utilC}>${r[7]}</td><td class=${avgC}>${r[8]}</td><td class="right">${r[9].toExponential(2)}</td><td class="right">${r[10].toExponential(2)}</td><td class="right">${r[11]}</td></tr>`
    }
 
    return tds + tds2
@@ -354,10 +354,6 @@ $(document).ready(function(){
    //add menu
    $("#tabmenu").load("/getHeader?page=index")
 
-   $("#comment").text("Status as of %(update_time)s")
-   $("#comment1").text("(Refreshed every 10 minutes automatically)")
-
-
    setTableHead(1, INC_ORDER)
    setTableBody()
 
@@ -383,8 +379,9 @@ $(document).ready(function(){
 <body>
 <div class="tab" id="tabmenu"></div>
 <div>
-<h4 id="comment"></h4>
-<p id="comment1"></p>
+<h4>Cluster Nodes & Jobs <small>(<a href="./test?days=7">7 days History Graph</a>)</small></h4>
+<i>Update time: %(update_time)s</i>
+<p>(Refreshed every 10 minutes automatically)</p>
 <table class="slurminfo">
 <thead>
 <tr>
@@ -396,6 +393,7 @@ $(document).ready(function(){
    <th class="sortable">CPUs Allocated  <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">Processes       <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">CPU Util        <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
+   <th class="sortable">Job Avg CPU Util<span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">RSS             <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">VMS             <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">I/O bps         <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>

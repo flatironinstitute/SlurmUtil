@@ -115,7 +115,7 @@ function graphSeries(dataSeries, chartTag, title, xType, xCap, xLabel, yLabel) {
 
 //series with x-Axis as time
 //aSeries is used to annote event
-function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit) {
+function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit, p_type='area') {
     function crtLabel (vx, vy, v) {
                 return {
                       point: {
@@ -144,7 +144,7 @@ function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit)
                  chart: {
                      panKey: 'shift',
                      panning: true,
-                     type:   'area',
+                     type:    p_type,
                      zoomType: 'x'
                  },
                  title: {
@@ -164,6 +164,7 @@ function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit)
                  yAxis: {
                      title: {
                          text: yCap
+                         aligh: 'low'
                      }
                  },
                  legend: {

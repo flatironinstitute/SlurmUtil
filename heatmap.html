@@ -138,7 +138,12 @@
               .attr("height", gridSize)
               .attr("title", function (d) {return d["name"]})
               .attr("value", function (d) {return d["util"]})
-              .on("dblclick", function(d) {location.href="nodeDetails?node="+d["name"]})
+              .on("dblclick", function(d) {
+                              if (d3,event.ctrlKey) {
+                                 location.href="jobDetails?jobid="+d["jobs"]
+                              } else {
+                                 location.href="nodeDetails?node="+d["name"]
+                              }})
               .on("click", function(d) {
                               var keyArr=d["jobs"]; 
                               keyArr.forEach(function(e) {
