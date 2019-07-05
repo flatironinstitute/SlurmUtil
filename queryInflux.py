@@ -2,12 +2,13 @@
 
 import time
 t1=time.time()
-import json, pwd, sys
+import json, pwd, sys, pickle
 from datetime import datetime, timezone, timedelta
 
 import influxdb
 from collections import defaultdict
 import MyTool
+import pdb
 
 
 class InfluxQueryClient:
@@ -23,10 +24,8 @@ class InfluxQueryClient:
         return cls.CLIENT_INS
 
     def __init__(self, influxServer='scclin011', dbname='slurmdb'):
-        t1 = time.time()
         self.influx_client = self.connectInflux (influxServer)
-        print("influx_client= " + repr(self.influx_client._baseurl))
-        print("take time " + str(time.time()-t1))
+        print("INFO: influx_client= " + repr(self.influx_client._baseurl))
 
     def connectInflux (self, host, port=8086, dbname='slurmdb'):
         return influxdb.InfluxDBClient(host, 8086, "yliu", "", dbname)
@@ -52,7 +51,7 @@ class InfluxQueryClient:
         points  = results.get_points()
 
         point['submit_time']=point['time']
-        print("getSlurmJobInfo take time " + str(time.time()-t1))
+        print("INFO: getSlurmJobInfo take time " + str(time.time()-t1))
         return point
         
     #return nodelist's time series of the a uid, {hostname: {ts: [cpu, io, mem] ... }, ...}
@@ -63,7 +62,7 @@ class InfluxQueryClient:
         g =('('+n+')' for n in nodelist)
         hostnames = '|'.join(g)
         query= "select * from autogen.cpu_uid_mon where uid = '" + str(uid) + "' and hostname=~/"+ hostnames + "/ and time >= " + str(int(start_time)) + "000000000 and time <= " + str(int(stop_time)+1) + "000000000"
-        print ("getSlurmUidNodeMon " + query)
+        print ("INFO: getSlurmUidNodeMon " + query)
 
         #execute query, returned time is local timestamp, epoch is for returned result, not for query
         results = self.influx_client.query(query, epoch='ms')
@@ -79,7 +78,7 @@ class InfluxQueryClient:
                                    MyTool.getDictNumValue(point, 'mem_rss')]
 
         #print(repr(node2seq))
-        print("getSlurmUidMonData take time " + str(time.time()-t1))
+        print("INFO: getSlurmUidMonData take time " + str(time.time()-t1))
         return node2seq
 
     #return the query result list of dictionaries
@@ -96,13 +95,13 @@ class InfluxQueryClient:
         if stop_time:
            query += " and time <= " + str(int(stop_time)+1) + "000000000"
 
-        print ("queryUidMonData " + query)
+        print ("INFO: queryUidMonData " + query)
 
         #execute query, returned time is local timestamp, epoch is for returned result, not for query
         results = self.influx_client.query(query, epoch='ms')
         points  = results.get_points() # lists of dictionaries
 
-        print("getSlurmUidMonData_All take time " + str(time.time()-t1))
+        print("INFO: getSlurmUidMonData_All take time " + str(time.time()-t1))
         return points
 
     #return time series of the a uid on all nodes, {hostname: {ts: [cpu, io, mem] ... }, ...}
@@ -111,7 +110,7 @@ class InfluxQueryClient:
 
         #prepare query
         query= "select * from one_month.cpu_uid_mon where uid = '" + str(uid) + "' and time >= " + str(int(start_time)) + "000000000 and time <= " + str(int(stop_time)+1) + "000000000"
-        print ("getSlurmUidMonData_All " + query)
+        print ("INFO: getSlurmUidMonData_All " + query)
 
         #execute query, returned time is local timestamp, epoch is for returned result, not for query
         results = self.influx_client.query(query, epoch='ms')
@@ -126,7 +125,7 @@ class InfluxQueryClient:
                                    MyTool.getDictNumValue(point, 'io_read_bytes')   + MyTool.getDictNumValue(point, 'io_write_bytes'), 
                                    MyTool.getDictNumValue(point, 'mem_rss')]
         #print(repr(node2seq))
-        print("getSlurmUidMonData_All take time " + str(time.time()-t1))
+        print("INFO: getSlurmUidMonData_All take time " + str(time.time()-t1))
         return node2seq
 
     #return all uid sequence of a node, {uid: {ts: [cpu, io, mem] ... }, ...}
@@ -135,7 +134,7 @@ class InfluxQueryClient:
 
         #prepare query
         query= "select * from autogen.cpu_uid_mon where hostname = '" + node + "' and time >= " + str(int(start_time)) + "000000000 and time <= " + str(int(stop_time)+1) + "000000000"
-        print ("getSlurmNodeMonData " + query)
+        print ("INFO: getSlurmNodeMonData " + query)
 
         #execute query, returned time is local timestamp, epoch is for returned result, not for query
         results = self.influx_client.query(query, epoch='ms')
@@ -156,60 +155,142 @@ class InfluxQueryClient:
            stop_time  = points[len(points)-1]['time']/1000
           
         #print(repr(uid2seq))
-        print("getSlurmUidMonData take time " + str(time.time()-t1))
+        print("INFO: getSlurmUidMonData take time " + str(time.time()-t1))
         return uid2seq, start_time, stop_time
 
     # return list [[ts, run_time] ... ]
     def getSlurmJobRuntimeHistory (self, jobid, st, et):
         t1=time.time()
         query= "select * from one_week.slurm_jobs_mon where job_id = '" + str(jobid) + "' and time >= " + str(st) + "000000000 and time <= " + str(int(et)) + "000000000"
-        print ("getSlurmJobRuntimeHistory " + query)
+        print ("INFO: getSlurmJobRuntimeHistory " + query)
 
         results = self.influx_client.query(query, epoch='ms')
         points  = results.get_points()
         nodeDataDict    = {}
         for point in points:
             #print (repr(point))
-            nodeDataDict[point['time']] = point['run_time']
+            nodgetNodeHistoryeDataDict[point['time']] = point['run_time']
 
-        print("getSMon take time " + str(time.time()-t1))
+        print("INFO: getSMon take time " + str(time.time()-t1))
      
         return nodeDataDict
     
+    def getSavedNodeHistory (self, filename='nodeHistory', days=3):
+        with open('./{}_{}.pickle'.format(filename, days), 'rb') as f:
+             rltSet = pickle.load(f)
+        return rltSet
+        
+    def savNodeHistory      (self, filename='nodeHistory', days=3):
+        st,et  = MyTool.getStartStopTS (days=days)
+        rltSet = self.getNodeHistory(st, et) 
+        with open('./{}_{}.pickle'.format(filename, days), 'wb') as f:
+             pickle.dump(rltSet, f)
+  
     # query autogen.slurm_pending and return {ts_in_sec:{state_reason:count}], ...}  
-    def getRunningJob_NodeCPUHistory(self, st, et):
+    def getNodeHistory(self, st, et):
+        t1=time.time()
+        
+        query= "select * from autogen.slurm_node_mon where time >= " + str(int(st)) + "000000000 and time <= " + str(int(et)) + "000000000"
+        print ("INFO: getNodeHistory query {}".format(query))
+
+        results    = self.influx_client.query(query, epoch='ms')
+        points     = list(results.get_points())
+        print("INFO: getNodeHistory {} points between {} and {} take time {}".format(len(points), st, et, time.time()-t1))
+        #point['tags']   = MyTool.sub_dict_exist_remove (item, ['name', 'boot_time', 'slurmd_start_time'])
+        #point['fields'] = MyTool.sub_dict_exist_remove (item, ['cpus', 'cpu_load', 'alloc_cpus', 'state', 'free_mem', 'gres', 'gres_used', 'partitions', 'reason', 'reason_time', 'reason_uid', 'err_cpus', 'alloc_mem'])
+
+        ts2AllocNodeCnt    = defaultdict(int)   # Alloc
+        ts2IdleNodeCnt     = defaultdict(int)   # Idle
+        ts2MixNodeCnt      = defaultdict(int)   # Mix 
+        ts2DownNodeCnt     = defaultdict(int)   # not usable
+
+        ts2AllocCPUCnt     = defaultdict(int)   # Alloc alloc CPU
+        ts2MixCPUCnt       = defaultdict(int)   # Mix
+        #ts2IdleAllocCPUCnt = defaultdict(int)   # Alloc idle CPU, once ALLOC, alloc_cpus=cpus
+        ts2IdleCPUCnt      = defaultdict(int)   # Idle + Mix idle
+        ts2DownCPUCnt      = defaultdict(int)   # not usable
+
+        for point in points:
+            ts           = point['time']
+            node_state   = point['state']
+
+            if 'ALLOCATED' in node_state: # running state
+               ts2AllocNodeCnt[ts] += 1
+               ts2AllocCPUCnt[ts]  += point['alloc_cpus']
+            elif 'MIXED' in node_state:
+               ts2MixNodeCnt[ts]   += 1
+
+               alloc_cpus           = int(point['alloc_cpus']) if point.get('alloc_cpus', None) else 0  #point['alloc_cpus'] may return None
+               ts2IdleCPUCnt[ts]   += point['cpus'] - alloc_cpus
+               ts2MixCPUCnt[ts]    += alloc_cpus
+            elif 'IDLE'  in node_state:
+               ts2IdleNodeCnt[ts]  += 1
+               ts2IdleCPUCnt[ts]   += point['cpus']
+            else:
+               ts2DownNodeCnt[ts]  += 1
+               ts2DownCPUCnt[ts]   += point['cpus']
+
+        print("INFO: getNodeHistory {} points between {} and {} take time {}".format(len(points), st, et, time.time()-t1))
+        return ts2AllocNodeCnt, ts2MixNodeCnt, ts2IdleNodeCnt, ts2DownNodeCnt, ts2AllocCPUCnt, ts2MixCPUCnt, ts2IdleCPUCnt, ts2DownCPUCnt 
+
+    def getSavedJobRequestHistory (self, filename='jobRequestHistory', days=3):
+        with open('./{}_{}.pickle'.format(filename, days), 'rb') as f:
+             rltSet = pickle.load(f)
+       
+        return rltSet 
+
+    def savJobRequestHistory      (self, filename='jobRequestHistory', days=3):
+        st,et  = MyTool.getStartStopTS (days=days)
+        rltSet = self.getJobRequestHistory(st, et) 
+        with open('./{}_{}.pickle'.format(filename, days), 'wb') as f:
+             pickle.dump(rltSet, f)
+  
+        
+    def getJobRequestHistory(self, st, et):
         t1=time.time()
         
         query= "select * from autogen.slurm_job_mon where time >= " + str(int(st)) + "000000000 and time <= " + str(int(et)) + "000000000"
-        print ("getJobMonHistory query {}".format(query))
+        print ("INFO: getJobRequestHistory query {}".format(query))
 
         results    = self.influx_client.query(query, epoch='ms')
         points     = list(results.get_points())
         #point['tags']   = MyTool.sub_dict_remove       (item, ['job_id', 'user_id'])
-        #point['fields'] = MyTool.sub_dict_exist_remove (item, ['job_state', 'num_cpus', 'num_nodes', 'state_reason', 'run_time', 'suspend_time'])
+        #point['fields'] = MyTool.sub_dict_exist_remove (item, ['job_state', 'state_reason', 'run_time', 'suspend_time', 'num_cpus', 'num_nodes', 'tres_req_str']) #
  
-        jidSet     = set()   #use set to remove duplicate ids
-        ts2NodeCnt = defaultdict(int)
-        ts2CPUCnt  = defaultdict(int)
+        runJidSet      = set()   #use set to remove duplicate ids
+        pendJidSet     = set()   #use set to remove duplicate ids
+        ts2ReqNodeCnt  = defaultdict(int)
+        ts2ReqCPUCnt   = defaultdict(int)
+        ts2PendReqNodeCnt = defaultdict(int)
+        ts2PendReqCPUCnt  = defaultdict(int)
         for point in points:
-            ts = point['time']
+            ts  = point['time']
+            jid = point['job_id']
+            tres_dict = MyTool.str2dict(point.get('tres_req_str', None))
+               
             if point['job_state'] in ['RUNNING']: # running state
-               jidSet.add(point['job_id'])
-               ts2NodeCnt[ts] += point['num_nodes']
-               ts2CPUCnt[ts]  += point['num_cpus']
+               runJidSet.add(jid)
+               if tres_dict:
+                  ts2ReqNodeCnt[ts] += int(tres_dict.get('node', 1))
+                  ts2ReqCPUCnt[ts]  += int(tres_dict.get('cpu', point.get('num_cpus',28)))
+            elif point['job_state'] in ['PENDING']: # pending state
+               pendJidSet.add(jid)
+               if tres_dict:
+                  ts2PendReqNodeCnt[ts] += int(tres_dict.get('node', 1))
+                  ts2PendReqCPUCnt[ts]  += int(tres_dict.get('cpu', point.get('num_cpus',28)))
 
-        print("getRunningJobHistory between {} and {} take time {}".format(st, et, time.time()-t1))
-        return ts2NodeCnt, ts2CPUCnt, jidSet
+        print("INFO: getJobRequestHistory {} points for {} running and {} pending jobs between {} and {} take time {}".format(len(points), len(runJidSet), len(pendJidSet), st, et, time.time()-t1))
+        return runJidSet, ts2ReqNodeCnt, ts2ReqCPUCnt, pendJidSet, ts2PendReqNodeCnt, ts2PendReqCPUCnt
        
-
+    # query autogen.slurm_pending and return {ts_in_sec:{state_reason:count}], ...}  
     def getPendingCount (self, st, et):
-        t1=time.time()
-        
         # data before is not reliable, add tres_per_node after 06/04/3019 11:59AM
         st = max (int(st), 1550868105)
 
         query= "select * from autogen.slurm_pending where time >= " + str(int(st)) + "000000000 and time <= " + str(int(et)) + "000000000"
-        print ("getPendingCount {}".format(query))
+        print ("INFO: getPendingCount {}".format(query))
+        #pendpoint['tags']  = MyTool.sub_dict_exist (item, ['job_id', 'state_reason'])
+        #pendpoint['fields']= MyTool.sub_dict_exist (item, ['submit_time', 'user_id', 'account', 'qos', 'partition', 'tres_req_str', 'last_sched_eval', 'time_lim
 
         results      = self.influx_client.query(query, epoch='ms')
         points       = list(results.get_points())
@@ -217,19 +298,43 @@ class InfluxQueryClient:
         #print("jidSet={}".format(jidSet))
 
         tsReason2jobCnt = defaultdict(lambda:defaultdict(int))
-        tsState2cpuCnt = defaultdict(lambda:defaultdict(int))
+        tsState2cpuCnt  = defaultdict(lambda:defaultdict(int))
+        tsPart2points   = defaultdict(lambda:defaultdict(list))   # sav partition-points
+        ts2priority     = defaultdict(list)                       # sav Priority points
+       
         for point in points:
-            ts = point['time']
+            ts           = point['time']
             state_reason = point['state_reason']
-            if (state_reason == 'Resources'):
+
+            if (state_reason in ['Resources', 'Priority']):
               tres = point.get('tres_per_node','')
               if (tres and 'gpu' in tres):
-                 tsReason2jobCnt[ts]['Resources_GPU'] += 1
+                 tsReason2jobCnt[ts]['{}_GPU'.format(state_reason)] += 1
               else:
                  tsReason2jobCnt[ts][state_reason] += 1
             else:
               tsReason2jobCnt[ts][state_reason] += 1
-            
+
+            # Priority reduce to resources most of the time
+            if state_reason and ('Priority' in state_reason):
+              ts2priority[ts].append (point)
+            else:
+              tsPart2points[ts][point['partition']].append(point)
+             
+        for ts, point_lst in ts2priority.items():
+            for point in point_lst:
+                samePart = tsPart2points[ts][point['partition']]
+                if not samePart:
+                   print ('WARNING: {}:jid={}, part={}, no other job waiting for the same partition! {}'.format(ts, point['job_id'], point['partition'], samePart))
+                   break
+                samePart_reason = [(point['job_id'], point['state_reason']) for point in samePart if point['state_reason'] != 'Priority']
+                samePart_reasonSet = set([item[1] for item in samePart_reason])
+        # see 2 "resources"
+                if len(samePart_reasonSet)>1 or 'Resources' not in samePart_reasonSet:
+                   print ('{}:jid={},part={}, {}'.format(ts, point['job_id'], point['partition'], samePart_reason))
+        #        if ( len(samePart) > 1):
+        #           print ("WARNING: {} has more than one job penidng on it {}".format(point['partition'], samePart))
+                           
         return tsReason2jobCnt, jidSet
         
     #return information of hostname
@@ -272,17 +377,23 @@ class InfluxQueryClient:
 
 def main():
     t1=time.time()
+    start, stop = MyTool.getStartStopTS(days=3) 
     app   = InfluxQueryClient()
+    app.getPendingCount(start, stop)
+    #app.savNodeHistory(days=7)
+    #app.savJobRequestHistory(days=7)
+    #app.getJobRequestHistory(start, stop)
+    #app.getNodeHistory(start, stop)
     #point = app.getSlurmJobInfo('70900')
-    point = app.getSlurmJobInfo('105179')
-    print("getSlurmJobInfo result " + repr(point))
-    if point:
-       nodelist = MyTool.convert2list(point['nodes'])
-       start    = point['start_time']
-       user_id  = point['user_id']
-       if 'end_time' in point:
-           stop     = point['end_time']
-       print("user_id=" + user_id + ",nodelist="+repr(nodelist)+", " + repr(start) + "," + repr(stop))
+    #point = app.getSlurmJobInfo('105179')
+    #print("getSlurmJobInfo result " + repr(point))
+    #if point:
+    #   nodelist = MyTool.convert2list(point['nodes'])
+    #   start    = point['start_time']
+    #   user_id  = point['user_id']
+    #   if 'end_time' in point:
+    #       stop     = point['end_time']
+    #   print("user_id=" + user_id + ",nodelist="+repr(nodelist)+", " + repr(start) + "," + repr(stop))
     #   for ndname in nodelist:
     #       print(ndname)    
     #       app.getSlurmNodeMon(ndname, point['user_id'], point['start_time'], point['end_time'])

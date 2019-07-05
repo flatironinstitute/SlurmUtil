@@ -325,7 +325,7 @@ class SLURMMonitor(object):
         start, stop, df = self.getClusterUsageHourTable (start, stop)
 
         htmlTemp = os.path.join(wai, 'acctImage.html')
-        print(htmlTemp)
+        #print(htmlTemp)
         h = open(htmlTemp).read()
 
         return h
@@ -420,10 +420,10 @@ class SLURMMonitor(object):
 
         influxClient = InfluxQueryClient.getClientInstance()
         tsReason2Cnt, jidSet = influxClient.getPendingCount(start, stop)
-        bySched      = 'Dependency|Priority|BeginTime|JobArrayTaskLimit' 
-        byResource   = 'Resources|ReqNodeNotAvail*|Nodes_required_for_job_are_DOWN*'
+        bySched      = 'Dependency|BeginTime|JobArrayTaskLimit' 
+        byResource   = 'Resources|Priority|ReqNodeNotAvail*|Nodes_required_for_job_are_DOWN*'
         byQOS        = 'QOS*'
-        byGPU        = 'Resources_GPU'
+        byGPU        = 'Resources_GPU|Priority_GPU'
         
         reasons      = [set(reasons.keys()) for ts, reasons in tsReason2Cnt.items()]
         reasons      = set([i2 for item in reasons for i2 in item])
@@ -451,13 +451,13 @@ class SLURMMonitor(object):
                 cate2ts_cnt[cate].append ([ts, cnt])
 
         series1   = [
-                     {'name': 'Queued by QoS',            'data':cate2ts_cnt['QoS']},
                      {'name': 'Queued by Resource',       'data':cate2ts_cnt['Resource']},
                      {'name': 'Queued by GPU Resource',   'data':cate2ts_cnt['GPU']},
+                     {'name': 'Queued by QoS',            'data':cate2ts_cnt['QoS']},
                      {'name': 'Queued by Job Defination', 'data':cate2ts_cnt['Sched']},
                      {'name': 'Queued by Other',    'data':cate2ts_cnt['Other']}]
 
-        htmlTemp = os.path.join(wai, 'pendingJobReport1.html')
+        htmlTemp = os.path.join(wai, 'pendingJobReport.html')
         h = open(htmlTemp).read().format(start=time.strftime('%Y-%m-%d', time.localtime(start)),
                                          stop=time.strftime('%Y-%m-%d', time.localtime(stop)),
                                          series1=series1, title1='Cluster Job Queue Length', xlabel1='Queue Length', other_reason=list(other_reason_set))
@@ -714,7 +714,7 @@ class SLURMMonitor(object):
                   label = '{} core:{} state:{}'.format(hostname, node_cores, values[0])
                result.append([hostname, state, node_cores, cpu_load, alloc_jobs, job_accounts, label])
             except Exception as exp:
-               print("Error getHeatmapData: {0}".format(exp))
+               print("ERROR getHeatmapData: {0}".format(exp))
                                
         return result,jobs
                    
@@ -939,8 +939,7 @@ class SLURMMonitor(object):
         ann_series.extend ([[ts*1000, 'Job {} End'.format(jid)]     for [ts, jid] in lst if ts > 0])
         lst  = job_df[['time_suspended', 'id_job']].values.tolist()
         ann_series.extend ([[ts*1000, 'Job {} Suspend'.format(jid)] for [ts, jid] in lst if ts > 0])
-        #print ('nodeGraph_1 ann_series={}'.format(ann_series))
-        print("nodeGraph_1 prepare format take time {}".format(time.time()-t1))
+        #print("nodeGraph_1 prepare format take time {}".format(time.time()-t1))
         
         htmlTemp = os.path.join(wai, 'nodeGraph_1.html')
         h = open(htmlTemp).read().format(
@@ -1532,7 +1531,7 @@ class SLURMMonitor(object):
                    sumDf = sumDf.add(group, fill_value=0)        #sum over the same artifical index, not accurate as assuming the same start time on all nodes of jobs
 
             sumDf['time'] = sumDf['time']/sumDf['count']
-            print ("sumDf=" + repr(sumDf.head()))
+            #print ("sumDf=" + repr(sumDf.head()))
                 
             jid = job['job_id']
             jid2df[jid]  = sumDf

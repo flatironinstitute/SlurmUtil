@@ -10,10 +10,16 @@
     <body>
 	<div id="chart1" style="min-width: 1000px; height: 400px; margin: 0 auto"></div>
 	<hr>
-	<div id="chart2" style="min-width: 1000px; height: 400px; margin: 0 auto"></div>
-	<hr>
 	<script>
-	 timeSeriesWithAnnotation(%(series1)s, "chart1",  "%(title1)s from %(start)s to %(stop)s", "%(xlabel1)s",  %(aseries1)s, "");
-	 timeSeriesWithAnnotation(%(series2)s, "chart2",  "%(title2)s from %(start)s to %(stop)s", "%(xlabel2)s",  %(aseries2)s, "");
+	 timeSeriesWithAnnotation({series1}, "chart1",  "{title1} from {start} to {stop}", "{xlabel1}",  [], "");
 	</script>
+
+        <p> Note:
+        <ul>
+        <li>Queued by Resource: [Resources(other), ReqNodeNotAvail*, Nodes_required_for_job_are_DOWN, Priority(other)]
+        <li>Queued by GPU Resource: [Resources, Priority(with gres request for GPU)]
+        <li>Queued by QoS: [QOS*]
+        <li>Queued by Job Defination: [Dependency,BeginTime,JobArrayTaskLimit]
+        <li>Queued by other: {other_reason}
+        </ul>
 </html>
