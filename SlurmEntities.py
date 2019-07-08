@@ -129,7 +129,7 @@ class SlurmEntities:
     return partition['flags']['Shared'] == 'NO'
 
   # node['gres'] - node['gres_used'] >= gresReq) 
-  def nodeHaveGres (self, node, gresReq):
+  def nodeWithGres (self, node, gresReq):
       gresTotal = MyTool.gresList2Dict(node['gres'])
       gresUsed  = MyTool.gresList2Dict(node['gres_used'])
 
@@ -140,9 +140,13 @@ class SlurmEntities:
              return False
       return True
 
+  # return node['gres']
+  def nodeAvailGres (self, node):
+      return node_dict[node]['gres']
+
   # modify self.partition_dict by adding attributes to partition p_name, flag_shared, avail_nodes, avail_cpus, running_jobs, pending_jobs
   # return avail_nodes, avail_cpus with the constrain of features and min_mem_per_node
-  def addUpdatePartitionInfo (self, p_name, features=[], min_mem_per_node=0, gres=[]):
+  def addModifyPartitionInfo (self, p_name):
       p = self.partition_dict[p_name]
 
       if not p.get('flag_shared', None):
@@ -152,8 +156,9 @@ class SlurmEntities:
             nodes             = MyTool.nl2flat(p['nodes'])
             avail_nodes       = [n for n in nodes if self.node_dict.get(n, {}).get('state', None) == 'IDLE']
             if p['flag_shared'] == 'YES':     # count MIXED node with idle CPUs as well
-               avail_nodes  += [n for n in nodes if (self.node_dict.get(n, {}).get('state', None) == 'MIXED') and (self.node_dict.get(n,{}).get('cpus', 0) > self.node_dict.get(n, {}).get('alloc_cpus', 0))]
+               avail_nodes   += [n for n in nodes if (self.node_dict.get(n, {}).get('state', None) == 'MIXED') and (self.node_dict.get(n,{}).get('cpus', 0) > self.node_dict.get(n, {}).get('alloc_cpus', 0))]
          else:
+            nodes             = []
             avail_nodes       = []
 
          avail_cpus_cnt,lst1  = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
@@ -166,9 +171,20 @@ class SlurmEntities:
          part_jobs        = [j for j in self.job_dict.values() if j['partition'] == p_name]
          p['running_jobs']= [j['job_id'] for j in part_jobs if j['job_state']=='RUNNING']
          p['pending_jobs']= [j['job_id'] for j in part_jobs if j['job_state']=='PENDING']
-      else:
-         avail_nodes      = p['avail_nodes']
-         avail_cpus_cnt,lst1  = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
+
+         # get gpu on the parition
+         part_nodes       = [self.node_dict[node_name] for node_name in nodes]
+         p['total_gpus']  = sum([1 for node in part_nodes for item in node['gres'] if node['gres'] and 'gpu' in item]) #['gpu:k40c:1', 'gpu:k40c:1'...
+         used_gpu_str     = [item for node  in part_nodes for item in node['gres_used'] if node['gres'] and node['gres_used'] and 'gpu' in item] #['gpu:k40c:1(IDX:1)', 'gpu:k40c:0(IDX:N/A)', ...]
+         used_gpu_cnt     = sum(list(map(lambda x: MyTool.extractInt(r':(\d+)\(', x), used_gpu_str)))
+         p['avail_gpus']   = p['total_gpus'] - used_gpu_cnt
+         print ("addModifyPartitionInfo for {}: {},{}".format(p_name, p['total_gpus'], p['avail_gpus']))
+
+      return p['avail_nodes']
+
+  def getPartitionAvailNodeCPU (self, p_name, features=[], min_mem_per_node=0, gres=[]):
+      avail_nodes          = self.addModifyPartitionInfo(p_name)
+      avail_cpus_cnt,lst1  = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
 
       if features:             # restrain nodes with required features
          avail_nodes     = [n for n in avail_nodes if set(self.node_dict[n]['features_active'].split(',')).intersection(features)]
@@ -179,23 +195,24 @@ class SlurmEntities:
          avail_cpus_cnt,lst1 = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
          
       if gres:
-         avail_nodes     = [n for n in avail_nodes if self.nodeHaveGres (self.node_dict[n], gres)]
+         avail_nodes     = [n for n in avail_nodes if self.nodeWithGres (self.node_dict[n], gres)]
          avail_cpus_cnt,lst1 = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
       #if min_mem_per_cpu:      # restrain nodes with min memory 
       #   avail_cpus,lst1 = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
       #   avail_nodes     = [n for idx,n in enumerate(avail_nodes) if (self.node_dict[n]['real_memory'] - self.node_dict[n]['alloc_mem'])/lst1[idx] > min_mem_per_cpu]
 
-      #print("addUpdatePartitionInfo return {}, {}".format(len(avail_nodes), avail_cpus_cnt))
+      #print("addModifyPartitionInfo return {}, {}".format(len(avail_nodes), avail_cpus_cnt))
       return len(avail_nodes), avail_cpus_cnt
 
   # return list of partitions with fields, add attributes to partition_dict
-  def getPartitions(self, fields=['name', 'flag_shared', 'total_nodes', 'total_cpus', 'avail_nodes_cnt', 'avail_cpus_cnt', 'running_jobs', 'pending_jobs']):
+  def getPartitions(self, fields=['name', 'flag_shared', 'total_nodes', 'total_cpus', 'avail_nodes_cnt', 'avail_cpus_cnt', 'running_jobs', 'pending_jobs', 'total_gpus', 'avail_gpus']):
+  #def getPartitions(self, fields=['name', 'flag_shared', 'total_nodes', 'total_cpus', 'avail_nodes_cnt', 'avail_cpus_cnt', 'running_jobs', 'pending_jobs']):
     retList      = []
 
     for name in sorted(self.partition_dict.keys()):
         p = self.partition_dict[name]
-        if not p.get('flag_shared', None):
-           self.addUpdatePartitionInfo (name)
+        if not p.get('flag_shared', None):  # whether addModifyPartitionInfo has been called
+           self.addModifyPartitionInfo (name)
 
         retList.append(MyTool.sub_dict(p, fields))
 
@@ -255,7 +272,7 @@ class SlurmEntities:
              # check gres requirement
              j_gres                = MyTool.gresList2Dict(job.get('gres', []))
              j_min_mem_pn          = max(j_min_mem_pn, j_min_mem_pc*job['num_cpus'])
-             pa_node,    pa_cpu    = self.addUpdatePartitionInfo (p_name, j_features, j_min_mem_pn, j_gres)
+             pa_node,    pa_cpu    = self.getPartitionAvailNodeCPU (p_name, j_features, j_min_mem_pn, j_gres)
              if j_gres:              j_features.append (MyTool.gresList2Str(job['gres']))
              if j_min_mem_pn:        j_features.append ('mem_per_node={}MB'.format(j_min_mem_pn))
              if j_min_mem_pc:        j_features.append ('mem_per_cpu={}MB'.format(j_min_mem_pc))
@@ -328,7 +345,4 @@ class SlurmEntities:
 if __name__ == "__main__":
 
     ins = SlurmEntities()
-    ins.getNodes()
-    print()
-
-    print(ins.getPendingJobs ())
+    ins.getPartitions()

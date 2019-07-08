@@ -120,7 +120,7 @@ class SLURMMonitor(object):
         pendingLst = ins.getPendingJobs()
         partLst    = ins.getPartitions ()
         
-        htmlTemp   = os.path.join(wai, 'table.html')
+        htmlTemp   = os.path.join(wai, 'pending.html')
 	#htmlStr    = open(htmlTemp).read()%{'partitions_input' : partLst}
         timestr    = ins.update_time.ctime()
         htmlStr    = open(htmlTemp).read().format(update_time=timestr, pending_jobs_input=pendingLst, partitions_input=partLst)

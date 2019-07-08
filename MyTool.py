@@ -7,6 +7,7 @@ import pwd,grp
 import dateutil.parser
 
 THREE_DAYS_SEC     = 3*24*3600
+ONEDAY_SECS       = 24*3600
 
 LOCAL_TZ   = timezone(timedelta(hours=-4))
 #ORG_GROUPS = list(map((lambda x: grp.getgrnam(x)), ['genedata','cca','ccb','ccm', 'ccq', 'scc']))
@@ -152,7 +153,7 @@ def getDictNumValue (d, key):
        print("WARNING: getDictIntValue has a non-int type " + repr(type(value)))
        return 0
 
-def getStartStopTS (start='', stop='', formatStr='%Y%m%d'):
+def getStartStopTS (start='', stop='', formatStr='%Y%m%d', days=3):
     if stop:
         stop = time.mktime(time.strptime(stop, formatStr))
     else:
@@ -161,7 +162,7 @@ def getStartStopTS (start='', stop='', formatStr='%Y%m%d'):
         if isinstance (start, str):
            start = time.mktime(time.strptime(start, formatStr))
     else:
-        start = max(0, stop - THREE_DAYS_SEC)
+        start = max(0, int(stop - days * ONEDAY_SECS))
 
     return int(start), int(stop)
 
@@ -338,6 +339,14 @@ def gresList2Str (gresList):
         rlt += gres.replace(':','=')
     return rlt
 
+#'gpu:k40c:1(IDX:1)', 'gpu:k40c:0(IDX:N/A)'
+def extractInt (pattern, s, idx=0):
+    lst=re.findall(pattern, s)
+    if len(lst) > idx:
+       return int(lst[idx])
+    else:
+       return 0
+    
 def main(argv):
     for s in argv:
         c = convert2list(s)
