@@ -2,12 +2,13 @@
 
 from __future__ import print_function
 
+import logging
 import pyslurm
 import sys
 
 import MyTool
-import logging
 
+from collections import defaultdict
 from time import gmtime, strftime, sleep
 from datetime import datetime
 
@@ -27,6 +28,9 @@ class SlurmEntities:
   TCMO = 2**32 - 1
 
   def __init__ (self):
+    self.getPyslurmData ()
+
+  def getPyslurmData (self): 
     self.config_dict    = pyslurm.config().get()
     self.qos_dict       = pyslurm.qos().get()
     self.partition_dict = pyslurm.partition().get()
@@ -34,51 +38,38 @@ class SlurmEntities:
     self.job_dict       = pyslurm.job().get()
     self.update_time    = datetime.now()
 
+    # extend job_dict
+    for job in self.job_dict.values():
+        if job['nodes']:
+           job['nodes_flat'] = MyTool.nl2flat(job['nodes'])
+        else:
+           job['nodes_flat'] = []
+
+    # extend node_dict running_jobs
+    self.extendNodeDict ()
+
+    # combine job info to the partition_dict, node_flats, flag_shared, running_jobs, pending_jobs...
+    for pname, part in self.partition_dict.items():
+        self.extendPartitionDict (pname, part)
+
   #return nodeLimit, cpuLimit (max value TCMO)
   @staticmethod
-  def getTresLimit (tres_str):
+  def getTresNodeCpuLimit (tres_str):
     d = {}
     if tres_str:
       for tres in tres_str.split(','):
         t, value = tres.split('=')
         d[t]     = value
       
-    return d.get('4', SlurmEntities.TCMO), d.get('1', SlurmEntities.TCMO)
+    return int(d.get('4', SlurmEntities.TCMO)), int(d.get('1', SlurmEntities.TCMO))
 
   #get allocation of all jobs in partition
   def getAllocInPartition(partition, job_dict):
     jobLst  = [ job for job in job_dict.values() if job['partition'] == partition and job['job_state']=='RUNNING']
-    nodeCnt = sum([job['num_nodes'] for job in jobLst])
-    cpuCnt  = sum([job['num_cpus']  for job in jobLst])
-    return nodeCnt, cpuCnt
-
-  # get user+partion
-  def getUserAllocInPartition( uid, partition, job_dict):
-    jobLst  = [ jid for jid, job in job_dict.items() if job['job_state']=='RUNNING' and job['user_id'] == uid and job['partition'] == partition ]
-    nodeCnt = sum([job_dict[jid]['num_nodes'] for jid in jobLst])
-    cpuCnt  = sum([job_dict[jid]['num_cpus']  for jid in jobLst])
-    return nodeCnt, cpuCnt
-
-  #check access control 'allow_groups', 'allow_accounts'
-  #check qos 
-  @staticmethod
-  def getUserPartitions(uid, user, account, partition_dict, qos_dict, job_dict):
-    linux_grp = set(MyTool.getUserGroups(user))
-    lst1      = []
-    lst2      = []
-    for name,p in partition_dict.items():
-        if (p['allow_groups'] == 'ALL') or (not not set(p['allow_groups']).intersection(linux_grp)):
-           if (p['allow_accounts'] == 'ALL') or (not p['deny_accounts']) or (not account in p['deny_accounts']):
-              gnCnt, gcCnt = SlurmEntities.getAllocInPartition(name, job_dict)
-              unCnt, ucCnt = SlurmEntities.getUserAllocInPartition(uid,     name, job_dict)
-              lst1.append(name + ' ' + str(gnCnt) + ',' + str(gcCnt) + ',' + str(unCnt) + ',' + str(ucCnt))
-
-              qos = qos_dict[p['qos_char']]
-              gnLmt, gcLmt = SlurmEntities.getTresLimit(qos.get('grp_tres',    '')) 
-              unLmt, ucLmt = SlurmEntities.getTresLimit(qos.get('max_tres_pu', ''))
-              lst2.append(p['qos_char']+' ' + str(gnLmt) + ','+ str(gcLmt)+',' + str(unLmt) + ',' + str(ucLmt))
-
-    return lst1,lst2
+    ex_nodeCnt = sum([job['num_nodes'] for job in jobLst if job['shared']!='OK'])
+    sh_nodeCnt = sum([job['num_nodes'] for job in jobLst if job['shared']=='OK'])
+    cpuCnt     = sum([job['num_cpus']  for job in jobLst])
+    return ex_nodeCnt, sh_nodeCnt, cpuCnt
 
   def getMaxWallPJ (self, job):
       qos_set = set ()
@@ -94,8 +85,8 @@ class SlurmEntities:
 
   def getPartitionInfo (self, p_name, fields=['name', 'state', 'tres_fmt_str', 'features', 'gres', 'alloc_cpus','alloc_mem', 'cpu_load', 'gres_used', 'run_jobs']):
       partition  = self.partition_dict[p_name]
-      node_names = MyTool.nl2flat(partition['nodes'])
-      nodes      = self.addUpdateNodeInfo (node_names)
+      node_names = partition['nodes_flat']
+      nodes      = [self.node_dict[nm] for nm in node_names]
 
       #get rid of None and UNLIMITED in partition
       partition  = dict((key, value) for key, value in partition.items() if value and value not in ['UNLIMITED','1', 1, 'NONE'] 
@@ -107,23 +98,17 @@ class SlurmEntities:
           
       return partition, rlt
 
-  # return node allocate information of the partition
-  def addUpdateNodeInfo (self, node_names):
-    # should get newest data?
-    job_dict   = pyslurm.job().get()
-    node_dict  = pyslurm.node().get()
+  def extendNodeDict (self):
+    run_jobs   = [(jid,job) for jid, job in self.job_dict.items() if job['job_state']=='RUNNING']
 
-    run_jobs   = [(jid,job) for jid, job in job_dict.items() if job['job_state']=='RUNNING']
-    
     # add job allocate information
     for jid,job in run_jobs:
-        for n in MyTool.nl2flat(job['nodes']):
-            if 'run_jobs' not in node_dict[n]: node_dict[n]['run_jobs'] = []
-            node_dict[n]['run_jobs'].append(jid)
-        
-    nodes = [node_dict[nm] for nm in node_names]
-    return nodes
-
+        for n in job['nodes_flat']:
+            if 'running_jobs' not in self.node_dict[n]: 
+               self.node_dict[n]['running_jobs'] = []
+            self.node_dict[n]['running_jobs'].append(jid)
+    return self.node_dict
+    
   #return TRUE if it is shared
   def getSharedFlag(self, partition):
     return partition['flags']['Shared'] == 'NO'
@@ -146,9 +131,7 @@ class SlurmEntities:
 
   # modify self.partition_dict by adding attributes to partition p_name, flag_shared, avail_nodes, avail_cpus, running_jobs, pending_jobs
   # return avail_nodes, avail_cpus with the constrain of features and min_mem_per_node
-  def addModifyPartitionInfo (self, p_name):
-      p = self.partition_dict[p_name]
-
+  def extendPartitionDict (self, p_name, p):
       if not p.get('flag_shared', None):
          p['flag_shared'] = 'YES' if self.getSharedFlag(p) else 'NO'
 
@@ -162,6 +145,7 @@ class SlurmEntities:
             avail_nodes       = []
 
          avail_cpus_cnt,lst1  = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
+         p['nodes_flat']      = nodes
          p['avail_nodes_cnt'] = len(avail_nodes)
          p['avail_nodes']     = avail_nodes
          p['avail_cpus_cnt']  = avail_cpus_cnt
@@ -178,12 +162,12 @@ class SlurmEntities:
          used_gpu_str     = [item for node  in part_nodes for item in node['gres_used'] if node['gres'] and node['gres_used'] and 'gpu' in item] #['gpu:k40c:1(IDX:1)', 'gpu:k40c:0(IDX:N/A)', ...]
          used_gpu_cnt     = sum(list(map(lambda x: MyTool.extractInt(r':(\d+)\(', x), used_gpu_str)))
          p['avail_gpus']   = p['total_gpus'] - used_gpu_cnt
-         print ("addModifyPartitionInfo for {}: {},{}".format(p_name, p['total_gpus'], p['avail_gpus']))
+         #print ("extendPartitionDict for {}: {},{}".format(p_name, p['total_gpus'], p['avail_gpus']))
 
       return p['avail_nodes']
 
   def getPartitionAvailNodeCPU (self, p_name, features=[], min_mem_per_node=0, gres=[]):
-      avail_nodes          = self.addModifyPartitionInfo(p_name)
+      avail_nodes          = self.partition_dict[p_name]['avail_nodes']
       avail_cpus_cnt,lst1  = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
 
       if features:             # restrain nodes with required features
@@ -201,7 +185,6 @@ class SlurmEntities:
       #   avail_cpus,lst1 = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
       #   avail_nodes     = [n for idx,n in enumerate(avail_nodes) if (self.node_dict[n]['real_memory'] - self.node_dict[n]['alloc_mem'])/lst1[idx] > min_mem_per_cpu]
 
-      #print("addModifyPartitionInfo return {}, {}".format(len(avail_nodes), avail_cpus_cnt))
       return len(avail_nodes), avail_cpus_cnt
 
   # return list of partitions with fields, add attributes to partition_dict
@@ -211,9 +194,6 @@ class SlurmEntities:
 
     for name in sorted(self.partition_dict.keys()):
         p = self.partition_dict[name]
-        if not p.get('flag_shared', None):  # whether addModifyPartitionInfo has been called
-           self.addModifyPartitionInfo (name)
-
         retList.append(MyTool.sub_dict(p, fields))
 
     return retList
@@ -221,7 +201,7 @@ class SlurmEntities:
   # return nodeLimit, cpuLimit
   def getPartitionTres (self, partition, tres_attribute):
       tres_str =  self.qos_dict[self.partition_dict[partition]['qos_char']][tres_attribute]
-      return SlurmEntities.getTresLimit (tres_str)
+      return SlurmEntities.getTresNodeCpuLimit (tres_str)
 
   #return jobs in job_list that has a smaller id than job_id
   def getSmallerJobIDs (self, job_id, job_list):
@@ -250,19 +230,19 @@ class SlurmEntities:
 
           if job['state_reason'] == 'QOSMaxCpuPerUserLimit':
              u_node_qos, u_cpu_qos = self.getPartitionTres (p_name, 'max_tres_pu')
-             u_node,     u_cpu     = SlurmEntities.getUserAllocInPartition(job['user_id'], p_name, self.job_dict)
+             u_node,     u_cpu= SlurmEntities.getUserAllocInPartition(job['user_id'], p_name, self.partition_dict[p_name], self.job_dict)
              job['state_exp']      = job['state_exp'].format(user=job['user'], max_cpu_user=u_cpu_qos, curr_cpu_user=u_cpu, partition=p_name)
           elif job['state_reason'] == 'QOSMaxNodePerUserLimit':
              u_node_qos, u_cpu_qos = self.getPartitionTres (p_name, 'max_tres_pu')
-             u_node,     u_cpu     = SlurmEntities.getUserAllocInPartition(job['user_id'], p_name, self.job_dict)
+             u_node,     u_cpu= SlurmEntities.getUserAllocInPartition(job['user_id'], p_name, self.partition_dict[p_name], self.job_dict)
              job['state_exp']      = job['state_exp'].format(user=job['user'], max_node_user=u_node_qos, curr_node_user=u_node, partition=p_name)
           elif job['state_reason'] == 'QOSGrpNodeLimit':
              a_node_qos, a_cpu_qos = self.getPartitionTres (p_name, 'grp_tres')
-             a_node,     a_cpu     = SlurmEntities.getAllocInPartition(p_name, self.job_dict)
-             job['state_exp']      = job['state_exp'].format(max_node_grp=a_node_qos, curr_node_grp=a_node, partition=p_name)
+             a_ex_node,a_sh_node,a_cpu     = SlurmEntities.getAllocInPartition(p_name, self.job_dict)
+             job['state_exp']      = job['state_exp'].format(max_node_grp=a_node_qos, curr_node_grp=a_ex_node+a_sh_node, partition=p_name)
           elif job['state_reason'] == 'QOSGrpCpuLimit':
              a_node_qos, a_cpu_qos = self.getPartitionTres (p_name, 'grp_tres')
-             a_node,     a_cpu     = SlurmEntities.getAllocInPartition(p_name, self.job_dict)
+             a_ex_node,a_sh_node,a_cpu     = SlurmEntities.getAllocInPartition(p_name, self.job_dict)
              job['state_exp']      = job['state_exp'].format(max_cpu_grp=a_cpu_qos, curr_cpu_grp=a_cpu, partition=p_name)
           elif job['state_reason'] == 'Resources':
              # check features and memory requirement
@@ -296,7 +276,7 @@ class SlurmEntities:
              job['state_exp']      += ' Job is scheduled on {}'.format(job['sched_nodes'])
              running    = [job for jid,job in self.job_dict.items() if job['job_state']=='RUNNING']
              schedNode  = set([nm for nm in MyTool.nl2flat (job['sched_nodes']) if self.node_dict[nm]['state']!='IDLE'])
-             waitForJob = [job['job_id'] for job in running if schedNode.intersection(set(MyTool.nl2flat(job['nodes'])))]
+             waitForJob = [job['job_id'] for job in running if schedNode.intersection(set(job['nodes_flat']))]
              if waitForJob:
                 job['state_exp']      += ', waiting for running jobs {}.'.format(waitForJob)
              else:
@@ -342,7 +322,77 @@ class SlurmEntities:
     except ValueError as e:
         print("Error - {0}".format(e.args[0]))
 
+  # return jobs of a user categoried by state
+  def getUserJobsByState (self, uname, fields=['account', 'accrue_time', 'alloc_node', 'alloc_sid', 'array_job_id', 'array_task_id', 'array_task_str', 'array_max_tasks', 'assoc_id', 'batch_flag', 'batch_features', 'batch_host', 'billable_tres', 'bitflags', 'boards_per_node', 'burst_buffer', 'burst_buffer_state', 'command', 'comment', 'contiguous', 'core_spec', 'cores_per_socket', 'cpus_per_task', 'cpus_per_tres', 'cpu_freq_gov', 'cpu_freq_max', 'cpu_freq_min', 'dependency', 'derived_ec', 'eligible_time', 'end_time', 'exc_nodes', 'exit_code', 'features', 'group_id', 'job_id', 'job_state', 'last_sched_eval', 'licenses', 'max_cpus', 'max_nodes', 'mem_per_tres', 'name', 'network', 'nodes', 'nice', 'ntasks_per_core', 'ntasks_per_core_str', 'ntasks_per_node', 'ntasks_per_socket', 'ntasks_per_socket_str', 'ntasks_per_board', 'num_cpus', 'num_nodes', 'partition', 'mem_per_cpu', 'min_memory_cpu', 'mem_per_node', 'min_memory_node', 'pn_min_memory', 'pn_min_cpus', 'pn_min_tmp_disk', 'power_flags', 'preempt_time', 'priority', 'profile', 'qos', 'reboot', 'req_nodes', 'req_switch', 'requeue', 'resize_time', 'restart_cnt', 'resv_name', 'run_time', 'run_time_str', 'sched_nodes', 'shared', 'show_flags', 'sockets_per_board', 'sockets_per_node', 'start_time', 'state_reason', 'std_err', 'std_in', 'std_out', 'submit_time', 'suspend_time', 'system_comment', 'time_limit', 'time_limit_str', 'time_min', 'threads_per_core', 'tres_alloc_str', 'tres_bind', 'tres_freq', 'tres_per_job', 'tres_per_node', 'tres_per_socket', 'tres_per_task', 'tres_req_str', 'user_id', 'wait4switch', 'wckey', 'work_dir', 'cpus_allocated', 'cpus_alloc_layout']):
+      uid = MyTool.getUid(uname)
+      result    = defaultdict(list)  #{state:[job...]}
+      jobs      = [job for job in self.job_dict.values() if job['user_id']==uid]
+      for job in jobs:
+          job['submit_time_str'] = str(datetime.fromtimestamp(job['submit_time']))
+          job['start_time_str']  = str(datetime.fromtimestamp(job['start_time']))
+          result[job['job_state']].append (job)
+      return result
+
+  # get user+partion
+  def getUserAllocInPartition( uid, pname, part, job_dict):
+    jobLst     = [ job for job in job_dict.values() if job['job_state']=='RUNNING' and job['user_id'] == uid and job['partition'] == pname ]
+    return SlurmEntities.getJobAlloc (part['flag_shared'], jobLst)
+
+  def getJobAlloc( flag_shared, jobLst):
+    if not flag_shared:
+       nodeCnt = sum([job['num_nodes'] for job in jobLst])
+    else:
+       nodes   = set()
+       for job in jobLst:
+           nodes.update (set(job['nodes_flat']))
+       nodeCnt = len(nodes)
+    cpuCnt     = sum([job['num_cpus']  for job in jobLst])
+    return nodeCnt, cpuCnt
+
+  #check access control 'allow_groups', 'allow_accounts'
+  #check qos 
+  def getUserPartition (self, user=''):
+    linux_grp = set(MyTool.getUserGroups(user))
+    uid       = MyTool.getUid (user)
+    result    = []
+    for pname, part in self.partition_dict.items():
+        if (part.get('allow_groups', []) == 'ALL') or set(part.get('allow_groups',[])).intersection(linux_grp):
+           if (part.get('allow_accounts', []) == 'ALL') or set(part.get('allow_accounts',[])).intersection(linux_grp): #deny_accounts
+              # user is allowed to access the partition
+              # partition and user's current usage
+              partJobs = [ job for job in self.job_dict.values() if job['job_state']=='RUNNING' and job['partition'] == pname ]
+              grpJobs  = [ job for job in partJobs               if job['account'] in linux_grp]
+              userJobs = [ job for job in partJobs               if job['user_id'] == uid]
+              gNodeCnt, gCpuCnt = SlurmEntities.getJobAlloc  (part['flag_shared'], grpJobs)
+              uNodeCnt, uCpuCnt = SlurmEntities.getJobAlloc  (part['flag_shared'], userJobs)
+
+              # qos limit & partitin lmt
+              qos_char = part['qos_char']
+              if qos_char:
+                 qos = self.qos_dict[qos_char]
+                 gNodeLmt, gCpuLmt = SlurmEntities.getTresNodeCpuLimit(qos.get('grp_tres',    '')) 
+                 uNodeLmt, uCpuLmt = SlurmEntities.getTresNodeCpuLimit(qos.get('max_tres_pu', ''))
+              else:
+                 gNodeLmt, gCpuLmt = part['total_nodes'], part['total_cpus']
+                 uNodeLmt, uCpuLmt = part['total_nodes'], part['total_cpus']
+
+              # user avail
+              availNodeCnt   = min(part['avail_nodes_cnt'],  gNodeLmt-gNodeCnt, uNodeLmt-uNodeCnt)
+              availCpuCnt    = min(part['total_cpus'],       gCpuLmt-gCpuCnt,   uCpuLmt-uCpuCnt)
+            
+              result.append({'name':pname, 'flag_shared':part['flag_shared'], 
+                             'total_nodes':part['total_nodes'], 'total_cpus':part['total_cpus'], 'total_gpus':part['total_gpus'],
+                             'avail_nodes_cnt':part['avail_nodes_cnt'], 'avail_cpus_cnt':part['avail_cpus_cnt'], 'avail_gpus':part['avail_gpus'],
+                             'user_alloc_nodes': uNodeCnt,  'user_alloc_cpus': uCpuCnt,
+                             'grp_alloc_nodes': gNodeCnt,   'grp_alloc_cpus': gCpuCnt,
+                             'user_lmt_nodes': uNodeLmt,    'user_lmt_cpus': uCpuLmt,
+                             'grp_lmt_nodes': gNodeLmt,     'grp_lmt_cpus': gCpuLmt,
+                             'user_avail_nodes':availNodeCnt, 'user_avail_cpus':availCpuCnt})
+
+    return uid, linux_grp, result
+
 if __name__ == "__main__":
 
     ins = SlurmEntities()
-    ins.getPartitions()
+    ins.getUserInfoByPartition('ageorgescu')
+    #ins.getPartitions()
