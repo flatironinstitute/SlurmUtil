@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<meta charset='UTF-8'>
+<title>Pending Jobs</title>
+<link rel="stylesheet" href="/static/css/style.css">
+
+<script src="http://code.jquery.com/jquery-1.12.4.min.js"></script>
+<script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+<script type="text/javascript" src="static/scripts/myTable.js"></script>
+<script type="text/javascript">
+
+$(document).ready(function(){{
+    //create table job_table and part_table
+    var r_j_titles     = {{'job_id':'Job ID', 'name':'Name', 'submit_time_str':'Submit Time', 'start_time_str':'Start Time', 'qos':'QoS','partition':'Partition','nodes':'Nodes', 'tres_req_str':'Tres Req', 'tres_alloc_str':'Tres Alloc', 'run_time_str':'Run Time', 'command':'Command', 'work_dir':'Work Dir'}}
+    var p_j_titles     = {{'job_id':'Job ID', 'name':'Name', 'submit_time':'Submit Time', 'num_nodes':'Req Node', 'num_cpus':'Req CPU', 'account':'Account', 'partition':'Req Part.', 'state_reason':'Pending Reason', 'state_exp':'Note'}}
+    var part_titles    = {{'name': 'Partition', 'flag_shared':'Share', 'total_nodes':'Total Node', 'total_cpus':'Total CPU', 'total_gpus':'Total GPU', 'avail_nodes_cnt':'Avail Node', 'avail_cpus_cnt':'Avail CPU', 'avail_gpus':'Avail GPU', 'user_lmt_nodes':'User Node Lmt', 'user_lmt_cpus':'User CPU Lmt', 'grp_lmt_nodes':'Grp Node Lmt', 'grp_lmt_cpus':'Grp CPU Lmt', 'user_alloc_nodes':'User Alloc Node', 'user_alloc_cpus':'User Alloc CPU', 'grp_alloc_nodes':'Grp Alloc Node','grp_alloc_cpus':'Grp Alloc CPU', 'user_avail_nodes': 'User Avail Node', 'user_avail_cpus': 'User Avail CPU'}}
+    var j_h_titles     = {{'job_id':'Job ID', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
+
+    if ({running_jobs}) {{
+       createTable ({running_jobs}, r_j_titles, 'run_job_table',  'running_jobs');
+    }}
+
+    //if ({worker_proc}) {{
+    //   createMultiTable ({worker_proc}, 'worker_proc')
+    //}}
+
+    if ({pending_jobs}) {{
+       createTable ({pending_jobs}, p_j_titles, 'pend_job_table',  'pending_jobs');
+    }}
+
+    createTable ({part_info},   part_titles, 'part_table',        'qos_part')
+    createTable ({job_history}, j_h_titles,  'job_history_table', 'past_job') 
+}});
+</script>
+</head>
+
+<body>
+<div id="user" calss="page-wrap">
+<h3> User: {user} (<a href='userJobGraph?uname={user}'>Usage Graph</a>)</h3>
+   <b>Jump to <a href='#running_jobs'>Running Jobs, </a>
+      <a href='#pending_jobs'>Pending Jobs, </a>
+      <a href='#qos_part'>Partition Resources, </a>
+      <a href='#past_job'>Jobs in the Past </a></b>
+   <p><i>Update time: {update_time}</i>
+<hr>
+<div id="running_jobs" class="page-wrap">
+   <h3>{running_job_cnt} Running Jobs</h3>
+</div>
+<!--<div id="worker_proc" class="page-wrap">
+   <h3>{worker_cnt} Worker Nodes, {core_cnt} Cores & {proc_cnt} Processes</h3>
+   <p>{note}</p>
+</div>
+-->
+<div id="pending_jobs" class="page-wrap">
+   <h3>{pending_job_cnt} Pending Jobs</h3>
+</div>
+<div id="qos_part" class="page-wrap">
+   <h3>{part_cnt} Partition Resources</h3>
+</div>
+<div id="past_job" class="page-wrap">
+   <h3>Jobs of Last {day_cnt} Days</h3>
+   <p>You can change the number of days by adding/changing the parameter "days" in the address such as http://scclin011:8126/testtest?user=uname<font color="red">&days=7</font>
+</div>
+</body>
+
+</html>

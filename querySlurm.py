@@ -2,11 +2,14 @@
 
 import time
 t1=time.time()
-from datetime import datetime, timezone, timedelta
 import subprocess
+import os
 import pyslurm
 import MyTool
 import pandas as pd
+
+from collections import defaultdict
+from datetime import datetime, date, timezone, timedelta
 
 class SlurmStatus:
     STATUS_LIST=['undefined', 'running', 'sleeping', 'disk-sleep', 'zombie', 'stopped', 'tracing-stop']
@@ -26,11 +29,22 @@ class SlurmStatus:
 
 class SlurmDBQuery:
     def __init__(self):
-        pass
+        self.job_df    = None
+        self.job_df_ts = 0
   
     def updateDB (self):
         subprocess.call('../mysqldump.sh')
 
+    def getJobTable (self):
+        #read file time, if updated from last time, reset the value
+        f_name = "slurm_cluster_job_table.csv"
+        m_time = os.stat(f_name).st_mtime
+        if m_time > self.job_df_ts:
+           self.job_df    = pd.read_csv(f_name,usecols=['cpus_req','id_job','state', 'time_submit', 'time_eligible', 'time_start', 'time_end'])
+           self.job_df_ts = m_time
+
+        return self.job_df
+        
     def getAccountUsage_hourly (self, start='', stop=''):
         # check if the data too old
         # if yes, generate data
@@ -82,10 +96,6 @@ class SlurmDBQuery:
     
     # return time_col, value_cols
     def getTimeIndexValue (self, df, time_col, value_cols):
-        #df_time = df[[time_col, value_col]]
-        #df_time.columns = ['time', 'value']
-        #df_time = df_time.groupby('time').agg({'value': sum})   #sum the value with the same time
-
         df_time = df[[time_col] +  value_cols]
         values  = ['value' + str(i) for i in range(len(value_cols))]
         df_time.columns = ['time'] + values
@@ -95,10 +105,14 @@ class SlurmDBQuery:
 
     # get job queue length for the cluster in the format of time, jobQueueLength, requestedCPUs
     def getClusterJobQueue (self, start='', stop='', qTime=0):
+        #job_db_inx,mod_time,deleted,account,admin_comment,array_task_str,array_max_tasks,array_task_pending,cpus_req,derived_ec,derived_es,exit_code,job_name,id_assoc,id_array_job,id_array_task,id_block,id_job,id_qos,id_resv,id_wckey,id_user,id_group,pack_job_id,pack_job_offset,kill_requid,mcs_label,mem_req,nodelist,nodes_alloc,node_inx,partition,priority,state,timelimit,time_submit,time_eligible,time_start,time_end,time_suspended,gres_req,gres_alloc,gres_used,wckey,work_dir,track_steps,tres_alloc,tres_req
         # index is id_job
-        df            = pd.read_csv("slurm_cluster_job_table.csv",usecols=['account', 'cpus_req','id_job','id_qos', 'id_user', 'nodes_alloc', 'state', 'time_submit', 'time_eligible', 'time_start', 'time_end', 'tres_alloc'],index_col=2)
+
+        #df            = pd.read_csv("slurm_cluster_job_table.csv",usecols=['account', 'cpus_req','id_job','id_qos', 'id_user', 'nodes_alloc', 'state', 'time_submit', 'time_eligible', 'time_start', 'time_end', 'tres_alloc'])
+        df            = self.getJobTable()
         start,stop,df = MyTool.getDFBetween (df, 'time_submit', start, stop)
 
+        # Normally, a job enter the queue at time_eligible and leave the queue at time_start
         df               = df[(df['time_eligible'] > 0) & (df['time_eligible'] < stop)]
         # reppared for counting
         df['inc_count']  = 1
@@ -106,19 +120,26 @@ class SlurmDBQuery:
         df['inc_count2'] = df['cpus_req']
         df['dec_count2'] = -df['cpus_req']
 
-        # there is 3 way to stay in a queue after enter at time_eligible 1) leave at time_start, 2) stay with time_start=0, 3) leave at time_end (mostly cancelled)
+        # Count queued job that 1) leave queue to start with time_start>0, 
+        #                       2) leave queue without start with time_start=0 and time_end>0 (mostly cancelled)
+        #                       3) not leave queue with time_start=0 and time_end=0
         df            = df[(df['time_eligible'] < df['time_start']-1-qTime) | ((df['time_start']==0) & (df['time_end']==0)) | ((df['time_start']==0) & (df['time_eligible'] < df['time_end']-1-qTime))]   # as the unit is in sec, +1 to remove accuracy issue,
-        #df            = df[(df['time_eligible'] < df['time_start']-1-qTime)]
+        #print ('getClusterJobQueue {} {} df=\n{}'.format(start, stop, df))
 
         # counting
         df_t1           = self.getTimeIndexValue(df,                     'time_eligible', ['inc_count', 'inc_count2'])
+        #print ('getClusterJobQueue df_t1={}'.format(df_t1))
         df_t2           = self.getTimeIndexValue(df[df['time_start']>0], 'time_start',    ['dec_count', 'dec_count2'])
+        #print ('getClusterJobQueue df_t2={}'.format(df_t2))
         df_t3           = self.getTimeIndexValue(df[(df['time_start']==0) & (df['time_end']>0)], 'time_end',    ['dec_count', 'dec_count2'])
+        #print ('getClusterJobQueue df_t3={}'.format(df_t3))
         df_time         = df_t1.add(df_t2, fill_value=0).add(df_t3, fill_value=0)
         df_time         = df_time.sort_index().cumsum()
+        #print ('getClusterJobQueue df={}'.format(df_time))
 
         return start, stop, df_time.reset_index()
 
+    # not used by anybody now
     # get jobs information as eligible_time, start_time, id_job, id_user, account, cpus_req, nodes_alloc
     def getJobsName (self, start='', stop=''):
         # index is id_job
@@ -168,14 +189,54 @@ class SlurmDBQuery:
 
         return df[['id_job', 'user', 'time_start', 'time_end', 'time_suspended']]
 
+
 class SlurmCmdQuery:
     LOCAL_TZ = timezone(timedelta(hours=-4))
 
     def __init__(self):
         pass
 
-    def sacctCmd (self, criteria, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End'):
-        #cmd = ['sacct', '-a', '-n', '-P', '-o', 'JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End'] + criteria
+    @staticmethod
+    def sacct_getUserJobReport (user, days=3, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End', skipJobStep=True):
+        return SlurmCmdQuery.sacct_getJobReport(['-u', user], days, output, skipJobStep)
+
+    # return {jid:jinfo, ...}
+    @staticmethod
+    def sacct_getJobReport (criteria, days=3, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End', skipJobStep=True):
+        if days:
+           t = date.today() + timedelta(days=-days)
+           startDate = '%d-%02d-%02d'%(t.year, t.month, t.day)
+           criteria  = ['-S', startDate] + criteria
+
+        sacct_str = SlurmCmdQuery.sacctCmd (criteria, output)
+        jobs      = []
+        for line in sacct_str.splitlines():
+            if not line: continue
+            ff = line.split(sep='|')
+            if (skipJobStep and '.' in ff[0]): continue # indicates a job step --- under what circumstances should these be broken out?
+            if ( '.' in ff[0] ):
+               ff0 = ff[0].split(sep='.')[0]
+            else:
+               ff0 = ff[0]
+
+            f0p = ff0.split(sep='_')
+            try:
+                ff[0], aId = int(f0p[0]), int(f0p[1])
+            except:
+                ff[0], aId = int(f0p[0]), -1
+            if ff[3].startswith('CANCELLED by '):
+                uid   = ff[3].rsplit(' ', 1)[1]
+                uname = MyTool.getUser(uid)
+                ff[3] = '%s (%s)'%(ff[3], uname)
+            keys = output.split(sep=',')
+            job = dict(zip(keys, ff))
+            job['job_id'] = job['JobID']
+            jobs.append(job)
+
+        return jobs
+
+    @staticmethod
+    def sacctCmd (criteria, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End'):
         cmd = ['sacct', '-n', '-P', '-o', output] + criteria
         try:
             #TODO: capture standard error separately?

@@ -372,49 +372,6 @@ class SLURMMonitor(object):
         return h
 
     @cherrypy.expose
-    def testtest(self, start='', stop=''):
-        start, stop  = MyTool.getStartStopTS (start, stop)
-        influxClient = InfluxQueryClient.getClientInstance()
-        tsReason2Cnt, jidSet = influxClient.getPendingCount(start, stop)
-        bySched      = 'Dependency|Priority|BeginTime|JobArrayTaskLimit' 
-        byResource   = 'Resources|ReqNodeNotAvail*|Nodes_required_for_job_are_DOWN*'
-        byQOS        = 'QOS*'
-        byGPU        = 'Resources_GPU'
-        reasons      = [set(reasons.keys()) for ts, reasons in tsReason2Cnt.items()]
-        reasons      = set([i2 for item in reasons for i2 in item])
-        cate2ts_cnt  = defaultdict(list)
-        other_reason_set = set()
-        for ts, reason2Cnt in tsReason2Cnt.items():
-            for reason, cnt in reason2Cnt.items():
-                cate = 'Other'
-                if not reason:
-                   other_reason_set.add(reason)
-                elif re.match(bySched, reason):
-                   cate = 'Sched'
-                elif re.match(byResource, reason):
-                   cate = 'Resource'
-                elif re.match(byGPU, reason):
-                   cate = 'GPU'
-                elif re.match(byQOS, reason):
-                   cate = 'QoS'
-                else:
-                   other_reason_set.add(reason)
-                cate2ts_cnt[cate].append ([ts, cnt])
-        series1   = [
-                     {'name': 'Queued by QoS',            'data':cate2ts_cnt['QoS']},
-                     {'name': 'Queued by Resource',       'data':cate2ts_cnt['Resource']},
-                     {'name': 'Queued by GPU Resource',   'data':cate2ts_cnt['GPU']},
-                     {'name': 'Queued by Job Defination', 'data':cate2ts_cnt['Sched']},
-                     {'name': 'Queued by Other',    'data':cate2ts_cnt['Other']}]
-        htmlTemp = os.path.join(wai, 'jobResourceReport.html')
-        h = open(htmlTemp).read().format(start=time.strftime('%Y-%m-%d', time.localtime(start)),
-                                         stop=time.strftime('%Y-%m-%d', time.localtime(stop)),
-                                         series_00=series1, series_01=series1, title1='Cluster Job Queue Length', xlabel1='Queue Length', 
-                                         series_10=series1, series_11=series1, title2='Cluster Job Queue Length 2', xlabel2='Queue Length2') 
-
-        return h
-
-    @cherrypy.expose
     def pending_history(self, start='', stop=''):
         start, stop  = MyTool.getStartStopTS (start, stop)
 
@@ -829,8 +786,8 @@ class SLURMMonitor(object):
 
         return d.decode('utf-8')
 
-    def sacctDataInWindow(self, criteria):
-        t = datetime.date.today() + datetime.timedelta(days=-SACCT_WINDOW_DAYS)
+    def sacctDataInWindow(self, criteria, day_cnt=SACCT_WINDOW_DAYS):
+        t = datetime.date.today() + datetime.timedelta(days=-day_cnt)
         startDate = '%d-%02d-%02d'%(t.year, t.month, t.day)
         d = self.sacctData (['-S', startDate] + criteria)
         #print(repr(d))
@@ -1023,14 +980,55 @@ class SLURMMonitor(object):
 
     @cherrypy.expose
     def userJobs(self, user):
-        cmd = SlurmCmdQuery()
-
         t = htmlPreamble
         t += '<h3>Running and Pending Jobs of user <a href="./userDetails?user={0}">{0}</a> (<a href="./userJobGraph?uname={0}">Graph</a>)</a></h3>Update time:{1}'.format(user, MyTool.getTimeString(int(time.time())))
-        t += self.sacctReport(cmd.sacctCmd(['-u', user, '-s', 'RUNNING,PENDING'], output='JobID,JobName,State,Partition,NodeList,AllocCPUS,Submit,Start'),
+        t += self.sacctReport(SlurmCmdQuery.sacctCmd(['-u', user, '-s', 'RUNNING,PENDING'], output='JobID,JobName,State,Partition,NodeList,AllocCPUS,Submit,Start'),
                               titles=['Job ID', 'Job Name', 'State', 'Partition','NodeList','Allocated CPUS', 'Submit','Start'])
         t += '<a href="%s/index">&#8617</a>\n</body>\n</html>\n'%cherrypy.request.base
         return t
+
+    @cherrypy.expose
+    def testtest(self, user='awietek', days=3):
+        ins            = SlurmEntities.SlurmEntities()
+        userjob        = ins.getUserJobsByState (user)
+        uid, grp, part = ins.getUserPartition (user)
+        if type(self.data) == dict:
+           note       = ''
+           userworker = self.getUserNodeData(user)
+           core_cnt   = sum([val[0] for val in userworker.values()]) 
+           proc_cnt   = sum([val[1] for val in userworker.values()])
+        else:
+           note       = 'Note: {}'.format(self.data)
+           userworker = {}
+           core_cnt   = 0
+           proc_cnt   = 0
+
+        past_job      = SlurmCmdQuery.sacct_getUserJobReport(user, days=int(days))
+
+        htmlTemp   = os.path.join(wai, 'userDetail.html')
+        htmlStr    = open(htmlTemp).read().format(user=user, update_time=ins.update_time.ctime(), 
+                                                  running_job_cnt=len(userjob['RUNNING']), running_jobs=json.dumps(userjob['RUNNING']), 
+                                                  pending_job_cnt=len(userjob['PENDING']), pending_jobs=json.dumps(userjob.get('PENDING',None)), 
+                                                  worker_cnt=len(userworker), core_cnt=core_cnt, proc_cnt=proc_cnt, worker_proc=json.dumps(userworker), note=note,
+                                                  part_cnt=len(part), part_info=json.dumps(part),
+                                                  job_history=past_job, day_cnt = days)
+        return htmlStr
+        # Currently, running jobs & pending jobs of the user
+        #            processes in the worker nodes
+        # Future, QoS and resource restriction
+        # Past,   finished or cancelled jobs for the last 3 days
+        
+    #return dict (workername, workerinfo)
+    def getUserNodeData (self, user='awietek'):
+        if type(self.data) == str: return {self.data:self.data} # error of some sort.
+
+        result = {}
+        for node, d in self.data.items():
+            if len(d) < USER_INFO_IDX: continue   # no user info
+            for user_name, uid, alloc_core_cnt, proc_cnt, t_cpu, t_rss, t_vms, procs, t_io, *etc in d[USER_INFO_IDX:]:
+                if user_name == user:
+                   result[node]= [alloc_core_cnt, proc_cnt, t_cpu, t_rss, t_vms, procs, t_io]
+        return result
 
     @cherrypy.expose
     def userDetails(self, user):
@@ -1040,8 +1038,8 @@ class SLURMMonitor(object):
         t += '<h3>User: %s (<a href="./userJobGraph?uname=%s">Graph</a>), <a href="#sacctreport">(jump to sacct)</a></h3>\n'%(user, user)
         for node, d in sorted(self.data.items()):
             if len(d) < USER_INFO_IDX: continue
-            for nuser, uid, cores, procs, tc, trm, tvm, cmds, io, *etc in sorted(d[USER_INFO_IDX:]):
-                if nuser != user: continue
+            for user_name, uid, cores, procs, tc, trm, tvm, cmds, io, *etc in sorted(d[USER_INFO_IDX:]):
+                if user_name != user: continue
                 ac = MyTool.loadSwitch(cores, tc, ' class="inform"', '', ' class="alarm"')
                 t += '<hr><em{0}><a href="./nodeDetails?node={1}">{1}</em></a> {2}<pre>'.format(ac, node, cores)
                 t += '\n'.join([' '.join(['%6d'%cmd[0], '%6.2f'%cmd[1], '%10.2e'%cmd[5], '%10.2e'%cmd[6]] + cmd[7]) for cmd in cmds]) + '\n</pre>\n'

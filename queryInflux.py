@@ -2,7 +2,7 @@
 
 import time
 t1=time.time()
-import json, pwd, sys, pickle
+import json, operator, pwd, sys, pickle
 from datetime import datetime, timezone, timedelta
 
 import influxdb
@@ -299,14 +299,14 @@ class InfluxQueryClient:
 
         tsReason2jobCnt = defaultdict(lambda:defaultdict(int))
         tsState2cpuCnt  = defaultdict(lambda:defaultdict(int))
-        tsPart2points   = defaultdict(lambda:defaultdict(list))   # sav partition-points
-        ts2priority     = defaultdict(list)                       # sav Priority points
+        tsPart2noPri    = defaultdict(lambda:defaultdict(list))   # sav partition-points
+        tsPart2pri      = defaultdict(lambda:defaultdict(list))                       # sav Priority points
        
         for point in points:
             ts           = point['time']
             state_reason = point['state_reason']
 
-            if (state_reason in ['Resources', 'Priority']):
+            if state_reason and ('Resources' in state_reason):
               tres = point.get('tres_per_node','')
               if (tres and 'gpu' in tres):
                  tsReason2jobCnt[ts]['{}_GPU'.format(state_reason)] += 1
@@ -317,24 +317,24 @@ class InfluxQueryClient:
 
             # Priority reduce to resources most of the time
             if state_reason and ('Priority' in state_reason):
-              ts2priority[ts].append (point)
+              tsPart2pri[ts][point['partition']].append (point)
             else:
-              tsPart2points[ts][point['partition']].append(point)
+              tsPart2noPri[ts][point['partition']].append(point)  #non-priority is saved by parition
              
-        for ts, point_lst in ts2priority.items():
-            for point in point_lst:
-                samePart = tsPart2points[ts][point['partition']]
-                if not samePart:
-                   print ('WARNING: {}:jid={}, part={}, no other job waiting for the same partition! {}'.format(ts, point['job_id'], point['partition'], samePart))
-                   break
-                samePart_reason = [(point['job_id'], point['state_reason']) for point in samePart if point['state_reason'] != 'Priority']
-                samePart_reasonSet = set([item[1] for item in samePart_reason])
-        # see 2 "resources"
-                if len(samePart_reasonSet)>1 or 'Resources' not in samePart_reasonSet:
-                   print ('{}:jid={},part={}, {}'.format(ts, point['job_id'], point['partition'], samePart_reason))
-        #        if ( len(samePart) > 1):
-        #           print ("WARNING: {} has more than one job penidng on it {}".format(point['partition'], samePart))
-                           
+        for ts, part2pri in tsPart2pri.items():
+            for part_name, pri_lst in part2pri.items():
+                pri_min_jid     = min([point['job_id'] for point in pri_lst])
+                noPri_lst       = tsPart2noPri[ts][part_name]
+                pri_count       = min(10, len(pri_lst))
+                if noPri_lst:
+                   #the job with a max jid smaller than pri_min_jid
+                   #noPri_pre_jid   = max([point['job_id'] for point in noPri_lst if point['job_id'] < pri_min_jid])
+                   #noPri_pre_point = [point for point in noPri_lst if point['job_id']==noPri_pre_jid][0]
+                   noPri_pre_point = max([point for point in noPri_lst if point['job_id'] < pri_min_jid], default={'state_reason':None}, key=operator.itemgetter('job_id'))
+                   tsReason2jobCnt[ts][noPri_pre_point['state_reason']] += pri_count
+                else:
+                   tsReason2jobCnt[ts][None] += pri_count
+                
         return tsReason2jobCnt, jidSet
         
     #return information of hostname
@@ -379,9 +379,9 @@ def main():
     t1=time.time()
     start, stop = MyTool.getStartStopTS(days=3) 
     app   = InfluxQueryClient()
-    app.getPendingCount(start, stop)
-    #app.savNodeHistory(days=7)
-    #app.savJobRequestHistory(days=7)
+    #app.getPendingCount(start, stop)
+    app.savNodeHistory(days=7)
+    app.savJobRequestHistory(days=7)
     #app.getJobRequestHistory(start, stop)
     #app.getNodeHistory(start, stop)
     #point = app.getSlurmJobInfo('70900')
