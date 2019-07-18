@@ -988,7 +988,7 @@ class SLURMMonitor(object):
         return t
 
     @cherrypy.expose
-    def testtest(self, user='awietek', days=3):
+    def userDetails(self, user, days=3):
         ins            = SlurmEntities.SlurmEntities()
         userjob        = ins.getUserJobsByState (user)
         uid, grp, part = ins.getUserPartition (user)
@@ -1031,7 +1031,7 @@ class SLURMMonitor(object):
         return result
 
     @cherrypy.expose
-    def userDetails(self, user):
+    def userDetails_old(self, user):
         if type(self.data) == str: return self.data # error of some sort.
 
         t = htmlPreamble
