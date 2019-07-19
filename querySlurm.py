@@ -198,11 +198,16 @@ class SlurmCmdQuery:
 
     @staticmethod
     def sacct_getUserJobReport (user, days=3, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End', skipJobStep=True):
-        return SlurmCmdQuery.sacct_getJobReport(['-u', user], days, output, skipJobStep)
+        return SlurmCmdQuery.sacct_getReport(['-u', user], days, output, skipJobStep)
+
+    @staticmethod
+    def sacct_getJobReport (jobid, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocNodes,AllocCPUS,NodeList'):
+        return SlurmCmdQuery.sacct_getReport(['-j', str(jobid)], days=None, output=output, skipJobStep=False)
 
     # return {jid:jinfo, ...}
     @staticmethod
-    def sacct_getJobReport (criteria, days=3, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End', skipJobStep=True):
+    def sacct_getReport (criteria, days=3, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End', skipJobStep=True):
+        #print('sacct_getReport {} {} {}'.format(criteria, days, skipJobStep))
         if days:
            t = date.today() + timedelta(days=-days)
            startDate = '%d-%02d-%02d'%(t.year, t.month, t.day)
@@ -221,9 +226,9 @@ class SlurmCmdQuery:
 
             f0p = ff0.split(sep='_')
             try:
-                ff[0], aId = int(f0p[0]), int(f0p[1])
+                jid, aId = int(f0p[0]), int(f0p[1])
             except:
-                ff[0], aId = int(f0p[0]), -1
+                jid, aId = int(f0p[0]), -1
             if ff[3].startswith('CANCELLED by '):
                 uid   = ff[3].rsplit(' ', 1)[1]
                 uname = MyTool.getUser(uid)
@@ -238,6 +243,7 @@ class SlurmCmdQuery:
     @staticmethod
     def sacctCmd (criteria, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End'):
         cmd = ['sacct', '-n', '-P', '-o', output] + criteria
+        print('{}'.format(cmd)) 
         try:
             #TODO: capture standard error separately?
             d = subprocess.check_output(cmd, stderr=subprocess.STDOUT)

@@ -4,12 +4,47 @@ function prepareData (data) {
    return data
 }
 
-function createMultiTable (data_dict, parent_id) {
+//data_dict is a dictionary of a fixed format
+function createMultiTable (data_dict, parent_id, table_title_list) {
    console.log(data_dict)
+   console.log(parent_id)
+   console.log(table_title_list)
+
+   var pas = d3.select('#'+parent_id).selectAll('p')
+               .data(Object.keys(data_dict))
+               .enter().append('div')
+   pas.append('p')
+      .attr('class', 'thick')
+      .text(function (d) {console.log(d); return d + ': alloc cores ' + data_dict[d][0] + ' , running processes ' + data_dict[d][1]} )
+
+   var tables = pas.append('table').property('id', function(d) {return d+'_proc'}).attr('class','noborder')
+   var hds    = tables.append('thead')
+                     .append('tr')
+                     .selectAll('th')
+                     .data(table_title_list)
+                     .enter().append('th')
+                        .attr('class','noborder')
+                        .text(function (d,i) { return table_title_list[i]; })
+
+   var trs    = tables.append('tbody').selectAll('tr')
+                   .data(function (d) {return data_dict[d][5]})
+                   .enter().append('tr')
+                      .attr('class','noborder')
+   trs.selectAll('td')
+      .data(function(d) {return d})
+      .enter().append('td')
+         .attr('class','noborder')
+         .text(function (d) {return d})
+}
+
+function createMultiList (data_dict, parent_id) {
+   console.log(data_dict)
+   console.log(parent_id)
+   console.log(d3.select('#'+parent_id))
    var pas = d3.select('#'+parent_id).selectAll('p')
                .data(Object.keys(data_dict))
                .enter().append('p')
-               .text(function (d) {return d + ': alloc cores ' + data_dict[d][0] + ' , running processes ' + data_dict[d][1]} )
+               .text(function (d) {console.log(d); return d + ': alloc cores ' + data_dict[d][0] + ' , running processes ' + data_dict[d][1]} )
 
    var uls = pas.append('ul').property('id', function(d) {return d+'_proc'})
    uls.selectAll('li')

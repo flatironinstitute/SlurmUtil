@@ -140,7 +140,7 @@
               .attr("value", function (d) {return d["util"]})
               .on("dblclick", function(d) {
                               if (d3,event.ctrlKey) {
-                                 location.href="jobDetails?jobid="+d["jobs"]
+                                 location.href="jobDetails?jid="+d["jobs"]
                               } else {
                                  location.href="nodeDetails?node="+d["name"]
                               }})

@@ -190,6 +190,10 @@ input:checked + .slider:before {
   border-radius: 50%;
 }
 
+p.thick {
+  font-weight: bold;
+}
+
 /*Generic display */
 table {
   width:           100%;
@@ -212,6 +216,25 @@ td, th {
   padding: 6px;
   border: 1px solid #ccc;
   text-align: left;
+}
+table.noborder{
+  border: none;
+}
+tr.noborder{
+  border: none
+  background: white;
+}
+tr.noborder:nth-of-type(odd) {
+  background: white;
+}
+td.noborder{
+  border: none;
+  vertical-align: top;
+}
+th.noborder{
+  border: none;
+  background: #eee;
+  color: black;
 }
 th.des:after {
   content: "\21E9";
@@ -241,4 +264,10 @@ td.group_minus:before {
 }
 td.group_sub:before {
    content: "\2001"
+}
+div {
+   margin: 10px;
+}
+div.tab{
+   margin: 0px;
 }

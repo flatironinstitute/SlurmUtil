@@ -208,7 +208,7 @@ def createNestedDict (rootSysname, levels, data_df, valColname):
                     #TODO: Hack, Replace when we've redesigned the data representation.
                     url = ''
                     if level == 2:
-                        url = 'jobDetails?jobid=' + str(this_name)
+                        url = 'jobDetails?jid=' + str(this_name)
                     elif level == 1:
                         url = 'userDetails?user=' + this_name
                     #Add new element

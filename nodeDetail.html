@@ -33,10 +33,9 @@
 
        str = ""
        Object.keys(jobData).forEach(function(e) 
-                                          {{if (str!="") str +=",";
-                                            str += " " + e + "(" + jobData[e] + " cores, <a href='./jobGraph?jobid=" + e + "'>Graph</a>)";
-                                            console.log (jobData[i] + " " + str)
-                                          }})
+                                      {{if (str!="") str +=",";
+                                        str += "<a href='./jobDetails?jid=" + e + "'>" + e + "</a>(" + jobData[e] + " cores, <a href='./jobGraph?jobid=" + e + "'>Graph</a>)";
+                                      }})
        if ( str!="" )
           $("#jobs").append("Jobs Allocated: " + str)
 

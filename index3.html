@@ -78,7 +78,7 @@ function getSingleSummaryData(table_data, startRow, endRow, sortIdx) {
    if ( sortIdx == NODE_IDX ) {
       summary[sortIdx] = "<a href=./nodeDetails?node=" + summary[sortIdx] + ">" + summary[sortIdx] + "</a>" 
    } else if ( sortIdx == JOB_IDX) {
-      summary[sortIdx] = "<a href=./jobDetails?jobid=" + summary[sortIdx] + ">" + summary[sortIdx] + "</a>" 
+      summary[sortIdx] = "<a href=./jobDetails?jid=" + summary[sortIdx] + ">" + summary[sortIdx] + "</a>" 
    } else if ( sortIdx == USER_IDX) {
       summary[sortIdx] = "<a href=./userDetails?user=" + summary[sortIdx] + ">" + summary[sortIdx] + "</a>" 
    }
@@ -188,7 +188,7 @@ function getMinusSign() {
 function getTDsHtml (r) {
    // 0:Node, Status, Jobs, Delay, User, 5:Cores Allocated, Processes, Aggregate Load, RSS, 9:VMS
    var delayC= getCategory(r[3], 120, '"right"', '"right"', '"right alarm"')
-   var tds   = `<td><a href="./nodeDetails?node=${r[0]}">${r[0]}</a></td><td>${r[1]}</td><td><a href="./jobDetails?jobid=${r[2]}">${r[2]}</td><td class=${delayC}>${r[3]}</td>`
+   var tds   = `<td><a href="./nodeDetails?node=${r[0]}">${r[0]}</a></td><td>${r[1]}</td><td><a href="./jobDetails?jid=${r[2]}">${r[2]}</td><td class=${delayC}>${r[3]}</td>`
    var tds2  = '<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>'
    if ( r.length > 4 ) {
       var userC = getCategory(r[7], r[5]-1, r[5]+1, '', '', '"alarm"') 
