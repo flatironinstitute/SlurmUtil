@@ -992,6 +992,9 @@ class SLURMMonitor(object):
         ins            = SlurmEntities.SlurmEntities()
         userjob        = ins.getUserJobsByState (user)
         uid, grp, part = ins.getUserPartition (user)
+        for p in part:
+            for k,v in p.items():
+                if v == 4294967295: p[k]='None'
         if type(self.data) == dict:
            note       = ''
            userworker = self.getUserNodeData(user)
@@ -1011,6 +1014,7 @@ class SLURMMonitor(object):
                                                   pending_job_cnt=len(userjob['PENDING']), pending_jobs=json.dumps(userjob.get('PENDING',None)), 
                                                   worker_cnt=len(userworker), core_cnt=core_cnt, proc_cnt=proc_cnt, worker_proc=json.dumps(userworker), note=note,
                                                   part_cnt=len(part), part_info=json.dumps(part),
+
                                                   job_history=past_job, day_cnt = days)
         return htmlStr
         # Currently, running jobs & pending jobs of the user
@@ -1067,6 +1071,9 @@ class SLURMMonitor(object):
         start       = int(MyTool.getSlurmTimeStamp(job_report[0]['Start']))
         node_list   = MyTool.nl2flat(job_report[0]['NodeList'])
         node_str    = '&var-hostname=' + '&var-hostname='.join(node_list)
+        worker_cnt  = job_report[0]['AllocNodes']
+        cpu_cnt     = job_report[0]['AllocCPUS']
+        user        = job_report[0]['User']
         if job_report[0]['State']=='RUNNING':
            if type(self.data) == str: 
               proc_note=self.data 
@@ -1078,18 +1085,27 @@ class SLURMMonitor(object):
               job_info    = self.currJobs[jid]
               worker_proc, proc_field = self.getJobNodeData (job_info)             
               start       = job_info.get('start_time', '')
+              if len(worker_proc) != int(worker_cnt):
+                 proc_note='ERROR: worker count is not consistent between sacct({}) and process monitor({})'.format(worker_cnt,len(worker_proc))
         else: # not RUNNING
-           pass
-
-
+           end       = int(MyTool.getSlurmTimeStamp(job_report[0]['End']))
+           if end != 'Unknown':
+              proc_note='Start at {}, end at {}'.format(start, end)
+           else:
+              proc_note='Can not find End time for a non-running job'
+        
+           influxClient = InfluxQueryClient.getClientInstance()
+           # query influx cpu_proc_info between start and end where uid and hostname
+           proc_note, points = influxClient.getUserProc (user, node_list, start, end)
+           # query influx cpu_proc_mon latest between start and end for final performance data
+             
         grafana_url = 'http://mon8:3000/d/jYgoAfiWz/yanbin-slurm-node-util?orgId=1&from={}{}&var-jobID={}&theme=light'.format(start*1000, node_str,jid)
-        core_cnt   = sum([val[0] for val in worker_proc.values()]) 
         proc_cnt   = sum([val[1] for val in worker_proc.values()])
         htmlTemp   = os.path.join(wai, 'jobDetail.html')
         htmlStr    = open(htmlTemp).read().format(job_id=jid, job_state=job_report[0]['State'], update_time=datetime.datetime.fromtimestamp(update_time).ctime(),
                                                   grafana_url=grafana_url,
                                                   worker_proc=worker_proc, proc_field=proc_field,
-                                                  worker_cnt=len(worker_proc), core_cnt=core_cnt, proc_cnt=proc_cnt,note=proc_note,
+                                                  worker_cnt=worker_cnt, core_cnt=cpu_cnt, proc_cnt=proc_cnt,note=proc_note,
                                                   job_report=job_report)
         return htmlStr
 

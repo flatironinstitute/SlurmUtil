@@ -26,6 +26,8 @@ PEND_EXP={
 class SlurmEntities:
   #two's complement -1
   TCMO = 2**32 - 1
+  #GoS max user node, cpu limit
+  MAX_LMT=429496729
 
   def __init__ (self):
     self.getPyslurmData ()
@@ -378,7 +380,27 @@ class SlurmEntities:
 
               # user avail
               availNodeCnt   = min(part['avail_nodes_cnt'],  gNodeLmt-gNodeCnt, uNodeLmt-uNodeCnt)
-              availCpuCnt    = min(part['total_cpus'],       gCpuLmt-gCpuCnt,   uCpuLmt-uCpuCnt)
+              availCpuCnt    = min(part['avail_cpus_cnt'],   gCpuLmt-gCpuCnt,   uCpuLmt-uCpuCnt)
+              if availCpuCnt < part['avail_cpus_cnt']:
+                 if part['flag_shared'] == 'NO':
+                    #if not shared partition, extra constraint on availNodeCnt imposed by availCpuCnt
+                    avail_cpus_inc = part['avail_cpus'].copy()
+                    avail_cpus_inc.sort()
+                    count=0
+                    for i in range(len(avail_cpus_inc)):
+                        count += avail_cpus_inc[i]
+                        if count > availCpuCnt:
+                           availNodeCnt = i 
+                           availCpuCnt  = count - avail_cpus_inc[i]
+                           break
+                 else:
+                    availNodeCnt = min(availNodeCnt, availCpuCnt)
+              elif availNodeCnt < part['avail_nodes_cnt']:  #availCpuCnt == part['avail_cpus']
+                    #if not shared partition, extra constraint on availCpuCnt imposed by availNodeCnt
+                    avail_cpus_dec = part['avail_cpus'].copy()
+                    avail_cpus_dec.sort(reverse=True)
+                    count          = sum(avail_cpus_dec[0:availNodeCnt])
+                    availCpuCnt    = max(count, availCpuCnt)
             
               result.append({'name':pname, 'flag_shared':part['flag_shared'], 
                              'total_nodes':part['total_nodes'], 'total_cpus':part['total_cpus'], 'total_gpus':part['total_gpus'],
@@ -393,6 +415,7 @@ class SlurmEntities:
 
 if __name__ == "__main__":
 
+    print ('hello')
     ins = SlurmEntities()
-    ins.getUserInfoByPartition('ageorgescu')
+    ins.getUserPartition('agabrielpillai')
     #ins.getPartitions()

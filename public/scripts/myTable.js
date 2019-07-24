@@ -83,7 +83,7 @@ function createNestedTable (data, field_key, title_dict, sub_data, table_id, par
                  } else if (d.name == 'partition') {
                     return '<a href=./partitionDetail?partition=' + d.value+'>' + d.value + '</a>'
                  } else if (d.name == 'job_id') {
-                    return '<a href=./jobDetails?jobid=' + d.value + '>' + d.value + '</a>'
+                    return '<a href=./jobDetails?jid=' + d.value + '>' + d.value + '</a>'
                  }
                  return d.value;})
 
@@ -165,7 +165,7 @@ function createTable (data, titles_dict, table_id, parent_id) {
                  } else if (d.name == 'partition') {
                     return '<a href=./partitionDetail?partition=' + d.value+'>' + d.value + '</a>'
                  } else if (d.name == 'job_id') {
-                    return '<a href=./jobDetails?jobid=' + d.value + '>' + d.value + '</a>'
+                    return '<a href=./jobDetails?jid=' + d.value + '>' + d.value + '</a>'
                  }
                 
                  return d.value;
