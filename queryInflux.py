@@ -72,10 +72,14 @@ class InfluxQueryClient:
         for point in points: #points are sorted by point['time']
             ts       = point['time']
             node     = point['hostname']
+            if 'mem_rss_K' in point:
+               mem_rss_K = MyTool.getDictNumValue(point, 'mem_rss_K')
+            else:
+               mem_rss_K = int(MyTool.getDictNumValue(point, 'mem_rss') / 1024)
             node2seq[node][ts] = [ MyTool.getDictNumValue(point, 'cpu_system_util') + MyTool.getDictNumValue(point, 'cpu_user_util'), 
                                    MyTool.getDictNumValue(point, 'io_read_rate'),
                                    MyTool.getDictNumValue(point, 'io_write_rate'), 
-                                   MyTool.getDictNumValue(point, 'mem_rss')]
+                                   mem_rss_K]
 
         #print(repr(node2seq))
         print("INFO: getSlurmUidMonData take time " + str(time.time()-t1))
@@ -99,9 +103,12 @@ class InfluxQueryClient:
 
         #execute query, returned time is local timestamp, epoch is for returned result, not for query
         results = self.influx_client.query(query, epoch='ms')
-        points  = results.get_points() # lists of dictionaries
+        points  = list(results.get_points()) # lists of dictionaries
+        for point in points:
+            if 'mem_rss_K' not in point:
+               point['mem_rss_K']=int (point['mem_rss'] / 1024)
 
-        print("INFO: getSlurmUidMonData_All take time " + str(time.time()-t1))
+        print("INFO: getSlurmUidMonData take time {} and return {} points".format((time.time()-t1), len(points)))
         return points
 
     #return time series of the a uid on all nodes, {hostname: {ts: [cpu, io, mem] ... }, ...}
@@ -121,9 +128,13 @@ class InfluxQueryClient:
             ts       = point['time']
             node     = point['hostname']
             if node not in node2seq: node2seq[node]={}
+            if 'mem_rss_K' in point:
+               mem_rss_K = MyTool.getDictNumValue(point, 'mem_rss_K')
+            else:
+               mem_rss_K = int(MyTool.getDictNumValue(point, 'mem_rss') / 1024)
             node2seq[node][ts] = [ MyTool.getDictNumValue(point, 'cpu_system_util') + MyTool.getDictNumValue(point, 'cpu_user_util'), 
                                    MyTool.getDictNumValue(point, 'io_read_bytes')   + MyTool.getDictNumValue(point, 'io_write_bytes'), 
-                                   MyTool.getDictNumValue(point, 'mem_rss')]
+                                   mem_rss_K]
         #print(repr(node2seq))
         print("INFO: getSlurmUidMonData_All take time " + str(time.time()-t1))
         return node2seq
@@ -161,7 +172,7 @@ class InfluxQueryClient:
     # return list [[ts, run_time] ... ]
     def getSlurmJobRuntimeHistory (self, jobid, st, et):
         t1=time.time()
-        query= "select * from one_week.slurm_jobs_mon where job_id = '" + str(jobid) + "' and time >= " + str(st) + "000000000 and time <= " + str(int(et)) + "000000000"
+        query= "select * from autogen.slurm_job_mon where job_id = '" + str(jobid) + "' and time >= " + str(st) + "000000000 and time <= " + str(int(et)) + "000000000"
         print ("INFO: getSlurmJobRuntimeHistory " + query)
 
         results = self.influx_client.query(query, epoch='ms')
@@ -169,7 +180,7 @@ class InfluxQueryClient:
         nodeDataDict    = {}
         for point in points:
             #print (repr(point))
-            nodgetNodeHistoryeDataDict[point['time']] = point['run_time']
+            nodeDataDict[point['time']] = point['run_time']
 
         print("INFO: getSMon take time " + str(time.time()-t1))
      
@@ -375,13 +386,62 @@ class InfluxQueryClient:
         print("getNodeMonData_1 take time " + str(time.time()-t1))
         return ts2data
 
+    def getUserProc(self, user, nodelist, start_time, stop_time):
+        t1=time.time()
+
+        uid       = MyTool.getUid(user)
+        g =['({})'.format(n) for n in nodelist]
+        hostnames = '|'.join(g)
+        query= "select * from autogen.cpu_proc_info where uid = '" + str(uid) + "' and hostname=~/"+ hostnames + "/ and time >= " + str(int(start_time)) + "000000000 and time <= " + str(int(stop_time)+1) + "000000000"
+        print ("getUserProc " + query)
+
+        #execute query, returned time is local timestamp, epoch is for returned result, not for query
+        query_rlt = self.influx_client.query(query, epoch='s') 
+        rlt       = {}
+        for node in nodelist:
+            points = query_rlt.get_points(tags={'hostname':node})
+            procs  = list(points)
+            #time cmdline cpu_affinity cpu_system_time cpu_user_time end_time hostname io_read_bytes io_read_count io_write_bytes io_write_count mem_data   mem_lib mem_rss   mem_shared mem_text mem_vms    name    num_fds pid    ppid   status   uid 
+            #{'time': 1564604764, 'cmdline': "['/mnt/home/ageorgescu/qe/qe_release_6.4/bin/pw.x', '-nk', '270', '-ndiag', '1']", 'hostname': 'worker0031', 'name': 'pw.x', 'pid': '1003095', 'ppid': 1002972, 'uid': '1144'},
+            for proc in procs:
+                if 'end_time' not in proc or not proc['end_time']:
+                   print('WARNING: getUserProc do not have end_time {}'.format(proc)) 
+                   proc['avg_util'] = -1
+                   proc['avg_io']   = -1
+                else:
+                   period = proc['end_time']-proc['time']
+                   proc['avg_util'] = (proc.get('cpu_system_time',0)+proc.get('cpu_user_time',0))/period            
+                   proc['avg_io']   = (proc.get('io_write_bytes',0)+proc.get('io_write_bytes',0))/1024/period
+
+                proc['cmdline']  = ' '.join(eval(proc['cmdline']))
+                if 'mem_rss_K' not in proc:
+                   if proc['mem_rss']:
+                      proc['mem_rss_K'] = int(proc['mem_rss'] / 1024)
+                   else:
+                      proc['mem_rss_K'] = -1
+                if 'mem_vms_K' not in proc:
+                   if proc['mem_vms']:
+                      proc['mem_vms_K'] = int(proc['mem_vms'] / 1024)
+                   else:
+                      proc['mem_vms_K'] = -1
+
+            rlt[node] = procs
+            
+        return repr(query), rlt
+
+def test():
+    pass
+ 
 def main():
     t1=time.time()
     start, stop = MyTool.getStartStopTS(days=3) 
     app   = InfluxQueryClient()
+    app.getUserProc ('dhofmann', ['worker1031'], 1568554418, 1568908041)
+    #rlt   = app.getSlurmJobRuntimeHistory(346864, 1566727264, 1567159264)
+    print('{}'.format(rlt))
     #app.getPendingCount(start, stop)
-    app.savNodeHistory(days=7)
-    app.savJobRequestHistory(days=7)
+    #app.savNodeHistory(days=7)
+    #app.savJobRequestHistory(days=7)
     #app.getJobRequestHistory(start, stop)
     #app.getNodeHistory(start, stop)
     #point = app.getSlurmJobInfo('70900')

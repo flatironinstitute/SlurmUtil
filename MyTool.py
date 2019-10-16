@@ -5,6 +5,8 @@ from datetime import datetime, timezone, timedelta
 import time
 import pwd,grp
 import dateutil.parser
+import _pickle as cPickle
+import os.path
 
 THREE_DAYS_SEC     = 3*24*3600
 ONEDAY_SECS       = 24*3600
@@ -14,14 +16,19 @@ LOCAL_TZ   = timezone(timedelta(hours=-4))
 ORG_GROUPS = list(map((lambda x: grp.getgrnam(x)), ['genedata','cca','ccb','ccq', 'scc']))
     
 def getUid (user):
-    return pwd.getpwnam(user).pw_gid
+    try:
+       p=pwd.getpwnam(user)
+    except KeyError:
+       print('ERROR: MyTool::getUid uid with user name {} cannot be found.'.format(user))
+       return None
+    return p.pw_uid
 
 def getUser (uid):
     try:
        p=pwd.getpwuid(int(uid))
     except KeyError:
-       return('UidNotFound')
-
+       print('ERROR: MyTool::getUser user with uid {} cannot be found.'.format(uid))
+       return None
     return p.pw_name
 
 def getUserGroups (user):
@@ -347,6 +354,29 @@ def extractInt (pattern, s, idx=0):
     else:
        return 0
     
+def readFile (filename):
+   result = None
+   if os.path.isfile(filename) and os.stat(filename).st_size>0:
+      with open(filename, 'rb') as f:
+         result = cPickle.load(f)
+   return result
+
+def writeFile (filename, data):
+   with open(filename, 'wb') as f:
+      cPickle.dump(data, f)
+
+#convert 100G and 100M to xxK
+def convert2K (s):
+    s = str(s)
+    if s[-1] == 'G':
+       return int(s[0:-1]) * 1024 * 1024
+    elif s[-1] == 'M':
+       return int(s[0:-1]) * 1024
+    elif s[-1] == 'K':
+       return int(s[0:-1])
+    else:
+       return int(s) / 1024
+
 def main(argv):
     for s in argv:
         c = convert2list(s)

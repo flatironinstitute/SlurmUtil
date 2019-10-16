@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 from functools import reduce
 
 import fs2hc
-import scanSMSplitHighcharts
-from queryInflux   import InfluxQueryClient
-from querySlurm    import SlurmCmdQuery, SlurmDBQuery
-from queryTextFile import TextfileQueryClient
-from EmailSender   import JobNoticeSender
+from queryInflux     import InfluxQueryClient
+from querySlurm      import SlurmCmdQuery, SlurmDBQuery
+from queryTextFile   import TextfileQueryClient
+from IndexedDataFile import IndexedHostData
+from EmailSender     import JobNoticeSender
 
 import MyTool
 import SlurmEntities
@@ -58,20 +58,19 @@ class SLURMMonitor(object):
 
     # add processes info of jid
     # TODO: it is in fact userNodeHistory
-    def updateJobNode2ProcRecord (self, ts, jid, node, processes):
+    def updateJobNode2ProcRecord (self, ts, jobid, node, processes):
         for p in processes:   # pid, intervalCPUtimeAvg, create_time, user_time, system_time, mem_rss, mem_vms, cmdline, intervalIOByteAvg
-            if ( ts > self.jobNode2ProcRecord[jid][node][p[0]]['ts'] ):
-               assert (self.jobNode2ProcRecord[jid][node][p[0]]['cpu'] <= p[3] + p[4])        #increasing
-               self.jobNode2ProcRecord[jid][node][p[0]]['ts']      = ts
-               self.jobNode2ProcRecord[jid][node][p[0]]['cpu_time']= p[3] + p[4]
+            if ( ts > self.jobNode2ProcRecord[jobid][node][p[0]]['ts'] ):
+               assert (self.jobNode2ProcRecord[jobid][node][p[0]]['cpu'] <= p[3] + p[4])        #increasing
+               self.jobNode2ProcRecord[jobid][node][p[0]]['ts']      = ts
+               self.jobNode2ProcRecord[jobid][node][p[0]]['cpu_time']= p[3] + p[4]
+               self.jobNode2ProcRecord[jobid][node][p[0]]['mem_rss_K'] = int(p[5]/1024)
+               self.jobNode2ProcRecord[jobid][node][p[0]]['io_bps_curr']  = p[8]                    #bytes per sec
             #else discard older information
 
-        if len(self.jobNode2ProcRecord) > 100:
-           self.cleanJobNodeHistory (self.currJobs)
-
-    #remove done job from history
-    def cleanJobNodeHistory (self, jobData):
-        done_job = [jid for jid, jinfo in jobData.items() if jinfo['job_state'] not in ['RUNNING', 'PENDING', 'PREEMPTED']]
+        #if len(self.jobNode2ProcRecord) > 100:
+        #remove done job from history
+        done_job = [jid for jid, jinfo in self.currJobs.items() if jinfo['job_state'] not in ['RUNNING', 'PENDING', 'PREEMPTED']]
         for jid in done_job:
             self.jobNode2ProcRecord.pop(jid, {})
         
@@ -633,7 +632,9 @@ class SLURMMonitor(object):
         node2job= self.node2Jobs
 
         #generate jobs info {job_id, long_label, disabled}
-        jobs = []
+        #generate users info {user_id, long_label, disabled}
+        jobs    = []
+        users_d = defaultdict(list)
         for jobid, jobinfo in self.currJobs.items():
             user=MyTool.getUser(jobinfo['user_id'])
             if jobinfo['tres_alloc_str']:
@@ -643,12 +644,15 @@ class SLURMMonitor(object):
                long_label = '{}({}) {} waiting {}'.format(jobid, user, jobinfo['job_state'], jobinfo['tres_req_str'])
                disabled   = "disabled"
             job = {"job_id":jobid, "long_label":long_label, "disabled":disabled}
+            if jobinfo['tres_alloc_str']:
+               users_d[user].append (jobid)
  
             #jobinfo['user']=MyTool.getUser(jobinfo['user_id'])
             #job=MyTool.sub_dict_exist(jobinfo, ['job_id', 'user', 'job_state', 'account', 'tres_alloc_str', 'tres_req_str'])
             jobs.append(job)
+        users = [ {"user":user, "jobs":jobs, "long_label":'{} with running jobs {}'.format(user, jobs)} for user, jobs in users_d.items()]
 
-        result  = []  #dataset1 in heatmap
+        workers  = []  #dataset1 in heatmap
         for hostname, values in sorted(self.data.items()):
             try:
                node_cores = self.pyslurmNodeData[hostname]['cpus']
@@ -661,7 +665,7 @@ class SLURMMonitor(object):
                   if values[0] in ['ALLOCATED$','ALLOCATED','ALLOCATED@']:
                       state    = 1
                       cpu_load = 0
-                  elif values[0] == 'IDLE':
+                  elif 'IDLE' in values[0]:
                       state  = 0
                   else:
                       state  = -1
@@ -675,20 +679,20 @@ class SLURMMonitor(object):
                   label = '{} util:{:.1%} core:{} jobs:{}'.format(hostname, cpu_load/node_cores, node_cores, lst)
                else:
                   label = '{} core:{} state:{}'.format(hostname, node_cores, values[0])
-               result.append([hostname, state, node_cores, cpu_load, alloc_jobs, job_accounts, label])
+               workers.append([hostname, state, node_cores, cpu_load, alloc_jobs, job_accounts, label])
             except Exception as exp:
                print("ERROR getHeatmapData: {0}".format(exp))
                                
-        return result,jobs
+        return workers,jobs,users
                    
     @cherrypy.expose
     def utilHeatmap(self, **args):
         if type(self.data) == str: return self.data # error of some sort.
 
-        data,jobDict     = self.getHeatmapData ()
+        workers,jobs,users = self.getHeatmapData ()
         
         htmltemp = os.path.join(wai, 'heatmap.html')
-        h        = open(htmltemp).read()%{'update_time': datetime.datetime.fromtimestamp(self.updateTS).ctime(), 'data1' :  data, 'data2': jobDict}
+        h        = open(htmltemp).read()%{'update_time': datetime.datetime.fromtimestamp(self.updateTS).ctime(), 'data1': workers, 'data2': jobs, 'users':users}
  
         return h 
         #return repr(data)
@@ -737,28 +741,117 @@ class SLURMMonitor(object):
         l = [(w, len(info)) for w, info in self.rawData.items() if len(info)>3]
         return "{}\n{}".format(l, self.rawData)
 
-    @cherrypy.expose
-    def getLongrunLowUtilJobs (self, ts=1567635300, jobs={}, low_util=0.01, long_period=ONE_DAY_SECS):
+    def updateCurrJobs (self, ts=1567635300, jobs={}, low_util=0.01, long_period=ONE_DAY_SECS, job_width=1, low_mem=0.3):
         #check self.currJobs and locate those jobs in question
         jobs   = self.currJobs
-        result = {}
+        ts     = self.updateTS
+
+        for jid, job in jobs.items():
+            period            = ts - job['start_time']
+            total_cpu_time    = 0
+            total_rss         = 0
+            total_node_mem    = 0           #proportional mem for shared nodes
+            total_io_bps      = 0           
+            for node in MyTool.nl2flat(job['nodes']):
+                #check self.jobNode2ProcRecord to add up cpu_time and get utilization
+                if (jid in self.jobNode2ProcRecord) and (node in self.jobNode2ProcRecord[jid]):
+                   procs          = self.jobNode2ProcRecord[jid][node]
+                   total_cpu_time += sum([ts_proc['cpu_time']    for pid,ts_proc in procs.items()])
+                   total_rss      += sum([ts_proc['mem_rss_K']   for pid,ts_proc in procs.items()])
+                   total_io_bps   += sum([ts_proc['io_bps_curr'] for pid,ts_proc in procs.items()])
+                   s               = self.pyslurmNodeData[node]['tres_fmt_str']
+                   if s:
+                      d = dict([s1.split('=') for s1 in s.split(',')])
+                      if 'mem' in d:
+                         if 'cpu' in d:
+                            node_cpu = int(d['cpu'])
+                            job_cpu  = int(job['cpus_allocated'][node])
+                            prop     = job_cpu / node_cpu         # for shared cpu
+                         else:
+                            prop     = 1
+                         total_node_mem += MyTool.convert2K(d['mem']) * prop
+                      else:
+                         print('ERROR: Node {} does not have mem {} in tres_fmt_str {}'.format(node, d, s))
+                   else:
+                      print('ERROR: Node {} does not have tres_fmt_str'.format(node))
+                else:
+                   if jid not in self.jobNode2ProcRecord:
+                      print('ERROR: Job {} ({}) is not in self.jobNode2ProcRecord'.format(jid, job['nodes'])) 
+                   else:
+                      print('ERROR: Node {} of Job {} ({}) is not in self.jobNode2ProcRecord'.format(node, jid, job['nodes'])) 
+               
+            job['user']         = MyTool.getUser(job['user_id'])
+            job['job_io_bps']   = total_io_bps
+            if total_cpu_time: # has process informatoin
+                  job['job_avg_util'] = total_cpu_time / period / job['num_cpus'] 
+                  job['job_mem_util'] = total_rss / total_node_mem
+            else: # no process information
+                  #print('WARNING: Job {} does not have proc on nodes {}'.format(jid, job['nodes']))
+                  job['job_avg_util'] = 0
+                  job['job_mem_util'] = 0
+ 
+        return jobs
+
+    @cherrypy.expose
+    def getLowResourceJobs (self, job_length_secs=ONE_DAY_SECS, job_width_cpus=1, job_cpu_avg_util=0.1, job_mem_util=0.3):
+        job_dict = self.getLongrunLowUtilJobs(self.updateTS, self.currJobs, float(job_cpu_avg_util), int(job_length_secs), int(job_width_cpus), float(job_mem_util))
+        return json.dumps([self.updateTS, job_dict])
+
+    def getLongrunLowUtilJobs (self, ts=1567635300, jobs={}, low_util=0.01, long_period=ONE_DAY_SECS, job_width=1, low_mem=0.3):
+        #check self.currJobs and locate those jobs in question
+        if not jobs:
+           jobs   = self.currJobs
+        result = {}            # return {jid:job,...}
         for jid, job in jobs.items():
             #if job run long enough
             period = ts - job['start_time']
-            if period > long_period:
-               total_cpu_time    = 0
-               for node in MyTool.nl2flat(job['nodes']):
-                  #check self.jobNode2ProcRecord to add up cpu_time and get utilization
-                  if (jid in self.jobNode2ProcRecord) and (node in self.jobNode2ProcRecord[jid]):
-                     procs          = self.jobNode2ProcRecord[jid][node]
-                     total_cpu_time += sum([ts_cpu['cpu_time'] for pid,ts_cpu in procs.items()])
-               
-               job['job_avg_util'] = total_cpu_time / period / job['num_cpus'] 
-               if job['job_avg_util'] < low_util:
-                  result[job['job_id']]=job
+            if (period > long_period) and (job.get('num_cpus',1)>job_width) and (job['job_avg_util'] < low_util) and (job['job_mem_util']<low_mem):
+               result[job['job_id']] = job
  
-        #return '{}\n{}'.format([(job['job_id'], job['job_avg_util']) for job in result], jobs)
         return result
+
+    @cherrypy.expose
+    def getUnbalancedJobs (self, job_cpu_avg_util=0.1, job_mem_util=0.3, job_io_bps=1000000):
+        jobs   = self.currJobs
+        ts     = self.updateTS
+        job_cpu_avg_util = float(job_cpu_avg_util)
+        job_mem_util     = float(job_mem_util)
+        job_io_bps       = int(job_io_bps)
+
+        result = {}            # return {jid:job,...}
+        for jid, job in jobs.items():
+            #if job run long enough
+            if (job['job_avg_util'] < job_cpu_avg_util) and (job['job_mem_util']>job_mem_util or job['job_io_bps'] > job_io_bps):
+               result[job['job_id']] = job
+        print('getUnbalancedJobs {}'.format(result.keys()))
+        return json.dumps([ts, result])
+
+    @cherrypy.expose
+    def getUnbalLoadJobs (self, cpu_stdev, rss_stdev, io_stdev):
+        cpu_stdev, rss_stdev, io_stdev = int(cpu_stdev), int(rss_stdev), int(io_stdev)
+        self.calculateStat (self.currJobs, self.data)
+        sel_jobs = [(jid, job) for jid, job in self.currJobs.items() 
+                         if (job['node_cpu_stdev']>cpu_stdev) or (job['node_rss_stdev']>rss_stdev) or (job['node_io_stdev']>io_stdev)]
+        return json.dumps ([self.updateTS, dict(sel_jobs)])
+
+    #for a job, caclulate the deviaton of the cpu, mem, rss
+    def calculateStat (self, jobs, nodes):
+        for jid, job in jobs.items():
+            if 'node_cpu_stdev' in job:     # already calculated
+               return
+
+            if job['num_nodes'] == 1:
+               job['node_cpu_stdev'],job['node_rss_stdev'], job['node_io_stdev'] = 0,0,0     #cpu util, rss in KB, io bps
+               continue
+            #[u_name, uid, allocated_cpus, len(pp), totIUA_util, totRSS, totVMS, pp, totIO, totCPU_rate]
+            proc_cpu=[proc[4] for node in MyTool.nl2flat(job['nodes']) for proc in nodes[node][3:]]
+            proc_rss=[proc[5] for node in MyTool.nl2flat(job['nodes']) for proc in nodes[node][3:]]
+            proc_io =[proc[8] for node in MyTool.nl2flat(job['nodes']) for proc in nodes[node][3:]]
+            if len(proc_cpu) > 1:
+               job['node_cpu_stdev'],job['node_rss_stdev'], job['node_io_stdev'] = MyTool.pstdev(proc_cpu), MyTool.pstdev(proc_rss)/1024, MyTool.pstdev(proc_io)     # cpu util
+            else:
+               #print('WARNING: Job {} has not enough process running on allocated nodes {} ({}) to calculate standard deviation.'.format(jid, job['nodes'], proc_cpu))
+               job['node_cpu_stdev'],job['node_rss_stdev'], job['node_io_stdev'] = 0,0,0
 
     @cherrypy.expose
     def updateSlurmData(self, **args):
@@ -768,6 +861,7 @@ class SLURMMonitor(object):
         self.updateTS, jobs, hn2info, self.pyslurmNodeData = cPickle.loads(zlib.decompress(d))
         self.updateTS = int(self.updateTS)
         self.currJobs = dict([(jid,job) for jid, job in jobs.items() if job['job_state']=='RUNNING'])
+        print('currJobs {}'.format(self.currJobs.keys()))
         self.rawData = hn2info
 
         self.updateNode2Jobs (self.currJobs)
@@ -783,6 +877,7 @@ class SLURMMonitor(object):
                      jids         = self.uid2jids (procsByUser[1], node)
                      for jid in jids: #TODO: user has multiple jobs on the same worker
                         self.updateJobNode2ProcRecord (nInfo[2], jid, node, procsByUser[USER_PROC_IDX])
+        self.updateCurrJobs()          #add attribute job_avg_util, job_mem_util, job_io_bps to self.currJobs
 
         #check for long run low util jobs and send notice
         low_util = self.getLongrunLowUtilJobs(self.updateTS, self.currJobs)
@@ -1003,7 +1098,13 @@ class SLURMMonitor(object):
     @cherrypy.expose
     def userDetails(self, user, days=3):
         ins            = SlurmEntities.SlurmEntities()
-        userjob        = ins.getUserJobsByState (user)
+        if not user:
+           user = MyTool.getUser(uid)
+ 
+        uid            = MyTool.getUid(user)
+        if not uid:
+           return 'Cannot find uid of user {}!'.format(user)
+        userjob        = ins.getUserJobsByState (uid)
         uid, grp, part = ins.getUserPartition (user)
         for p in part:
             for k,v in p.items():
@@ -1022,7 +1123,7 @@ class SLURMMonitor(object):
         past_job      = SlurmCmdQuery.sacct_getUserJobReport(user, days=int(days))
 
         htmlTemp   = os.path.join(wai, 'userDetail.html')
-        htmlStr    = open(htmlTemp).read().format(user=user, update_time=ins.update_time.ctime(), 
+        htmlStr    = open(htmlTemp).read().format(user=user, uid=uid, update_time=ins.update_time.ctime(), 
                                                   running_job_cnt=len(userjob['RUNNING']), running_jobs=json.dumps(userjob['RUNNING']), 
                                                   pending_job_cnt=len(userjob['PENDING']), pending_jobs=json.dumps(userjob.get('PENDING',None)), 
                                                   worker_cnt=len(userworker), core_cnt=core_cnt, proc_cnt=proc_cnt, worker_proc=json.dumps(userworker), note=note,
@@ -1050,21 +1151,6 @@ class SLURMMonitor(object):
     #return list of list
     #result[node_name]= [alloc_core_cnt, proc_cnt, total_cpu, t_rss, t_vms, rlt_procs, t_io]
     #rlt_procs.append ([pid, intervalCPUtimeAvg, job_avg_cpu, rss, vms, intervalIOByteAvg, cmdline])
-    def getJobNodeData_influx (self, node2point):
-        if not node2points: return {}
-
-        result = {}
-        for node, points in node2points:
-            rlt_procs    = [point['time'] for point in points]
-
-            result[node] = [-1, len(points), -1, -1, -1, rlt_procs, -1]
-
-        return result
-       
-
-    #return list of list
-    #result[node_name]= [alloc_core_cnt, proc_cnt, total_cpu, t_rss, t_vms, rlt_procs, t_io]
-    #rlt_procs.append ([pid, intervalCPUtimeAvg, job_avg_cpu, rss, vms, intervalIOByteAvg, cmdline])
     def getJobNodeData (self, job_info):
         if type(self.data) == str: return {} # error of some sort.
 
@@ -1083,10 +1169,22 @@ class SLURMMonitor(object):
                        job_stime   = job_info.get('start_time', 0)
                        job_avg_cpu = (user_time+system_time) / (ts-job_stime) if job_stime > 0 else 0 #TODO: have problem is one user has multiple job on the same node
                        
-                       rlt_procs.append ([pid, '{:.2f}'.format(intervalCPUtimeAvg), '{:.2f}'.format(job_avg_cpu), '{:.2e}'.format(rss), '{:.2e}'.format(vms), int(intervalIOByteAvg), ' '.join(cmdline)])
-                   result[node_name]= [alloc_core_cnt, proc_cnt, t_cpu, t_rss, t_vms, rlt_procs, t_io]
-        return result, ['PID', 'Inst CPU Util', 'Avg CPU Util', 'RSS', 'VMS', 'IO Rate', 'Command']
+                       rlt_procs.append ([pid, '{:.2f}'.format(intervalCPUtimeAvg), '{:.2f}'.format(job_avg_cpu), '{:.2e}'.format(rss/1024), '{:.2e}'.format(vms/1024), '{:.2f}'.format(intervalIOByteAvg), ' '.join(cmdline)])
+                   result[node_name]= [int(alloc_core_cnt), int(proc_cnt), t_cpu, t_rss, t_vms, rlt_procs, t_io]
+        return result, ['PID', 'Inst CPU Util', 'Avg CPU Util', 'RSS (KB)', 'VMS (KB)', 'IO Rate (bps)', 'Command']
 
+    @cherrypy.expose
+    def jobByName(self, name='script', curr_jid=None):
+        fields =['id_job','job_name', 'id_user','state', 'nodelist', 'time_start','time_end', 'exit_code', 'tres_req', 'tres_alloc', 'gres_req', 'gres_alloc', 'work_dir']
+        data   = SlurmDBQuery().getJobByName(name, fields)  #user, duration is added by the function
+        d_flds = {'id_job':'Job ID', 'state':'State', 'user':'User', 'nodelist':'Alloc Node', 'time_start':'Start', 'time_end':'End', 'duration':'Duration', 'exit_code':'Exit', 'tres_req':'Req Tres', 'gres_req':'Req Gres', 'work_dir':'Work Dir'}
+
+        htmlTemp   = os.path.join(wai, 'jobByName.html')
+        htmlStr    = open(htmlTemp).read().format(job_name=name, job_list=data, job_title=d_flds)
+        return htmlStr
+        #return '{}\n{}'.format(fields, data)
+        
+ 
     @cherrypy.expose
     def jobDetails(self, jid):
         jid         = int(jid)
@@ -1100,10 +1198,9 @@ class SLURMMonitor(object):
         proc_field  = []
         start       = int(MyTool.getSlurmTimeStamp(job_report[0]['Start']))
         node_list   = MyTool.nl2flat(job_report[0]['NodeList'])
-        node_str    = '&var-hostname=' + '&var-hostname='.join(node_list)
-        worker_cnt  = job_report[0]['AllocNodes']
-        cpu_cnt     = job_report[0]['AllocCPUS']
-        user        = job_report[0]['User']
+        worker_cnt  = int(job_report[0]['AllocNodes'])
+        cpu_cnt,user,job_name     = job_report[0]['AllocCPUS'], job_report[0]['User'], job_report[0]['JobName']
+        proc_fields = []
         if job_report[0]['State']=='RUNNING':
            if type(self.data) == str: 
               proc_note=self.data 
@@ -1113,68 +1210,47 @@ class SLURMMonitor(object):
                  return "Cannot find job{} in the current data".format(jid)
               # job data is in self.currJobs
               job_info    = self.currJobs[jid]
-              worker_proc, proc_field = self.getJobNodeData (job_info)             
               start       = job_info.get('start_time', '')
-              if len(worker_proc) != int(worker_cnt):
-                 proc_note='ERROR: worker count is not consistent between sacct({}) and process monitor({})'.format(worker_cnt,len(worker_proc))
+              worker_proc, proc_fields = self.getJobNodeData (job_info)     #from monitored data        
+              if len(worker_proc) == 0:
+                 proc_note='WARNING: user does not have process running on the allocated nodes.'
+              elif len(worker_proc) != worker_cnt:
+                 proc_note='WARNING: user does not have process running on {} of the {} allocated nodes.'.format(worker_cnt-len(worker_proc), worker_cnt)
         else: # not RUNNING
            end       = int(MyTool.getSlurmTimeStamp(job_report[0]['End']))
-           if end != 'Unknown':
-              proc_note='Start at {}, end at {}'.format(start, end)
-           else:
+           if (not end) or (end == 'Unknown'):
               proc_note='Can not find End time for a non-running job'
+           else:
+              proc_note='Job start at {} and end at {}'.format(MyTool.getTimeString(start), MyTool.getTimeString(end))
         
-           influxClient = InfluxQueryClient.getClientInstance()
-           # query influx cpu_proc_info between start and end where uid and hostname
-           proc_note, node2points = influxClient.getUserProc (user, node_list, start, end)
+              influxClient = InfluxQueryClient.getClientInstance()
+              # query influx cpu_proc_info between start and end where uid and hostname
+              query, node2procs = influxClient.getUserProc (user, node_list, start, end)
+              if not node2procs:
+                 proc_note="WARNING: no record of user's process has been saved in the database."
+              else:
+                 worker_proc = {}
+                 proc_fields = ['PID', 'Avg CPU Util', 'RSS (KB)',  'VMS (KB)', 'IO Rate (KB/s)', 'Command']
+                 data_fields = ['pid', 'avg_util',     'mem_rss_K', 'mem_vms_K','avg_io'       , 'cmdline']
+                 for node, procs in node2procs.items():
+                  #result[node_name]= [int(alloc_core_cnt), int(proc_cnt), t_cpu, t_rss, t_vms, rlt_procs, t_io]
+                    worker_proc[node]=[0,len(procs),0,0,0,[],0]
+                    for proc in procs:
+	             #{'time': 1568554426, 'cmdline': '[\'/cm/shared/sw/pkg/devel/openmpi/2.1.6-hfi-slurm17.11/bin/orted\', \'--hnp-topo-sig\', \'2N:2S:2L3:28L2:28L1:28C:56H:x86_64\', \'-mca\', \'ess\', \'"slurm"\', \'-mca\', \'ess_base_jobid\', \'"3642490880"\', \'-mca\', \'ess_base_vpid\', \'"1"\', \'-mca\', \'ess_base_num_procs\', \'"2"\', \'-mca\', \'orte_hnp_uri\', \'"3642490880.0;usock;tcp://10.128.144.2:50541"\']', 'cpu_affinity': '[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]', 'cpu_system_time': 0.64, 'cpu_user_time': 0.2, 'end_time': 1568577027, 'hostname': 'worker1031', 'io_read_bytes': 3629056, 'io_read_count': 4947, 'io_write_bytes': 8396800, 'io_write_count': 1701, 'mem_data': 213565440, 'mem_lib': 0, 'mem_rss': 20221952, 'mem_shared': 13574144, 'mem_text': 4096, 'mem_vms': 364032000, 'name': 'orted', 'num_fds': 166, 'pid': '224668', 'ppid': 224662, 'status': 'sleeping', 'uid': '1431'}
+                       worker_proc[node][5].append([proc['pid'], '{:.2f}'.format(proc['avg_util']), '{:.2e}'.format(proc['mem_rss_K']), '{:.2e}'.format(proc['mem_vms_K']), '{:.2f}'.format(proc['avg_io']), proc['cmdline']])
+                  
+                 #proc_note='{}\n{}\n{}'.format(proc_note, query, node2procs)
                
-           # query influx cpu_proc_mon latest between start and end for final performance data
-             
-        grafana_url = 'http://mon8:3000/d/jYgoAfiWz/yanbin-slurm-node-util?orgId=1&from={}{}&var-jobID={}&theme=light'.format(start*1000, node_str,jid)
+        grafana_url = 'http://mon8:3000/d/jYgoAfiWz/yanbin-slurm-node-util?orgId=1&from={}{}&var-jobID={}&theme=light'.format(start*1000, '&var-hostname=' + '&var-hostname='.join(node_list), jid)
         proc_cnt   = sum([val[1] for val in worker_proc.values()])
         htmlTemp   = os.path.join(wai, 'jobDetail.html')
-        htmlStr    = open(htmlTemp).read().format(job_id=jid, job_state=job_report[0]['State'], update_time=datetime.datetime.fromtimestamp(update_time).ctime(),
+        htmlStr    = open(htmlTemp).read().format(job_id=jid, job_name=job_name, job_state=job_report[0]['State'], 
+                                                  update_time=datetime.datetime.fromtimestamp(update_time).ctime(),
                                                   grafana_url=grafana_url,
-                                                  worker_proc=worker_proc, proc_field=proc_field,
+                                                  worker_proc=worker_proc, proc_field=proc_fields,
                                                   worker_cnt=worker_cnt, core_cnt=cpu_cnt, proc_cnt=proc_cnt,note=proc_note,
                                                   job_report=job_report)
         return htmlStr
-
-    @cherrypy.expose
-    def jobDetails_old(self, jobid):
-        if type(self.data) == str: return self.data # error of some sort.
-
-        jid    = int(jobid)
-        jinfo  = self.currJobs.get(jid)
-        if ( jinfo is None):
-           return "Cannot find job {}".format(jobid)
-        start      = jinfo.get('start_time', '')
-        if not start:
-           start, stop=MyTool.getStartStopTS ('', '')
-        
-        # get current report
-        alloc_str = ''
-        node_str  = ''
-        for node, coreCount in jinfo.get(u'cpus_allocated', {}).items():
-            d          = self.data.get(node)
-            node_str  += '&var-hostname={}'.format(node)
-            
-            if len(d) < USER_INFO_IDX: 
-                alloc_str += '<hr><em>%s</em> %d<pre>'%(node, coreCount) + '\n</pre>\n'
-            else:
-                for user, uid, cores, procs, tc, trm, tvm, cmds, io, *etc in sorted(d[USER_INFO_IDX:]):
-                    ac = MyTool.loadSwitch(cores, tc, ' class="inform"', '', ' class="alarm"')
-                    alloc_str += '<hr><em%s>%s</em> %d<pre>'%(ac, node, coreCount) + '\n'.join([' '.join(['%6d'%cmd[0], '%6.2f'%cmd[1], '%10.2e'%cmd[5], '%10.2e'%cmd[6]] + cmd[7]) for cmd in cmds]) + '\n</pre>\n'
-
-        grafana_url = 'http://mon8:3000/d/jYgoAfiWz/yanbin-slurm-node-util?orgId=1&from={}{}&var-jobID={}&theme=light'.format(start*1000, node_str,jid)
-        t = htmlPreamble
-        t += '<h3>Job: {0} (<a href="{1}/jobGraph?jobid={0}">Graph</a>, <a href="{5}">Grafana Graph</a>), State: {2}, Num_Nodes: {3}, Num_CPUs: {4} <a href="#sacctreport">(jump to sacct)</a></h3>\n'.format(jobid, cherrypy.request.base, jinfo.get(u'job_state'), jinfo.get(u'num_nodes'), jinfo.get(u'num_cpus'), grafana_url)
-        # get sacct report
-        t += alloc_str    
-        t += self.sacctReport(self.sacctData (['-j', jobid]), skipJobStep=False)
- 
-        t += '<a href="%s/index">&#8617</a>\n</body>\n</html>\n'%cherrypy.request.base
-        return t
 
     @cherrypy.expose
     def tymor(self,**args):
@@ -1487,15 +1563,7 @@ class SLURMMonitor(object):
         j = open(htmlTemp).read()%{'data1' : node_alloc,'data2' : node_alloc_qos,'data3' : data_json}
         return j
         
-    @cherrypy.expose
-    def doneJobGraph(self,jobid):
-        #graph for jobs that are already finished
-        slurmClient  = SlurmCmdQuery()
-
-        info         = slurmClient.getSlurmJobInfo(jobid)       
-        return self.jobGraphData(jobid, info[1], info[2], info[3], info[4])
-    
-    def jobGraphData (self, jobid, userid, nodelist, start, stop):
+    def getJobGraphData (self, jobid, userid, nodelist, start, stop):
         #{hostname: {ts: [cpu, io, mem] ... }}
         influxClient = InfluxQueryClient('scclin011','slurmdb')
         node2seq     = influxClient.getSlurmUidMonData(userid, nodelist,start,stop)
@@ -1532,22 +1600,40 @@ class SLURMMonitor(object):
                                    'iseries_w' : io_w_all_nodes}
         return h
 
-        
     @cherrypy.expose
-    def jobGraph(self,jobid,start='', stop=''):
+    def jobGraph_file(self, jobid):
+        if type(self.data) == str: return self.data # error of some sort.
+
+        hostData = IndexedHostData('/mnt/home/yliu/projects/slurm/utils/mqtMonStreamRecord')
+        jobid    = int(jobid)
+        if jobid not in self.currJobs:
+           jobid1, uid, nodelist, start, end = SlurmCmdQuery().getSlurmJobInfo(jobid)       
+        else:
+           job      = self.currJobs[jobid]
+           nodelist, start, end, uid = list(job['cpus_allocated']), job['start_time'], int(time.time()), job['user_id']
+        cpu_all_seq, mem_all_seq, io_all_seq = hostData.queryDataHosts(nodelist, start, end, uid)
+        # highcharts 
+        htmltemp = os.path.join(wai, 'smGraphHighcharts.html')
+        h = open(htmltemp).read()%{'spec_title': ' of job {}'.format(jobid),
+                                   'start'     : time.strftime('%Y-%m-%d', time.localtime(start)),
+                                   'stop'      : time.strftime('%Y-%m-%d', time.localtime(end)),
+                                   'lseries'   : cpu_all_seq,
+                                   'mseries'   : mem_all_seq,
+                                   'iseries_r' : io_all_seq,
+                                   'iseries_w' : io_all_seq}
+        return h
+
+    @cherrypy.expose
+    def jobGraph(self, jobid):
         if type(self.data) == str: return self.data # error of some sort.
 
         jobid    = int(jobid)
         if jobid not in self.currJobs:
-           return self.doneJobGraph(jobid) 
-
-        nodelist = list(self.currJobs[jobid][u'cpus_allocated'])
-        start    = self.currJobs[jobid][u'start_time']
-        if not stop:
-           stop     = time.time()
-        userid  = self.currJobs[jobid][u'user_id']
- 
-        return self.jobGraphData(jobid, userid, nodelist, start, stop)
+           jobid1, user_id, nodelist, start, end = SlurmCmdQuery().getSlurmJobInfo(jobid)       
+           return self.getJobGraphData(jobid, user_id, nodelist, start, end)
+        else:
+           job      = self.currJobs[jobid]
+           return self.getJobGraphData(jobid, job['user_id'], list(job['cpus_allocated']), job['start_time'], time.time())  #'cpus_allocated': {'worker1088': 28}
 
     def userNodeGraphData (self, uid, uname, start, stop):
         #{hostname: {ts: [cpu, io, mem] ... }}
@@ -1604,16 +1690,16 @@ class SLURMMonitor(object):
             if df.empty:
                 continue
 
-            if 'io_read_bbytes' in df.columns:
-               df    = df[['hostname', 'time', 'cpu_system_util', 'cpu_user_util', 'io_read_bytes', 'io_write_bytes', 'mem_rss']]
+            if 'io_read_bytes' in df.columns:
+               df    = df[['hostname', 'time', 'cpu_system_util', 'cpu_user_util', 'io_read_bytes', 'io_write_bytes', 'mem_rss_K']]
             else:
-               df    = df[['hostname', 'time', 'cpu_system_util', 'cpu_user_util', 'mem_rss']]
+               df    = df[['hostname', 'time', 'cpu_system_util', 'cpu_user_util', 'mem_rss_K']]
                df['io_read_bytes'] = 0
                df['io_write_bytes'] = 0
             # sum over hostname to get jobs data
             sumDf = pandas.DataFrame({})
             for name, group in df.groupby('hostname'):
-                group          = group.reset_index(drop=True)[['time', 'cpu_system_util', 'cpu_user_util', 'io_read_bytes', 'io_write_bytes', 'mem_rss']]
+                group          = group.reset_index(drop=True)[['time', 'cpu_system_util', 'cpu_user_util', 'io_read_bytes', 'io_write_bytes', 'mem_rss_K']]
                 group['count'] = 1
                 if sumDf.empty:
                    sumDf = group
@@ -1649,14 +1735,14 @@ class SLURMMonitor(object):
             df['cpu_time'] = df['cpu_system_util'] + df['cpu_user_util']
             df['io_bytes'] = df['io_read_bytes']   + df['io_write_bytes']
             series['cpu'].append({'name': jid2dsc[jid], 'data':df[['time','cpu_time']].values.tolist()})
-            series['mem'].append({'name': jid2dsc[jid], 'data':df[['time','mem_rss']].values.tolist()})
+            series['mem'].append({'name': jid2dsc[jid], 'data':df[['time','mem_rss_K']].values.tolist()})
             series['io'].append ({'name': jid2dsc[jid], 'data':df[['time','io_bytes']].values.tolist()})
         
         htmltemp = os.path.join(wai, 'scatterHC.html')
         h = open(htmltemp).read()%{'start'  : time.strftime('%Y-%m-%d', time.localtime(start)),
                                    'stop'   : time.strftime('%Y-%m-%d', time.localtime(time.time())),
                                    'series1': series['cpu'], 'title1': 'CPU usage of '    +uname, 'xlabel1': 'CPU time', 'aseries1':[], 
-                                   'series2': series['mem'], 'title2': 'Mem RSS usage of '+uname, 'xlabel2': 'Mem Bytes',               'aseries2':[], 
+                                   'series2': series['mem'], 'title2': 'Mem RSS usage of '+uname, 'xlabel2': 'Mem (KB)',               'aseries2':[], 
                                    'series3': series['io'],  'title3': 'IO usage of '     +uname, 'xlabel3': 'IO Bytes',             'aseries3':[], 
                                   }
         return h

@@ -23,6 +23,7 @@ PEND_EXP={
     'Resources':             'Required resources not available. Partition {partition} have {avail_node} requested {feature} nodes and {avail_cpu} CPUs. Resources will be availble no later than {start_time}.', #required resources not available
     'JobArrayTaskLimit':     'Job array ({array_task_str}) reach max task limit {array_max_tasks}. Tasks {array_tasks} are running.',
 }
+
 class SlurmEntities:
   #two's complement -1
   TCMO = 2**32 - 1
@@ -40,17 +41,17 @@ class SlurmEntities:
     self.job_dict       = pyslurm.job().get()
     self.update_time    = datetime.now()
 
-    # extend job_dict
+    # extend job_dict by adding nodes_flat
     for job in self.job_dict.values():
         if job['nodes']:
            job['nodes_flat'] = MyTool.nl2flat(job['nodes'])
         else:
            job['nodes_flat'] = []
 
-    # extend node_dict running_jobs
+    # extend node_dict running_jobs by adding running_jobs
     self.extendNodeDict ()
 
-    # combine job info to the partition_dict, node_flats, flag_shared, running_jobs, pending_jobs...
+    # extend partition_dict by adding node_flats, flag_shared, running_jobs, pending_jobs...
     for pname, part in self.partition_dict.items():
         self.extendPartitionDict (pname, part)
 
@@ -325,8 +326,7 @@ class SlurmEntities:
         print("Error - {0}".format(e.args[0]))
 
   # return jobs of a user categoried by state
-  def getUserJobsByState (self, uname, fields=['account', 'accrue_time', 'alloc_node', 'alloc_sid', 'array_job_id', 'array_task_id', 'array_task_str', 'array_max_tasks', 'assoc_id', 'batch_flag', 'batch_features', 'batch_host', 'billable_tres', 'bitflags', 'boards_per_node', 'burst_buffer', 'burst_buffer_state', 'command', 'comment', 'contiguous', 'core_spec', 'cores_per_socket', 'cpus_per_task', 'cpus_per_tres', 'cpu_freq_gov', 'cpu_freq_max', 'cpu_freq_min', 'dependency', 'derived_ec', 'eligible_time', 'end_time', 'exc_nodes', 'exit_code', 'features', 'group_id', 'job_id', 'job_state', 'last_sched_eval', 'licenses', 'max_cpus', 'max_nodes', 'mem_per_tres', 'name', 'network', 'nodes', 'nice', 'ntasks_per_core', 'ntasks_per_core_str', 'ntasks_per_node', 'ntasks_per_socket', 'ntasks_per_socket_str', 'ntasks_per_board', 'num_cpus', 'num_nodes', 'partition', 'mem_per_cpu', 'min_memory_cpu', 'mem_per_node', 'min_memory_node', 'pn_min_memory', 'pn_min_cpus', 'pn_min_tmp_disk', 'power_flags', 'preempt_time', 'priority', 'profile', 'qos', 'reboot', 'req_nodes', 'req_switch', 'requeue', 'resize_time', 'restart_cnt', 'resv_name', 'run_time', 'run_time_str', 'sched_nodes', 'shared', 'show_flags', 'sockets_per_board', 'sockets_per_node', 'start_time', 'state_reason', 'std_err', 'std_in', 'std_out', 'submit_time', 'suspend_time', 'system_comment', 'time_limit', 'time_limit_str', 'time_min', 'threads_per_core', 'tres_alloc_str', 'tres_bind', 'tres_freq', 'tres_per_job', 'tres_per_node', 'tres_per_socket', 'tres_per_task', 'tres_req_str', 'user_id', 'wait4switch', 'wckey', 'work_dir', 'cpus_allocated', 'cpus_alloc_layout']):
-      uid = MyTool.getUid(uname)
+  def getUserJobsByState (self, uid, fields=['account', 'accrue_time', 'alloc_node', 'alloc_sid', 'array_job_id', 'array_task_id', 'array_task_str', 'array_max_tasks', 'assoc_id', 'batch_flag', 'batch_features', 'batch_host', 'billable_tres', 'bitflags', 'boards_per_node', 'burst_buffer', 'burst_buffer_state', 'command', 'comment', 'contiguous', 'core_spec', 'cores_per_socket', 'cpus_per_task', 'cpus_per_tres', 'cpu_freq_gov', 'cpu_freq_max', 'cpu_freq_min', 'dependency', 'derived_ec', 'eligible_time', 'end_time', 'exc_nodes', 'exit_code', 'features', 'group_id', 'job_id', 'job_state', 'last_sched_eval', 'licenses', 'max_cpus', 'max_nodes', 'mem_per_tres', 'name', 'network', 'nodes', 'nice', 'ntasks_per_core', 'ntasks_per_core_str', 'ntasks_per_node', 'ntasks_per_socket', 'ntasks_per_socket_str', 'ntasks_per_board', 'num_cpus', 'num_nodes', 'partition', 'mem_per_cpu', 'min_memory_cpu', 'mem_per_node', 'min_memory_node', 'pn_min_memory', 'pn_min_cpus', 'pn_min_tmp_disk', 'power_flags', 'preempt_time', 'priority', 'profile', 'qos', 'reboot', 'req_nodes', 'req_switch', 'requeue', 'resize_time', 'restart_cnt', 'resv_name', 'run_time', 'run_time_str', 'sched_nodes', 'shared', 'show_flags', 'sockets_per_board', 'sockets_per_node', 'start_time', 'state_reason', 'std_err', 'std_in', 'std_out', 'submit_time', 'suspend_time', 'system_comment', 'time_limit', 'time_limit_str', 'time_min', 'threads_per_core', 'tres_alloc_str', 'tres_bind', 'tres_freq', 'tres_per_job', 'tres_per_node', 'tres_per_socket', 'tres_per_task', 'tres_req_str', 'user_id', 'wait4switch', 'wckey', 'work_dir', 'cpus_allocated', 'cpus_alloc_layout']):
       result    = defaultdict(list)  #{state:[job...]}
       jobs      = [job for job in self.job_dict.values() if job['user_id']==uid]
       for job in jobs:
@@ -415,7 +415,7 @@ class SlurmEntities:
 
 if __name__ == "__main__":
 
-    print ('hello')
     ins = SlurmEntities()
-    ins.getUserPartition('agabrielpillai')
+    ins.getPendingJobs()
+    #ins.getUserPartition('agabrielpillai')
     #ins.getPartitions()

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<meta charset='UTF-8'>
+<title>Job By Name</title>
+<link rel="stylesheet" href="/static/css/style.css">
+
+<script src="http://code.jquery.com/jquery-1.12.4.min.js"></script>
+<script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+<script type="text/javascript" src="static/scripts/myTable.js"></script>
+<script type="text/javascript">
+
+
+$(document).ready(function(){{
+    createTable ({job_list}, {job_title},  'job_table', 'job_list') 
+}});
+</script>
+</head>
+
+<body>
+<div id="job_name" class="page-wrap">
+  <h3> Job By Name: {job_name} </h3>
+</div>
+<hr>
+<div id="job_list" class="page-wrap">
+</div>
+</body>
+
+</html>

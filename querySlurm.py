@@ -11,6 +11,8 @@ import pandas as pd
 from collections import defaultdict
 from datetime import datetime, date, timezone, timedelta
 
+SLURM_STATE_DICT   = {0:'PENDING', 1:'RUNNING', 3:'COMPLETED', 4:'CANCELED', 5:'FAILED', 6:'TIMEOUT', 7:'NODE_FAIL', 8:'PREEMPTED', 11:'OUT_OF_MEM', 8192:'RESIZING'}
+
 class SlurmStatus:
     STATUS_LIST=['undefined', 'running', 'sleeping', 'disk-sleep', 'zombie', 'stopped', 'tracing-stop']
 
@@ -189,6 +191,17 @@ class SlurmDBQuery:
 
         return df[['id_job', 'user', 'time_start', 'time_end', 'time_suspended']]
 
+    # always return user
+    def getJobByName (self, job_name, fields=['id_job','job_name', 'id_user','state', 'nodes_alloc','nodelist', 'time_start','time_end', 'tres_req', 'gres_req']):
+        df = pd.read_csv("slurm_cluster_job_table.csv",usecols=fields)
+        df = df[df['job_name']==job_name]
+        df['state'] = df['state'].map(lambda x: SLURM_STATE_DICT.get(x, x))
+        df['user']  = df['id_user'].map(lambda x: MyTool.getUser(x))
+        df['duration'] = df['time_end'] - df['time_start']
+        df['duration'] = df['duration'].map(lambda x: x if x >0 else 0)
+        df          = df.fillna('Not Defined')
+        d  = df.to_dict(orient='records')
+        return d
 
 class SlurmCmdQuery:
     LOCAL_TZ = timezone(timedelta(hours=-4))
@@ -201,7 +214,7 @@ class SlurmCmdQuery:
         return SlurmCmdQuery.sacct_getReport(['-u', user], days, output, skipJobStep)
 
     @staticmethod
-    def sacct_getJobReport (jobid, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocNodes,AllocCPUS,NodeList'):
+    def sacct_getJobReport (jobid, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocNodes,NodeList'):
         return SlurmCmdQuery.sacct_getReport(['-j', str(jobid)], days=None, output=output, skipJobStep=False)
 
     # return {jid:jinfo, ...}
@@ -294,6 +307,14 @@ def test1():
     client = SlurmCmdQuery()
     info = client.getSlurmJobInfo('110972')
 
+def test2():
+    client = SlurmDBQuery()
+    info = client.getClusterJobQueue()
+
+def test3():
+    client = SlurmDBQuery()
+    client.getJobByName ('script.sh')
+
 def main():
     #job= pyslurm.job().find_id ('88318')
     #job= pyslurm.slurmdb_jobs().get ()
@@ -302,11 +323,9 @@ def main():
     #print(SlurmStatus.getStatusID('running'))
     #print(SlurmStatus.getStatusID('running1'))
     #print(SlurmStatus.getStatus(1))
-    client = SlurmDBQuery()
     #info = client.getSlurmJobInfo('105179')
     #info = client.test()
-    info = client.getClusterJobQueue()
-    print(repr(info))
+    test3()
     print("main take time " + str(time.time()-t1))
 
 if __name__=="__main__":
