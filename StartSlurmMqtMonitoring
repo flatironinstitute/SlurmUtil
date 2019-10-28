@@ -24,25 +24,32 @@ declare -A CMAliases=( [bcm1]=bcm [bcm2]=bcm [ironbcm1]=ironbcm [ironbcm2]=ironb
 
 [[ ${CMAliases[${cm}]+_} ]] && cm=${CMAliases[${cm}]}
 
-if [[ $cm == "bcm" || $cm == "ironbcm" ]]
-then
+#echo "cm=$cm"
+#if [[ $cm == "bcm" || $cm == "ironbcm" ]]
+#then
     #    . ~carriero/slurmMe
     # "borrowed" from module
-    CmSlurmRoot=/cm/shared/apps/slurm/17.02.2
+    CmSlurmRoot=/cm/shared/apps/slurm/current
     export PATH=${CmSlurmRoot}/bin:$PATH
     export PATH=${CmSlurmRoot}/sbin:$PATH
     export LD_LIBRARY_PATH=${CmSlurmRoot}/lib64:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=${CmSlurmRoot}/lib64/slurm:$LD_LIBRARY_PATH
+    #echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+    PLHACK="LD_PRELOAD=${CmSlurmRoot}/lib64/slurm/libslurmfull.so"
 
     # activate python virutal environment
-    . ~yliu/anaconda3/lib/python3.6/site-packages/pyslurmenv/bin/activate
+    . ~yliu/projects/slurm/utils/env_slurm18/bin/activate
     # This allows us to use the same data archive for bcm1 and bcm2
-else
-    export PATH=/mnt/xfs1/bioinfoCentos7/software/installs/python/2.7.9/bin:$PATH
-fi
+#else
+#    export PATH=/mnt/xfs1/bioinfoCentos7/software/installs/python/2.7.9/bin:$PATH
+#fi
 echo "Using: $(which python)"
 
+logDir="/tmp/slurm_util"
+mkdir -p ${logDir}  || { echo "Failed to create support directory." ; exit 1 ; }
+
 pData="/mnt/ceph/users/yliu/tmp/mqtMonTest"
+pData="/mnt/home/yliu/projects/slurm/utils/mqtMonStreamRecord"
 mkdir -p  $(dirname ${pData}) || { echo "Failed to create support directory." ; exit 1 ; }
 
 # if changed, be sure to change mqt_urls as well.
@@ -52,7 +59,7 @@ if pidfilestale ${cm}_web_mqt.pid
 then
     while [[ 1 ]]
     do
-	python ${ScriptDir}/smcpgraph-html-sun.py ${WebPort} ${pData} &
+	python ${ScriptDir}/smcpgraph-html-sun.py ${WebPort} &
 	pid=$!
 	echo ${pid} > ${cm}_web_mqt.pid
 	wait ${pid}
@@ -68,7 +75,7 @@ then
     while [[ 1 ]] 
     do
 #	python -m cProfile -o profile.log ${ScriptDir}/mqtMonStream.py ${pData} mqt_urls 2>&1 &
-	python ${ScriptDir}/mqtMonStream.py ${pData} mqt_urls 2>&1 &
+	python ${ScriptDir}/mqttMonStream.py ${pData} mqt_urls 2>&1 &
 	pid=$!
 	echo ${pid} > ${cm}_monitor_mqt.pid
 	wait ${pid}
@@ -79,6 +86,7 @@ else
     echo "monitor is already running ($(cat ${cm}_monitor_mqt.pid))."
 fi
 
+# start the mqtt to influx
 if pidfilestale ${cm}_monitor_mqt_influx.pid
 then
     while [[ 1 ]] 
