@@ -260,7 +260,7 @@ class SlurmEntities:
              if j_min_mem_pn:        j_features.append ('mem_per_node={}MB'.format(j_min_mem_pn))
              if j_min_mem_pc:        j_features.append ('mem_per_cpu={}MB'.format(j_min_mem_pc))
              #print("getPendingJobs {} {}".format(pa_node, pa_cpu))
-             job['state_exp']      = job['state_exp'].format(partition=p_name, avail_node=pa_node, avail_cpu=pa_cpu, feature='({0})'.format(j_features), start_time=MyTool.getTimeString(job.get('start_time','')))
+             job['state_exp']      = job['state_exp'].format(partition=p_name, avail_node=pa_node, avail_cpu=pa_cpu, feature='({0})'.format(j_features), start_time=MyTool.getTsString(job.get('start_time','')))
           elif job['state_reason'] == 'Priority':
              earlierJobs           = self.getSmallerJobIDs(job['job_id'], self.partition_dict[p_name].get('pending_jobs',[]))
              job['state_exp']      = job['state_exp'].format(partition=p_name, higher_job=earlierJobs)

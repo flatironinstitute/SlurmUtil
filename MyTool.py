@@ -3,7 +3,7 @@ import re
 import collections
 from datetime import datetime, timezone, timedelta
 import time
-import pwd,grp
+import pwd,grp,logging
 import dateutil.parser
 import _pickle as cPickle
 import os.path
@@ -82,9 +82,9 @@ def getTS_strftime (ts, fmt='%Y/%m/%d'):
     d = datetime.fromtimestamp(ts)
     return d.strftime(fmt)
   
-def getTimeString (ts):
+def getTsString (ts, sep=' ', timespec='seconds'):
     d = datetime.fromtimestamp(ts)
-    return d.isoformat(' ')
+    return d.isoformat(sep, timespec)
 
 def getUTCDateTime (local_ts):
     #print ("UTC " + datetime.fromtimestamp(local_ts, tz=DataReader.LOCAL_TZ).isoformat())
@@ -377,10 +377,37 @@ def convert2K (s):
     else:
        return int(s) / 1024
 
-def main(argv):
+def getFileLogger (name, level=logging.WARNING, file_name=None):
+    if not file_name:
+       file_name = '{}_{}.log'.format(name, getTsString(time.time(), '_', timespec='hours'))
+    f_format  = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    f_handler = logging.FileHandler(file_name)
+    f_handler.setLevel(level)
+    f_handler.setFormatter(f_format)
+
+    logger    = logging.getLogger(name)
+    logger.addHandler(f_handler)
+    logger.setLevel  (level)
+
+    return logger
+
+def test1():
+    level = logging.DEBUG
+    logger=getFileLogger('test', level)
+    logger.log     (level, "log level {}".format(logger.getEffectiveLevel()))
+    logger.debug   ("debug")
+    logger.info    ("info")
+    logger.warning ("warning")
+    logger.error   ("error")
+    logger.critical("error")
+    
+def test2(argv):
     for s in argv:
         c = convert2list(s)
         print (repr(c))
+
+def main(argv):
+    test1()
 
 if __name__=="__main__":
    main(sys.argv[1:])

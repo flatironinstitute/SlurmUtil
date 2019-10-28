@@ -548,7 +548,7 @@ class SLURMMonitor(object):
     def uid2jids  (self, uid, node):
         jids = list(filter(lambda x: self.currJobs[x]['user_id']==uid, self.node2Jobs[node]))
         if len(jids) == 0:
-           print ('WARNING: uid2jid user {} has no slurm jobs on node {}'.format(uid, node))
+           print ('WARNING: uid2jid user {} has no slurm jobs on node {}\n{}'.format(uid, node, self.node2Jobs[node]))
         elif len(jids) > 1:
            print ('WARNING: uid2jid user {} has multiple slurm jobs {} on node {}'.format(uid, jids, node))
 
@@ -628,47 +628,48 @@ class SLURMMonitor(object):
                result.append([hostname, 0])
         return repr(result)
                    
+    # return a list of jobs with attribute long_label and disabled
+    # generate jobs info {job_id, long_label, disabled}
+    def getJobsWithLabel (self):
+        jobs    = []
+        for jid, jobinfo in self.currJobs.items():
+            if jobinfo['tres_alloc_str']:  # alloc resource
+               long_label = '{}({}) {} with {}'.format       (jid, jobinfo['user'], jobinfo['job_state'], jobinfo['tres_alloc_str'])
+               disabled   = ""
+            else:                          # wait resource
+               long_label = '{}({}) {} waiting for {}'.format(jid, jobinfo['user'], jobinfo['job_state'], jobinfo['tres_req_str'])
+               disabled   = "disabled"
+            jobs.append({"job_id":jid, "long_label":long_label, "disabled":disabled})
+        return jobs
+
+    #generate users info {user, jobs, long_label}
+    def getUsersWithLabel (self):
+        users_dict = defaultdict(list)
+        for jid, jobinfo in self.currJobs.items():
+            if jobinfo['tres_alloc_str']: 
+               users_dict[jobinfo['user']].append (jid)
+        users = [ {"user":user, "jobs":jobs, "long_label":'{} with running jobs {}'.format(user, jobs)} for user, jobs in users_dict.items()]
+        return users
+
     def getHeatmapData (self):
         node2job= self.node2Jobs
 
-        #generate jobs info {job_id, long_label, disabled}
-        #generate users info {user_id, long_label, disabled}
-        jobs    = []
-        users_d = defaultdict(list)
-        for jobid, jobinfo in self.currJobs.items():
-            user=MyTool.getUser(jobinfo['user_id'])
-            if jobinfo['tres_alloc_str']:
-               long_label = '{}({}) {} with {}'.format(jobid, user, jobinfo['job_state'], jobinfo['tres_alloc_str'])
-               disabled   = ""
-            else:
-               long_label = '{}({}) {} waiting {}'.format(jobid, user, jobinfo['job_state'], jobinfo['tres_req_str'])
-               disabled   = "disabled"
-            job = {"job_id":jobid, "long_label":long_label, "disabled":disabled}
-            if jobinfo['tres_alloc_str']:
-               users_d[user].append (jobid)
- 
-            #jobinfo['user']=MyTool.getUser(jobinfo['user_id'])
-            #job=MyTool.sub_dict_exist(jobinfo, ['job_id', 'user', 'job_state', 'account', 'tres_alloc_str', 'tres_req_str'])
-            jobs.append(job)
-        users = [ {"user":user, "jobs":jobs, "long_label":'{} with running jobs {}'.format(user, jobs)} for user, jobs in users_d.items()]
-
-        workers  = []  #dataset1 in heatmap
-        for hostname, values in sorted(self.data.items()):
+        jobs    = self.getJobsWithLabel ()
+        users   = self.getUsersWithLabel()
+        workers = []  #dataset1 in heatmap
+        for hostname, hostinfo in sorted(self.data.items()):
             try:
                node_cores = self.pyslurmNodeData[hostname]['cpus']
                alloc_jobs = node2job.get(hostname, [])
-               if len(values) > USER_INFO_IDX: #ALLOCATED, MIXED
-                  cpu_load   = values[USER_INFO_IDX][4]
-                  state      = 1
+               if 'ALLOCATED' in hostinfo[0] or 'MIXED' in hostinfo[0]:  #in use
+                  state    = 1
+               elif 'IDLE' in hostinfo[0]:                               #ready to use
+                  state  = 0
                else:
-                  cpu_load   = -1
-                  if values[0] in ['ALLOCATED$','ALLOCATED','ALLOCATED@']:
-                      state    = 1
-                      cpu_load = 0
-                  elif 'IDLE' in values[0]:
-                      state  = 0
-                  else:
-                      state  = -1
+                  state  = -1
+               cpu_load = 0
+               if len(hostinfo) > USER_INFO_IDX: #ALLOCATED, MIXED
+                  cpu_load   = hostinfo[USER_INFO_IDX][4]
 
                job_accounts  = [self.currJobs[jid].get('account', None)        for jid in alloc_jobs]
                job_users     = [MyTool.getUser(self.currJobs[jid]['user_id'])  for jid in alloc_jobs]
@@ -678,7 +679,10 @@ class SLURMMonitor(object):
                   lst   = list(zip(alloc_jobs, job_users, job_cores))
                   label = '{} util:{:.1%} core:{} jobs:{}'.format(hostname, cpu_load/node_cores, node_cores, lst)
                else:
-                  label = '{} core:{} state:{}'.format(hostname, node_cores, values[0])
+                  if cpu_load:
+                     label = '{} util:{:.1%} core:{} state:{}'.format(hostname, cpu_load/node_cores, node_cores, hostinfo[0])
+                  else:
+                     label = '{} core:{} state:{}'.format(hostname, node_cores, hostinfo[0])
                workers.append([hostname, state, node_cores, cpu_load, alloc_jobs, job_accounts, label])
             except Exception as exp:
                print("ERROR getHeatmapData: {0}".format(exp))
@@ -867,6 +871,10 @@ class SLURMMonitor(object):
         self.updateNode2Jobs (self.currJobs)
         if type(self.data) != dict: self.data = {}  #may have old data from last round
         for node,nInfo in hn2info.items(): 
+            if self.updateTS - int(nInfo[2]) > 600: # Ignore data
+               print("WARNING updateSlurmData: ignore old data on node {} at {}".format(node, MyTool.getTsString(nInfo[2]))) 
+               continue
+  
             #set the value of self.data
             self.data[node] = nInfo      #nInfo: status, delta, ts, procsByUser
             if len(nInfo) > USER_INFO_IDX and nInfo[USER_INFO_IDX]:
@@ -1089,7 +1097,7 @@ class SLURMMonitor(object):
     @cherrypy.expose
     def userJobs(self, user):
         t = htmlPreamble
-        t += '<h3>Running and Pending Jobs of user <a href="./userDetails?user={0}">{0}</a> (<a href="./userJobGraph?uname={0}">Graph</a>)</a></h3>Update time:{1}'.format(user, MyTool.getTimeString(int(time.time())))
+        t += '<h3>Running and Pending Jobs of user <a href="./userDetails?user={0}">{0}</a> (<a href="./userJobGraph?uname={0}">Graph</a>)</a></h3>Update time:{1}'.format(user, MyTool.getTsString(int(time.time())))
         t += self.sacctReport(SlurmCmdQuery.sacctCmd(['-u', user, '-s', 'RUNNING,PENDING'], output='JobID,JobName,State,Partition,NodeList,AllocCPUS,Submit,Start'),
                               titles=['Job ID', 'Job Name', 'State', 'Partition','NodeList','Allocated CPUS', 'Submit','Start'])
         t += '<a href="%s/index">&#8617</a>\n</body>\n</html>\n'%cherrypy.request.base
@@ -1221,7 +1229,7 @@ class SLURMMonitor(object):
            if (not end) or (end == 'Unknown'):
               proc_note='Can not find End time for a non-running job'
            else:
-              proc_note='Job start at {} and end at {}'.format(MyTool.getTimeString(start), MyTool.getTimeString(end))
+              proc_note='Job start at {} and end at {}'.format(MyTool.getTsString(start), MyTool.getTsString(end))
         
               influxClient = InfluxQueryClient.getClientInstance()
               # query influx cpu_proc_info between start and end where uid and hostname
