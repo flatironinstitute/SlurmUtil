@@ -1,5 +1,6 @@
 import smtplib
 from datetime import timedelta
+from collections import defaultdict as DDict
 import MyTool
 
 # Import the email modules we'll need
@@ -7,7 +8,9 @@ from email.message import EmailMessage
 
 RECIPIENTS    =['yliu@flatironinstitute.org','ncarriero@flatironinstitute.org','dsimon@flatironinstitute.org']
 #RECIPIENTS    =['yliu@flatironinstitute.org','yanbin_liu@yahoo.com']
-MSG_LOW_UTIL  ="Dear user, \n\nYour job {} has been run for {} with a average utilization of {:.2f} on nodes {}. You may check the details of the resource usage at {}. \n\n Please revise your job to see if you need the job to continue. \n\n Thank you very much! \n SCC team"
+MSG_LOW_UTIL  ='Dear user, \n\nYour job {} has run for {} with an average CPU utilization of {:.2f} and MEM utilization of {:.2f} on node {} with a total of {} cpus. You may check the details of the resource usage at {}. \n\n Please verify that this job is behaving as expected. If you no longer need the job, please terminate it (e.g., use "scancel"), so that the resources allocated to it can be used by others. \n\n Thank you very much! \n SCC team'
+SCC_USERS     =['yliu', 'ncarriero', 'dsimon', 'ifisk', 'apataki', 'jcreveling', 'awatter', 'ntrikoupis', 'jmoore', 'pgunn', 'achavkin', 'elovero']
+
 
 def getMsg_test ():
     content='test1\n\ntest2'
@@ -21,8 +24,11 @@ def getMsg_test ():
     return msg
 
 class JobNoticeSender:
-    def __init__(self, interval=86400):
-        self.last_jobNotice  = {}               #{jid:ts}
+    def __init__(self, interval=86400, cacheFile='jobNotice.cache'):
+        self.cacheFile       = cacheFile
+        self.last_jobNotice  = MyTool.readFile(cacheFile)               #{jid:ts}
+        if not self.last_jobNotice:
+           self.last_jobNotice = DDict(int)
         self.interval_secs   = interval         #interval to send repeated notice for the same job
 
     def sendNotice (self, ts, jobs):
@@ -34,11 +40,9 @@ class JobNoticeSender:
         new_jids  = curr_jids.difference(dup_jids)
 
         #remove the job notice that is not repeated this time, if job's utilization is fluctrated around border-line->more than expected dup notices
-        #print('remove {}'.format(rmv_jids))
         for jid in rmv_jids:
             self.last_jobNotice.pop(jid)
         #send notice for new appeared job
-        #print('send notice for {}'.format(new_jids))
         for jid in new_jids:
             self.sendJobNotice (ts, jobs[jid])
             self.last_jobNotice[jid] = ts
@@ -48,17 +52,22 @@ class JobNoticeSender:
         for jid in dup_jids_send:
             self.sendJobNotice(ts, jobs[jid])
             self.last_jobNotice[jid] = ts
+
+        MyTool.writeFile (self.cacheFile, self.last_jobNotice)
         
     def sendJobNotice (self, ts, job):
-        addr   ='http://scclin011:8126/jobDetails?jid={}'.format(job['job_id'])
-        content=MSG_LOW_UTIL.format(job['job_id'], timedelta(seconds=ts - int(job['start_time'])), job['job_avg_util'], job['nodes'], addr)
         user   =MyTool.getUser(job['user_id'])
+        if user in SCC_USERS:
+           return
+        
+        addr   ='http://scclin011:8126/jobDetails?jid={}'.format(job['job_id'])
+        content=MSG_LOW_UTIL.format(job['job_id'], timedelta(seconds=ts - int(job['start_time'])), job['job_avg_util'], job['job_mem_util'], job['nodes'], job['num_cpus'], addr)
         #to_list=RECIPIENTS + ['@flatironinstitute.org'.format(user)]
         to_list=RECIPIENTS
 
         msg = EmailMessage()
         msg.set_content(content)
-        msg['Subject'] = 'Long run job with low utilization at slurm cluster -- {}'.format(user)
+        msg['Subject'] = 'Long runnig job with low utilization at slurm cluster -- Job {} by {}'.format(job['job_id'], user)
         msg['From']    = 'yliu'
         msg['To']      = ', '.join(to_list)
         
