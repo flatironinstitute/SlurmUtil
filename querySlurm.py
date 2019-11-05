@@ -191,18 +191,26 @@ class SlurmDBQuery:
 
         return df[['id_job', 'user', 'time_start', 'time_end', 'time_suspended']]
 
-    # always return user
+    # return jobs with the given job_name
+    # add fields user, duration
     def getJobByName (self, job_name, fields=['id_job','job_name', 'id_user','state', 'nodes_alloc','nodelist', 'time_start','time_end', 'tres_req', 'gres_req']):
-        df = pd.read_csv("slurm_cluster_job_table.csv",usecols=fields)
-        df = df[df['job_name']==job_name]
-        df['state'] = df['state'].map(lambda x: SLURM_STATE_DICT.get(x, x))
-        df['user']  = df['id_user'].map(lambda x: MyTool.getUser(x))
+        df             = pd.read_csv("slurm_cluster_job_table.csv",usecols=fields)
+        df             = df[df['job_name']==job_name]
+        df['state']    = df['state'].map(lambda x: SLURM_STATE_DICT.get(x, x))
+        df['user']     = df['id_user'].map(lambda x: MyTool.getUser(x))
         df['duration'] = df['time_end'] - df['time_start']
         df['duration'] = df['duration'].map(lambda x: x if x >0 else 0)
-        df          = df.fillna('Not Defined')
-        d  = df.to_dict(orient='records')
-        return d
+        df             = df.fillna('Not Defined')
+        lst            = df.to_dict(orient='records')
+        return lst
 
+    # return jobs after the given start time
+    def getJobByStartTime (self, start_time, fields=['id_job','job_name', 'id_user','state', 'nodes_alloc','nodelist', 'time_start','time_end', 'tres_req', 'gres_req']):
+        df             = pd.read_csv("slurm_cluster_job_table.csv",usecols=fields)
+        df             = df[df['time_start']>start_time]
+        lst            = df.to_dict(orient='records')
+        return lst
+    
 class SlurmCmdQuery:
     LOCAL_TZ = timezone(timedelta(hours=-4))
 

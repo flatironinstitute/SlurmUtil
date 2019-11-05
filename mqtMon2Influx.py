@@ -8,6 +8,7 @@ import pdb
 import sys
 import threading
 import time
+import _pickle as cPickle
 
 from collections import defaultdict as DDict
 from datetime import datetime, timezone, timedelta
@@ -19,13 +20,15 @@ import pyslurm
 import MyTool
 import querySlurm
 
+logger   = MyTool.getFileLogger('mqttMon2Influx', logging.DEBUG)  # use module name
+
 # Maps a host name to a tuple (time, pid2info), where time is the time
 # stamp of the last update, and pid2info maps a pid to a dictionary of
 # info about the process identified by the pid.
 
 class InfluxWriter (threading.Thread):
-    INTERVAL   = 61
-    BATCH_SIZE = 8000
+    INTERVAL   = 31
+    MAX_SIZE = 10000
 
     def __init__(self, influxServer='scclin011', influxDB='slurmdb', testMode = False):
         threading.Thread.__init__(self)
@@ -33,14 +36,14 @@ class InfluxWriter (threading.Thread):
         self.influx_client = self.connectInflux (influxServer, influxDB)
         self.source        = []
         self.test_mode     = testMode
-        logging.info("Start InfluxWriter with influx_client={}, interval={}".format(self.influx_client._baseurl, self.INTERVAL))
+        logger.info("Start InfluxWriter with influx_client={}, interval={}, test={}".format(self.influx_client._baseurl, self.INTERVAL, self.test_mode))
 
     def connectInflux (self, host, db, port=8086, user="yliu"):
         return influxdb.InfluxDBClient(host, port, user, "", db)
 
     def writeInflux (self, points, ret_policy="autogen", t_precision="s"):
         try:
-           logging.info  ("writeInflux {}".format(len(points)))
+           logger.info  ("writeInflux {} pts".format(len(points)))
            if self.test_mode:
               print("writeInflux {}\n".format(len(points)))
               for idx in range(min(len(points),10)):
@@ -48,32 +51,40 @@ class InfluxWriter (threading.Thread):
               return True
            else:
               #ret = self.influx_client.write_points (points,  retention_policy=ret_policy, time_precision=t_precision, batch_size=BATCH_SIZE)
-              ret = self.influx_client.write_points (points,  retention_policy=ret_policy, time_precision=t_precision)
+              ret = self.influx_client.write_points (points,  retention_policy=ret_policy, time_precision=t_precision, batch_size=InfluxWriter.MAX_SIZE)
+              logger.info("writeInflux return {}".format(ret))
               return ret
         except influxdb.exceptions.InfluxDBClientError as err:
-           logging.error ("writeInflux " + ret_policy + " ERROR:" + repr(err) + repr(points))
+           logger.error ("writeInflux " + ret_policy + " ERROR:" + repr(err) + repr(points))
            return False
 
     def addSource(self, source):
         self.source.append(source)
 
     def run(self):
+        #pdb.set_trace()
         points = []
+        time.sleep (10)
         while True:
-          time.sleep (InfluxWriter.INTERVAL)
-          
           for s in self.source:
-              points.extend(s.retrievePoints ())
-              logging.info ("InfluxWriter have {} points after checking source {}".format(len(points), s))
+              points.extend(s.retrieveInfluxPoints ())
+              logger.info ("InfluxWriter have {} points after checking source {}".format(len(points), s))
 
           if len(points) == 0: continue
+
+          #p1  = points[:InfluxWriter.MAX_SIZE]
+          self.influx_client = self.connectInflux (influxServer, influxDB)
           ret = self.writeInflux (points)
-          logging.debug("writeInflux return {}".format(ret))
+          self.influx_client.close()
           if ret:
-             points = []
+             #del points[:InfluxWriter.MAX_SIZE]   # at most remove BATCH_SIZE items 
+             points.clear()
           else: 
              # show the users list, still failed, reconnect with it
-             logging.error("write_points return False")
+             logger.error("write_points return False")
+          
+
+          time.sleep (InfluxWriter.INTERVAL)
 
 class MQTTReader (threading.Thread):
     TS_FNAME = 'host_up_ts.txt'
@@ -82,18 +93,18 @@ class MQTTReader (threading.Thread):
     #two threads: one for mqtt client, one for the reader
     def __init__(self, mqttServer='mon5.flatironinstitute.org'):
         threading.Thread.__init__(self)
+        self.lock          = threading.Lock()   #guard the message list hostperf_msgs, ...
 
         self.mqtt_client   = self.connectMqtt   (mqttServer)
-
-        self.cpuinfo       = {} 		#static information
-        self.nodeUidTs2points = DDict(lambda: DDict(lambda: DDict(dict))) #{node:{uid:{ts:{pid:procPoint, ...]},...}, hostproc2point provider, create_uid_point use it
-       
-        self.lock          = threading.Lock()   #guard the message list hostperf_msgs, ...
         self.hostperf_msgs = []
         self.hostinfo_msgs = []
         self.hostproc_msgs = []
-        self.startTime     = datetime.now().timestamp()
+        #self.hostproc_msgs_byHost = []
 
+        self.startTime     = datetime.now().timestamp()
+        self.cpuinfo       = {} 		#static information
+        self.nodeUidTs2points = DDict(lambda: DDict(lambda: DDict(dict))) #{node:{uid:{ts:{pid:procPoint, ...]},...}, hostproc2point provider, create_uid_point use it
+       
         # read host_up_ts, TODO: from event_table slurmdb
         if os.path.isfile(self.TS_FNAME):
            with open(self.TS_FNAME, 'r') as f:
@@ -102,8 +113,8 @@ class MQTTReader (threading.Thread):
            self.cpu_up_ts      = {}
         self.cpu_up_ts_count   = 0
 
-        self.node2tsPidsCache = Node2PidsCache ()
-        logging.info("Start MQTTReader with mqtt_client={}".format(self.mqtt_client))
+        self.node2tsPidsCache = Node2PidsCache () #data structure to avoid duplicate information
+        logger.info("Start MQTTReader with mqtt_client={}".format(self.mqtt_client))
 
     def run(self):
         # Asynchronously receive messages
@@ -129,7 +140,7 @@ class MQTTReader (threading.Thread):
     def on_message(self, client, userdata, msg):
         data     = json.loads(msg.payload)
         if ( self.startTime - data['hdr']['msg_ts'] > 25200 ): # 7 days
-           logging.info("Skip old message=" + repr(data['hdr']))
+           logger.info("Skip old message=" + repr(data['hdr']))
            return
 
         with self.lock:
@@ -137,11 +148,12 @@ class MQTTReader (threading.Thread):
            self.hostperf_msgs.append(data)
           elif ( data['hdr']['msg_type'] == 'cluster/hostinfo' ):
            self.hostinfo_msgs.append(data)
-          elif ( data['hdr']['msg_type'] == 'cluster/hostprocesses' ):
+          elif ( data['hdr']['msg_type'] == 'cluster/hostprocesses' ):       #also trigger to updateSlurm
            self.hostproc_msgs.append(data)
+           #self.hostproc_msgs_byHost[data['hdr']['hostname']].append(data)
 
     # retrieve points
-    def retrievePoints (self):
+    def retrieveInfluxPoints (self):
         #self.pyslurmQueryTime= datetime.now().timestamp()
         #pdb.set_trace()
         self.nodeData = pyslurm.node().get()
@@ -151,77 +163,30 @@ class MQTTReader (threading.Thread):
              hostinfo_msgs      = self.hostinfo_msgs
              self.hostinfo_msgs = []
         hostinfo      = self.process_list(hostinfo_msgs, self.hostinfo2point)
-        logging.debug("MQTTReader generate {} hostinfo points".format(len(hostinfo)))
+        logger.debug("MQTTReader generate {} hostinfo points".format(len(hostinfo)))
 
         #autogen.cpu_load: time, hostname, proc_*, load_*, cpu_*, mem_*, net_*, disk_*
         with self.lock:
              hostperf_msgs      = self.hostperf_msgs
              self.hostperf_msgs = []
         hostperf      = self.process_list(hostperf_msgs, self.hostperf2point)
-        logging.debug("MQTTReader generate {} hostperf points".format(len(hostperf)))
+        logger.debug("MQTTReader generate {} hostperf points".format(len(hostperf)))
 
         #autogen.cpu_proc_info, cpu_proc_mon
         with self.lock:
              hostproc_msgs      = self.hostproc_msgs
              self.hostproc_msgs = []
         hostproc_msgs.sort(key=lambda msg: msg['hdr']['msg_ts'])
-        #hostproc_old  = self.process_list(hostproc_msgs, self.hostproc2point_old)
         hostproc      = self.process_list(hostproc_msgs, self.hostproc2point)
-        logging.debug("MQTTReader generate {} hostproc points".format(len(hostperf)))
-
-        #if self.nodeUidTs2points:
-        #   #autogen.cpu_uid_mon
-        #   hostproc_old.extend(self.create_uid_points())
-        # compare
-        #cpu_uid_mon_old = [p for p in hostproc_old if p['measurement']== 'cpu_uid_mon']
-        #cpu_uid_mon_new = [p for p in hostproc     if p['measurement']== 'cpu_uid_mon']
-        #cpu_uid_mon_old.sort(key=lambda p: (p['time'],p['tags']['hostname'],p['tags']['uid']))
-        #cpu_uid_mon_new.sort(key=lambda p: (p['time'],p['tags']['hostname'],p['tags']['uid']))
-        #logging.debug("MQTTReader old generate {} hostproc_info, {} hostproc_mon, {} hostuid_mon points".format(
-        #                           len([1 for p in hostproc_old if p['measurement']== 'cpu_proc_info']), 
-        #                           len([1 for p in hostproc_old if p['measurement']== 'cpu_proc_mon']), 
-        #                           len([1 for p in hostproc_old if p['measurement']== 'cpu_uid_mon']) 
-        #             ))
-        #logging.debug("MQTTReader NEW generate {} hostproc_info, {} hostproc_mon, {} hostuid_mon points".format(
-        #                           len([1 for p in hostproc if p['measurement']== 'cpu_proc_info']), 
-        #                           len([1 for p in hostproc if p['measurement']== 'cpu_proc_mon']), 
-        #                           len([1 for p in hostproc if p['measurement']== 'cpu_uid_mon']) 
-        #             ))
-        #idx             = 0
-        #idx_new         = 0
-        #same_cnt        = 0
-        #while idx < len(cpu_uid_mon_old) and idx_new < len(cpu_uid_mon_new):
-        #    p     = cpu_uid_mon_old[idx]
-        #    p_new = cpu_uid_mon_new[idx_new]
-        #    if p['time'] < p_new['time']:
-        #       logging.debug ('old has extra point {} ({} versus {})'.format(p, p['time'], p_new['time']))
-        #       series_old = [pp['cpu_system_time'] for pp in hostproc_old if pp['measurement']== 'cpu_proc_mon' and pp['tags']['hostname']==p['tags']['hostname'] and pp['tags']['uid']==p['tags']['uid']]
-        #       idx     += 1
-        #    elif p['time'] > p_new['time']:
-        #       logging.debug ('new has extra point {}'.format(p_new))
-        #       idx_new += 1
-        #    else: #==
-        #       if (repr(p['tags']) != repr(p_new['tags'])) or (repr(p['fields']) != repr(p_new['fields'])):
-        #          logging.debug ('old and new have diff point \n{}\n{}'.format(p, p_new))
-        #       else:
-        #          same_cnt +=1
-        #       idx     += 1
-        #       idx_new += 1
-        #while idx < len(cpu_uid_mon_old):
-        #    logging.debug ('old has tail extra point {}'.format(cpu_uid_mon_old[idx]))
-        #    idx     += 1
-        #while idx_new < len(cpu_uid_mon_new):
-        #    logging.debug ('new has tail extra point {}'.format(cpu_uid_mon_new[idx_new]))
-        #    idx_new += 1
-        #logging.debug("MQTTReader NEW and OLD have {} same points.".format(same_cnt))
+        logger.debug("MQTTReader generate {} hostproc points".format(len(hostproc)))
 
         points = hostinfo + hostperf + hostproc
-        logging.debug("MQTTReader has {} points in total".format(len(points)))
         if self.cpu_up_ts_count > 0:
            with open (self.TS_FNAME, 'w') as f:
                 json.dump(self.cpu_up_ts, f)
            self.cpu_up_ts_count = 0
 
+        self.node2tsPidsCache.writeFile ()         #save intermediate data structure, node2
         return points
 
     def process_list (self, msg_list, item_func):
@@ -247,7 +212,7 @@ class MQTTReader (threading.Thread):
            self.cpu_up_ts[host] = []
         if 'os' in msg:
            up_ts = int(msg['os']['kernel_boot_ts']/10) * 10
-           if up_ts not in self.cpu_up_ts[host]:
+           if up_ts not in self.cpu_up_ts[host]:    #up_ts != self.cpu_up_ts[host][-1]
               self.cpu_up_ts[host].append(up_ts)
               self.cpu_up_ts_count += 1
 
@@ -264,18 +229,11 @@ class MQTTReader (threading.Thread):
 
     def hostperf2point(self, msg):
         #{'load': [0.29, 0.29, 0.44], 'cpu_times': {'iowait': 553.4, 'idle': 6050244.96, 'user': 12374.76, 'system': 2944.12}, 'proc_total': 798, 'hdr': {'hostname': 'ccalin007', 'msg_process': 'cluster_host_mon', 'msg_type': 'cluster/hostperf', 'msg_ts': 1541096161.66126}, 'mem': {'available': 196645462016, 'used': 8477605888, 'cached': 3937718272, 'free': 192701874176, 'total': 201179480064, 'buffers': 5869568}, 'net_io': {'rx_err': 0, 'rx_packets': 6529000, 'rx_bytes': 5984570284, 'tx_err': 0, 'tx_drop': 0, 'tx_bytes': 6859935273, 'tx_packets': 6987776, 'rx_drop': 0}, 'proc_run': 1, 'disk_io': {'write_bytes': 7890793472, 'read_count': 130647, 'write_count': 221481, 'read_time': 19938, 'read_bytes': 2975410176, 'write_time': 6047344}}
-        host  = msg['hdr']['hostname']
         ts    = msg['hdr']['msg_ts']
-
-        point                        = {'measurement':'cpu_load', 'time': (int)(ts)}
-        point['tags']                = {'hostname'   : host}
-        point['fields']              = MyTool.flatten(MyTool.sub_dict(msg, ['cpu_times', 'mem', 'net_io', 'disk_io']))
-        point['fields']['load_1min'] = msg['load'][0]
-        point['fields']['load_5min'] = msg['load'][1]
-        point['fields']['load_15min']= msg['load'][2]
-        point['fields']['proc_total']= msg['proc_total']
-        point['fields']['proc_run']  = msg['proc_run']
-
+        point           = {'measurement':'cpu_load', 'time': (int)(ts)}
+        point['tags']   = {'hostname'   : msg['hdr']['hostname']}
+        point['fields'] = MyTool.flatten(MyTool.sub_dict(msg, ['cpu_times', 'mem', 'net_io', 'disk_io']))
+        point['fields'].update ({'load_1min':msg['load'][0], 'load_5min':msg['load'][1], 'load_15min':msg['load'][2], 'proc_total':msg['proc_total'], 'proc_run': msg['proc_run']})
         return [point]
 
     def hostproc2point (self, msg):
@@ -288,7 +246,7 @@ class MQTTReader (threading.Thread):
         if ( len(msg['processes']) == 0 ):   return []
         if ( not self.isSlurmNode(node) ):   return []
 
-        new_procs, cont_procs, pre_cont_procs, pre_ts = self.node2tsPidsCache.addMQTTMsg(node, ts, msg)
+        new_procs, cont_procs, pre_cont_procs, pre_done_procs, pre_ts = self.node2tsPidsCache.addMQTTMsg(node, ts, msg)
         if (not new_procs) and (not cont_procs):
            return []
 
@@ -298,6 +256,8 @@ class MQTTReader (threading.Thread):
             points.append(self.createProcMonPoint  (node, ts, proc))
         for proc in cont_procs:
             points.append(self.createProcMonPoint  (node, ts, proc))
+        for proc in pre_done_procs:
+            points.append(self.createProcInfoPoint (node, proc, end_time=int((pre_ts+ts)/2)))
 
         uids = set([proc['uid'] for proc in msg['processes']])
         for uid in uids:
@@ -305,24 +265,27 @@ class MQTTReader (threading.Thread):
             u_cont_procs     = [proc for proc in cont_procs     if proc['uid'] == uid]
             u_pre_cont_procs = [proc for proc in pre_cont_procs if proc['uid'] == uid]
             if (u_new_procs or u_cont_procs) and (u_pre_cont_procs):
+               #if ts - pre_ts < 600:  # longer than 10 minutes, ignore
                points.append(self.createUidMonPoint(node, uid, ts, u_new_procs, u_cont_procs, pre_ts, u_pre_cont_procs))
 
         return points
 
-    def createProcInfoPoint (self, node, proc):
+    def createProcInfoPoint (self, node, proc, end_time=None):
         point                     = {'measurement':'cpu_proc_info', 'time': (int)(proc['create_time'])}
         point['tags']             = MyTool.sub_dict(proc, ['pid', 'uid'])
         point['tags']['hostname'] = node
         point['fields']           = MyTool.flatten(MyTool.sub_dict(proc, ['cmdline', 'name', 'ppid']))
 
+        if end_time:
+           point['fields']['end_time'] = end_time
+           point['fields']['status']   = proc['status']
+           point['fields'].update (MyTool.flatten(MyTool.sub_dict(proc, ['mem', 'io', 'num_fds', 'cpu'], default=0)))
         return point
 
     def createProcMonPoint (self, node, ts, proc):
         point                     = {'measurement':'cpu_proc_mon', 'time': ts}
         point['tags']             = MyTool.sub_dict(proc, ['pid', 'uid', 'create_time'])
         point['tags']['hostname'] = node
-        if 'affinity' in proc['cpu']:
-            del proc['cpu']['affinity']  # not including cpu.affinity
         point['fields']           = MyTool.flatten(MyTool.sub_dict(proc, ['mem', 'io', 'num_fds', 'cpu'], default=0))
         point['fields']['status'] = querySlurm.SlurmStatus.getStatusID(proc['status'])
 
@@ -337,7 +300,7 @@ class MQTTReader (threading.Thread):
 
         period   = curr_ts - pre_ts
         if period > 120:
-           logging.warning("createUidMonPoint: Node{}, Period is {} bigger than 120 seconds between {} and {}.".format(node, period, pre_ts, curr_ts))
+           logger.warning("createUidMonPoint: Node{}, Period is {} bigger than 120 seconds between {} and {}. ".format(node, period, pre_ts, curr_ts))
         pre_num      = [(proc['cpu']['system_time'],proc['cpu']['user_time'],proc['io']['read_bytes'],proc['io']['write_bytes']) for proc in pre_cont_procs]
         pre_sum      = list(map(sum, zip(*pre_num)))
         point['fields']['cpu_system_util'] = round((curr_sum[0] - pre_sum[0])/period,4)
@@ -345,58 +308,13 @@ class MQTTReader (threading.Thread):
         point['fields']['io_read_rate']    = round((curr_sum[2] - pre_sum[2])/period,4)
         point['fields']['io_write_rate']   = round((curr_sum[3] - pre_sum[3])/period,4)
         point['fields']['mem_data']        = curr_sum[4]
-        point['fields']['mem_rss']         = curr_sum[5]
-        point['fields']['mem_shared']      = curr_sum[6]
-        point['fields']['mem_text']        = curr_sum[7]
-        point['fields']['mem_vms']         = curr_sum[8]
+        point['fields']['mem_rss_K']       = int(curr_sum[5] / 1024) # modified 09/13/2017
+        point['fields']['mem_shared_K']    = int(curr_sum[6] / 1024)
+        point['fields']['mem_text_K']      = int(curr_sum[7] / 1024)
+        point['fields']['mem_vms_K']       = int(curr_sum[8] / 1024)
         point['fields']['num_fds']         = curr_sum[9]
 
         return point
-
-    #ts2uid2procs have 2 ts (preTs, ts) 
-    #ingore non-slurm node
-    #nodeUidTs2points = DDict(DDict(list))        #{uid:{pid:[procPoint, ...]},...}
-    def hostproc2point_old (self, msg):
-        #{'processes': [{'status': 'sleeping', 'uid': 1083, 'mem': {'lib': 0, 'text': 905216, 'shared': 1343488, 'data': 487424, 'vms': 115986432, 'rss': 1695744}, 'pid': 23825, 'cmdline': ['/bin/bash', '/cm/local/apps/slurm/var/spool/job65834/slurm_script'], 'create_time': 1528790822.57, 'io': {'write_bytes': 40570880, 'read_count': 9712133, 'read_bytes': 642359296, 'write_count': 1067292080}, 'num_fds': 4, 'num_threads': 1, 'name': 'slurm_script', 'ppid': 23821, 'cpu': {'system_time': 0.21, 'affinity': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27], 'user_time': 0.17}}, 
-        #...
-        #'hdr': {'hostname': 'worker1000', 'msg_process': 'cluster_host_mon', 'msg_type': 'cluster/hostprocesses', 'msg_ts': 1528901819.82538}} 
-        ts   = (int)(msg['hdr']['msg_ts'])
-        node = msg['hdr']['hostname']
-        if ( len(msg['processes']) == 0 ):   return []
-        if ( not self.isSlurmNode(node) ):   return []
-
-        infoPoints   = []
-        procPoints   = []
-
-        # generate cpu_proc_info and cpu_proc_mon
-        for proc in msg['processes']:
-            if (not 'user_time' in proc['cpu'] or not 'system_time' in proc['cpu']): logging.error ("CPU info missing ERROR: {}".format(proc))
-
-            uid                       = proc['uid']
-            pid                       = proc['pid']
-            point                     = {'measurement':'cpu_proc_info', 'time': (int)(proc['create_time'])}
-            point['tags']             = MyTool.sub_dict(proc, ['pid', 'uid'])
-            point['tags']['hostname'] = node
-            point['fields']           = MyTool.flatten(MyTool.sub_dict(proc, ['cmdline', 'name', 'ppid']))
-            #TODO: check if duplicate
-            infoPoints.append(point)
-
-
-            #measurement cpu_proc_mon
-            point                     = {'measurement':'cpu_proc_mon', 'time': ts}
-            point['tags']             = MyTool.sub_dict(proc, ['pid', 'uid', 'create_time'])
-            point['tags']['hostname'] = node
-            if 'affinity' in proc['cpu']:
-               del proc['cpu']['affinity']  # not including cpu.affinity
-            point['fields']           = MyTool.flatten(MyTool.sub_dict(proc, ['mem', 'io', 'num_fds', 'cpu'], default=0))
-            point['fields']['status'] = querySlurm.SlurmStatus.getStatusID(proc['status'])
-            procPoints.append (point)
-
-            self.nodeUidTs2points[node][uid][ts][pid]=point
-        #logging.debug('hostproc2point generate {} cpu_proc_info and {} cpu_proc_mon points'.format(len(infoPoints), len(procPoints)))
-        infoPoints.extend(procPoints)
-
-        return infoPoints
 
     #pyslurm.slurm_pid2jobid only on slurm node with slurmd running
     def isSlurmNode (self, hostname):
@@ -406,15 +324,18 @@ class MQTTReader (threading.Thread):
 class Node2PidsCache:
    TS_ACCURACY = 0.01
 
-   def __init__ (self):
-       self.node2TsPids = DDict(lambda: DDict())  #{node: {curr_ts: curr_pids: pre_ts: pre_pids:}}
+   def __init__ (self, savFile='node2pids.cache'):
+       self.filename    = savFile
+       self.node2TsPids = DDict(lambda:DDict(), MyTool.readFile(savFile))
+       if not self.node2TsPids:
+          self.node2TsPids = DDict(lambda: DDict())  #{node: {curr_ts: curr_pids: pre_ts: pre_pids:}}
 
    #pids is set of pids on node reported at time ts
    #return new_procs, cont_procs, pre_cont_procs, node2TsPids['pre_ts']
    def addMQTTMsg (self, node, ts, msg):
        node2TsPids = self.node2TsPids[node]
        if node2TsPids and (ts < node2TsPids['curr_ts'] + self.TS_ACCURACY):
-          logging.warning ("Node2PidsCach::addMQTTMsg: Node {}, Deplicate or out of order timestamp {} compared with {}. Ignore.".format(node, ts, node2TsPids['curr_ts']))
+          logger.warning ("Node2PidsCach::addMQTTMsg: Node {}, Deplicate or out of order timestamp {} compared with {}. Ignore.".format(node, ts, node2TsPids['curr_ts']))
           return [], [], [], None
 
        #ts > self.curr_ts
@@ -431,12 +352,16 @@ class Node2PidsCache:
        new_pids       = node2TsPids['curr_pids'].difference(cont_pids)
        new_procs      = [proc for proc in node2TsPids['curr_msg']['processes'] if proc['pid'] in new_pids]
        cont_procs     = [proc for proc in node2TsPids['curr_msg']['processes'] if proc['pid'] in cont_pids]
+       pre_done_procs = [proc for proc in node2TsPids['pre_msg']['processes']  if proc['pid'] in done_pids]
        pre_cont_procs = [proc for proc in node2TsPids['pre_msg']['processes']  if proc['pid'] in cont_pids]
 
-       return new_procs, cont_procs, pre_cont_procs, node2TsPids['pre_ts']
+       return new_procs, cont_procs, pre_cont_procs, pre_done_procs, node2TsPids['pre_ts']
+
+   def writeFile (self):
+       MyTool.writeFile(self.filename, dict(self.node2TsPids))
 
 class PyslurmReader (threading.Thread):
-    INTERVAL = 30            #10s
+    INTERVAL = 60            #10s
     def __init__(self, influxServer='scclin011'):
         threading.Thread.__init__(self)
 
@@ -448,11 +373,11 @@ class PyslurmReader (threading.Thread):
         self.sav_part_dict = {}              #save value
         self.sav_qos_dict  = {}              #save value
         self.sav_res_dict  = {}              #save value
-        logging.info("Init PyslurmReader with interval={}".format(self.INTERVAL))
+        logger.info("Init PyslurmReader with interval={}".format(self.INTERVAL))
 
     def run(self):
         #pdb.set_trace()
-        logging.info("Start running PyslurmReader ...")
+        logger.info("Start running PyslurmReader ...")
         while True:
           # pyslurm query
           ts       = int(datetime.now().timestamp())
@@ -468,7 +393,7 @@ class PyslurmReader (threading.Thread):
           for jid,job in job_dict.items():
               self.slurmJob2point(ts, job, points)
           finishJob = [jid for jid in self.sav_job_dict.keys() if jid not in job_dict.keys()]
-          #logging.debug ("PyslurmReader::run: Finish jobs {}".format(finishJob))
+          #logger.debug ("PyslurmReader::run: Finish jobs {}".format(finishJob))
           for jid in finishJob:
               del self.sav_job_dict[jid]
 
@@ -490,14 +415,14 @@ class PyslurmReader (threading.Thread):
                  self.slurmReservation2point(ts, rname, res, points)
               self.sav_res_dict = res_dict
 
+          #logger.debug("PyslurmReader.run add points {}".format(len(points)))
           with self.lock:
-              logging.info("PyslurmReader.run add points {}".format(len(points)))
               self.points.extend(points)
 
           time.sleep (PyslurmReader.INTERVAL)
 
     #return the points, called by InfluxDBWriter 
-    def retrievePoints (self):
+    def retrieveInfluxPoints (self):
         with self.lock:
             sav         = self.points
             self.points = []
@@ -537,7 +462,7 @@ class PyslurmReader (threading.Thread):
            points.append(infopoint)
            self.sav_job_dict[job_id] = newValue
         #else:
-        #   logging.info("duplicate job info for {}".format(job_id))
+        #   logger.info("duplicate job info for {}".format(job_id))
 
         points.append(infopoint)
 
@@ -615,17 +540,26 @@ class PyslurmReader (threading.Thread):
         return points
 
 def main(influxServer, influxDB, testMode=False):
-    r1   = MQTTReader()
-    r1.start()
+    mqtt_thd   = MQTTReader()
+    mqtt_thd.start()
     time.sleep(5)
-    r2   = PyslurmReader ()
-    r2.start()
+    pyslm_thd  = PyslurmReader ()
+    pyslm_thd.start()
     time.sleep(5)
 
-    ifdb = InfluxWriter    (influxServer, influxDB, testMode)
-    ifdb.addSource (r1)
-    ifdb.addSource (r2)
-    ifdb.start()
+    ifx_thd = InfluxWriter    (influxServer, influxDB, testMode)
+    ifx_thd.addSource (mqtt_thd)
+    ifx_thd.addSource (pyslm_thd)
+    ifx_thd.start()
+
+    while True:
+       if not mqtt_thd.is_alive():
+          print ("ERROR: MQTTReader thread is dead")
+       if not pyslm_thd.is_alive():
+          print ("ERROR: Pyslurm thread is dead")
+       if not ifx_thd.is_alive():
+          print ("ERROR: Influx thread is dead")
+       sleep (600)  # check every 10 minutes
 
 if __name__=="__main__":
    #Usage: python mqtMon2Influx.py [influx_server]
@@ -646,11 +580,10 @@ if __name__=="__main__":
       print(config)
       influxServer = config['influxdb']['host']
       influxDB     = config['influxdb']['db']
-      logFile      = config['log']['file']
-      logLevel     = config['log'].get('level', 'DEBUG')
+      logLevel     = eval(config['log'].get('level', 'logging.DEBUG'))
       test         = config['test']
-      logging.basicConfig(filename=logFile,level=logLevel, format='%(asctime)s %(levelname)s:%(message)s') # must before influxdb
-      print("Start ... influxServer={}:{}, logfile={}, test={}".format(influxServer, influxDB, logFile, test))
+      logger.setLevel (logLevel)
+      print("Start ... influxServer={}:{}, test={}".format(influxServer, influxDB, test))
       main(influxServer, influxDB, test)
    else:
       print("Configuration file {} does not exist!".format(config_file))

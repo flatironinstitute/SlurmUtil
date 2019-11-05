@@ -1,7 +1,9 @@
 #!/usr/bin/env python
-import bisect 
 import _pickle as pickle
-import zlib
+import sys, zlib
+from collections import defaultdict
+import time
+import MyTool
 
 class IndexedDataFile(object):
     def __init__(self, prefix, name):
@@ -60,12 +62,9 @@ class IndexedHostData(object):
             df.write('{:0>20}'.format(int(ts)).encode('utf-8'))
             df.write('{:0>20}'.format(len(zps)).encode('utf-8'))
             df.write(zps)
-#           p.write('%020d%020d'%(t1, len(zps)))
-#           p.write(zps)
 
     #readData is used to read data from one file successively
-    def readData(self, offset, stopTime):
-      df = self.data_file
+    def readData(self, df, offset, stopTime):
       if offset != df.tell(): 
          df.seek(offset, 0)
       ts = int(df.read(20))
@@ -85,15 +84,66 @@ class IndexedHostData(object):
             len = int(df.read(20))
             return ts, pickle.loads(zlib.decompress(df.read(len)))
 
+    def getIndexFileName (self, hostname):
+        return '{}/{}_sm.px'.format(self.prefix, hostname)
+    def getDataFileName (self, hostname):
+        return '{}/{}_sm.p'.format(self.prefix, hostname)
+
+    def queryDataHosts(self, nodes, start, end, uid=None):
+        if uid:  uname = MyTool.getUser(uid)
+        else:    uname = None
+        cpu_all_seq, mem_all_seq, io_all_seq = [], [], []
+        for node in nodes:
+            cpu_seq, mem_seq, io_seq = self.queryData (node, start, end, uname)
+            cpu_all_seq.append(cpu_seq)
+            mem_all_seq.append(mem_seq)
+            io_all_seq.append (io_seq)
+
+        return cpu_all_seq, mem_all_seq, io_all_seq
+
+    #query data of the user procs on hostname during (ts_start, ts_end)
+    def queryData(self, hostname, ts_start, ts_end=None, username=None):
+        ts_start = int(ts_start)
+        with open(self.getDataFileName(hostname), 'rb') as df:
+          idx     = SearchIndex(self.getIndexFileName(hostname), 40)
+          idx_pos = idx.find(ts_start)
+          ms_cpu   = defaultdict(list) #{ts: []}
+          ms_rssKB = defaultdict(list)
+          ms_io    = defaultdict(list)
+          ms_cpu_lst   = []
+          ms_rssKB_lst = []
+          ms_io_lst    = []
+          for x in range(idx_pos, idx.len):
+            offset = int(idx[x][20:])
+            ts, nd = self.readData (df, offset, ts_end) #state, delta, ts, procsByUser
+            if ( nd == None): 
+               break
+            else:
+               #save the data
+               ts_ms = int(nd[2] * 1000)
+               for usrdata in nd[3:]: # [u_name, uid, alloc_cpu, len(pp), totIUA, totRSS, totVMS, pp, totIO, totCPU
+                   if not username:
+                      ms_cpu[ts_ms].append   (usrdata[4])
+                      ms_rssKB[ts_ms].append (int(usrdata[5]/1024))
+                      ms_io[ts_ms].append    (usrdata[8])
+                   elif username and usrdata[0] == username:
+                      ms_cpu[ts_ms].append   (usrdata[4])
+                      ms_rssKB[ts_ms].append (int(usrdata[5]/1024))
+                      ms_io[ts_ms].append    (usrdata[8])
+
+        ms_cpu_lst   = [[ts, sum(value_lst)] for ts,value_lst in ms_cpu.items()]
+        ms_rssKB_lst = [[ts, sum(value_lst)] for ts,value_lst in ms_rssKB.items()]
+        ms_io_lst    = [[ts, sum(value_lst)] for ts,value_lst in ms_io.items()]
+        return {'name':hostname, 'data':ms_cpu_lst}, {'name':hostname, 'data':ms_rssKB_lst}, {'name':hostname, 'data':ms_io_lst}
+
 class SearchIndex(object):
-    def __init__(self, filename, reclen, compFunc):
-        self.compFunc = compFunc
-        self.idxFile  = open(filename, 'r')
+    def __init__(self, filename, record_len):
+        self.idxFile    = open(filename, 'r')
         self.idxFile.seek(0, 2)
-        fsize = self.idxFile.tell()
-        self.len = fsize//reclen
-        self.reclen = reclen
-        assert (self.len * reclen) == fsize
+        fsize           = self.idxFile.tell()
+        self.len        = fsize//record_len
+        self.record_len = record_len
+        assert (self.len * record_len) == fsize
 
     def __del__ (self):
       if ( self.idxFile != None ):
@@ -103,25 +153,22 @@ class SearchIndex(object):
         return self.len
 
     def __getitem__(self, item):
-        self.idxFile.seek(item * self.reclen)
-        return self.idxFile.read(self.reclen)
+        self.idxFile.seek(item * self.record_len)
+        return self.idxFile.read(self.record_len)
 
-    # 'tricks' bisect_left. yes, somewhat hackish, but arguably a
-    # reasonable encapsulation nonetheless.
-    def __gt__(self, comp):
-        return self.compFunc(self.value, comp)
-
-    def find(self, value):
+    # find ts location pos
+    def find(self, ts_start):
         #print ("find %s"%value)
-        self.value = value
-        pos        = bisect.bisect_left(self, self.value)
-        return pos
+        lo, hi = 0, self.len
+        while lo < hi:
+           mid = (lo + hi) // 2
+           if int(self[mid][:20]) < ts_start:
+              lo = mid + 1
+           else:
+              hi = mid
+        return lo 
 
-def compTimestamps(q, v):
-    return q > v[:20]
-
-if __name__ == "__main__":
-    # execute only if run as a script
+def test1():
     print("hello world!")
     f=IndexedHostData('.')
     d={'a':1, 'b':2}
@@ -130,3 +177,13 @@ if __name__ == "__main__":
 
     data=f.readData4('test', 0, 2234567)
     print(data)
+
+if __name__ == "__main__":
+    # execute only if run as a script
+    hostname, start_ts = sys.argv[1:3]
+    hostname=list(hostname.split(','))
+    print ('{} start ts {}'.format(hostname, start_ts))
+
+    hostfile = IndexedHostData('/mnt/home/yliu/projects/slurm/utils/mqtMonStreamRecord')
+    d        = hostfile.queryDataHosts(hostname, start_ts, end=time.time(), uid=1350)
+    print ('{}'.format(d))
