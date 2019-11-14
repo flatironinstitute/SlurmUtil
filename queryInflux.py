@@ -156,10 +156,14 @@ class InfluxQueryClient:
             ts      = point['time']
             uid     = point['uid']
             if uid not in uid2seq: uid2seq[uid] = {}
+            if 'mem_rss_K' in point:
+               mem_rss_K = MyTool.getDictNumValue(point, 'mem_rss_K')
+            else:
+               mem_rss_K = int(MyTool.getDictNumValue(point, 'mem_rss') / 1024)
             uid2seq[uid][ts] = [ MyTool.getDictNumValue(point, 'cpu_system_util') + MyTool.getDictNumValue(point, 'cpu_user_util'), 
                                  MyTool.getDictNumValue(point, 'io_read_rate'),
                                  MyTool.getDictNumValue(point, 'io_write_rate'), 
-                                 MyTool.getDictNumValue(point, 'mem_rss')]
+                                 mem_rss_K]
 
         if len(points)>0:
            start_time = points[0]['time']/1000

@@ -60,7 +60,7 @@ class JobNoticeSender:
         if user in SCC_USERS:
            return
         
-        addr   ='http://scclin011:8126/jobDetails?jid={}'.format(job['job_id'])
+        addr   ='http://mon7:8126/jobDetails?jid={}'.format(job['job_id'])
         content=MSG_LOW_UTIL.format(job['job_id'], timedelta(seconds=ts - int(job['start_time'])), job['job_avg_util'], job['job_mem_util'], job['nodes'], job['num_cpus'], addr)
         #to_list=RECIPIENTS + ['@flatironinstitute.org'.format(user)]
         to_list=RECIPIENTS

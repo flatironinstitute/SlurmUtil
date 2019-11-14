@@ -16,7 +16,7 @@ PEND_EXP={
     'QOSMaxCpuPerUserLimit': 'QoS User CPU  limit ({max_cpu_user})  exceeded. User {user} already alloc {curr_cpu_user}  CPUs in {partition}.', # QOS MaxTRESPerUser exceeded (CPU) 
     'QOSMaxNodePerUserLimit':'QoS User Node limit ({max_node_user}) exceeded. User {user} already alloc {curr_node_user} Nodes in {partition}',	                         # QOS MaxTRESPerUser exceeded (Node)
     'QOSGrpNodeLimit':       'QoS Group Node limit ({max_node_grp}) exceeded. Group already alloc {curr_node_grp} Nodes in {partition}.', # QOS GrpTRES exceeded (Node)
-    'QOSGrpCpuLimit':        'QoS Group CPU limit  ({max_cpu_grp})  exceeded. Group already alloc {curr_cpu_grp}  Nodes in {partition}.',
+    'QOSGrpCpuLimit':        'QoS Group CPU limit  ({max_cpu_grp})  exceeded. Group already alloc {curr_cpu_grp}  CPUs in {partition}.',
     'QOSMaxWallDurationPerJobLimit': 'Job time {job_time_limit} exceed QoS {qos}\'s MaxWallDurationPerJob limit ({qos_limit}).',
     'Dependency':            'Dependent jobs ({dependency}) have not completed', #/* dependent job has not completed */
     'Priority':              'Higher priority jobs exist. Partition {partition} queue higher priority jobs {higher_job}.', #/* higher priority jobs exist */
