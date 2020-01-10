@@ -27,7 +27,9 @@
            var proc     = procData[i][3]
            var proc2    = proc.map(myMapFunc)
 
-           str += "<hr><em>" + user + "</em>,  load " + load.toFixed(2) + " out of " + coresCnt + " <pre>" + proc2.join('\n') + "\n" 
+           str += "<hr><em>" + user + "</em>,  load " + load.toFixed(2) + " out of " + coresCnt + " <pre>"
+           str += [" pid  ", " jid  ", "CPU Util", "    RSS   ", "    VMS   ", "    Command"].join(' ') 
+           str += "\n"+proc2.join('\n') + "\n</pre>" 
        }}
        $("#process").append(str)
 
@@ -40,7 +42,7 @@
           $("#jobs").append("Jobs Allocated: " + str)
 
        function myMapFunc(item, index, array) {{
-          var subArr = [item[0], ("      " + item[1].toFixed(2)).slice(-6), padding10Left(item[5].toExponential(2)), padding10Left(item[6].toExponential(2)), item[7]] 
+          var subArr = [item[0], ("    " + item[9]).slice(-6), ("        " + item[1].toFixed(2)).slice(-8), padding10Left(item[5].toExponential(2)), padding10Left(item[6].toExponential(2)), item[7]] 
           return subArr.join(' ')       
        }}
 

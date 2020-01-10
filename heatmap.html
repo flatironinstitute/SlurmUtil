@@ -44,11 +44,18 @@
   <body>
     <div class="tab" id="tabmenu"></div>
 
-    <div>
-    <h3>Worker Nodes Utilization</h3>
-    <i>Update time: %(update_time)s</i>
-    <p> <i>"Click" to see the co-allocated worker nodes for the same job. "Double Click" to see the worker node details.</i>
-    <p> Choose a job to see the allocated worker nodes: <select id="jobs"></select>
+    <div id="header">
+       <h3>Worker Nodes Utilization</h3>
+       <i>Update time: %(update_time)s</i>
+       <p> <i>"Click" to see the co-allocated worker nodes for the same job. "Double Click" to see the worker node details.</i>
+       <hr></div>
+    <div id="select_div">Select an option to see the allocated worker nodes: 
+       <select id="select_job_user">
+          <option value="job">Job</option>
+          <option value="user">User</option>
+       </select>
+    </div>
+    <div id="select_list_div">
     </div>
     
     <div id="legend"> 
@@ -73,19 +80,21 @@
           blueColor   = ["#eaf5ff","#d0e8ff","#b6dbff","#9ccfff","#82c2ff","#68b5ff","#4ea8ff","#2795ff","#007af3","#0068cf"],
           acctColors  = {'cca': redColor, 'ccb': greenColor, 'ccm': orangeColor, 'ccq': purpleColor, 'etc': blueColor},
           gridSize = Math.floor(width / cntLine),
-          dataset1 = %(data1)s
-          dataset2 = %(data2)s
+          workers  = %(data1)s
+          jobs_data = %(data2)s
+          users_data= %(users)s
 
-      console.log(dataset1)
-      console.log(dataset2)
+      console.log(workers)
+      console.log(jobs_data)
+      console.log(users_data)
       var labels   = [];             // labels
       var grpCnt   = [0,0,0,0,0,0];  // count for each group worker0..., ...
-      var iData  = prepareData (dataset1, grpCnt, labels)
-      console.log(iData);
+      var workers_data  = prepareData (workers, grpCnt, labels)
+      console.log(workers_data);
       console.log(labels);
       console.log(grpCnt);
 
-      var svgL = d3.select("#legend").select("svg")
+      var legend_svg = d3.select("#legend").select("svg")
           .attr("width",  width + margin.left + margin.right)
           .attr("height", 100)
           .append("g")
@@ -97,7 +106,7 @@
           .append("g")
              .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-
+      // add node labels under svg
       var nodeLabels = svg.selectAll (".nodeLabel")
           .data (labels)
           .enter().append("text")
@@ -107,6 +116,7 @@
             .style("text-anchor", "end")
              .attr("transform", "translate(-6," + gridSize / 1.5 + ")");
 
+      // add heatmap labels under svg
       var heatmapChart = function(data) {
           var colorScale = d3.scale.quantize()
               .domain([0, buckets - 1, 1])
@@ -146,6 +156,9 @@
                               }})
               .on("click", function(d) {
                               var keyArr=d["jobs"]; 
+                              console.log ("click")
+                              console.log (d)
+                              console.log (keyArr)
                               keyArr.forEach(function(e) {
                                                $(".bordered").removeClass("popout");
                                                $(`.${e}`).addClass("popout")})})
@@ -166,7 +179,7 @@
           cards.exit().remove();
 
           var y=0
-          var legend = svgL.selectAll(".legend")
+          var legend = legend_svg.selectAll(".legend")
                  .data([-0.2,-0.1,0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]);
           if (acctColor) {
             for (var acct of accts) {
@@ -217,27 +230,44 @@
            legend.exit().remove();
       };
 
-      var selectChart =function (data){
-          var jobsSel = d3.select("#jobs")
-                          .on('change', onchange)
+      function createSelectList (data, tag, value_fld, func_onchg){
+          d3.select("#select_list_div select").remove();
+          var s = d3.select("#select_list_div").append("select")
+                          .on('change', func_onchg)
                           .on('select.editable-select', function(e) {console.log(e)});
-          jobsSel.selectAll("option")
+          s.selectAll("option")
                  .data(data)
                  .enter().append("option")
                  .text(function(d) { return d["long_label"]})
-                 .attr("value",    function(d) {return d["job_id"]})
+                 .attr("value",    function(d) {return d[value_fld]})
                  .attr("disabled", function(d) {if (d["disabled"]) return d["disabled"]; else return undefined});
       };
-      function onchange() {
-         selectedJid=d3.select("#jobs").property("value");
+      function job_onchange() {
+         selectedJid=d3.select("#select_list_div select").property("value");
          $(".bordered").removeClass("popout");
          $(`.${selectedJid}`).addClass("popout");
       }
- 
-      heatmapChart(iData);
-      selectChart (dataset2);
-      //$('#jobs').editableSelect();
+      function user_onchange() {
+         sel_jids=d3.select("#select_list_div select").property("value");
+         jids    =sel_jids.split(',')
+         console.log("user_onchange " + jids)
+         $(".bordered").removeClass("popout");
+         jids.forEach(function(e) {
+            console.log(e)
+            $(`.${e}`).addClass("popout");
+         });
+      }
       
+      d3.select("#select_job_user")
+        .on('change', function() {
+           val = d3.select(this).property('value');
+           if (val == 'job') {
+              createSelectList (jobs_data,  "#select_list",  "job_id", job_onchange);
+           } else {
+              createSelectList (users_data, "#select_list",  "jobs",   user_onchange);
+           }
+         });
+
       d3.select("#colorCheckbox")
         .on('change', function () {
            //console.log(d3.event)
@@ -246,8 +276,10 @@
 
            d3.selectAll(".node").remove()
            d3.selectAll(".legend").remove()
-           heatmapChart(iData)
+           heatmapChart(workers_data)
          })
+      heatmapChart(workers_data);
+      createSelectList (jobs_data,  "#select_list",  "job_id", job_onchange);
 
       function prepareData (nodeData, grpCnt, labels) {
         var objData  = [];             // data that will be used later

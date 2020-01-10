@@ -160,6 +160,9 @@ def getDictNumValue (d, key):
        print("WARNING: getDictIntValue has a non-int type " + repr(type(value)))
        return 0
 
+def getTS (t, formatStr='%Y%m%d'):
+    return int(time.mktime(time.strptime(t, formatStr)))
+    
 def getStartStopTS (start='', stop='', formatStr='%Y%m%d', days=3):
     if stop:
         stop = time.mktime(time.strptime(stop, formatStr))

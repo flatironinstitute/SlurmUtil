@@ -101,12 +101,9 @@ $(function(){
 </div>
 <script>
   today = new Date() 
-  month = "0" + (today.getMonth()+1)
-  console.log(month)
-  day   = "0" + today.getDate()
-  startDate = today.getFullYear()-1 + "-" + month.substr(month.length-2) + "-" + day.substr(day.length-2);
   console.log(today)
-  $("input[name='start'").val(startDate)
+  startDate = new Date(today.setMonth(today.getMonth()-6))
+  $("input[name='start'").val(startDate.toISOString().split('T')[0])
 </script>
 </body>
 </html>

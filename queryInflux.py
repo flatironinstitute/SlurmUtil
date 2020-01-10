@@ -62,12 +62,13 @@ class InfluxQueryClient:
         g =('('+n+')' for n in nodelist)
         hostnames = '|'.join(g)
         query= "select * from autogen.cpu_uid_mon where uid = '" + str(uid) + "' and hostname=~/"+ hostnames + "/ and time >= " + str(int(start_time)) + "000000000 and time <= " + str(int(stop_time)+1) + "000000000"
-        print ("INFO: getSlurmUidNodeMon " + query)
 
         #execute query, returned time is local timestamp, epoch is for returned result, not for query
-        results = self.influx_client.query(query, epoch='ms')
-        points  = results.get_points()
+        results = self.query(query)
+        if not results:
+           return None
 
+        points   = results.get_points()
         node2seq = { n:{} for n in nodelist}
         for point in points: #points are sorted by point['time']
             ts       = point['time']
@@ -141,16 +142,15 @@ class InfluxQueryClient:
 
     #return all uid sequence of a node, {uid: {ts: [cpu, io, mem] ... }, ...}
     def getSlurmNodeMonData(self, node, start_time, stop_time):
-        t1=time.time()
-
         #prepare query
         query= "select * from autogen.cpu_uid_mon where hostname = '" + node + "' and time >= " + str(int(start_time)) + "000000000 and time <= " + str(int(stop_time)+1) + "000000000"
-        print ("INFO: getSlurmNodeMonData " + query)
 
         #execute query, returned time is local timestamp, epoch is for returned result, not for query
-        results = self.influx_client.query(query, epoch='ms')
-        points  = list(results.get_points())
+        results = self.query(query)
+        if not results:
+           return None, start_time, stop_time
 
+        points  = list(results.get_points())
         uid2seq = {}
         for point in points: #points are sorted by point['time']
             ts      = point['time']
@@ -170,7 +170,6 @@ class InfluxQueryClient:
            stop_time  = points[len(points)-1]['time']/1000
           
         #print(repr(uid2seq))
-        print("INFO: getSlurmUidMonData take time " + str(time.time()-t1))
         return uid2seq, start_time, stop_time
 
     # return list [[ts, run_time] ... ]
@@ -432,6 +431,22 @@ class InfluxQueryClient:
             rlt[node] = procs
             
         return repr(query), rlt
+
+    def query(self, query):
+        t1=time.time()
+
+        #execute query, returned time is local timestamp, epoch is for returned result, not for query
+        try:
+           query_rlt = self.influx_client.query(query, epoch='s') 
+        except Exception as e:
+           print("ERROR: influxdb query {} exception {}".format(query, e))
+           return None
+
+        print("INFO: influxdb query {} take time {}".format(query, time.time()-t1))
+        return query_rlt
+
+    def queryJobNodeProcess ():
+        return None
 
 def test():
     pass

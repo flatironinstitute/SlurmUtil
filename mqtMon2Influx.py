@@ -55,7 +55,10 @@ class InfluxWriter (threading.Thread):
               logger.info("writeInflux return {}".format(ret))
               return ret
         except influxdb.exceptions.InfluxDBClientError as err:
-           logger.error ("writeInflux " + ret_policy + " ERROR:" + repr(err) + repr(points))
+           logger.error ("writeInflux " + ret_policy + " client ERROR:" + repr(err) + repr(points))
+           return False
+        except influxdb.exceptions.InfluxDBServerError as err:
+           logger.error ("writeInflux " + ret_policy + " server ERROR:" + repr(err) + repr(points))
            return False
 
     def addSource(self, source):
@@ -308,7 +311,7 @@ class MQTTReader (threading.Thread):
         point['fields']['io_read_rate']    = round((curr_sum[2] - pre_sum[2])/period,4)
         point['fields']['io_write_rate']   = round((curr_sum[3] - pre_sum[3])/period,4)
         point['fields']['mem_data']        = curr_sum[4]
-        point['fields']['mem_rss_K']       = int(curr_sum[5] / 1024) # modified 09/13/2017
+        point['fields']['mem_rss_K']       = int(curr_sum[5] / 1024) # modified 09/13/2019
         point['fields']['mem_shared_K']    = int(curr_sum[6] / 1024)
         point['fields']['mem_text_K']      = int(curr_sum[7] / 1024)
         point['fields']['mem_vms_K']       = int(curr_sum[8] / 1024)
@@ -336,7 +339,7 @@ class Node2PidsCache:
        node2TsPids = self.node2TsPids[node]
        if node2TsPids and (ts < node2TsPids['curr_ts'] + self.TS_ACCURACY):
           logger.warning ("Node2PidsCach::addMQTTMsg: Node {}, Deplicate or out of order timestamp {} compared with {}. Ignore.".format(node, ts, node2TsPids['curr_ts']))
-          return [], [], [], None
+          return [], [], [], [], None
 
        #ts > self.curr_ts
        pids        = set([proc['pid'] for proc in msg['processes']])
@@ -554,12 +557,12 @@ def main(influxServer, influxDB, testMode=False):
 
     while True:
        if not mqtt_thd.is_alive():
-          print ("ERROR: MQTTReader thread is dead")
+          logger.error("ERROR: MQTTReader thread is dead")
        if not pyslm_thd.is_alive():
-          print ("ERROR: Pyslurm thread is dead")
+          logger.error("ERROR: Pyslurm thread is dead")
        if not ifx_thd.is_alive():
-          print ("ERROR: Influx thread is dead")
-       sleep (600)  # check every 10 minutes
+          logger.error("ERROR: Influx thread is dead")
+       time.sleep (600)  # check every 10 minutes
 
 if __name__=="__main__":
    #Usage: python mqtMon2Influx.py [influx_server]

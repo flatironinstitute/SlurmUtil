@@ -223,7 +223,15 @@ class SlurmCmdQuery:
 
     @staticmethod
     def sacct_getJobReport (jobid, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocNodes,NodeList'):
-        return SlurmCmdQuery.sacct_getReport(['-j', str(jobid)], days=None, output=output, skipJobStep=False)
+        jobs = SlurmCmdQuery.sacct_getReport(['-j', str(jobid)], days=None, output=output, skipJobStep=False)
+        if not jobs:
+           return None
+        job  = jobs[0]
+        job['Start']      = int(MyTool.getSlurmTimeStamp(job['Start']))
+        job['NodeList']   = MyTool.nl2flat(job['NodeList'])
+        job['AllocNodes'] = int(job['AllocNodes'])
+        job['AllocCPUS']  = int(job['AllocCPUS'])
+        return job
 
     # return {jid:jinfo, ...}
     @staticmethod

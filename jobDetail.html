@@ -3,7 +3,7 @@
 
 <head>
 <meta charset='UTF-8'>
-<title>Pending Jobs</title>
+<title>Job Detail</title>
 <link rel="stylesheet" href="/static/css/style.css">
 
 <script src="http://code.jquery.com/jquery-1.12.4.min.js"></script>
@@ -32,7 +32,7 @@ $(document).ready(function(){{
 
 <body>
 <div id="user" class="page-wrap">
-<h3> Job: {job_id} (<a href='jobGraph?jobid={job_id}'>Usage Graph</a>, <a href='{grafana_url}'>Grafana Graph</a>), State: {job_state}</h3>
+<h3> Job {job_id}: <a href='./jobByName?name={job_name}'>{job_name}</a> (<a href='jobGraph?jobid={job_id}'>Usage Graph</a>, <a href='{grafana_url}'>Grafana Graph</a>), State: {job_state}</h3>
    <b>Jump to <a href='#job_history'>sacct</a></b>
    <p><i>Update time: {update_time}</i>
 <hr>

@@ -150,13 +150,14 @@ def gendata_fs(yyyymmdd, fs, anon=False):
 
         if anon: uname = anonimize(uname)
 
-        marker = ''
-        if cutoff and uid2x[uid] <= cutoff: marker = ', marker: { fillColor: "rgba(236,124,181,0.5)" } '
         if 0 == v[2] or 0 == v[3]:
             # non-home user, skip
             continue
         #r +=  '\t{ x: %d, y: %d, z: %d, dfb: %d, dfc: %d, name: "%s"%s},\n' %(v[3], v[2], log(max(2**20, v[1]), 2)-19, v[1], v[0], uname, marker)
-        r.append({'x':v[3], 'y':v[2], 'z':log(max(2**20, v[1]),2)-19, 'dfb':v[1], 'dfc':v[0], 'name':'{}{}'.format(uname,marker)})
+        if cutoff and uid2x[uid] <= cutoff:
+           r.append({'x':v[3], 'y':v[2], 'z':log(max(2**20, v[1]),2)-19, 'dfb':v[1], 'dfc':v[0], 'name':'{}'.format(uname), 'marker':{'fillColor': 'rgba(236,124,181,0.5)'}})
+        else:
+           r.append({'x':v[3], 'y':v[2], 'z':log(max(2**20, v[1]),2)-19, 'dfb':v[1], 'dfc':v[0], 'name':'{}'.format(uname)})
 
     return [label, r, yyyymmdd]
 

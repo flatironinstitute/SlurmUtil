@@ -1,4 +1,4 @@
-function graphSeries_stackColumn_CDF(dataSeries, chartTag, title, xType, xCap, xLabel, yLabel) {
+function graphSeries_stackColumn_CDF(dataSeries, chartTag, title, xType, xMax, xLabel, yLabel) {
              console.log(dataSeries)
 	     $('#'+chartTag).highcharts({
 		 chart: {
@@ -21,7 +21,7 @@ function graphSeries_stackColumn_CDF(dataSeries, chartTag, title, xType, xCap, x
                      title: { text: xLabel},
                      type:  xType,
                      crosshair: true,
-                     max:       xCap
+                     max:       xMax
 		 },
 		 yAxis: [{
 		    title: {
@@ -52,7 +52,7 @@ Highcharts.setOptions({
 		 useUTC: false
              }
 });
-function graphSeries(dataSeries, chartTag, title, xType, xCap, xLabel, yLabel) {
+function graphSeries(dataSeries, chartTag, title, xType, xMax, xLabel, yLabel) {
     console.log(dataSeries)
 
 	     $('#'+chartTag).highcharts({
@@ -76,7 +76,7 @@ function graphSeries(dataSeries, chartTag, title, xType, xCap, xLabel, yLabel) {
                      title: { text: xLabel},
                      type:  xType,
                      crosshair: true,
-                     max:       xCap
+                     max:       xMax
 		 },
 		 yAxis: [{
 		    title: {
@@ -115,7 +115,7 @@ function graphSeries(dataSeries, chartTag, title, xType, xCap, xLabel, yLabel) {
 
 //series with x-Axis as time
 //aSeries is used to annote event
-function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit, p_type='area') {
+function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit='', chart_type='area') {
     function crtLabel (vx, vy, v) {
                 return {
                       point: {
@@ -144,7 +144,7 @@ function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit,
                  chart: {
                      panKey: 'shift',
                      panning: true,
-                     type:    p_type,
+                     type:    chart_type,
                      zoomType: 'x'
                  },
                  title: {
@@ -164,7 +164,6 @@ function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit,
                  yAxis: {
                      title: {
                          text: yCap
-                         aligh: 'low'
                      }
                  },
                  legend: {
