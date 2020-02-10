@@ -3,47 +3,20 @@
 <html>
   <head>
     <link rel="stylesheet" href="/static/css/style.css">
-
-    <style>
-      rect.bordered {
-        stroke: #E6E6E6;
-        stroke-width:2px;   
-      }
-      rect.popout{
-        stroke: black;
-        stroke-width:4px;   
-        z-index: 999 
-      }
-
-      text.mono {
-        font-size: 9pt;
-        font-family: Consolas, courier;
-        fill: #aaa;
-      }
-
-      text.axis-workweek {
-        fill: #000;
-      }
-
-      text.axis-worktime {
-        fill: #000;
-      }
-    </style>
+    <link href="http://rawgithub.com/indrimuska/jquery-editable-select/master/dist/jquery-editable-select.min.css" rel="stylesheet">
     <script src="http://d3js.org/d3.v3.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-
-<script src="http://code.jquery.com/jquery-1.12.4.min.js"></script>
-<script src="http://rawgithub.com/indrimuska/jquery-editable-select/master/dist/jquery-editable-select.min.js"></script>
-<link href="http://rawgithub.com/indrimuska/jquery-editable-select/master/dist/jquery-editable-select.min.css" rel="stylesheet">
-
+    <script src="http://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="http://rawgithub.com/indrimuska/jquery-editable-select/master/dist/jquery-editable-select.min.js"></script>
+    <script type="text/javascript" src="static/scripts/myHeatmap.js"></script>
     <script>
        $(function(){
           $("#tabmenu").load("/getHeader?page=utilHeatmap")
-       });</script>
+       });
+    </script>
   </head>
   <body>
     <div class="tab" id="tabmenu"></div>
-
     <div id="header">
        <h3>Worker Nodes Utilization</h3>
        <i>Update time: %(update_time)s</i>
@@ -51,197 +24,72 @@
        <hr></div>
     <div id="select_div">Select an option to see the allocated worker nodes: 
        <select id="select_job_user">
-          <option value="job">Job</option>
+          <option value="job"> Job </option>
           <option value="user">User</option>
-       </select>
-    </div>
-    <div id="select_list_div">
-    </div>
-    
+       </select></div>
+    <div id="select_list_div"></div>
     <div id="legend"> 
        <input type="checkbox" id="colorCheckbox" name="colorCheckBox" checked> 
        <label for="color"> Color to differentiate account </label>
-       <p> <svg></svg> </div>
-    <div id="chart">  <svg></svg> </div>
+       <p><svg id="legend_svg"></svg></div>
+    <div><svg id="node_svg"></svg></div>
+    <div>
+       <h3>GPU Utilization</h3>
+       <i id='gpu_update'></i>
+       <p> <i>"Click" to see the co-allocated worker nodes for the same job. "Double Click" to see the worker node details.</i>
+       <hr></div>
+    <div><svg id="gpu_svg"> </svg></div>
 
     <script type="text/javascript">
-      var margin   = { top: 10, right: 0, bottom: 100, left: 120 },
-          width    = 960  - margin.left - margin.right,
-          height   = 900  - margin.top - margin.bottom,
-          cntLine  = 32,
-          buckets  = 10,
-          colors   = ["#0d0dff", "#0d97ff", "#0dffff", "#0dff87","0dff0d","87ff0d", "ffff0d", "#ff870d","#ff5b5b", "red"], 
-          acctColor   = true,
-          accts       = ['cca', 'ccb', 'ccm', 'ccq', 'etc'],
-          redColor    = ["#ffeaea","#ffd0d0","#ffb6b6","#ff9c9c","#ff8282","#ff6868","#ff4e4e","#ff2727","#f30000","#cf0000"], 
-          purpleColor = ["#f5eaff","#e8d0ff","#dbb6ff","#cf9cff","#c282ff","#b568ff","#a84eff","#9527ff","#7a00f3","#6200cf"], 
-          greenColor  = ["#eaffea","#d0ffd0","#b6ffb6","#9cff9c","#82ff82","#68ff68","#4eff4e","#27ff27","#00f300","#00cf00"],
-          orangeColor = ["#fff5ea","#ffe8d0","#ffdbb6","#ffcf9c","#ffbb75","#ffa84e","#ff9527","#f37a00","#cf6800","#ab5600"],
-          blueColor   = ["#eaf5ff","#d0e8ff","#b6dbff","#9ccfff","#82c2ff","#68b5ff","#4ea8ff","#2795ff","#007af3","#0068cf"],
-          acctColors  = {'cca': redColor, 'ccb': greenColor, 'ccm': orangeColor, 'ccq': purpleColor, 'etc': blueColor},
-          gridSize = Math.floor(width / cntLine),
-          workers  = %(data1)s
-          jobs_data = %(data2)s
-          users_data= %(users)s
+      var margin      = { top: 10, right: 0, bottom: 50, left: 120 },
+          gpu_margin  = { top: 100, right: 0, bottom: 50, left: 120 },
+          width       = 960  - margin.left - margin.right,
+          height      = 900  - margin.top - margin.bottom,
+          cntPerLine  = 32,                                         //count per line
+          acctColor   = true,                                       //wether use color for each account
+          gridSize    = Math.floor(width / cntPerLine),
+          workers     = %(data1)s                                   //input
+          jobs_data   = %(data2)s                                   //input
+          users_data  = %(users)s                                   //input
+          gpu_obj     = %(gpu)s
 
       console.log(workers)
       console.log(jobs_data)
       console.log(users_data)
-      var labels   = [];             // labels
-      var grpCnt   = [0,0,0,0,0,0];  // count for each group worker0..., ...
-      var workers_data  = prepareData (workers, grpCnt, labels)
+      console.log("--gpu--")
+      console.log(gpu_obj)
+      var labels       = [], gpu_labels=[];                   // labels, save results 
+      var grpCnt       = [0,0,0,0,0,0,0,0,0];  // count for each group worker0..., ..., save results from function call
+      var workers_data = prepareNodeData (workers, grpCnt, labels, gpu_obj)
+      var gpu_data     = prepareGPUData  (workers_data,    gpu_labels)
+      var gpu_gridSize = Math.floor(width / gpu_labels.length)
       console.log(workers_data);
-      console.log(labels);
       console.log(grpCnt);
+      console.log(gpu_data);
+      console.log(gpu_labels);
 
-      var legend_svg = d3.select("#legend").select("svg")
+      var gpu_update = new Date(gpu_obj["time"]*1000)
+      d3.select("#gpu_update").text("Update time: " + gpu_update.toString());
+
+      var legend_svg = d3.select("#legend_svg")
           .attr("width",  width + margin.left + margin.right)
           .attr("height", 100)
           .append("g")
              .attr("transform", "translate(" + 120 + "," + 10 + ")");
-
-      var svg = d3.select("#chart").select("svg")
-          .attr("width",  width + margin.left + margin.right)
-          .attr("height", height + margin.top + margin.bottom)
-          .append("g")
-             .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-
-      // add node labels under svg
-      var nodeLabels = svg.selectAll (".nodeLabel")
-          .data (labels)
-          .enter().append("text")
-             .text(function (d) {return d+",...";})
-             .attr("x", 0)
-             .attr("y", function (d, i) { return (i)*gridSize;})
-            .style("text-anchor", "end")
-             .attr("transform", "translate(-6," + gridSize / 1.5 + ")");
+      
+      var svg_line = 0
+      for (var i=0; i<grpCnt.length; i++)
+          svg_line += Math.ceil(grpCnt[i] / cntPerLine)
+      var svg     = createSVG    ("#node_svg", ".label",        labels, width+margin.left+margin.right, svg_line*gridSize +margin.top+margin.bottom, margin, gridSize)
+      var gpu_svg = createGPUSVG ("#gpu_svg",  ".gpuNodeLabel", ".gpuLabel", gpu_labels, width+margin.left+margin.right, 4*gridSize+margin.top+margin.bottom+100, gpu_margin, gpu_gridSize)
 
       // add heatmap labels under svg
       var heatmapChart = function(data) {
-          var colorScale = d3.scale.quantize()
-              .domain([0, buckets - 1, 1])
-              .range(colors);
-          
-          var colorScales = {}
-          for (var acct of accts) {
-              colorScales[acct] = d3.scale.quantize()
-                 .domain([0, buckets - 1, 1])
-                 .range(acctColors[acct]);
-          }
-
-          var cards = svg.selectAll(".node")
-              .data(data);
-          cards.enter().append("rect")
-              .attr("x", function(d, i) { var x = d["gIdx"] - Math.floor(d["gIdx"]/cntLine) * cntLine; return x * gridSize; })
-              .attr("y", function(d, i) { 
-                            var y=0,i; 
-                            for (i=0; i<d["gID"]; i++) 
-                                y += Math.ceil(grpCnt[i]/cntLine); 
-                            return (y + Math.floor(d["gIdx"]/cntLine) )* gridSize; })
-              .attr("rx", 4)
-              .attr("ry", 4)
-              .attr("class", function(d) { 
-                                var str="bordered"; 
-                                d["jobs"].forEach(function(e) {str += " " + e}); 
-                                return str;})
-              .attr("width",  gridSize)
-              .attr("height", gridSize)
-              .attr("title", function (d) {return d["name"]})
-              .attr("value", function (d) {return d["util"]})
-              .on("dblclick", function(d) {
-                              if (d3,event.ctrlKey) {
-                                 location.href="jobDetails?jid="+d["jobs"]
-                              } else {
-                                 location.href="nodeDetails?node="+d["name"]
-                              }})
-              .on("click", function(d) {
-                              var keyArr=d["jobs"]; 
-                              console.log ("click")
-                              console.log (d)
-                              console.log (keyArr)
-                              keyArr.forEach(function(e) {
-                                               $(".bordered").removeClass("popout");
-                                               $(`.${e}`).addClass("popout")})})
-              .style("fill",  "gray");
-          cards.transition().duration(1000)
-              .style("fill", function(d) { var currColorS = colorScale
-                                           if (acctColor ) {
-                                              if ( d["acct"].length == 1 && d["acct"][0] in colorScales)
-                                                 currColorS  = colorScales[d["acct"][0]]
-                                              else
-                                                 currColorS  = colorScales["etc"]
-                                           }
-                                           if (d["stat"]==0) return "gray"; 
-                                           else if (d["stat"]==-1) return "black";
-                                           else return currColorS(d["util"]); });
-          cards.append("title");
-          cards.select("title").text(function(d) {return d["labl"]});
-          cards.exit().remove();
-
-          var y=0
-          var legend = legend_svg.selectAll(".legend")
-                 .data([-0.2,-0.1,0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]);
-          if (acctColor) {
-            for (var acct of accts) {
-             
-             legend.enter().append("g")
-                 .attr("class", "legend");
-             legend.append("rect")
-               .attr("x", function(d, i) { return gridSize * 2 * i; })
-               .attr("y", y)
-               .attr("width",  gridSize * 2)
-               .attr("height", gridSize / 2)
-               .style("fill",  function(d, i) { if (i==0) return "black"; 
-                                                else if (i==1) return "gray";
-                                                else return acctColors[acct][i-2]; });
-          
-             
-             y = y + gridSize/2
-             legend.append("text")
-               .attr("class", "mono")
-               .text(acct)
-               .attr("x", -gridSize)
-               .attr("y", y);
-             }
-           } else {
-             legend.enter().append("g")
-                 .attr("class", "legend");
-             legend.append("rect")
-               .attr("x", function(d, i) { return gridSize * 2 * i; })
-               .attr("y", y)
-               .attr("width",  gridSize * 2)
-               .attr("height", gridSize / 2)
-               .style("fill",  function(d, i) { if (i==0) return "black"; 
-                                                else if (i==1) return "gray";
-                                                else return colors[i-2]; });
-          
-             
-             y = y + gridSize/2
-           }
-
-           legend.append("text")
-               .attr("class", "mono")
-               .text(function(d, i) { if (i==0) return "Down"; 
-                                      else if (i==1) return "Idle";
-                                      else if (i==2) return "Alloc"; 
-                                      else return "≥ " + d; })
-               .attr("x", function(d, i) { return gridSize * 2 * i; })
-               .attr("y", y+gridSize/2);
-           legend.exit().remove();
+          createLegend    (legend_svg, acctColor, gridSize);
+          createHeatMap   (svg,     data,     acctColor, grpCnt, cntPerLine, gridSize)
+          createGPUHeatMap(gpu_svg, gpu_data, acctColor, grpCnt, cntPerLine, gpu_gridSize)
       };
 
-      function createSelectList (data, tag, value_fld, func_onchg){
-          d3.select("#select_list_div select").remove();
-          var s = d3.select("#select_list_div").append("select")
-                          .on('change', func_onchg)
-                          .on('select.editable-select', function(e) {console.log(e)});
-          s.selectAll("option")
-                 .data(data)
-                 .enter().append("option")
-                 .text(function(d) { return d["long_label"]})
-                 .attr("value",    function(d) {return d[value_fld]})
-                 .attr("disabled", function(d) {if (d["disabled"]) return d["disabled"]; else return undefined});
-      };
       function job_onchange() {
          selectedJid=d3.select("#select_list_div select").property("value");
          $(".bordered").removeClass("popout");
@@ -262,12 +110,11 @@
         .on('change', function() {
            val = d3.select(this).property('value');
            if (val == 'job') {
-              createSelectList (jobs_data,  "#select_list",  "job_id", job_onchange);
+              createSelectList ("#select_list_div", jobs_data,  "#select_list",  "job_id", job_onchange);
            } else {
-              createSelectList (users_data, "#select_list",  "jobs",   user_onchange);
+              createSelectList ("#select_list_div", users_data, "#select_list",  "jobs",   user_onchange);
            }
          });
-
       d3.select("#colorCheckbox")
         .on('change', function () {
            //console.log(d3.event)
@@ -278,40 +125,9 @@
            d3.selectAll(".legend").remove()
            heatmapChart(workers_data)
          })
-      heatmapChart(workers_data);
-      createSelectList (jobs_data,  "#select_list",  "job_id", job_onchange);
-
-      function prepareData (nodeData, grpCnt, labels) {
-        var objData  = [];             // data that will be used later
-
-        //nodeData is already sorted by group 
-        for (var i=0; i<nodeData.length; i++) {
-          var obj = {name: nodeData[i][0], stat: nodeData[i][1], core: nodeData[i][2], 
-                     jobs: nodeData[i][4], acct: nodeData[i][5], labl: nodeData[i][6]};
-          if ( obj.stat == 1)
-             obj.util=nodeData[i][3]/obj.core;
-          else
-             obj.util=0
-          
-          switch (nodeData[i][0].slice(6,7)) {
-                 case "0": obj.gID = 0; break; // worker0...
-                 case "1": obj.gID = 1; break; // worker1...
-                 case "2": obj.gID = 2; break; // worker2...
-                 case "3": obj.gID = 3; break; // worker3...
-                 case "g": obj.gID = 4; break; // workergpu..
-                 case "m": obj.gID = 5; break; // workermem..
-                 case "p": obj.gID = 6; break; // workerphi..
-          }
-          obj.gIdx        = grpCnt[obj.gID];
-          if ( Math.floor(grpCnt[obj.gID] / cntLine)*cntLine == grpCnt[obj.gID] )
-             labels.push(obj.name);
-          grpCnt[obj.gID] ++;
-   
-          objData.push (obj);
-        }
-
-        return objData
-      }
+      createSelectList ("#select_list_div", jobs_data,  "#select_list",  "job_id", job_onchange);
+      heatmapChart     (workers_data);
+      
     </script>
   </body>
 </html>
