@@ -1,0 +1,10 @@
+{
+   "influxdb": {
+       "host": "worker1090",
+       "db":   "slurmdb"
+   },
+   "log": {
+       "level": "logging.INFO"
+   },
+   "test":  false
+}

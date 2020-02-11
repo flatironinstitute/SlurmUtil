@@ -120,16 +120,16 @@ class IndexedHostData(object):
                break
             else:
                #save the data
-               ts_ms = int(nd[2] * 1000)
+               ts = int(nd[2])
                for usrdata in nd[3:]: # [u_name, uid, alloc_cpu, len(pp), totIUA, totRSS, totVMS, pp, totIO, totCPU
                    if not username:
-                      ms_cpu[ts_ms].append   (usrdata[4])
-                      ms_rssKB[ts_ms].append (int(usrdata[5]/1024))
-                      ms_io[ts_ms].append    (usrdata[8])
+                      ms_cpu[ts].append   (usrdata[4])
+                      ms_rssKB[ts].append (int(usrdata[5]/1024))
+                      ms_io[ts].append    (usrdata[8])
                    elif username and usrdata[0] == username:
-                      ms_cpu[ts_ms].append   (usrdata[4])
-                      ms_rssKB[ts_ms].append (int(usrdata[5]/1024))
-                      ms_io[ts_ms].append    (usrdata[8])
+                      ms_cpu[ts].append   (usrdata[4])
+                      ms_rssKB[ts].append (int(usrdata[5]/1024))
+                      ms_io[ts].append    (usrdata[8])
 
         ms_cpu_lst   = [[ts, sum(value_lst)] for ts,value_lst in ms_cpu.items()]
         ms_rssKB_lst = [[ts, sum(value_lst)] for ts,value_lst in ms_rssKB.items()]

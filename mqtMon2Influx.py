@@ -12,6 +12,7 @@ import _pickle as cPickle
 
 from collections import defaultdict as DDict
 from datetime import datetime, timezone, timedelta
+from operator import itemgetter
 
 import influxdb
 import paho.mqtt.client as mqtt
@@ -55,10 +56,10 @@ class InfluxWriter (threading.Thread):
               logger.info("writeInflux return {}".format(ret))
               return ret
         except influxdb.exceptions.InfluxDBClientError as err:
-           logger.error ("writeInflux " + ret_policy + " client ERROR:" + repr(err) + repr(points))
+           logger.error ("writeInflux {} ({} points) client ERROR: {}".format(ret_policy, len(points), err))
            return False
         except influxdb.exceptions.InfluxDBServerError as err:
-           logger.error ("writeInflux " + ret_policy + " server ERROR:" + repr(err) + repr(points))
+           logger.error ("writeInflux {} ({} points) server ERROR: {}".format(ret_policy, len(points), err))
            return False
 
     def addSource(self, source):
@@ -175,7 +176,7 @@ class MQTTReader (threading.Thread):
         hostperf      = self.process_list(hostperf_msgs, self.hostperf2point)
         logger.debug("MQTTReader generate {} hostperf points".format(len(hostperf)))
 
-        #autogen.cpu_proc_info, cpu_proc_mon
+        #autogen.cpu_proc_info, job_proc_mon
         with self.lock:
              hostproc_msgs      = self.hostproc_msgs
              self.hostproc_msgs = []
@@ -240,7 +241,7 @@ class MQTTReader (threading.Thread):
         return [point]
 
     def hostproc2point (self, msg):
-        #{'processes': [{'status': 'sleeping', 'uid': 1083, 'mem': {'lib': 0, 'text': 905216, 'shared': 1343488, 'data': 487424, 'vms': 115986432, 'rss': 1695744}, 'pid': 23825, 'cmdline': ['/bin/bash', '/cm/local/apps/slurm/var/spool/job65834/slurm_script'], 'create_time': 1528790822.57, 'io': {'write_bytes': 40570880, 'read_count': 9712133, 'read_bytes': 642359296, 'write_count': 1067292080}, 'num_fds': 4, 'num_threads': 1, 'name': 'slurm_script', 'ppid': 23821, 'cpu': {'system_time': 0.21, 'affinity': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27], 'user_time': 0.17}}, 
+        #{'processes': [{'status': 'sleeping', 'uid': 1083, 'jid':11111, 'mem': {'lib': 0, 'text': 90, 'shared': 13, 'data': 48, 'vms': 115, 'rss': 169}, 'pid': 23825, 'cmdline': ['/bin/bash', '/cm/local/apps/slurm/var/spool/job65834/slurm_script'], 'create_time': 1528790822.57, 'io': {'write_bytes': 405, 'read_count': 97, 'read_bytes': 64235, 'write_count': 10}, 'num_fds': 4, 'num_threads': 1, 'name': 'slurm_script', 'ppid': 23821, 'cpu': {'system_time': 0.21, 'affinity': [0, 1], 'user_time': 0.17}}, 
         #...
         #'hdr': {'hostname': 'worker1000', 'msg_process': 'cluster_host_mon', 'msg_type': 'cluster/hostprocesses', 'msg_ts': 1528901819.82538}} 
         #pdb.set_trace()
@@ -257,6 +258,7 @@ class MQTTReader (threading.Thread):
         for proc in new_procs:
             points.append(self.createProcInfoPoint (node, proc))
             points.append(self.createProcMonPoint  (node, ts, proc))
+        #pre_cont_procs_dict = dict([ (p['pid'], p) for p in pre_cont_procs])
         for proc in cont_procs:
             points.append(self.createProcMonPoint  (node, ts, proc))
         for proc in pre_done_procs:
@@ -270,15 +272,21 @@ class MQTTReader (threading.Thread):
             if (u_new_procs or u_cont_procs) and (u_pre_cont_procs):
                #if ts - pre_ts < 600:  # longer than 10 minutes, ignore
                points.append(self.createUidMonPoint(node, uid, ts, u_new_procs, u_cont_procs, pre_ts, u_pre_cont_procs))
+        jids = set([proc['jid'] for proc in msg['processes']])
+        for jid in jids:
+            j_new_procs      = [proc for proc in new_procs      if proc['jid'] == jid]
+            j_cont_procs     = [proc for proc in cont_procs     if proc['jid'] == jid]
+            j_pre_cont_procs = [proc for proc in pre_cont_procs if proc['jid'] == jid]
+            if (j_new_procs or j_cont_procs) and (j_pre_cont_procs):
+               #if ts - pre_ts < 600:  # longer than 10 minutes, ignore
+               points.append(self.createJidMonPoint(node, jid, ts, j_new_procs, j_cont_procs, pre_ts, j_pre_cont_procs))
 
         return points
 
     def createProcInfoPoint (self, node, proc, end_time=None):
-        point                     = {'measurement':'cpu_proc_info', 'time': (int)(proc['create_time'])}
-        point['tags']             = MyTool.sub_dict(proc, ['pid', 'uid'])
-        point['tags']['hostname'] = node
-        point['fields']           = MyTool.flatten(MyTool.sub_dict(proc, ['cmdline', 'name', 'ppid']))
-
+        point                     = {'measurement':'node_proc_info', 'time': (int)(proc['create_time'])}
+        point['tags']             = {'hostname':node, 'pid': proc['pid']}
+        point['fields']           = MyTool.flatten(MyTool.sub_dict(proc, ['cmdline', 'name', 'ppid', 'uid', 'jid']))
         if end_time:
            point['fields']['end_time'] = end_time
            point['fields']['status']   = proc['status']
@@ -286,18 +294,34 @@ class MQTTReader (threading.Thread):
         return point
 
     def createProcMonPoint (self, node, ts, proc):
-        point                     = {'measurement':'cpu_proc_mon', 'time': ts}
-        point['tags']             = MyTool.sub_dict(proc, ['pid', 'uid', 'create_time'])
-        point['tags']['hostname'] = node
-        point['fields']           = MyTool.flatten(MyTool.sub_dict(proc, ['mem', 'io', 'num_fds', 'cpu'], default=0))
+        #point                     = {'measurement':'cpu_proc_mon', 'time': ts}
+        #point['tags']             = {'hostname':node, 'uid':proc['uid'], 'pid': proc['pid']}
+        #point['fields']           = MyTool.flatten(MyTool.sub_dict(proc, ['create_time', 'jid', 'mem', 'io', 'num_fds', 'cpu'], default=0))
+        #change 01/23/2020
+        
+        point                     = {'measurement':'node_proc_mon', 'time': ts}
+        point['tags']             = {'hostname':node, 'pid':proc['pid']}
+        point['fields']           = MyTool.flatten(MyTool.sub_dict(proc, ['uid', 'jid',  'io', 'num_fds', 'cpu'], default=0))
         point['fields']['status'] = querySlurm.SlurmStatus.getStatusID(proc['status'])
+        point['fields']['mem_data']  = round(proc['mem']['data']   / 1024)
+        point['fields']['mem_rss']   = round(proc['mem']['rss']    / 1024) 
+        point['fields']['mem_shared']= round(proc['mem']['shared'] / 1024)
+        point['fields']['mem_text']  = round(proc['mem']['text']   / 1024)
+        point['fields']['mem_vms']   = round(proc['mem']['vms']    / 1024)
+        if 'cpu_affinity' in point['fields']:
+           point['fields'].pop('cpu_affinity')
 
         return point
 
- 
-    #precondition: (u_new_procs or u_cont_procs) and (u_pre_cont_procs):
     def createUidMonPoint(self, node, uid, curr_ts, new_procs, cont_procs, pre_ts, pre_cont_procs):
-        point        = {'measurement':'cpu_uid_mon', 'time':curr_ts, 'tags': {'uid':uid, 'hostname':node}, 'fields': {}}
+        return self.createMonPoint ('cpu_uid_mon', node, 'uid', uid, curr_ts, new_procs, cont_procs, pre_ts, pre_cont_procs)
+
+    def createJidMonPoint(self, node, jid, curr_ts, new_procs, cont_procs, pre_ts, pre_cont_procs):
+        return self.createMonPoint ('cpu_jid_mon', node, 'jid', jid, curr_ts, new_procs, cont_procs, pre_ts, pre_cont_procs)
+
+    #precondition: (u_new_procs or u_cont_procs) and (u_pre_cont_procs):
+    def createMonPoint(self, mname, node, idName, idTag, curr_ts, new_procs, cont_procs, pre_ts, pre_cont_procs):
+        point        = {'measurement':mname, 'time':curr_ts, 'tags': {idName:idTag, 'hostname':node}, 'fields': {}}
         curr_num     = [(proc['cpu']['system_time'],proc['cpu']['user_time'],proc['io']['read_bytes'],proc['io']['write_bytes'],proc['mem']['data'],proc['mem']['rss'],proc['mem']['shared'],proc['mem']['text'],proc['mem']['vms'],proc['num_fds']) for proc in new_procs+cont_procs]
         curr_sum     = list(map(sum, zip(*curr_num)))
 
@@ -311,10 +335,10 @@ class MQTTReader (threading.Thread):
         point['fields']['io_read_rate']    = round((curr_sum[2] - pre_sum[2])/period,4)
         point['fields']['io_write_rate']   = round((curr_sum[3] - pre_sum[3])/period,4)
         point['fields']['mem_data']        = curr_sum[4]
-        point['fields']['mem_rss_K']       = int(curr_sum[5] / 1024) # modified 09/13/2019
-        point['fields']['mem_shared_K']    = int(curr_sum[6] / 1024)
-        point['fields']['mem_text_K']      = int(curr_sum[7] / 1024)
-        point['fields']['mem_vms_K']       = int(curr_sum[8] / 1024)
+        point['fields']['mem_rss_K']       = round(curr_sum[5] / 1024) # modified 09/13/2019
+        point['fields']['mem_shared_K']    = round(curr_sum[6] / 1024)
+        point['fields']['mem_text_K']      = round(curr_sum[7] / 1024)
+        point['fields']['mem_vms_K']       = round(curr_sum[8] / 1024)
         point['fields']['num_fds']         = curr_sum[9]
 
         return point
@@ -557,7 +581,9 @@ def main(influxServer, influxDB, testMode=False):
 
     while True:
        if not mqtt_thd.is_alive():
-          logger.error("ERROR: MQTTReader thread is dead")
+          logger.error("ERROR: MQTTReader thread is dead, restart it!")
+          mqtt_thd = MQTTRead()
+          mqtt_thd.start()
        if not pyslm_thd.is_alive():
           logger.error("ERROR: Pyslurm thread is dead")
        if not ifx_thd.is_alive():

@@ -222,15 +222,28 @@ class SlurmCmdQuery:
         return SlurmCmdQuery.sacct_getReport(['-u', user], days, output, skipJobStep)
 
     @staticmethod
-    def sacct_getJobReport (jobid, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocNodes,NodeList'):
-        jobs = SlurmCmdQuery.sacct_getReport(['-j', str(jobid)], days=None, output=output, skipJobStep=False)
+    def sacct_getNodeReport (nodeName, days=3, output = 'JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocTRES', skipJobStep=True):
+        jobs = SlurmCmdQuery.sacct_getReport(['-N', nodeName], days, output, skipJobStep)
+        if 'AllocTRES' in output:
+           for job in jobs:
+               job['AllocGPUS']=MyTool.getTresGPUCount(job['AllocTRES'])
+        return jobs
+ 
+    @staticmethod
+    def sacct_getJobReport (jobid):
+        output = 'JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocNodes,NodeList'
+        jobs   = SlurmCmdQuery.sacct_getReport(['-j', str(jobid)], days=None, output=output, skipJobStep=False)
         if not jobs:
            return None
         job  = jobs[0]
-        job['Start']      = int(MyTool.getSlurmTimeStamp(job['Start']))
-        job['NodeList']   = MyTool.nl2flat(job['NodeList'])
-        job['AllocNodes'] = int(job['AllocNodes'])
-        job['AllocCPUS']  = int(job['AllocCPUS'])
+        if 'Start' in output:
+           job['Start']      = int(MyTool.str2ts(job['Start']))
+        if 'NodeList' in output:
+           job['NodeList']   = MyTool.nl2flat(job['NodeList'])
+        if 'AllocNodes' in output:
+           job['AllocNodes'] = int(job['AllocNodes'])
+        if 'AllocCPUS' in output:
+           job['AllocCPUS']  = int(job['AllocCPUS'])
         return job
 
     # return {jid:jinfo, ...}
@@ -291,24 +304,13 @@ class SlurmCmdQuery:
         except subprocess.CalledProcessError as e:
             return 'Command "%s" ERROR: returned %d with output %s.<br>'%(' '.join(cmd), e.returncode, repr(e.output))
 
-        d=d.decode('utf-8')
-        print (d)
+        d    = d.decode('utf-8')
         info = d.rstrip().split('|')
-        print (repr(info))
         if info[4]!='Unknown':
-           return [info[0], MyTool.getUid(info[1]), MyTool.convert2list(info[2]), MyTool.getSlurmTimeStamp(info[3]), MyTool.getSlurmTimeStamp(info[4])]
+           return [info[0], MyTool.getUid(info[1]), MyTool.convert2list(info[2]), MyTool.str2ts(info[3]), MyTool.str2ts(info[4])]
         else:
-           return [info[0], MyTool.getUid(info[1]), MyTool.convert2list(info[2]), MyTool.getSlurmTimeStamp(info[3]), time.time()]
+           return [info[0], MyTool.getUid(info[1]), MyTool.convert2list(info[2]), MyTool.str2ts(info[3]), time.time()]
         
-    def getSlurmJobNodes (self, jid):
-        pass
-        
-    def getDictIntValue (self, point, name):
-        pass
-           
-    def getSlurmNodeMon (self, hostname, uid, start_time, end_time):
-        pass
-
     #return [[...],[...],[...]], each of which
     #[{'node':nodename, 'data':[[timestamp, value]...]} ...]
     def getSlurmJobMonData(self, jid, uid, nodelist, start_time, stop_time):
@@ -331,6 +333,12 @@ def test3():
     client = SlurmDBQuery()
     client.getJobByName ('script.sh')
 
+def test4():
+    SlurmCmdQuery.sacct_getJobReport(470143, 'Start')
+def test5():
+    jobs=SlurmCmdQuery.sacct_getNodeReport('workergpu00')
+    print(repr(jobs))
+
 def main():
     #job= pyslurm.job().find_id ('88318')
     #job= pyslurm.slurmdb_jobs().get ()
@@ -341,7 +349,7 @@ def main():
     #print(SlurmStatus.getStatus(1))
     #info = client.getSlurmJobInfo('105179')
     #info = client.test()
-    test3()
+    test5()
     print("main take time " + str(time.time()-t1))
 
 if __name__=="__main__":

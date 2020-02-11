@@ -194,7 +194,7 @@ function getTDsHtml (r) {
       var userC = getCategory(r[7], r[5]-1, r[5]+1, '', '', '"alarm"') 
       var utilC = getCategory(r[7], r[5]-1, r[5]+1, '"right inform"', '"right"', '"right"') 
       var avgC  = getCategory(r[8], r[5]-1, r[5]+1, '"right inform"', '"right"', '"right"') 
-      tds2   = `<td class=${userC}><a href="./userDetails?user=${r[4]}">${r[4]}</a></td><td class="right">${r[5]}</td><td class="right">${r[6]}</td><td class=${utilC}>${r[7]}</td><td class=${avgC}>${r[8]}</td><td class="right">${r[9].toExponential(2)}</td><td class="right">${r[10].toExponential(2)}</td><td class="right">${r[11]}</td></tr>`
+      tds2 = `<td class=${userC}><a href="./userDetails?user=${r[4]}">${r[4]}</a></td><td class="right">${r[5]}</td><td class="right">${r[6]}</td><td class=${utilC}>${r[7]}</td><td class=${avgC}>${r[8]}</td><td class="right">${r[9].toExponential(2)}</td><td class="right">${r[10].toExponential(2)}</td><td class="right">${r[11]}</td></tr>`
    }
 
    return tds + tds2

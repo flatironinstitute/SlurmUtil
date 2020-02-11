@@ -59,7 +59,10 @@ class InMemCache:
                       j_ioBps     = sum([ p[8]      for p in job_procs])
                       j_read      = sum([ p[10]      for p in job_procs])
                       j_write     = sum([ p[11]      for p in job_procs])
-                      jobRlt[jid] = [ts, nodeName, uid, jid, nodeInfo[0], sum(jobData[jid]['cpus_allocated'].values()), len(job_procs), j_cpuUtil, j_cpuTime, j_rss, j_vms, j_ioBps, j_read, j_write]
+                      if jid in jobData:
+                         jobRlt[jid] = [ts, nodeName, uid, jid, nodeInfo[0], sum(jobData[jid]['cpus_allocated'].values()), len(job_procs), j_cpuUtil, j_cpuTime, j_rss, j_vms, j_ioBps, j_read, j_write]
+                      else:
+                         logger.warning("Job {} is not in jobData when getUsageOnNode {}".format(jid, nodeName))
                lst = [ts, nodeName, uid, jids, nodeInfo[0], coreNum, proNum, cpuUtil, cpuTime, rss, vms, io]
                result[uid] = lst
 
@@ -148,10 +151,10 @@ class InMemCache:
         #logger.debug("\t{}".format(self.jobs[jid]))
         for node in self.jobs[jid]['nodes']:
             #logger.debug("\t{}:{}".format(node, self.node_job[node][jid]))
-            cpu_rlt.append  ({'name':node, 'data':[ [ts*1000, usage[InMemCache.CPU_IDX]] for (ts, usage) in self.node_job[node][jid] ]})       
-            mem_rlt.append  ({'name':node, 'data':[ [ts*1000, usage[9]]  for (ts, usage) in self.node_job[node][jid] ]})       
-            read_rlt.append ({'name':node, 'data':[ [ts*1000, usage[12]] for (ts, usage) in self.node_job[node][jid] ]})       
-            write_rlt.append({'name':node, 'data':[ [ts*1000, usage[13]] for (ts, usage) in self.node_job[node][jid] ]})       
+            cpu_rlt.append  ({'name':node, 'data':[ [ts, usage[InMemCache.CPU_IDX]] for (ts, usage) in self.node_job[node][jid] ]})       
+            mem_rlt.append  ({'name':node, 'data':[ [ts, usage[9]]  for (ts, usage) in self.node_job[node][jid] ]})       
+            read_rlt.append ({'name':node, 'data':[ [ts, usage[12]] for (ts, usage) in self.node_job[node][jid] ]})       
+            write_rlt.append({'name':node, 'data':[ [ts, usage[13]] for (ts, usage) in self.node_job[node][jid] ]})       
 
         return self.jobs[jid], cpu_rlt, mem_rlt, read_rlt, write_rlt
 

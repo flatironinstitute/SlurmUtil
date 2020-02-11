@@ -184,7 +184,17 @@ function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit=
     });
 }
 
-function timeSeriesScatterPlot(series, chartTag, title, yCap, aSeries) {
+function pointFormat_func() {
+   return '<br/>' + Highcharts.dateFormat('%b %e %H:%M:%S', new Date(this.x * 1000)) + ', ' + this.y.toFixed(2);
+}
+function pointFormat_func_KB() {
+   return '<br/>' + Highcharts.dateFormat('%b %e %H:%M:%S', new Date(this.x * 1000)) + ', ' + this.y + ' KB';
+}
+
+function timeSeriesScatterPlot_KB(series, chartTag, title, yCap, aSeries, pf_func=pointFormat_func_KB) {
+   timeSeriesScatterPlot(series, chartTag, title, yCap, aSeries, pf_func)
+}
+function timeSeriesScatterPlot(series, chartTag, title, yCap, aSeries, pf_func=pointFormat_func) {
              function crtLabel (vx, vy, txt) {
                 return {
                       point: {
@@ -242,9 +252,7 @@ function timeSeriesScatterPlot(series, chartTag, title, yCap, aSeries) {
                      scatter: {
                          marker: { radius: 2, },
                          tooltip: {
-                             pointFormatter: function() {
-                                 return '<br/>' + Highcharts.dateFormat('%%H:%%M', new Date(this.x)) + ': ' + this.y.toFixed(2);
-                             }
+                             pointFormatter: pf_func
                          },
                      },
                  },

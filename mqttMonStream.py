@@ -135,7 +135,7 @@ class FileWebUpdater(threading.Thread):
                                   # SLURM status, even if we don't have a msg for it.
             pre_ts, pre_procs, pre_nodeUserProcs = self.savNode2TsProcs[hostname]
             if (hostname not in msgs) or (pre_ts >= msgs[hostname][-1]['hdr']['msg_ts']):
-               logger.warning ("No new data reported on {}. Use the previous reported data at {}".format(hostname, MyTool.getTsString(pre_ts)))
+               logger.warning ("No new data of {}. Use previous data at {}".format(hostname, MyTool.getTsString(pre_ts)))
                if hostname in msgs:
                   msgs.pop(hostname)
                   logger.warning ("\tIgnore the incoming older data at {}.".format(MyTool.getTsString(msg['hdr']['msg_ts']))) 
