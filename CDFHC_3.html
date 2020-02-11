@@ -12,8 +12,11 @@
 	<div id="chart1" style="min-width: 1000px; height: 400px; margin: 0 auto"></div>
 	<hr>
 	<div id="chart2" style="min-width: 1000px; height: 400px; margin: 0 auto"></div>
+	<hr>
+	<div id="chart3" style="min-width: 1000px; height: 400px; margin: 0 auto"></div>
 	<script>
-	 graphSeries({series},  "chart1",  "{title} from {start} to {stop}",  {xMax},  "{xLabel}",  "{yLabel}");
-	 graphSeries({series2}, "chart2",  "{title2} from {start} to {stop}", {xMax2}, "{xLabel2}", "{yLabel2}");
+	 graphSeries_stackColumn_CDF({series},  "chart1",  "{title} from {start} to {stop}",  "linear", {xMax},  "{xLabel}",  "{yLabel}");
+	 graphSeries({series2}, "chart2",  "{title2} from {start} to {stop}", "linear", {xMax2}, "{xLabel2}", "{yLabel2}");
+	 graphSeries({series3}, "chart3",  "{title3} from {start} to {stop}", "linear", {xMax3}, "{xLabel3}", "{yLabel3}");
 	</script>
 </html>

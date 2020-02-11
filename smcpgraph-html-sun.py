@@ -7,6 +7,7 @@ import operator
 from functools import reduce
 
 import fs2hc
+import pyslurm
 from queryInflux     import InfluxQueryClient
 from querySlurm      import SlurmCmdQuery, SlurmDBQuery
 from queryTextFile   import TextfileQueryClient
@@ -1163,7 +1164,7 @@ class SLURMMonitor(object):
            return "Node {} is not monitored".format(node)
 
         htmlTemp   = os.path.join(wai, 'nodeDetail.html')
-        htmlStr    = open(htmlTemp).read().format(node_name=node, node_state=nodeData['state'], update_time=MyTool.getTsString(nodeData['updateTS']), 
+        htmlStr    = open(htmlTemp).read().format(update_time=MyTool.getTsString(nodeData['updateTS']), 
                                                   node_data=nodeData,
                                                   node_report=nodeReport)
         return htmlStr
@@ -1290,7 +1291,7 @@ class SLURMMonitor(object):
               if len(worker_proc) != worker_cnt:
                  msg_note='WARNING: Job {} is running on {} nodes, which is less than {} allocated nodes.'.format(jid, len(worker_proc), worker_cnt)
         else: # not RUNNING
-           end       = int(MyTool.getSlurmTimeStamp(job_report['End']))
+           end       = int(MyTool.str2ts(job_report['End']))
            if (not end) or (end == 'Unknown'):
               msg_note='Can not find End time for a non-running job'
            else:
@@ -1754,6 +1755,23 @@ class SLURMMonitor(object):
            return job['Start']
         else:
            return None
+
+    @cherrypy.expose
+    def nodeGPUGraph(self, node):  #the GPU util for the node of last day
+        client  = BrightRestClient()
+        nodeData= pyslurm.node().get_node(node)
+        if not nodeData:
+           return 'Node {} is not in slurm cluster.'.format(node)
+        if not nodeData[node]['gres']:
+           return 'Node {} does not have gres resource'
+        data    = client.getDumpAllGPU(node)
+
+        htmltemp = os.path.join(wai, 'nodeGPUGraph.html')
+        h = open(htmltemp).read()%{'spec_title': ' on {}'.format(node),
+                                   'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(data['data'][0]['data'][0][0])),
+                                   'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(data['data'][0]['data'][-1][0])),
+                                   'series'    : data['data'],}
+        return h
 
     @cherrypy.expose
     def nodeJobProcGraph(self, node, jid):

@@ -5,7 +5,7 @@ function prepareData (data) {
 }
 
 //data_dict is a dictionary of a fixed format
-function createMultiTable (data_dict, parent_id, table_title_list) {
+function createMultiTable (data_dict, parent_id, table_title_list, job_id) {
    console.log(data_dict)
    console.log(parent_id)
    console.log(table_title_list)
@@ -15,10 +15,11 @@ function createMultiTable (data_dict, parent_id, table_title_list) {
                .enter().append('div')
    pas.append('p')
       .attr('class', 'thick')
-      .text(function (d) {console.log(d); return d + ': alloc cores ' + data_dict[d][0] + ' , running processes ' + data_dict[d][1]} )
+      //.html(function (d) {return '<a href="./nodeJobProcGraph?node=' + d + '&jid=' + job_id + '">' + d + ': alloc cores ' + data_dict[d][0] + ' , running processes ' + data_dict[d][1]+'</a>'} )
+      .html(function (d) {return d + ': alloc ' + data_dict[d][0] + ' CPUs, running processes ' + data_dict[d][1]+'<a href="./nodeJobProcGraph?node=' + d + '&jid=' + job_id + '"> (Proc Usage Graph) </a>'} )
 
    var tables = pas.append('table').property('id', function(d) {return d+'_proc'}).attr('class','noborder')
-   var hds    = tables.append('thead')
+   var theads    = tables.append('thead')
                      .append('tr')
                      .selectAll('th')
                      .data(table_title_list)
@@ -32,6 +33,45 @@ function createMultiTable (data_dict, parent_id, table_title_list) {
                       .attr('class','noborder')
    trs.selectAll('td')
       .data(function(d) {return d})
+      .enter().append('td')
+         .attr('class','noborder')
+         .text(function (d) {return d})
+}
+
+//data_dict is a dictionary of a fixed format
+function createMultiTable2 (data_dict, parent_id, table_title_list, node, alloc_gpus) {
+   console.log(data_dict)
+   console.log(parent_id)
+   console.log("table_title_list")
+   console.log(table_title_list)
+
+   var pas = d3.select('#'+parent_id).selectAll('p')
+               .data(Object.keys(data_dict))
+               .enter().append('div')
+   pas.append('p')
+      .attr('class', 'thick')
+      .html(function (d) {
+               var str= "Job " + d + ': alloc ' + data_dict[d]["job"]["cpus_allocated"][node] + ' CPUs, ' + alloc_gpus + ' GPUs'
+               if (data_dict[d]["procs"] != undefined)
+		  str += ', running processes ' + data_dict[d]["procs"].length +'<a href="./nodeJobProcGraph?node=' + node + '&jid=' + d + '"> (Proc Usage Graph) </a>'
+               else
+		  str += ', no running processes.'
+               return str; })
+   var tables = pas.append('table').property('id', function(d) {return d+'_proc'}).attr('class','noborder')
+   var theads = tables.append('thead')
+                     .append('tr')
+                     .selectAll('th')
+                     .data(table_title_list)
+                     .enter().append('th')
+                        .attr('class','noborder')
+                        .text(function (d,i) { return table_title_list[i]; })
+
+   var trs    = tables.append('tbody').selectAll('tr')
+                   .data(function (d,i) {if (data_dict[d]["procs"]!=undefined) {return data_dict[d]["procs"]} else {return []}})
+                   .enter().append('tr')
+                      .attr('class','noborder')
+   trs.selectAll('td')
+      .data(function(d) {console.log(d); return d})
       .enter().append('td')
          .attr('class','noborder')
          .text(function (d) {return d})
@@ -64,7 +104,7 @@ function createNestedTable (data, field_key, title_dict, sub_data, table_id, par
                           .selectAll('th')
                           .data(Object.keys(title_dict))
                           .enter().append('th')
-                          .text(function (d) { return title_dict[d]; })
+                          .text(function (d,i) { return title_dict[i]; })
         var enterRows   = table.append('tbody').selectAll('tr')
                           .data(data).enter()
         enterRows.append('tr')

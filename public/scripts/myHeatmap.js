@@ -15,7 +15,7 @@ var colorScale = d3.scale.quantize()
               .range(colors);
 var colorScales = {}
 for (var acct of accounts) {
-              colorScales[acct] = d3.scale.quantize()
+    colorScales[acct] = d3.scale.quantize()
                  .domain([0, colors.length - 1, 1])
                  .range(acctColors[acct]);
 }
@@ -102,14 +102,8 @@ function createHeatMap(svg, data, acctColor, grpCnt, cntLine, gridSize)
                                                $(`.${e}`).addClass("popout")})})
               .style("fill",  "gray");
           cards.transition().duration(1000)
-              .style("fill", function(d) { var currColorS = colorScale
-                                           if (acctColor ) {
-                                              if ( d["acct"].length == 1 && d["acct"][0] in colorScales)
-                                                 currColorS  = colorScales[d["acct"][0]]
-                                              else
-                                                 currColorS  = colorScales["etc"]
-                                           }
-                                           if (d["stat"]==0) return "gray"; 
+              .style("fill", function(d) { var currColorS = getColorScale(d, acctColor)
+                                           if (d["stat"]==0) return "gray";
                                            else if (d["stat"]==-1) return "black";
                                            else return currColorS(d["util"]); });
           cards.append("title");
@@ -166,32 +160,56 @@ function prepareNodeData (nodeData, grpCnt, labels, gpu_obj) {
                    obj['gpuCount'] ++
                    obj[gpuID] = gpu_obj[gpuID][obj['name']]
                 }
-              }
-              console.log(obj)
+             }
+             console.log(obj)
           }
           objData.push (obj);
         }
 
         return objData
-}
-
-function createGPUHeatMap(svg, data, acctColor, grpCnt, cntLine, width) 
+};
+//gpu_labels follow nodeData's sort
+function prepareGPUData(nodeData, gpu_labels)
 {
           var gpuData  = [];             // data that will be used later
-          var gpuCount = 0;
-          for (d of data) {
+          for (d of nodeData) {
              if (d['gpu']) {
                 for (i=0; i<d['gpuCount']; i++) {
                    di = Object.assign({}, d)
                    di['gpuIdx'] = i
+                   di['gpuLabel'] = di['labl']+' gpu'+i+': '+(di['gpu'+i]*100).toFixed(0)+'%'
                    gpuData.push(di)
                 }
-                gpuCount ++
+                gpu_labels.push(d['name'])
              }
           }
-          console.log(gpuData)
-          gridSize = width / gpuCount
-          
+          return gpuData
+};
+
+function getColorScale(d, useAccountColor) { 
+    var currColorS = colorScale
+    if (useAccountColor ) { // use color of the account
+       if ( d["acct"].length == 1 && d["acct"][0] in colorScales)
+          currColorS  = colorScales[d["acct"][0]]
+       else if ( d["acct"].length == 1 )
+          currColorS  = colorScales["etc"]
+       else {
+          var i=1;
+          for (i=1;i<d["acct"].length;i++) {
+              if (d["acct"][0]!=d["acct"][i])
+                 break;
+          }
+          if (i==d["acct"].length)
+              currColorS  = colorScales[d["acct"][0]]
+          else
+              currColorS  = colorScales["etc"]
+       }
+    }
+    return currColorS
+};
+
+function createGPUHeatMap(svg, gpuData, acctColor, grpCnt, cntLine, gridSize) 
+{
           var cards = svg.selectAll(".gpu")
               .data(gpuData);
           cards.enter().append("rect")
@@ -206,7 +224,7 @@ function createGPUHeatMap(svg, data, acctColor, grpCnt, cntLine, width)
               .attr("width",  gridSize)
               .attr("height", gridSize)
               .attr("title", function (d) {return d["name"]})
-              .attr("value", function (d) {console.log(d["gpu"+d["gpuIdx"]]); return d["gpu"+d["gpuIdx"]]})
+              .attr("value", function (d) {return d["gpu"+d["gpuIdx"]]})
               .on("dblclick", function(d) {
                               if (d3,event.ctrlKey) {
                                  location.href="jobDetails?jid="+d["jobs"]
@@ -220,22 +238,15 @@ function createGPUHeatMap(svg, data, acctColor, grpCnt, cntLine, width)
                                                $(`.${e}`).addClass("popout")})})
               .style("fill",  "gray");
           cards.transition().duration(1000)
-              .style("fill", function(d) { var currColorS = colorScale
-                                           if (acctColor ) {
-                                              if ( d["acct"].length == 1 && d["acct"][0] in colorScales)
-                                                 currColorS  = colorScales[d["acct"][0]]
-                                              else
-                                                 currColorS  = colorScales["etc"]
-                                           }
+              .style("fill", function(d) { var currColorS = getColorScale(d, acctColor);
                                            if (d["stat"]==0) return "gray";
                                            else if (d["stat"]==-1) return "black";
                                            else return currColorS(d["gpu"+d["gpuIdx"]]); });
           cards.append("title");
-          cards.select("title").text(function(d) {return d["labl"]});
+          cards.select("title").text(function(d) {return d["gpuLabel"]});
           cards.exit().remove();
 };
-
-function createSVG (svg_id, label_id, width, height, labels, gridSize) {
+function createSVG (svg_id, label_id, labels, width, height, margin, gridSize) {
       var svg = d3.select(svg_id)
           .attr("width",  width  + margin.left + margin.right)
           .attr("height", height + margin.top + margin.bottom)
@@ -253,22 +264,16 @@ function createSVG (svg_id, label_id, width, height, labels, gridSize) {
 
       return svg
 };
-function prepareGPUData (gpuData, nodeData, grpCnt, labels) {
-        var objData  = [];             // data that will be used later
-
-        //nodeData is already sorted by group 
-        for (gpuID of Object.keys(gpuData)) {
-           if (gpuID != "time") {
-              console.log(gpuID)
-              for (gpu of Object.keys(gpuData[gpuID])) {
-                  console.log(gpu)
-                  var obj = {name: gpu, stat: nodeData[gpu][1], core: nodeData[i][2],
-                     jobs: nodeData[i][4], acct: nodeData[i][5], labl: nodeData[i][6]};
- 
-              }
-              
-           }
-        }
-
-        return gpuData
+function createGPUSVG (svg_id, node_label_id, gpu_label_id, node_labels, width, height, gpu_margin, gridSize) {
+    var svg    = createSVG (svg_id, gpu_label_id, ['gpu0','gpu1','gpu2','gpu3'], width, height, gpu_margin, gridSize)
+    var labels = svg.selectAll (node_label_id)
+          .data (node_labels)
+          .enter().append("text")
+             .text(function (d) {return d;})
+             .attr("x", function (d, i) { return (i)*gridSize+10;})
+             .attr("y", 0)
+            .style("text-anchor", "start")
+             .attr("transform", function(d,i) {var x=(i)*gridSize+10; return "rotate(-65,"+x+","+0+")"});
+   return svg
 };
+

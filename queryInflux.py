@@ -10,6 +10,8 @@ from collections import defaultdict
 import MyTool
 import pdb
 
+with open('./config.json') as config_file:
+     APP_CONF = json.load(config_file)
 
 class InfluxQueryClient:
     Interval = 61
@@ -19,16 +21,20 @@ class InfluxQueryClient:
     @classmethod
     def getClientInstance (cls):
         if not cls.CLIENT_INS:
-           cls.CLIENT_INS = InfluxQueryClient('scclin011','slurmdb')
+           cls.CLIENT_INS = InfluxQueryClient()
 
         return cls.CLIENT_INS
 
-    def __init__(self, influxServer='scclin011', dbname='slurmdb'):
-        self.influx_client = self.connectInflux (influxServer)
+    def __init__(self, influxServer=None, dbname=None):
+        if not influxServer:
+           influxServer = APP_CONF['influxdb']['host']
+        if not dbname:
+           dbname       = APP_CONF['influxdb']['db']
+        self.influx_client = self.connectInflux (influxServer, 8086, dbname)
         print("INFO: influx_client= " + repr(self.influx_client._baseurl))
 
-    def connectInflux (self, host, port=8086, dbname='slurmdb'):
-        return influxdb.InfluxDBClient(host, 8086, "yliu", "", dbname)
+    def connectInflux (self, host, port, dbname):
+        return influxdb.InfluxDBClient(host, port, "yliu", "", dbname)
 
         
     # given a jid, return the timed history on its assigned nodes
@@ -54,6 +60,38 @@ class InfluxQueryClient:
         print("INFO: getSlurmJobInfo take time " + str(time.time()-t1))
         return point
         
+    #return nodelist's time series of the a uid, {hostname: {ts: [cpu, io, mem] ... }, ...}
+    def getNodeProcData (self, node, jid, start_time='', stop_time=''):
+        t1=time.time()
+
+        #prepare query
+        g =('('+n+')' for n in nodelist)
+        hostnames = '|'.join(g)
+        query= "select * from autogen.node_proc_mon where hostname=~/"+ hostnames + "/ and time >= " + str(int(start_time)) + "000000000 and time <= " + str(int(stop_time)+1) + "000000000"
+
+        #execute query, returned time is local timestamp, epoch is for returned result, not for query
+        results = self.query(query)
+        if not results:
+           return None
+
+        points   = results.get_points()
+        node2seq = { n:{} for n in nodelist}
+        for point in points: #points are sorted by point['time']
+            ts       = point['time']
+            node     = point['hostname']
+            if 'mem_rss_K' in point:
+               mem_rss_K = MyTool.getDictNumValue(point, 'mem_rss_K')
+            else:
+               mem_rss_K = int(MyTool.getDictNumValue(point, 'mem_rss') / 1024)
+            node2seq[node][ts] = [ MyTool.getDictNumValue(point, 'cpu_system_util') + MyTool.getDictNumValue(point, 'cpu_user_util'), 
+                                   MyTool.getDictNumValue(point, 'io_read_rate'),
+                                   MyTool.getDictNumValue(point, 'io_write_rate'), 
+                                   mem_rss_K]
+
+        print("INFO: getNodeProcData take time " + str(time.time()-t1))
+        return node2seq
+
+
     #return nodelist's time series of the a uid, {hostname: {ts: [cpu, io, mem] ... }, ...}
     def getSlurmUidMonData(self, uid, nodelist, start_time, stop_time):
         t1=time.time()
@@ -86,6 +124,57 @@ class InfluxQueryClient:
         print("INFO: getSlurmUidMonData take time " + str(time.time()-t1))
         return node2seq
 
+    #return the query result list of dict {pid: (ts, cpu, mem, io_r, io_w) ... }, ...}, NOT USED YET
+    def getNodeJobProcData (self, node, jid, start_time='', stop_time=''):
+        query   = "select * from autogen.node_proc_mon where hostname='" + node + "' and jid=" + str(jid)   #jid is int type in node_proc_mon
+        if start_time:
+           query += " and time >= " + str(int(start_time)) + "000000000"
+        if stop_time:
+           query += " and time <= " + str(int(stop_time)+1) + "000000000"
+
+        results = self.query(query)
+        if not results:
+           return None, None, None
+
+        points     = list(results.get_points()) # lists of dictionaries
+        first_time = points[0]['time']
+        last_time  = points[len(points)-1]['time']
+        pids       = set([p['pid'] for p in points])
+        rlt        = {}
+        for pid in pids:
+            rlt[pid]= [ (point['time'], MyTool.getDictNumValue(point, 'cpu_system_time') + MyTool.getDictNumValue(point, 'cpu_user_time'),
+                               MyTool.getDictNumValue(point, 'mem_rss'),
+                               MyTool.getDictNumValue(point, 'io_read_bytes'),
+                               MyTool.getDictNumValue(point, 'io_write_bytes')) for point in points if point['pid']==pid] 
+
+        return first_time, last_time, rlt
+
+    #return the query result list of dict {hostname: {ts: [cpu, mem, io_r, io_w] ... }, ...}, NOT USED YET
+    def getSlurmJobData (self, jid, start_time='', stop_time=''):
+        query   = "select * from autogen.cpu_jid_mon where jid = '" + str(jid) + "'"   #jid is str type
+        if start_time:
+           query += " and time >= " + str(int(start_time)) + "000000000"
+        if stop_time:
+           query += " and time <= " + str(int(stop_time)+1) + "000000000"
+
+        results = self.query(query)
+        if not results:
+           return None, None, None
+
+        points  = list(results.get_points()) # lists of dictionaries
+        rlt     = defaultdict(dict)
+        for point in points:
+            ts       = point['time']
+            rlt[point['hostname']][ts] = [ MyTool.getDictNumValue(point, 'cpu_system_util') + MyTool.getDictNumValue(point, 'cpu_user_util'),
+                              MyTool.getDictNumValue(point, 'mem_rss_K'),
+                              MyTool.getDictNumValue(point, 'io_read_rate'),
+                              MyTool.getDictNumValue(point, 'io_write_rate')]
+        if len(points)>0:
+           start_time = points[0]['time']
+           stop_time  = points[len(points)-1]['time']
+
+        return start_time, stop_time, rlt
+
     #return the query result list of dictionaries
     def queryUidMonData (self, uid, start_time='', stop_time='', nodelist=[]):
         t1=time.time()
@@ -103,7 +192,7 @@ class InfluxQueryClient:
         print ("INFO: queryUidMonData " + query)
 
         #execute query, returned time is local timestamp, epoch is for returned result, not for query
-        results = self.influx_client.query(query, epoch='ms')
+        results = self.influx_client.query(query, epoch='s')
         points  = list(results.get_points()) # lists of dictionaries
         for point in points:
             if 'mem_rss_K' not in point:
@@ -134,7 +223,7 @@ class InfluxQueryClient:
             else:
                mem_rss_K = int(MyTool.getDictNumValue(point, 'mem_rss') / 1024)
             node2seq[node][ts] = [ MyTool.getDictNumValue(point, 'cpu_system_util') + MyTool.getDictNumValue(point, 'cpu_user_util'), 
-                                   MyTool.getDictNumValue(point, 'io_read_bytes')   + MyTool.getDictNumValue(point, 'io_write_bytes'), 
+                                   MyTool.getDictNumValue(point, 'io_read_rate')   + MyTool.getDictNumValue(point, 'io_write_rate'), 
                                    mem_rss_K]
         #print(repr(node2seq))
         print("INFO: getSlurmUidMonData_All take time " + str(time.time()-t1))
@@ -166,8 +255,8 @@ class InfluxQueryClient:
                                  mem_rss_K]
 
         if len(points)>0:
-           start_time = points[0]['time']/1000
-           stop_time  = points[len(points)-1]['time']/1000
+           start_time = points[0]['time']
+           stop_time  = points[len(points)-1]['time']
           
         #print(repr(uid2seq))
         return uid2seq, start_time, stop_time
@@ -455,7 +544,11 @@ def main():
     t1=time.time()
     start, stop = MyTool.getStartStopTS(days=3) 
     app   = InfluxQueryClient()
-    app.getUserProc ('dhofmann', ['worker1031'], 1568554418, 1568908041)
+    start, stop, rlt   = app.getNodeJobProcData('worker1006',469406)
+    #s1, e1, d1=app.getSlurmJobData(465261)
+    #s2, e2, d2=app.getSlurmJobData(465262)
+    #d3=app.getSlurmUidMonData(1012, ['workergpu30'], s1, e1)
+    #app.getUserProc ('dhofmann', ['worker1031'], 1568554418, 1568908041)
     #rlt   = app.getSlurmJobRuntimeHistory(346864, 1566727264, 1567159264)
     print('{}'.format(rlt))
     #app.getPendingCount(start, stop)

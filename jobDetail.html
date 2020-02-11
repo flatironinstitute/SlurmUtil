@@ -22,7 +22,7 @@ $(document).ready(function(){{
     //['PID', 'Create Time', 'Avg CPU', 'User Time', 'Sys Time', 'RSS', 'VMS', 'Avg IO', 'Command']
 
     if ({worker_proc}) {{
-       createMultiTable ({worker_proc}, 'div_worker_proc', {proc_field})
+       createMultiTable ({worker_proc}, 'div_worker_proc', {proc_field}, {job_id})
     }}
 
     createTable ({job_report}, j_h_titles,  'job_history_table', 'job_report') 

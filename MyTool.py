@@ -1,12 +1,13 @@
 import sys
 import re
 import collections
-from datetime import datetime, timezone, timedelta
 import time
-import pwd,grp,logging
+import operator, pwd,grp,logging
 import dateutil.parser
 import _pickle as cPickle
 import os.path
+
+from datetime import datetime, timezone, timedelta
 
 THREE_DAYS_SEC     = 3*24*3600
 ONEDAY_SECS       = 24*3600
@@ -90,9 +91,10 @@ def getUTCDateTime (local_ts):
     #print ("UTC " + datetime.fromtimestamp(local_ts, tz=DataReader.LOCAL_TZ).isoformat())
     return datetime.fromtimestamp(local_ts, LOCAL_TZ)
 
-def getSlurmTimeStamp (slurm_datetime_str):
+#parse '2020/02/10 21:15:01' (bright) and 2020-01-28T14:51:49 (sacct)
+def str2ts (slurm_datetime_str):
     d = dateutil.parser.parse(slurm_datetime_str)
-    return d.timestamp()
+    return int(d.timestamp())
     
 def upd_dict(d1, d2):
     d2.update(d1)
@@ -393,6 +395,54 @@ def getFileLogger (name, level=logging.WARNING, file_name=None):
     logger.setLevel  (level)
 
     return logger
+
+def getSeqDiff (seq, idx):
+    x1    = [ item[idx] for item in seq ]
+    x2    = x1[0:len(x1)-1]
+    x1.pop(0)
+    return list(map(operator.sub, x1, x2))
+
+#get derivative of seq 
+def getSeqDeri (seq, xIdx, yIdx):
+    xDiff = getSeqDiff (seq, xIdx)
+    yDiff = getSeqDiff (seq, yIdx)
+    return list(map(operator.truediv, yDiff, xDiff))
+
+def getSeqDeri_x (seq, xIdx, yIdx):
+    deri = getSeqDeri(seq, xIdx, yIdx)
+    x    = [ item[xIdx] for item in seq ]
+    x.pop(0)
+    return [[item[0], item[1]] for item in zip(x,deri)]
+
+#job 'tres_alloc_str': 'cpu=2,mem=36000M,node=2,billing=2,gres/gpu=4'
+#    'tres_req_str': 'cpu=2,mem=36000M,node=2,billing=2,gres/gpu=4'
+def getTresGPUCount (tres_str):
+    if not tres_str:
+       return 0
+    m = re.search('gres/gpu=(\d+)', tres_str)
+    if not m or not m.group(0):
+       return 0
+    return int(m.group(1))
+    
+#node 'gres': ['gpu:k40c:1', 'gpu:k40c:1'], 'gres_used': ['gpu:k40c:2(IDX:0-1)', 'mic:0']
+#     'tres_fmt_str': 'cpu=28,mem=375G,billing=28,gres/gpu=2'
+#return gpus, alloc_gpus, alloc_gpus_idx
+def getGPUAlloc (gres_list, gres_used_list):
+    if not gres_list or not gres_used_list:
+       return 0, 0
+    gpu_total = sum([ 1 for g in gres_list if 'gpu:' in g])
+    gpu_used  = 0
+    for gres in gres_used_list:
+        if 'gpu:' not in gres: 
+           continue
+        m = re.search('gpu:(.+):(\d+)\(IDX:(.+)\)', gres)
+        if not m or not m.group(0):
+           continue
+        cate     = m.group(1)
+        gpu_used+= int(m.group(2))
+        idx_str  = m.group(3)
+        #idx_list = str2intList (idx_str)
+    return gpu_total, gpu_used
 
 def test1():
     level = logging.DEBUG
