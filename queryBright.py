@@ -29,7 +29,7 @@ class BrightRestClient:
 
     def getDumpGPU (self, node, gpuId='gpu0'):
         #default is about 1 value per 5 minute and one hour of history
-        r = requests.get('https://ironbcm:8081/rest/v1/monitoring/dump?entity={}&measurable=gpu_utilization:{},start=-72h'.format(node,gpuId), verify=False, cert=self.cert)
+        r = requests.get('https://ironbcm:8081/rest/v1/monitoring/dump?entity={}&measurable=gpu_utilization:{}&start=-72h'.format(node,gpuId), verify=False, cert=self.cert)
         j = r.json() #{'entity': 'workergpu00', 'measurable': 'gpu_utilization:gpu1', 'raw': 1.0, 'time': '2020/02/10 16:51:21', 'value': '100.0%'}
         if j['data']:
            d   = [[MyTool.str2ts(item['time']), item['raw']] for item in j['data']]
@@ -69,17 +69,29 @@ def test1():
     rlt    = client.getLatestAllGPU()
     print(rlt)
 
-def test2():
+def test2(node):
     client = BrightRestClient()
-    rlt    = client.getDumpGPU('workergpu00')
+    rlt    = client.getDumpAllGPU(node)
+    cnt    = sum([len(item['data']) for item in rlt['data']])
+    print('{}: {} samples'.format(node, cnt))
+    return rlt
 
 def test3():
     client = BrightRestClient()
+    cnt    = 0
+    for i in range(0, 43):
+        node = 'workergpu{:0>2d}'.format(i)
+        rlt  = test2(node)
+        cnt += sum([len(item['data']) for item in rlt['data']])
+
+    print('Total: {} samples'.format(cnt))
+        
 
 
 def main():
     t1=time.time()
-    test2()
+    
+    test3()
     print("main take time " + str(time.time()-t1))
 
 if __name__=="__main__":

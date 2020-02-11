@@ -1,55 +1,52 @@
 <!DOCTYPE html>
-<meta charset="utf-8">
 <html>
-  <head>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-  </head>
-  <body>
-    <div class="tab" id="tabmenu"></div>
 
-    <div id="title">
-         <h3>Node: {node} (<a href="./nodeGraph?node={node}">Graph</a>), Status:{nodeStatus}, Delay:{delay}, <a href="#sacctreport">(jump to sacct)</a></h3>  
-         <p id="jobs"> </p>
-    </div>
-    <div id="process">
-    </div>
-    <div id="sacct"><h4 id="sacctreport">sacct report (last {acctWindow} days for node {node}):</h4>  {acctReport}</div>
+<head>
+<meta charset='UTF-8'>
+<title>Node Detail</title>
+<link rel="stylesheet" href="/static/css/style.css">
 
-    <script type="text/javascript">
-       var procData    = {procData}
-       var jobData     = {jobs}
-       var str         = ""
-       for (var i=0; i<procData.length; i++) {{
-           var user     = procData[i][0]
-           var coresCnt = procData[i][1]
-           var load     = procData[i][2]
-           var proc     = procData[i][3]
-           var proc2    = proc.map(myMapFunc)
+<script src="http://code.jquery.com/jquery-1.12.4.min.js"></script>
+<script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+<script type="text/javascript" src="static/scripts/myTable.js"></script>
+<script type="text/javascript">
 
-           str += "<hr><em>" + user + "</em>,  load " + load.toFixed(2) + " out of " + coresCnt + " <pre>"
-           str += [" pid  ", " jid  ", "CPU Util", "    RSS   ", "    VMS   ", "    Command"].join(' ') 
-           str += "\n"+proc2.join('\n') + "\n</pre>" 
-       }}
-       $("#process").append(str)
+$(document).ready(function(){{
+    //var r_j_titles     = {{'job_id':'Job ID', 'name':'Name', 'submit_time_str':'Submit Time', 'start_time_str':'Start Time', 'qos':'QoS','partition':'Partition','nodes':'Nodes', 'tres_req_str':'Tres Req', 'tres_alloc_str':'Tres Alloc', 'run_time_str':'Run Time', 'command':'Command', 'work_dir':'Work Dir'}}
+    //var p_j_titles     = {{'job_id':'Job ID', 'name':'Name', 'submit_time':'Submit Time', 'num_nodes':'Req Node', 'num_cpus':'Req CPU', 'account':'Account', 'partition':'Req Part.', 'state_reason':'Pending Reason', 'state_exp':'Note'}}
+    var node_data      = {node_data}
+    var proc_title     = ['PID', 'Avg CPU Util', 'RSS (KB)',  'VMS (KB)', 'IO Rate (KB/s)', 'Command']
+    var proc_index     = [0,     1,              5,            6,         8,                7]
+    var j_h_titles     = {{'JobID':'Job ID', 'JobName':'Name','AllocCPUS':'Alloc CPU','AllocGPUS':'Allc GPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
+    if (!node_data["gpus"]) 
+       j_h_titles     = {{'JobID':'Job ID', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
+    //['PID', 'Avg CPU', 'Create Time', 'User Time', 'Sys Time', 'RSS', 'VMS', 'Command', 'Avg IO']
+    //['PID', 'Create Time', 'Avg CPU', 'User Time', 'Sys Time', 'RSS', 'VMS', 'Avg IO', 'Command']
 
-       str = ""
-       Object.keys(jobData).forEach(function(e) 
-                                      {{if (str!="") str +=",";
-                                        str += "<a href='./jobDetails?jid=" + e + "'>" + e + "</a>(" + jobData[e] + " cores, <a href='./jobGraph?jobid=" + e + "'>Graph</a>)";
-                                      }})
-       if ( str!="" )
-          $("#jobs").append("Jobs Allocated: " + str)
+    if (node_data["gpus"])
+       d3.select("#node_summary").html("Node " + node_data["name"]+ ": " + node_data["state"] + " state, <a href='nodeGraph?node=" + node_data["name"] + "'>Usage Graph</a>, <a href='nodeGPUGraph?node=" + node_data["name"] + "'>GPU Graph</a>")
+    else
+       d3.select("#node_summary").html("Node " + node_data["name"]+ ": " + node_data["state"] + " state, <a href='nodeGraph?node=" + node_data["name"] + "'>Usage Graph</a>")
+    d3.select("#summary").text(node_data["jobCnt"]+" Jobs with a total of " + node_data["procCnt"] + " Processes running on node, allocating "+node_data["alloc_cpus"] +" CPUs and " + node_data["alloc_gpus"] + " GPUs")
+    console.log(node_data)
+    createMultiTable2 (node_data["jobProc"], 'div_job', proc_title, node_data["name"], node_data["alloc_gpus"])
+    createTable       ({node_report}, j_h_titles,  'node_history_table', 'div_sacct_report') 
+}});
+</script>
+</head>
 
-       function myMapFunc(item, index, array) {{
-          var subArr = [item[0], ("    " + item[9]).slice(-6), ("        " + item[1].toFixed(2)).slice(-8), padding10Left(item[5].toExponential(2)), padding10Left(item[6].toExponential(2)), item[7]] 
-          return subArr.join(' ')       
-       }}
+<body>
+<div id="user" class="page-wrap">
+<h3 id="node_summary"></h3>
+   <b>Jump to <a href='#sacct_history'>sacct report</a></b>
+   <p><i>Update time: {update_time}</i>
+<hr>
+<div id="div_job" class="page-wrap">
+   <h3 id="summary"></h3>
+</div>
+<div id="div_sacct_report" class="page-wrap">
+   <h3>SACCT Node Report</h3>
+</div>
+</body>
 
-       function padding10Left(value) {{
-          return ("          " + value).slice(-10);
-       }};
-    </script>
-
-  </body>
 </html>

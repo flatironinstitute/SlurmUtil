@@ -1763,13 +1763,16 @@ class SLURMMonitor(object):
         if not nodeData:
            return 'Node {} is not in slurm cluster.'.format(node)
         if not nodeData[node]['gres']:
-           return 'Node {} does not have gres resource'
+           return 'Node {} does not have gres resource'.format(node)
         data    = client.getDumpAllGPU(node)
+        start   = min([item['data'][0][0] for item in data['data']])
+        stop    = max([item['data'][-1][0] for item in data['data']])
 
         htmltemp = os.path.join(wai, 'nodeGPUGraph.html')
         h = open(htmltemp).read()%{'spec_title': ' on {}'.format(node),
-                                   'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(data['data'][0]['data'][0][0])),
-                                   'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(data['data'][0]['data'][-1][0])),
+                                   #'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(data['data'][0]['data'][0][0])),
+                                   'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(start)),
+                                   'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(stop)),
                                    'series'    : data['data'],}
         return h
 
