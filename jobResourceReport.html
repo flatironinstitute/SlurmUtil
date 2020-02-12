@@ -1,0 +1,28 @@
+<!doctype HTML>
+<html>
+    <head>
+	<script type="text/javascript" src="static/scripts/jquery-2.1.3.min.js"></script>
+	<script type="text/javascript" src="static/scripts/highcharts.js"></script>
+	<script type="text/javascript" src="static/scripts/annotations.js"></script>
+	<script type="text/javascript" src="static/scripts/exporting.js"></script>
+        <script type="text/javascript" src="static/scripts/myHC.js"></script>
+    </head>
+    <body>
+        <div style="width: 100%; display: table;">
+            <div style="display: table-row">	   
+                <div id="chart_11" style="min-width: 600px; display: table-cell; height: 400px; margin: 0 auto"></div>
+	        <div id="chart_12" style="min-width: 600px; display: table-cell; height: 400px; margin: 0 auto"></div>
+            </div>
+            <div style="display: table-row">	   
+                <div id="chart_21" style="min-width: 600px; display: table-cell; height: 400px; margin: 0 auto"></div>
+	        <div id="chart_22" style="min-width: 600px; display: table-cell; height: 400px; margin: 0 auto"></div>
+            </div>
+        </div>
+	<script>
+	 timeSeriesWithAnnotation({series_11}, "chart_11",  "Nodes Allocation from {start} to {stop}",  "{xlabel1}",  [], "");
+	 timeSeriesWithAnnotation({series_12}, "chart_12",  "Job Request Nodes from {start} to {stop}", "{xlabel1}",  [], "", "line");
+	 timeSeriesWithAnnotation({series_21}, "chart_21",  "CPUs Allocation from {start} to {stop}",   "{xlabel2}",  [], "");
+	 timeSeriesWithAnnotation({series_22}, "chart_22",  "Job Request CPUs from {start} to {stop}",  "{xlabel2}",  [], "", "line");
+	</script>
+        </ul>
+</html>
