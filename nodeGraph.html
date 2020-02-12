@@ -21,10 +21,13 @@
 	<div id="ioChart_read"   style="min-width: 1000px; height: 400px; margin: 0 auto"></div>
 	<hr>
 	<div id="ioChart_write"   style="min-width: 1000px; height: 400px; margin: 0 auto"></div>
+        <hr>
+        <p>
+        Data from %(note)s
 	<script>
-	 timeSeriesWithAnnotation(%(lseries)s,   "loadChart",     "CPU Usage          %(spec_title)s from %(start)s to %(stop)s", "CPU Load ",         [],'', 'line');
-	 timeSeriesWithAnnotation(%(mseries)s,   "memChart",      "Memory Usage (rss) %(spec_title)s from %(start)s to %(stop)s", "Mem (KB)",          [],'', 'line');
-	 timeSeriesWithAnnotation(%(iseries_r)s, "ioChart_read",  "IO Read Rate       %(spec_title)s from %(start)s to %(stop)s", "IO Read Bytes/Sec", [],'', 'line');
-	 timeSeriesWithAnnotation(%(iseries_w)s, "ioChart_write", "IO Write Rate      %(spec_title)s from %(start)s to %(stop)s", "IO Write Bytes/Sec",[],'', 'line');
+	 timeSeriesScatterPlot   (%(lseries)s,   "loadChart",    "CPU Usage          %(spec_title)s from %(start)s to %(stop)s", "Util",[]);
+         timeSeriesScatterPlot_KB(%(mseries)s,   "memChart",     "Memory Usage (rss) %(spec_title)s from %(start)s to %(stop)s", "KB", []);
+         timeSeriesScatterPlot   (%(iseries_r)s, "ioChart_read", "IO Read Rate       %(spec_title)s from %(start)s to %(stop)s", "Bytes/Sec",[]);
+         timeSeriesScatterPlot   (%(iseries_w)s, "ioChart_write","IO Write Rate      %(spec_title)s from %(start)s to %(stop)s", "Bytes/Sec",[]);
 	</script>
 </html>

@@ -20,9 +20,11 @@
 	<hr>
 	<div id="ioChart"   style="min-width: 1000px; height: 400px; margin: 0 auto"></div>
 	<hr>
+        <p>
+        Data from %(note)s
         <script>
-	 timeSeriesWithAnnotation(%(lseries)s,   "loadChart",     "CPU Usage          %(spec_title)s from %(start)s to %(stop)s", "CPU Load ",         [],'', 'line');
-	 timeSeriesWithAnnotation(%(mseries)s,   "memChart",      "Memory Usage (rss) %(spec_title)s from %(start)s to %(stop)s", "Mem (KB)",          [],'', 'line');
-	 timeSeriesWithAnnotation(%(iseries_rw)s, "ioChart",      "IO Rate       %(spec_title)s from %(start)s to %(stop)s", "IO Read Bytes/Sec", [],'', 'line');
+         timeSeriesScatterPlot   (%(lseries)s,   "loadChart", "CPU Usage          %(spec_title)s from %(start)s to %(stop)s", "CPU Load ", []);
+	 timeSeriesScatterPlot_KB(%(mseries)s,   "memChart",  "Memory Usage (rss) %(spec_title)s from %(start)s to %(stop)s", "Mem (KB)",  []);
+	 timeSeriesScatterPlot   (%(iseries_rw)s,"ioChart",   "IO Rate            %(spec_title)s from %(start)s to %(stop)s", "Bytes/Sec", []);
 	</script>
 </html>

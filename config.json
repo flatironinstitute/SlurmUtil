@@ -3,6 +3,13 @@
        "host": "worker1090",
        "db":   "slurmdb"
    },
+   "ui": {
+       "urls": ["http://localhost:8126/updateSlurmData"]
+   },
+   "fileStorage": {
+       "dir":       "/mnt/home/yliu/projects/slurm/utils/mqtMonStreamRecord",
+       "writeFile": false
+   },
    "log": {
        "level": "logging.INFO"
    },

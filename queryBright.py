@@ -27,12 +27,15 @@ class BrightRestClient:
         else:
            return None
 
-    def getDumpGPU (self, node, gpuId='gpu0'):
+    def getDumpGPU (self, node, gpuId='gpu0', hours=72):
         #default is about 1 value per 5 minute and one hour of history
-        r = requests.get('https://ironbcm:8081/rest/v1/monitoring/dump?entity={}&measurable=gpu_utilization:{}&start=-72h'.format(node,gpuId), verify=False, cert=self.cert)
-        j = r.json() #{'entity': 'workergpu00', 'measurable': 'gpu_utilization:gpu1', 'raw': 1.0, 'time': '2020/02/10 16:51:21', 'value': '100.0%'}
+        r       = requests.get('https://ironbcm:8081/rest/v1/monitoring/dump?entity={}&measurable=gpu_utilization:{}&start=-{}h'.format(node,gpuId,hours), verify=False, cert=self.cert)
+        startTS = int(time.time()) - hours*60*60
+        j       = r.json() #{'entity': 'workergpu00', 'measurable': 'gpu_utilization:gpu1', 'raw': 1.0, 'time': '2020/02/10 16:51:21', 'value': '100.0%'}
         if j['data']:
            d   = [[MyTool.str2ts(item['time']), item['raw']] for item in j['data']]
+           if d[0][0] < startTS - 60*60:  # if first value is 1 hour earlier than requested
+              del d[0]
            return d
         else:
            return None

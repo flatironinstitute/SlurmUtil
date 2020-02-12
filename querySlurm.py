@@ -244,7 +244,7 @@ class SlurmCmdQuery:
            job['AllocNodes'] = int(job['AllocNodes'])
         if 'AllocCPUS' in output:
            job['AllocCPUS']  = int(job['AllocCPUS'])
-        return job
+        return jobs
 
     # return {jid:jinfo, ...}
     @staticmethod

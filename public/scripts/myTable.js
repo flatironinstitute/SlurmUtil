@@ -51,11 +51,14 @@ function createMultiTable2 (data_dict, parent_id, table_title_list, node, alloc_
    pas.append('p')
       .attr('class', 'thick')
       .html(function (d) {
-               var str= "Job " + d + ': alloc ' + data_dict[d]["job"]["cpus_allocated"][node] + ' CPUs, ' + alloc_gpus + ' GPUs'
-               if (data_dict[d]["procs"] != undefined)
-		  str += ', running processes ' + data_dict[d]["procs"].length +'<a href="./nodeJobProcGraph?node=' + node + '&jid=' + d + '"> (Proc Usage Graph) </a>'
-               else
-		  str += ', no running processes.'
+               var str= "Job " + d + ': '
+               if ( d!= 'undefined') {
+                  str += 'alloc ' + data_dict[d]["job"]["cpus_allocated"][node] + ' CPUs, ' + alloc_gpus + ' GPUs'
+                  if (data_dict[d]["procs"] != undefined)
+		     str += ', running processes ' + data_dict[d]["procs"].length +'<a href="./nodeJobProcGraph?node=' + node + '&jid=' + d + '"> (Proc Usage Graph) </a>'
+                  else
+		     str += ', no running processes.'
+               }
                return str; })
    var tables = pas.append('table').property('id', function(d) {return d+'_proc'}).attr('class','noborder')
    var theads = tables.append('thead')
@@ -142,7 +145,7 @@ function createNestedTable (data, field_key, title_dict, sub_data, table_id, par
              
 
 function createTable (data, titles_dict, table_id, parent_id) {
-        console.log(data)
+        console.log("createTable data=", data)
         var sortAscending = true;
         var table         = d3.select('#'+parent_id).append('table').property('id', table_id);
         var firstKey      = Object.keys(titles_dict)[0]   <!--use jobid as tie breaker for sorting -->
@@ -179,10 +182,12 @@ function createTable (data, titles_dict, table_id, parent_id) {
                                }
                             });
                   
+        console.log("createTable data=", data)
         var rows = table.append('tbody').selectAll('tr')
                                .data(data).enter()
                                .append('tr')
                                .attr('data-group', function(d) {
+                                  console.log ("row tr ", d)
                                   if ( d.data_group) return d.data_group ;})
                                .attr('data-group-idx', function(d) {
                                   if ( d.data_group) return d.data_group_idx;})
@@ -192,6 +197,7 @@ function createTable (data, titles_dict, table_id, parent_id) {
 
         rows.selectAll('td')
             .data(function (d) {
+                console.log("row td", d)
                 return Object.keys(titles_dict).map(function (k) {
                     return { 'value': d[k], 'name': k};
                 });

@@ -96,7 +96,7 @@
 	<div id="ioChart_write"   style="min-width: 1000px; height: 400px; margin: 0 auto"></div>
 	<script>
 	 graphSeries(%(lseries)s,   "loadChart",     "CPU Usage %(spec_title)s from %(start)s to %(stop)s",          "CPU Load ",         []);
-	 graphSeries(%(mseries)s,   "memChart",      "Memory Usage (rss) %(spec_title)s from %(start)s to %(stop)s", "Mem Bytes",         []);
+	 graphSeries(%(mseries)s,   "memChart",      "Memory Usage (rss) %(spec_title)s from %(start)s to %(stop)s", "Mem (KB)",         []);
 	 graphSeries(%(iseries_r)s, "ioChart_read",  "IO Read Rate  %(spec_title)s from %(start)s to %(stop)s",      "IO Read Bytes/Sec", []);
 	 graphSeries(%(iseries_w)s, "ioChart_write", "IO Write Rate %(spec_title)s from %(start)s to %(stop)s",      "IO Write Bytes/Sec",[]);
 	</script>

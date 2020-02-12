@@ -1136,19 +1136,26 @@ class SLURMMonitor(object):
         newNode['state']    = self.data[node][0]
         newNode['updateTS'] = self.data[node][2]
         #organize procs by job
-        newNode['jobProc']  = defaultdict(lambda: {'job':None, 'procs':[]})       #jid, {'job': , 'procs': }
+        newNode['jobProc']  = defaultdict(lambda: {'job':{}, 'procs':[]})       #jid, {'job': , 'procs': }
         newNode['procCnt']  = 0
         for user in sorted(self.data[node][USER_INFO_IDX:]):
             for proc in user[7]:                          #user, uid, cpuCnt, procCnt, totCPURate, totRSS, totVMS, procs, totIOBps, totCPUTime
                 newNode['jobProc'][proc[9]]['procs'].append([proc[i] if i!=1 else '{:.2f}'.format(proc[i]) for i in [0,1,5,6,8,7]])  #[pid(0), CPURate/1, create_time, user_time, system_time, rss/5, 'vms'/6, cmdline/7, IOBps/8, jid, read_bytes, write_bytes]
                 newNode['procCnt'] += 1
         
+        if -1 in newNode['jobProc']:  #TODO: deal with -1 jodid
+           newNode['jobProc']['undefined'] = newNode['jobProc'][-1]
+           del newNode['jobProc'][-1]
+
         #get data from self.currJobs
         for jid in newNode['jobProc']:
-            newNode['jobProc'][jid]['job'] = dict((k,v) for k, v in self.currJobs[jid].items() if v and v != True)
-        newNode['jobProc']=dict(newNode['jobProc'])
+            if jid in self.currJobs:
+               newNode['jobProc'][jid]['job'] = dict((k,v) for k, v in self.currJobs[jid].items() if v and v != True)
+            else: 
+               print("Job {} on node {}({}) is not in self.currJobs={}".format(jid, node, list(newNode['jobProc'].keys()), list(self.currJobs.keys())))
+        newNode['jobProc']=dict(newNode['jobProc'])  #convert from defaultdict to dict
         newNode['jobCnt'] =len(newNode['jobProc'])
-        newNode['alloc_cpus'] =sum([self.currJobs[jid]['cpus_allocated'][node] for jid in newNode['jobProc']])
+        newNode['alloc_cpus'] =sum([self.currJobs[jid]['cpus_allocated'][node] for jid in newNode['jobProc'] if jid in self.currJobs])
         
         jobCPUAlloc = dict([(jid, self.currJobs[jid]['cpus_allocated'][node]) for jid in self.node2jobs[node]])  #'cpus_allocated': {'worker1011': 28}
 
@@ -1273,7 +1280,8 @@ class SLURMMonitor(object):
     def jobDetails(self, jid):
         jid         = int(jid)
         ts          = int(datetime.datetime.now().timestamp())
-        job_report  = SlurmCmdQuery.sacct_getJobReport(jid)
+        jobs_report = SlurmCmdQuery.sacct_getJobReport(jid)
+        job_report  = jobs_report[0]
         if not job_report: return "Cannot find job {}".format(jid)
 
         start,worker_cnt,cpu_cnt,user,job_name = job_report['Start'], job_report['AllocNodes'], job_report['AllocCPUS'], job_report['User'], job_report['JobName']
@@ -1322,7 +1330,7 @@ class SLURMMonitor(object):
                                                   grafana_url=grafana_url,
                                                   worker_proc=worker_proc, proc_field=proc_fields,
                                                   worker_cnt=worker_cnt, core_cnt=cpu_cnt, proc_cnt=proc_cnt,note=msg_note,
-                                                  job_report=job_report)
+                                                  job_report=jobs_report)
         return htmlStr
 
     @cherrypy.expose

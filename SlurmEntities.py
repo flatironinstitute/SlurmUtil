@@ -279,7 +279,7 @@ class SlurmEntities:
              job['state_exp']      += ' Job is scheduled on {}'.format(job['sched_nodes'])
              running    = [job for jid,job in self.job_dict.items() if job['job_state']=='RUNNING']
              schedNode  = set([nm for nm in MyTool.nl2flat (job['sched_nodes']) if self.node_dict[nm]['state']!='IDLE'])
-             waitForJob = [job['job_id'] for job in running if schedNode.intersection(set(job['nodes_flat']))]
+             waitForJob = ['<a href="./jobDetails?jid={jid}">{jid}</a>'.format(jid=job['job_id']) for job in running if schedNode.intersection(set(job['nodes_flat']))]
              if waitForJob:
                 job['state_exp']      += ', waiting for running jobs {}.'.format(waitForJob)
              else:
