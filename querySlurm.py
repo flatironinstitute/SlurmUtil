@@ -236,8 +236,8 @@ class SlurmCmdQuery:
         if not jobs:
            return None
         job  = jobs[0]
-        if 'Start' in output:
-           job['Start']      = int(MyTool.str2ts(job['Start']))
+        #if 'Start' in output:
+        #   job['Start']      = MyTool.str2ts(job.get('Start',None))
         if 'NodeList' in output:
            job['NodeList']   = MyTool.nl2flat(job['NodeList'])
         if 'AllocNodes' in output:

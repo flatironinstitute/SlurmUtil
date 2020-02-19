@@ -2,8 +2,7 @@
 
 import time
 t1=time.time()
-import subprocess
-import os
+import os, sys
 import pyslurm
 import MyTool
 import requests
@@ -94,7 +93,8 @@ def test3():
 def main():
     t1=time.time()
     
-    test3()
+    test2(sys.argv[1])
+    #test3()
     print("main take time " + str(time.time()-t1))
 
 if __name__=="__main__":

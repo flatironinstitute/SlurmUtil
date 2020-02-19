@@ -42,6 +42,7 @@ EMPTYPROCDATA_MSG  = 'There is no process data present in the retrieved data.'
 ONE_HOUR_SECS      = 3600
 ONE_DAY_SECS       = 86400
 TIME_DISPLAY_FORMAT        = '%m/%d/%y %H:%M'
+DATE_DISPLAY_FORMAT        = '%m/%d/%y'
 
 @cherrypy.expose
 class SLURMMonitor(object):
@@ -142,7 +143,6 @@ class SLURMMonitor(object):
         partLst    = ins.getPartitions ()
         
         htmlTemp   = os.path.join(wai, 'pending.html')
-	#htmlStr    = open(htmlTemp).read()%{'partitions_input' : partLst}
         timestr    = ins.update_time.ctime()
         htmlStr    = open(htmlTemp).read().format(update_time=timestr, pending_jobs_input=pendingLst, partitions_input=partLst)
         return htmlStr
@@ -407,7 +407,6 @@ class SLURMMonitor(object):
         
         reasons      = [set(reasons.keys()) for ts, reasons in tsReason2Cnt.items()]
         reasons      = set([i2 for item in reasons for i2 in item])
-        #print("INFO: reasons {}".format(reasons))
         
         #reformat the tsReason2Cnt to cate2ts_cnt
         cate2ts_cnt  = defaultdict(list)
@@ -685,15 +684,14 @@ class SLURMMonitor(object):
         users = [ {"user":user, "jobs":jobs, "long_label":'{} with running jobs {}'.format(user, jobs)} for user, jobs in sorted(users_dict.items())]
         return users
 
-    def getHeatmapData (self):
+    def getHeatmapData (self, gpudata):
         node2job= self.node2jobs
 
-        jobs    = self.getJobsWithLabel ()
-        users   = self.getUsersWithLabel()
+        jobs    = self.getJobsWithLabel ()  #jobs list
+        users   = self.getUsersWithLabel()  #users list
         workers = []  #dataset1 in heatmap
         for hostname, hostinfo in sorted(self.data.items()):
             try:
-               node_cores = self.pyslurmNodeData[hostname]['cpus']
                alloc_jobs = node2job.get(hostname, [])
                if 'ALLOCATED' in hostinfo[0] or 'MIXED' in hostinfo[0]:  #in use
                   state    = 1
@@ -705,41 +703,66 @@ class SLURMMonitor(object):
                if len(hostinfo) > USER_INFO_IDX: #ALLOCATED, MIXED
                   cpu_load   = hostinfo[USER_INFO_IDX][4]
 
-               job_accounts  = [self.currJobs[jid].get('account', None)        for jid in alloc_jobs]
-               job_users     = [MyTool.getUser(self.currJobs[jid]['user_id'])  for jid in alloc_jobs]
-               job_cores     = [self.currJobs[jid]['cpus_allocated'][hostname] for jid in alloc_jobs]
+               node_cores   = self.pyslurmNodeData[hostname]['cpus']
+               node_gpus,used_gpus    = MyTool.getGPUCount(self.pyslurmNodeData[hostname]['gres'], self.pyslurmNodeData[hostname]['gres_used'])
+               job_accounts = [self.currJobs[jid].get('account', None)        for jid in alloc_jobs]
+               job_users    = [MyTool.getUser(self.currJobs[jid]['user_id'])  for jid in alloc_jobs]
+               job_cores    = [self.currJobs[jid]['cpus_allocated'][hostname] for jid in alloc_jobs]  #
 
-               if state == 1 :
-                  lst   = list(zip(alloc_jobs, job_users, job_cores))
-                  label = '{} util:{:.1%} core:{} jobs:{}'.format(hostname, cpu_load/node_cores, node_cores, lst)
-               else:
-                  if cpu_load:
-                     label = '{} util:{:.1%} core:{} state:{}'.format(hostname, cpu_load/node_cores, node_cores, hostinfo[0])
+               gpus         = {}   #{'gpu0':{'label':,'state':}}
+               if node_gpus:
+                  nodeLabel = '{} ({} cpus, {} gpus)'.format(hostname, node_cores, node_gpus)
+                  if state==1:
+                     nodeLabel = '{}: cpu_util {:.1%}, gpu_used {}'.format(nodeLabel, cpu_load/node_cores, used_gpus)
+                     job_gpus  = [self.currJobs[jid]['gpus_allocated'].get(hostname,[]) for jid in alloc_jobs]  #list of gpu indexes[]
+                     lst       = list(zip(alloc_jobs, job_users, job_cores, job_gpus))
+                     label     = '{} jobs:{}'.format(nodeLabel, lst)
                   else:
-                     label = '{} core:{} state:{}'.format(hostname, node_cores, hostinfo[0])
-               workers.append([hostname, state, node_cores, cpu_load, alloc_jobs, job_accounts, label])
+                     nodeLabel = '{}: state {},'.format(nodeLabel, hostinfo[0])
+                     if cpu_load:
+                        nodeLabel = '{} cpu_util {:.1%},'.format(nodeLabel, cpu_load/node_cores)
+                     label     = nodeLabel
+                  
+                  gpu2jid=dict([(gpu_idx, jid) for jid in alloc_jobs for gpu_idx in self.currJobs[jid]['gpus_allocated'].get(hostname,[])]) #TODO: assume gpu is not shared
+                  for i in range(0, node_gpus):
+                      gpu_name  = 'gpu{}'.format(i)
+                      gpu_state = state
+                      state_str = hostinfo[1]
+                      if (state==1) and (i not in gpu2jid):
+                         gpu_state, state_str = 0, "IDLE"
+                      if gpu_state==1:
+                         jid = gpu2jid[i]
+                         jobInfo   = self.currJobs[jid]
+                         gpu_alloc = jobInfo['gpus_allocated'].get(hostname,[])
+                         gpu_label = '{}:{} gpu_util {:.1%}, job ({},{},{} cpus,{} gpus {})'.format(hostname, gpu_name, gpudata[gpu_name][hostname], jid, MyTool.getUser(jobInfo['user_id']), jobInfo['cpus_allocated'][hostname], len(gpu_alloc), gpu_alloc)
+                      else:
+                         gpu_label = '{}:{} state:{}'.format(hostname, gpu_name, state_str)
+                      gpus[gpu_name] = {'label':gpu_label, 'state': gpu_state}       
+               else:
+                  nodeLabel = '{} ({} cpus)'.format(hostname, node_cores)
+                  if state==1:
+                     nodeLabel = '{}: cpu_util {:.1%}'.format(nodeLabel, cpu_load/node_cores)
+                     lst       = list(zip(alloc_jobs, job_users, job_cores))
+                     label     = '{} jobs:{}'.format(nodeLabel, lst)
+                  else:
+                     nodeLabel = '{}: state {},'.format(nodeLabel, hostinfo[0])
+                     if cpu_load:
+                        nodeLabel = '{} cpu_util {:.1%},'.format(nodeLabel, cpu_load/node_cores)
+                     label     = nodeLabel
+
+               workers.append([hostname, state, node_cores, cpu_load, alloc_jobs, job_accounts, label, gpus])
             except Exception as exp:
                print("ERROR getHeatmapData: {0}".format(exp))
                                
         return workers,jobs,users
                    
     @cherrypy.expose
-    def gpuHeatmap(self, **args):
-        client  = BrightRestClient()
-        data    = client.getLatestAllGPU()
-        
-        htmltemp = os.path.join(wai, 'gpuHeatmap.html')
-        #h        = open(htmltemp).read()%{'update_time': datetime.datetime.fromtimestamp(self.updateTS).ctime(), 'data1': workers, 'data2': jobs, 'users':users}
- 
-        return repr(data) 
-
-    @cherrypy.expose
     def utilHeatmap(self, **args):
         if type(self.data) == str: return self.getWaitMsg() # error of some sort.
 
-        workers,jobs,users = self.getHeatmapData ()
         client  = BrightRestClient()
         gpudata = client.getLatestAllGPU()
+        workers,jobs,users = self.getHeatmapData (gpudata)
         
         htmltemp = os.path.join(wai, 'heatmap.html')
         h        = open(htmltemp).read()%{'update_time': datetime.datetime.fromtimestamp(self.updateTS).ctime(), 'data1': workers, 'data2': jobs, 'users':users, 'gpu':gpudata}
@@ -764,7 +787,7 @@ class SLURMMonitor(object):
     @cherrypy.expose
     def getHeader(self, page=None):
         pages =["index",           "utilHeatmap", "pending",      "sunburst",       "usageGraph", "tymor2", "report", "forecast"]
-        titles=["Tabular Summary", "Host Util.",  "Pending Jobs", "Sunburst Graph", "Usage Graph","Tymor", "Report", "Forecast"]
+        titles=["Tabular Summary", "Host Util.",  "Pending Jobs", "Sunburst Graph", "File Usage","Tymor", "Report", "Forecast"]
  
         result=""
         for i in range (len(pages)):
@@ -807,7 +830,7 @@ class SLURMMonitor(object):
             total_node_mem    = 0           #proportional mem for shared nodes
             total_io_bps      = 0           
             total_cpu_util_curr = 0
-            for node in MyTool.nl2flat(job['nodes']):
+            for node in job['cpus_allocated']:
                 #check self.jobNode2ProcRecord to add up cpu_time and get utilization
                 if (jid in self.jobNode2ProcRecord) and (node in self.jobNode2ProcRecord[jid]):
                    savTs, procs    = self.jobNode2ProcRecord[jid][node]
@@ -846,6 +869,8 @@ class SLURMMonitor(object):
                   #print('WARNING: Job {} does not have proc on nodes {}'.format(jid, job['nodes']))
                   job['job_avg_util'] = 0
                   job['job_mem_util'] = 0
+            node_list = [self.pyslurmNodeData[node] for node in job['cpus_allocated']]
+            job['gpus_allocated'] = MyTool.getGPUAlloc_layout(node_list, job['gres_detail'])
  
         return jobs
 
@@ -1019,10 +1044,25 @@ class SLURMMonitor(object):
             # only have census date up to yesterday, so we use that as the default.
             yyyymmdd = (datetime.date.today() + datetime.timedelta(days=-1)).strftime('%Y%m%d')
         usageData_dict= fs2hc.gendata(yyyymmdd)
+        for k,v in usageData_dict.items():
+            v[2] = datetime.datetime.strptime(v[2],'%Y%m%d').strftime('%Y-%m-%d')
         htmlTemp = 'fileCensus.html'
+        h = open(htmlTemp).read()%{'file_systems':fs2hc.FileSystems, 'yyyymmdd': 'yyyymmdd', 'data': usageData_dict}
 
-        h = open(htmlTemp).read()%{'file_systems':fs2hc.FileSystems, 'yyyymmdd': 'yyyymmdd', 'label': "label", 'data': usageData_dict}
+        return h
 
+    @cherrypy.expose
+    def user_fileReport(self, user, start='', stop='', days=180):
+        start, stop   = MyTool.getStartStopTS (start, stop, '%Y-%m-%d', int(days))
+        fc_seq,bc_seq = fs2hc.gendata_user(user, start, stop)
+        
+        htmlTemp = os.path.join(wai, 'userFile.html')
+        h        = open(htmlTemp).read()%{
+                                   'start':   time.strftime(DATE_DISPLAY_FORMAT, time.localtime(start)),
+                                   'stop':    time.strftime(DATE_DISPLAY_FORMAT, time.localtime(stop)),
+                                   'spec_title': user,
+                                   'series1': fc_seq,   
+                                   'series2': bc_seq}
         return h
 
     @cherrypy.expose
@@ -1041,10 +1081,6 @@ class SLURMMonitor(object):
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
                                    'series1': fcSer, 'title1': 'File count daily report', 'xlabel1': 'File Count', 'aseries1':[], 
                                    'series2': bcSer, 'title2': 'Byte count daily report', 'xlabel2': 'Byte Count',   'aseries2':[]}
-
-        #htmlTemp = 'fileCensus.html'
-        #h = open(htmlTemp).read()%{'yyyymmdd': yyyymmdd, 'label': label, 'data': usageData}
-
         return h
 
     @cherrypy.expose
@@ -1065,7 +1101,10 @@ class SLURMMonitor(object):
            return 'Node {}: no data during {}-{} in cache, influx and saved file'.format(node, start, stop)
 
         #ann_series = self.queryTxtClient.getNodeUpTS([node])[node]
-        print('start={}, stop={}'.format(msg[0], msg[1]))
+        for idx in range(2,len(msg)):
+            for seq in msg[idx]:
+                dict_ms = [ [ts*1000, value] for ts,value in seq['data']]
+                seq['data'] = dict_ms
         if len(msg)==6:
            htmltemp = os.path.join(wai, 'nodeGraph.html')
            h = open(htmltemp).read()%{'spec_title': ' of {}'.format(node),
@@ -1130,7 +1169,7 @@ class SLURMMonitor(object):
         #get node data from self.pyslurmNodeData
         pyslurmNode = self.pyslurmNodeData[node]  #'name', 'state', 'cpus', 'alloc_cpus', 
         newNode     = MyTool.sub_dict(pyslurmNode, ['name','cpus','alloc_cpus'])
-        newNode['gpus'],newNode['alloc_gpus'] = MyTool.getGPUAlloc(pyslurmNode['gres'], pyslurmNode['gres_used'])
+        newNode['gpus'],newNode['alloc_gpus'] = MyTool.getGPUCount(pyslurmNode['gres'], pyslurmNode['gres_used'])
 
         #get data from self.data
         newNode['state']    = self.data[node][0]
@@ -1284,7 +1323,7 @@ class SLURMMonitor(object):
         job_report  = jobs_report[0]
         if not job_report: return "Cannot find job {}".format(jid)
 
-        start,worker_cnt,cpu_cnt,user,job_name = job_report['Start'], job_report['AllocNodes'], job_report['AllocCPUS'], job_report['User'], job_report['JobName']
+        start,worker_cnt,cpu_cnt,user,job_name = MyTool.str2ts(job_report['Start']), job_report['AllocNodes'], job_report['AllocCPUS'], job_report['User'], job_report['JobName']
         msg_note    = ''
         worker_proc = {}
         proc_fields = []
@@ -1325,7 +1364,7 @@ class SLURMMonitor(object):
         grafana_url = 'http://mon8:3000/d/jYgoAfiWz/yanbin-slurm-node-util?orgId=1&from={}{}&var-jobID={}&theme=light'.format(start*1000, '&var-hostname=' + '&var-hostname='.join(job_report['NodeList']), jid)
         proc_cnt   = sum([val[1] for val in worker_proc.values()])
         htmlTemp   = os.path.join(wai, 'jobDetail.html')
-        htmlStr    = open(htmlTemp).read().format(job_id=jid, job_name=job_name, job_state=job_report['State'], 
+        htmlStr    = open(htmlTemp).read().format(job_id=jid, job_name=job_name, job_state=job_report['State'], user=user, 
                                                   update_time=datetime.datetime.fromtimestamp(ts).ctime(),
                                                   grafana_url=grafana_url,
                                                   worker_proc=worker_proc, proc_field=proc_fields,
@@ -1659,6 +1698,10 @@ class SLURMMonitor(object):
            note='file'
         if not msg:
            return 'Job {}: no data in cache, influx and saved file'.format(jobid)
+        for idx in range(2,len(msg)):
+            for seq in msg[idx]:
+                dict_ms = [ [ts*1000, value] for ts,value in seq['data']]
+                seq['data'] = dict_ms
 
         if len(msg)==6:
            htmltemp = os.path.join(wai, 'nodeGraph.html')
@@ -1758,9 +1801,9 @@ class SLURMMonitor(object):
         jobid = int(jobid)
         if self.currJobs and (jobid in self.currJobs):
            return self.currJobs[jobid]['start_time']
-        job   = SlurmCmdQuery.sacct_getJobReport(jobid)
-        if job:
-           return job['Start']
+        job   = SlurmCmdQuery.sacct_getJobReport(jobid)[0]
+        if job and job['Start']!='Unknown':
+           return MyTool.str2ts(job['Start'])
         else:
            return None
 
@@ -1800,8 +1843,11 @@ class SLURMMonitor(object):
            note='file'
         if not msg:
            return 'Job {}: no data in cache, influx and saved file'.format(jobid)
+        for idx in range(2,len(msg)):
+            for seq in msg[idx]:
+                dict_ms = [ [ts*1000, value] for ts,value in seq['data']]
+                seq['data'] = dict_ms
 
-        #return 'start={}\nstop={}\ncpu={}\n\nmem={}\n\nio_r={}\n\nio_w={}'.format(msg[0], msg[1], msg[2], msg[3], msg[4], msg[5])
         htmltemp = os.path.join(wai, 'nodeGraph.html')
         h = open(htmltemp).read()%{'spec_title': ' of job {} on {}'.format(jobid, node),
                                    'note'      : note,

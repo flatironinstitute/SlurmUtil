@@ -129,7 +129,7 @@ function prepareNodeData (nodeData, grpCnt, labels, gpu_obj) {
         //nodeData is already sorted by group 
         for (var i=0; i<nodeData.length; i++) {
           var obj = {name: nodeData[i][0], stat: nodeData[i][1], core: nodeData[i][2], 
-                     jobs: nodeData[i][4], acct: nodeData[i][5], labl: nodeData[i][6]};
+                     jobs: nodeData[i][4], acct: nodeData[i][5], labl: nodeData[i][6], gpus: nodeData[i][7]};
           if ( obj.stat == 1)
              obj.util=nodeData[i][3]/obj.core;
           else
@@ -152,7 +152,7 @@ function prepareNodeData (nodeData, grpCnt, labels, gpu_obj) {
           grpCnt[obj.gID] ++;
    
           // gpu data
-          if (obj['gpu']) {
+          if (obj['gpu']) {  //TODO: defined by name including 'gpu'
              obj['gpuCount'] =0
              for (gpuID of Object.keys(gpu_obj)) {
                 if (gpuID == "time") continue;
@@ -177,7 +177,8 @@ function prepareGPUData(nodeData, gpu_labels)
                 for (i=0; i<d['gpuCount']; i++) {
                    di = Object.assign({}, d)
                    di['gpuIdx'] = i
-                   di['gpuLabel'] = di['labl']+' gpu'+i+': '+(di['gpu'+i]*100).toFixed(0)+'%'
+                   di['gpuLabel'] = d['gpus']['gpu'+i]['label']
+                   di['stat']     = d['gpus']['gpu'+i]['state']
                    gpuData.push(di)
                 }
                 gpu_labels.push(d['name'])

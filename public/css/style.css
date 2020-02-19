@@ -263,7 +263,7 @@ td.group_minus:before {
    content: "\25be\ ";
 }
 td.group_sub:before {
-   content: "\2001"
+   content: "\21B3\ "
 }
 div {
    margin: 10px;

@@ -143,14 +143,13 @@ function createNestedTable (data, field_key, title_dict, sub_data, table_id, par
                 
 };
              
-
-function createTable (data, titles_dict, table_id, parent_id) {
-        console.log("createTable data=", data)
+function createTable (data, titles_dict, table_id, parent_id, pre_data_func=prepareData) {
+        console.log("createTable data=", data, ",pre_data_fun=", pre_data_func)
         var sortAscending = true;
         var table         = d3.select('#'+parent_id).append('table').property('id', table_id);
         var firstKey      = Object.keys(titles_dict)[0]   <!--use jobid as tie breaker for sorting -->
 
-        prepareData (data)
+        pre_data_func (data)
         var headers = table.append('thead')
                            .append('tr')
                            .selectAll('th')
@@ -182,22 +181,18 @@ function createTable (data, titles_dict, table_id, parent_id) {
                                }
                             });
                   
-        console.log("createTable data=", data)
         var rows = table.append('tbody').selectAll('tr')
                                .data(data).enter()
                                .append('tr')
                                .attr('data-group', function(d) {
-                                  console.log ("row tr ", d)
                                   if ( d.data_group) return d.data_group ;})
                                .attr('data-group-idx', function(d) {
                                   if ( d.data_group) return d.data_group_idx;})
                                .attr('data-group-cnt', function(d) {
                                   if ( d.data_group) return d.data_group_cnt;})
 
-
         rows.selectAll('td')
             .data(function (d) {
-                console.log("row td", d)
                 return Object.keys(titles_dict).map(function (k) {
                     return { 'value': d[k], 'name': k};
                 });
@@ -217,4 +212,36 @@ function createTable (data, titles_dict, table_id, parent_id) {
                  return d.value;
             });
 };
+
+function prepareData_pending (data) {
+   var savGID   = 'noGroup'
+   var savGName = 'noGroup'
+   var savGroup = []
+   var group
+
+   data.forEach (function (d) {
+      group = d.user+d.partition+d.state_reason;
+      //group = d.account; 
+
+      if ( group != savGName) {
+         // group changed, deal with saved ones
+         savGroup.forEach(function (d) {
+            d.data_group_cnt = savGroup.length
+         });
+         savGroup   = []
+         savGName   = group
+         savGID     = group + d.job_id
+      }
+
+      savGroup.push (d)
+      d.data_group     = savGID
+      d.data_group_idx = savGroup.length-1
+   });
+   savGroup.forEach(function (d) {
+      d.data_group_cnt = savGroup.length
+   });
+
+   console.log ("prepareData_pending result=", data)
+   return data
+}
 

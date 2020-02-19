@@ -1,7 +1,7 @@
 
 import glob, pwd, sys
 import os, re
-import pandas as pd
+import pandas
 import MyTool
 
 from datetime import datetime, date
@@ -51,14 +51,47 @@ def getDateFromFilename (dataDir, rge, fname):
     else:
        return None
 
+#get data of a specific user
+#[{name:fs,data[[day,fc],],},]
+def gendata_user(user, start='', stop=''):
+    fc_rlt, bc_rlt = [],[]  # {filesystem: data, ...}
+    uid = MyTool.getUid(user)
+    for fs in FileSystems:
+        fs_dict          = gendata_fs_history(fs, start, stop)
+        fc_list, bc_list = [],[]
+        for day, df in fs_dict.items():
+            u_df         = df.loc[df['uid']==uid]  #filter on uid
+            if not u_df.empty:
+                values = u_df.values.tolist()[0]   #one record for each day
+                fc_list.append([day*1000, values[1]])
+                bc_list.append([day*1000, values[2]])
+        fc_rlt.append({"name":fs, "data":fc_list}) 
+        bc_rlt.append({"name":fs, "data":bc_list}) 
+        
+    return fc_rlt, bc_rlt
+
+def gendata_fs_history(fs, start='', stop=''):
+    label, dataDir, suffix, uidx, fcx, bcx, rge = FileSystems[fs] #uidx is uid index in file
+    fsDict                                      = getFilenames (dataDir, rge)
+    # read files one by one to save the data in u2s
+    dDict   = {}
+    for d, fname in fsDict.items():
+        flag = True
+        if start: flag &= ( d>=start)
+        if stop:  flag &= ( d<= stop)
+        if flag:
+           #0: uid, 3: fc(filecount), 4: bc(byte_count)
+           df            = pandas.read_csv(fname, sep='\t', header=None, usecols=[0,3,4])
+           df.columns    = ['uid', 'fc', 'bc']
+           dDict[d]      = df  #?really need to *1000
+    return dDict
+
 def gendata_all(fs, start='', stop='', topN=5):
     if fs not in FileSystems: return 'Unknown file system: "%s"'%fs, ''
     label, dataDir, suffix, uidx, fcx, bcx, rge = FileSystems[fs] #uidx is uid index in file
 
-    fsDict   = getFilenames (dataDir, rge)
+    fsDict  = getFilenames (dataDir, rge)
     # read files one by one to save the data in u2s
-    #print("gendata_all fsDict=" + repr(fsDict))
-
     dDict   = {}
     for d, fname in fsDict.items():
         flag = True
@@ -66,15 +99,15 @@ def gendata_all(fs, start='', stop='', topN=5):
         if stop:  flag &= ( d<= stop)
         if flag:
            #df            = pd.read_table(fname, names=fhead,usecols=['uid','fc','bc'],index_col=uidx)
-           #0: uid, 3: fc, 4: bc
-           df            = pd.read_csv(fname, sep='\t', header=None, usecols=[0,3,4])
+           #0: uid, 3: fc(filecount), 4: bc(byte_count)
+           df            = pandas.read_csv(fname, sep='\t', header=None, usecols=[0,3,4])
            df.columns    = ['uid', 'fc', 'bc']
            dDict[d*1000] = df
 
     if not dDict:
        return [], []
 
-    df      = pd.concat  (dDict, names=['ts','uid'])
+    df      = pandas.concat  (dDict, names=['ts','idx'])
     dfg     = df.groupby ('uid')
     # loop over dfg to generate uid2seq
     sumDf   = dfg.sum()
@@ -139,7 +172,6 @@ def gendata_fs(yyyymmdd, fs, anon=False):
 
     if 4*x > len(u2s): cutoff = 2
 
-    #r = ''
     r=[]
     for uid, v in u2s.items():
         if uid < 1000: continue
@@ -163,5 +195,6 @@ def gendata_fs(yyyymmdd, fs, anon=False):
 
 if '__main__' == __name__:
     #print (gendata(*sys.argv[1:]))
-    print (gendata_all(*sys.argv[1:], 2))
+    #print (gendata_all(*sys.argv[1:], 2))
+    print (gendata_user(*sys.argv[1:]))
 

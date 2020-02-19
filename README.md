@@ -57,6 +57,7 @@ Create python virutal environment:
 
 #install pyslurm
 #download pyslurm, untar,
+https://pypi.org/project/pyslurm/18.8.1.1/#history
 cd <pyslurm_source_dir>
 #modify setup.py
 SLURM_DIR = ""
@@ -119,7 +120,18 @@ zc.lockfile                   1.4
 modify pyslurm installation:
 In pyslurm/pyslurm.pyx, changed line 1901 to:
         self._ShowFlags = slurm.SHOW_DETAIL | slurm.SHOW_DETAIL2 | slurm.SHOW_ALL
+2320a2321,2326
+>             gres_detail = []
+>             for x in range(min(self._record.num_nodes, self._record.gres_detail_cnt)):
+>                 gres_detail.append(slurm.stringOrNone(self._record.gres_detail_str[x],''))
+>                                    
+>             Job_dict[u'gres_detail'] = gres_detail
+> 
+5365a5372
+>                 JOBS_info[u'state_str'] = slurm.slurm_job_state_string(job.state)
+
 rebuild pyslurm
+python setup.py build
 
 ```
 MQTT server running on mon5.flatironinstitute.org

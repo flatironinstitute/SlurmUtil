@@ -53,7 +53,7 @@ Highcharts.setOptions({
              }
 });
 function graphSeries(dataSeries, chartTag, title, xType, xMax, xLabel, yLabel) {
-    console.log(dataSeries)
+    console.log('graphSeries data=', dataSeries)
 
 	     $('#'+chartTag).highcharts({
 		 chart: {
@@ -95,8 +95,12 @@ function graphSeries(dataSeries, chartTag, title, xType, xMax, xLabel, yLabel) {
 		 },
                  plotOptions: {
                     column: {
-                         pointWidth: 10
-                    }
+                       pointWidth: 10
+                    },
+                    tooltip: {
+                       pointFormatter: pf_func
+                    },
+
                  },
 		 series: [{
                     type: 'pareto',
@@ -185,10 +189,10 @@ function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit=
 }
 
 function pointFormat_func() {
-   return '<br/>' + Highcharts.dateFormat('%b %e %H:%M:%S', new Date(this.x * 1000)) + ', ' + this.y.toFixed(2);
+   return '<br/>' + Highcharts.dateFormat('%b %e %H:%M:%S', new Date(this.x)) + ', ' + this.y.toFixed(2);
 }
 function pointFormat_func_KB() {
-   return '<br/>' + Highcharts.dateFormat('%b %e %H:%M:%S', new Date(this.x * 1000)) + ', ' + this.y + ' KB';
+   return '<br/>' + Highcharts.dateFormat('%b %e %H:%M:%S', new Date(this.x)) + ', ' + this.y + ' KB';
 }
 
 function timeSeriesScatterPlot_KB(series, chartTag, title, yCap, aSeries, pf_func=pointFormat_func_KB) {
@@ -253,6 +257,10 @@ function timeSeriesScatterPlot(series, chartTag, title, yCap, aSeries, pf_func=p
                          marker: { radius: 2, },
                          tooltip: {
                              pointFormatter: pf_func
+                         },
+                         jitter: {
+                             x: 0.5,
+                             y: 0
                          },
                      },
                  },

@@ -5,7 +5,7 @@
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
 
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-	<title>%(label)s usage</title>
+	<title>File Count and Bytes</title>
 
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
         <script src="http://www.d3plus.org/js/d3.js"></script>
@@ -31,7 +31,7 @@
          })
 
          function displayData (fs_data) {
-             console.log(fs_data[1])
+             console.log("displayData", fs_data[1])
 	     var titleString = fs_data[0] + ': File Count and Bytes of Users on ' + fs_data[2];
 	     chart = Highcharts.chart('container', {
 		 bubble: {
@@ -86,8 +86,14 @@
 			 dataLabels: {
 			     enabled: true,
 			     format: '{point.name}'
-			 }
-		     }
+			 },
+                         events: {
+                           click: function(event) {
+                              console.log("click username=", event.point.name)
+                              location.replace("./user_fileReport?user="+event.point.name)
+                           },
+                         }
+		     },
 		 },
 		 series: [{
 		     data: fs_data[1]

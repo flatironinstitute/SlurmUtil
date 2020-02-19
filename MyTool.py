@@ -93,6 +93,8 @@ def getUTCDateTime (local_ts):
 
 #parse '2020/02/10 21:15:01' (bright) and 2020-01-28T14:51:49 (sacct)
 def str2ts (slurm_datetime_str):
+    if (not slurm_datetime_str) or slurm_datetime_str=='Unknown':
+       return 0
     d = dateutil.parser.parse(slurm_datetime_str)
     return int(d.timestamp())
     
@@ -427,10 +429,13 @@ def getTresGPUCount (tres_str):
 #node 'gres': ['gpu:k40c:1', 'gpu:k40c:1'], 'gres_used': ['gpu:k40c:2(IDX:0-1)', 'mic:0']
 #     'tres_fmt_str': 'cpu=28,mem=375G,billing=28,gres/gpu=2'
 #return gpus, alloc_gpus, alloc_gpus_idx
-def getGPUAlloc (gres_list, gres_used_list):
-    if not gres_list or not gres_used_list:
+def getGPUCount (gres_list, gres_used_list=[]):
+    if not gres_list:
        return 0, 0
     gpu_total = sum([ 1 for g in gres_list if 'gpu:' in g])
+    if not gpu_total:
+       return 0, 0
+
     gpu_used  = 0
     for gres in gres_used_list:
         if 'gpu:' not in gres: 
@@ -444,6 +449,31 @@ def getGPUAlloc (gres_list, gres_used_list):
         #idx_list = str2intList (idx_str)
     return gpu_total, gpu_used
 
+#gpu:v100-16gb(IDX:0-1) or gpu(IDX:0-3)
+def parse_gpu_detail(gpu_str):
+    m = re.match('gpu.*\(IDX:(.+)\)', gpu_str)
+    if not m or not m.group(1):
+       return None
+    # idx_str 0-1 or 0
+    lst = [eval(item) for item in m.group(1).split('-')]
+    if len(lst) == 1:
+       return lst
+    return list(range(lst[0], lst[1]+1))
+
+#return gpu allocate index on node_iter, {node: [0],}
+def getGPUAlloc_layout (node_iter, gpu_detail_iter):
+    result  = collections.defaultdict(list)
+    idx     = 0
+    for node in node_iter:
+        gpu_total, gpu_used = getGPUCount(node['gres'])
+        if gpu_total:  #gpu node
+           if idx > len(gpu_detail_iter):
+              break
+           result[node['name']]=parse_gpu_detail(gpu_detail_iter[idx])
+           idx += 1
+
+    return dict(result)
+    
 def test1():
     level = logging.DEBUG
     logger=getFileLogger('test', level)

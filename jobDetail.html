@@ -13,14 +13,7 @@
 
 $(document).ready(function(){{
     //create table job_table and part_table
-    var r_j_titles     = {{'job_id':'Job ID', 'name':'Name', 'submit_time_str':'Submit Time', 'start_time_str':'Start Time', 'qos':'QoS','partition':'Partition','nodes':'Nodes', 'tres_req_str':'Tres Req', 'tres_alloc_str':'Tres Alloc', 'run_time_str':'Run Time', 'command':'Command', 'work_dir':'Work Dir'}}
-    var p_j_titles     = {{'job_id':'Job ID', 'name':'Name', 'submit_time':'Submit Time', 'num_nodes':'Req Node', 'num_cpus':'Req CPU', 'account':'Account', 'partition':'Req Part.', 'state_reason':'Pending Reason', 'state_exp':'Note'}}
-    var part_titles    = {{'name': 'Partition', 'flag_shared':'Share', 'total_nodes':'Total Node', 'total_cpus':'Total CPU', 'total_gpus':'Total GPU', 'avail_nodes_cnt':'Avail Node', 'avail_cpus_cnt':'Avail CPU', 'avail_gpus':'Avail GPU', 'user_lmt_nodes':'User Node Lmt', 'user_lmt_cpus':'User CPU Lmt', 'grp_lmt_nodes':'Grp Node Lmt', 'grp_lmt_cpus':'Grp CPU Lmt', 'user_alloc_nodes':'User Alloc Node', 'user_alloc_cpus':'User Alloc CPU', 'grp_alloc_nodes':'Grp Alloc Node','grp_alloc_cpus':'Grp Alloc CPU', 'user_avail_nodes': 'User Avail Node', 'user_avail_cpus': 'User Avail CPU'}}
     var j_h_titles     = {{'JobID':'Job ID', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
-    //var proc_title     = {{'pid':'PID', 'create_time':'Create Time', 'intervalCPUtimeAvg':'Avg CPU', 'user_time':'CPU User Time', 'system_time':'CPU Sys Time', 'rss':'RSS', 'vms':'VMS', intervalIOByteAvg:'Avg IO', 'cmdline':'Command'}}
-    //['PID', 'Avg CPU', 'Create Time', 'User Time', 'Sys Time', 'RSS', 'VMS', 'Command', 'Avg IO']
-    //['PID', 'Create Time', 'Avg CPU', 'User Time', 'Sys Time', 'RSS', 'VMS', 'Avg IO', 'Command']
-
     if ({worker_proc}) {{
        createMultiTable ({worker_proc}, 'div_worker_proc', {proc_field}, {job_id})
     }}
@@ -32,7 +25,7 @@ $(document).ready(function(){{
 
 <body>
 <div id="user" class="page-wrap">
-<h3> Job {job_id}: <a href='./jobByName?name={job_name}'>{job_name}</a> (<a href='jobGraph?jobid={job_id}'>Usage Graph</a>, <a href='{grafana_url}'>Grafana Graph</a>), State: {job_state}</h3>
+<h3> Job {job_id}: <a href='./jobByName?name={job_name}'>{job_name}</a> (<a href='jobGraph?jobid={job_id}'>Usage Graph</a>, <a href='{grafana_url}'>Grafana Graph</a>), State: {job_state}, User:{user}</h3>
    <b>Jump to <a href='#job_history'>sacct</a></b>
    <p><i>Update time: {update_time}</i>
 <hr>
