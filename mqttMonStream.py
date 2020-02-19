@@ -1,6 +1,7 @@
+import argparse
 import _pickle as cPickle
 import urllib.request as urllib2
-import json, logging, pwd, sys, threading, time, zlib
+import json, logging, os, pwd, sys, threading, time, zlib
 import paho.mqtt.client as mqtt
 import pyslurm
 import pdb
@@ -11,7 +12,6 @@ from IndexedDataFile import IndexedHostData
 from mqtMon2Influx import Node2PidsCache
 
 logger   = MyTool.getFileLogger('mqttMonStream', logging.DEBUG)  # use module name
-test_mode= False
 
 # Maps a host name to a tuple (time, prePid2info), where time is the time
 # stamp of the last update, and prePid2info maps a pid to a dictionary of
@@ -57,16 +57,16 @@ class MQTTReader(threading.Thread):
 class FileWebUpdater(threading.Thread):
     INTERVAL   = 60
 
-    def __init__(self, source, tgt_dir, tgt_urlfile):
+    def __init__(self, source, tgt_dir, tgt_url, write_file_flag, test_mode):
         threading.Thread.__init__(self)
-        self.source      = source
-        self.hostData_dir= IndexedHostData(tgt_dir)           # write to files in the data_dir
-        self.urls        = [url[:-1] for url in open(tgt_urlfile)] # send update to urls
-        self.time        = time.time()
-        #self.savNode2TsProcs = DDict(lambda: (-1.0, DDict(lambda: DDict(lambda: DDict)), []))   #host - ts - pid - proc
+        self.source          = source
+        self.hostData_dir    = IndexedHostData(tgt_dir)           # write to files in the data_dir
+        self.urls            = tgt_url                            # send update to urls
+        self.time            = time.time()
         self.savNode2TsProcs = DDict(lambda: (-1.0, {}, []))   #host - ts - pid - proc
-
-        logger.info("Start FileWebUpdater with tgt_dir={}, urls={}, test_mode={}".format(tgt_dir, self.urls, test_mode))
+        self.write_file_flag = write_file_flag
+        self.test_mode       = test_mode
+        logger.info("Start FileWebUpdater with tgt_dir={}, urls={}, test_mode={}, write_file_flag={}".format(tgt_dir, self.urls, test_mode, write_file_flag))
 
     def run(self):
         #pdb.set_trace()
@@ -135,10 +135,10 @@ class FileWebUpdater(threading.Thread):
                                   # SLURM status, even if we don't have a msg for it.
             pre_ts, pre_procs, pre_nodeUserProcs = self.savNode2TsProcs[hostname]
             if (hostname not in msgs) or (pre_ts >= msgs[hostname][-1]['hdr']['msg_ts']):
-               logger.warning ("No new data of {}. Use previous data at {}".format(hostname, MyTool.getTsString(pre_ts)))
+               logger.debug ("No new data of {}. Use previous data at {}".format(hostname, MyTool.getTsString(pre_ts)))
                if hostname in msgs:
                   msgs.pop(hostname)
-                  logger.warning ("\tIgnore the incoming older data at {}.".format(MyTool.getTsString(msg['hdr']['msg_ts']))) 
+                  logger.debug ("\tIgnore the incoming older data at {}.".format(MyTool.getTsString(msg['hdr']['msg_ts']))) 
                if pre_ts != -1:
                   nodeUserProcs[hostname] = pre_nodeUserProcs
                else:
@@ -162,8 +162,10 @@ class FileWebUpdater(threading.Thread):
 
                #save information to files
                #logger.debug("writeData {}:{}".format(ts, hostname)) 
-               #if not test_mode:
-               #   self.hostData_dir.writeData(hostname, ts, nodeUserProcs[hostname])
+               if self.write_file_flag:
+                  self.hostData_dir.writeData(hostname, ts, nodeUserProcs[hostname])
+               else:
+                  logger.debug("simulate write to file")
 
         self.discardMessage(msgs)
         self.sendUpdate    (ts, slurmJobs, nodeUserProcs, slurmNodes)
@@ -174,14 +176,14 @@ class FileWebUpdater(threading.Thread):
            #print ("url=", url, ",", ts, ",", len(jobData))
            try:
                logger.debug("sendUpdate to {}".format(url))
-               if not test_mode:
+               if not self.test_mode:
                   resp = urllib2.urlopen(urllib2.Request(url, zps, {'Content-Type': 'application/octet-stream'}))
                else:
                   resp = 0
                logger.debug("{}:{}: sendUpdate to {} with return code {}".format(threading.currentThread().ident, MyTool.getTsString(ts), url, resp))
                #print ( resp.code, resp.read(), file=sys.stderr)
            except Exception as e:
-               logger.error( 'Failed to update slurm data (%s): %s'%(str(e), repr(url)))
+               logger.error( 'Failed to update slurm data {}: {}'.format(url, e))
 
     def discardMessage(self, msgs):
         hdiscard, mmdiscard = 0, 0
@@ -192,14 +194,30 @@ class FileWebUpdater(threading.Thread):
             mmdiscard += len(value)
         if hdiscard: logger.info('Discarding %d messages from %d hosts (e.g., %s)'%(mmdiscard, hdiscard, h))
 
-def main():
+def main(uiServer, fileDir, writeFileFlag, test_mode):
     source = MQTTReader ()
     source.start()
     time.sleep(5)
-    app = FileWebUpdater(source, sys.argv[1], sys.argv[2])
+    app = FileWebUpdater(source, fileDir, uiServer, writeFileFlag, test_mode)
     app.start()
 
 if __name__=="__main__":
-    main()
+   #Usage: python mqttMonStream.py 
+   parser = argparse.ArgumentParser (description='Start a deamon to save mqtt and pyslurm information in file and report to user interface.')
+   parser.add_argument('-c', '--configFile',  help='The name of the config file.')
+   args   = parser.parse_args()
+
+   configFile   = args.configFile
+   if not configFile:
+      configFile = './config.json'
+   if os.path.isfile(configFile):
+      with open(configFile) as config_file:
+           config = json.load(config_file)
+      logLevel = eval(config['log'].get('level', 'logging.DEBUG'))
+      logger.setLevel (logLevel)
+      main(config['ui']['urls'], config['fileStorage']['dir'], config['fileStorage']['writeFile'], config['test'])
+   else:
+      print("Configuration file {} does not exist!".format(config_file))
+
  
 
