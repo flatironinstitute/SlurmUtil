@@ -622,11 +622,11 @@ class SLURMMonitor(object):
                      job_avg_cpu = self.getJobNodeTotalCPUTime(jid, node) / (ts-jobData[jid]['start_time']) if jobData[jid]['start_time'] > 0 else 0 
                      if job_avg_cpu < 0:
                         print ("ERROR: job_avg_cpu ({}, {}, {}) less than 0.".format(job_avg_cpu, ts, job_stime))
-                     result.append([node, status, jid, delay, job_user, job_coreCnt, job_procCnt, job_cpuUtil, job_avg_cpu, job_rss, job_vms, job_iobyteps])
+                     result.append([node, status, delay, jid, job_user, job_coreCnt, job_procCnt, job_cpuUtil, job_avg_cpu, job_rss, job_vms, job_iobyteps])
                   else:
-                     result.append([node, status, jid, delay, job_user, job_coreCnt, 0, 0, 0, 0, 0, 0])
+                     result.append([node, status, delay, jid, job_user, job_coreCnt, 0, 0, 0, 0, 0, 0])
             else:
-               result.append([node, status, '', delay])
+               result.append([node, status, delay])
                 
         return result
         

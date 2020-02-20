@@ -15,23 +15,23 @@ window.onload = timedRefresh(INTERVAL_REFRESH * 1000);
 const INC_ORDER      = 0
 const DEC_ORDER      = 1
 const NODE_IDX       = 0
-const JOB_IDX        = 2
+const JOB_IDX        = 3
 const USER_IDX       = 4
 const COL_COUNT      = 12
+const expDict          ={0:JOB_IDX, 1:0, 2:0, 3:0, 4:JOB_IDX, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0}  // 0:2 when sorted on 0, 2 is expandable 
+const typeDict         ={0:0, 1:0, 2:2, 3:0, 4:0, 5:1, 6:1, 7:2, 8:2, 9:3, 10:3, 11:1}  // 0:0 type of column 0 is string(0), integer(1), float(2), float exp(3)
+const rightDict        ={0:0, 1:0, 2:1, 3:0, 4:0, 5:1, 6:1, 7:1, 8:1, 9:1, 10:1, 11:1}  // 9:1 include right class of 9
 
 var currSortIdx      = 0
 var currSortOrder    = INC_ORDER
 var orderBy          =0 // 0: node inc, 1: node dec, ... (2*idx + inc?0:1)
 var load_data        =%(tableData)s
-var expDict          ={0:2, 1:0, 2:0, 3:2, 4:2, 5:0, 6:0, 7:2, 8:0, 9:0, 10:0, 11:0}  // 0:2 when sorted on 0, 2 is expandable 
-var typeDict         ={0:0, 1:0, 2:0, 3:2, 4:0, 5:1, 6:1, 7:2, 8:2, 9:3, 10:3, 11:1}  // 0:0 type of column 0 is string(0), integer(1), float(2), float exp(3)
-var rightDict        ={0:0, 1:0, 2:0, 3:1, 4:0, 5:1, 6:1, 7:1, 8:1, 9:1, 10:1, 11:1}  // 9:1 include right class of 9
 var summary_data     =[] // [[startIdx, endIdx, [summaryAttr ...]]...]
 
 
 // init
 initData  ()
-console.log(load_data)
+console.log("load_data=", load_data)
 orderData (1, INC_ORDER, expDict[1])	// init page order by Status inc
 
 // node, status, jid, delay, uname, coreNum, proNum, load, rss, vms, io*8, job_avg_cpu
@@ -51,10 +51,12 @@ function orderData(idx, order, secIdx=0) {
    if ( (idx == currSortIdx) && (order == currSortOrder) ) return
 
    // sort load_data
+   console.log("orderData before load_data=", load_data)
    load_data.sort (function (a, b) {
       if ( order == INC_ORDER ) return incFunc(a, b, idx, secIdx)
       else                      return decFunc(a, b, idx, secIdx)
    })
+   console.log("orderData after load_data=", load_data)
    currSortIdx   = idx
    currSortOrder = order
 
@@ -89,7 +91,7 @@ function getSingleSummaryData(table_data, startRow, endRow, sortIdx) {
    while (currRow <= endRow) {
       // loop over the col
       for (var i=0; i< table_data[currRow].length; i++ ) {
-         if ( i != sortIdx && table_data[currRow][i]!= ' ') colVals[i].push(table_data[currRow][i]);
+         if ( i != sortIdx && table_data[currRow][i] && table_data[currRow][i]!= ' ') colVals[i].push(table_data[currRow][i]);
       }
       currRow ++;
    } 
@@ -116,6 +118,7 @@ function getSingleSummaryData(table_data, startRow, endRow, sortIdx) {
          }
       }
    }
+   //console.log("getSingleSummaryData " + startRow + "-" + endRow + " sortIdx=" + sortIdx, colVals, summary)
 
    return summary
 }
@@ -165,7 +168,7 @@ function getSummaryData(table_data, sortIdx, expIdx ) {
 
       i=j
    }
-   //console.log(result)
+   console.log('getSummaryData', table_data, result)
    
    return result
 }
@@ -186,17 +189,16 @@ function getMinusSign() {
 }
 
 function getTDsHtml (r) {
-   // 0:Node, Status, Jobs, Delay, User, 5:Cores Allocated, Processes, Aggregate Load, RSS, 9:VMS
-   var delayC= getCategory(r[3], 120, '"right"', '"right"', '"right alarm"')
-   var tds   = `<td><a href="./nodeDetails?node=${r[0]}">${r[0]}</a></td><td>${r[1]}</td><td></td><td class=${delayC}>${r[3]}</td>`
-   if (r[2]) 
-      tds   = `<td><a href="./nodeDetails?node=${r[0]}">${r[0]}</a></td><td>${r[1]}</td><td><a href="./jobDetails?jid=${r[2]}">${r[2]}</td><td class=${delayC}>${r[3]}</td>`
-   var tds2  = '<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>'
-   if ( r.length > 4 ) {
+   // 0:Node, Status, Delay, Job, User, 5:Cores Allocated, Processes, Aggregate Load, RSS, 9:VMS
+   var delayC= getCategory(r[2], 120, '"right"', '"right"', '"right alarm"')
+   var tds   = `<td><a href="./nodeDetails?node=${r[0]}">${r[0]}</a></td><td>${r[1]}</td><td class=${delayC}>${r[2]}</td>`
+   var tds2  = '<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>'
+   if ( r.length > JOB_IDX ) {
+      var jid   = r[JOB_IDX]
       var userC = getCategory(r[7], r[5]-1, r[5]+1, '', '', '"alarm"') 
       var utilC = getCategory(r[7], r[5]-1, r[5]+1, '"right inform"', '"right"', '"right"') 
       var avgC  = getCategory(r[8], r[5]-1, r[5]+1, '"right inform"', '"right"', '"right"') 
-      tds2 = `<td class=${userC}><a href="./userDetails?user=${r[4]}">${r[4]}</a></td><td class="right">${r[5]}</td><td class="right">${r[6]}</td><td class=${utilC}>${r[7]}</td><td class=${avgC}>${r[8]}</td><td class="right">${r[9].toExponential(2)}</td><td class="right">${r[10].toExponential(2)}</td><td class="right">${r[11]}</td></tr>`
+      tds2 = `<td><a href="./jobDetails?jid=${jid}">${jid}</td><td class=${userC}><a href="./userDetails?user=${r[4]}">${r[4]}</a></td><td class="right">${r[5]}</td><td class="right">${r[6]}</td><td class=${utilC}>${r[7]}</td><td class=${avgC}>${r[8]}</td><td class="right">${r[9].toExponential(2)}</td><td class="right">${r[10].toExponential(2)}</td><td class="right">${r[11]}</td></tr>`
    }
 
    return tds + tds2
@@ -277,6 +279,7 @@ function incF (a, b, idx) {
    if ( idx >= a.length ) return -1
    if ( idx >= b.length ) return 1
 
+   if ( !a[idx] && !b[idx] ) return 0
    if ( a[idx] > b[idx] ) return 1
    if ( a[idx] < b[idx] ) return -1
 
@@ -287,7 +290,7 @@ function incFunc (a, b, idx, secIdx) {
    var cmp = incF (a, b, idx)
 
    if ( cmp==0 && secIdx != idx ) {
-//      console.log("incFunc " + idx + "," + secIdx + " " + a + " " + b + " " + incF(a,b,secIdx)) 
+      //console.log("incFunc 1st comp" + idx + "=0, 2nd comp" + secIdx + "=" + incF(a,b,secIdx), a, b) 
       return incF (a, b, secIdx)
    }
    else            
@@ -389,8 +392,8 @@ $(document).ready(function(){
 <tr>
    <th class="sortable">Node            <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">Node Status     <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
-   <th class="sortable">Jobs            <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">Delay           <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
+   <th class="sortable">Jobs            <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">User            <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">CPUs Allocated  <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">Processes       <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
