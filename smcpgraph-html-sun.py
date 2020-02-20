@@ -626,7 +626,7 @@ class SLURMMonitor(object):
                   else:
                      result.append([node, status, jid, delay, job_user, job_coreCnt, 0, 0, 0, 0, 0, 0])
             else:
-               result.append([node, status, ' ', delay])
+               result.append([node, status, '', delay])
                 
         return result
         
