@@ -144,7 +144,7 @@ class SLURMMonitor(object):
         
         htmlTemp   = os.path.join(wai, 'pending.html')
         timestr    = ins.update_time.ctime()
-        htmlStr    = open(htmlTemp).read().format(update_time=timestr, pending_jobs_input=pendingLst, partitions_input=partLst)
+        htmlStr    = open(htmlTemp).read().format(update_time=timestr, job_cnt=len(pendingLst), pending_jobs_input=pendingLst, partitions_input=partLst)
         return htmlStr
        
     @cherrypy.expose
@@ -393,53 +393,57 @@ class SLURMMonitor(object):
 
         return h
 
+    def getReason2Cate (self, reason):
+        cateRegex = [('Sched','Dependency|BeginTime|JobArrayTaskLimit'), ('Resource','Resources|Priority|ReqNodeNotAvail*|Nodes_required_for_job_are_DOWN*'), ('GPU', 'Resources_GPU|Priority_GPU'), ('QoSGrp', 'QOSGrp*'), ('QoS', 'QOS*')]  #order matters
+        if not reason:
+            return 'Other'
+        for (cate, regex) in cateRegex:
+            if re.match(regex, reason):
+               return cate
+        return 'Other'
+
     @cherrypy.expose
-    def pending_history(self, start='', stop=''):
-        start, stop  = MyTool.getStartStopTS (start, stop)
+    def pending_history(self, start='', stop='', days=''):
+        note         = ''
+        if days:
+           start, stop  = MyTool.getStartStopTS ('', '', days=int(days))
+        else:
+           start, stop  = MyTool.getStartStopTS (start, stop, days=7)
 
         #influxClient = InfluxQueryClient.getClientInstance()
         influxClient = InfluxQueryClient(self.config['influxdb']['host'],'slurmdb')
         tsReason2Cnt, jidSet = influxClient.getPendingCount(start, stop)
-        bySched      = 'Dependency|BeginTime|JobArrayTaskLimit' 
-        byResource   = 'Resources|Priority|ReqNodeNotAvail*|Nodes_required_for_job_are_DOWN*'
-        byQOS        = 'QOS*'
-        byGPU        = 'Resources_GPU|Priority_GPU'
-        
         reasons      = [set(reasons.keys()) for ts, reasons in tsReason2Cnt.items()]
         reasons      = set([i2 for item in reasons for i2 in item])
+        reason2cate  = dict([(reason, self.getReason2Cate(reason)) for reason in reasons])
+        cates        = set(reason2cate.values())
+        print('reasons={}, cates={}, reason2cate={}'.format(reasons, cates, reason2cate))
         
         #reformat the tsReason2Cnt to cate2ts_cnt
-        cate2ts_cnt  = defaultdict(list)
         other_reason_set = set()
-        for ts, reason2Cnt in tsReason2Cnt.items():
+        sav_set      = set()
+        cate2ts_cnt  = defaultdict(list)         
+        for ts, reason2Cnt in tsReason2Cnt.items():  # {ts: {reason:cnt, }}
+            cate2cnt = defaultdict(int)
             for reason, cnt in reason2Cnt.items():
-                cate = 'Other'
-                if not reason:
+                cate = reason2cate[reason]
+                cate2cnt[cate] += cnt
+                if cate=='Other':
                    other_reason_set.add(reason)
-                elif re.match(bySched, reason):
-                   cate = 'Sched'
-                elif re.match(byResource, reason):
-                   cate = 'Resource'
-                elif re.match(byGPU, reason):
-                   cate = 'GPU'
-                elif re.match(byQOS, reason):
-                   cate = 'QoS'
-                else:
-                   other_reason_set.add(reason)
+            for cate in cates:
+                cate2ts_cnt[cate].append ([ts, cate2cnt[cate]])
+        #note = '{}'.format(sav_set) 
 
-                cate2ts_cnt[cate].append ([ts, cnt])
-
-        series1   = [
-                     {'name': 'Queued by Resource',       'data':cate2ts_cnt['Resource']},
-                     {'name': 'Queued by GPU Resource',   'data':cate2ts_cnt['GPU']},
-                     {'name': 'Queued by QoS',            'data':cate2ts_cnt['QoS']},
-                     {'name': 'Queued by Job Defination', 'data':cate2ts_cnt['Sched']},
-                     {'name': 'Queued by Other',    'data':cate2ts_cnt['Other']}]
-
+        cate2title = {'Resource':'Queued by Resource', 'GPU':'Queued by GPU Resource', 'QoSGrp':'Queued by Group QoS', 'QoS':'Queued by User QoS', 'Sched':'Queued by Job Defination', 'Other':'Queued by Other'}  #order matters
+        series1   = []
+        for cate in cate2title.keys():
+            if cate in cate2ts_cnt:
+               series1.append({'name': cate2title[cate], 'data': cate2ts_cnt[cate]})
         htmlTemp = os.path.join(wai, 'pendingJobReport.html')
-        h = open(htmlTemp).read().format(start=time.strftime('%Y-%m-%d', time.localtime(start)),
-                                         stop=time.strftime('%Y-%m-%d', time.localtime(stop)),
-                                         series1=series1, title1='Cluster Job Queue Length', xlabel1='Queue Length', other_reason=list(other_reason_set))
+        h = open(htmlTemp).read().format(start=time.strftime(DATE_DISPLAY_FORMAT, time.localtime(start)),
+                                         stop=time.strftime(DATE_DISPLAY_FORMAT, time.localtime(stop)),
+                                         series1=series1, title1='Cluster Job Queue Length', xlabel1='Queue Length', other_reason=list(other_reason_set),
+                                         note=note)
 
         return h
 
@@ -2095,7 +2099,7 @@ class SLURMMonitor(object):
         return h
 
     sunburst.exposed = True
-            
+
 cherrypy.config.update({#'environment': 'production',
                         'log.access_file':    '/tmp/slurm_util/smcpgraph-html-sun.log',
                         'server.socket_host': '0.0.0.0', 

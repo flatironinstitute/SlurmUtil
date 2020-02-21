@@ -17,10 +17,12 @@
         <p> Note: 
         <p> (Job queued by Priority is counted towards the queued reason of the job pending on the same partition prior to it) 
         <ul>
-        <li>Queued by Resource: [Resources(other), ReqNodeNotAvail*, Nodes_required_for_job_are_DOWN]
-        <li>Queued by GPU Resource: [Resources(with gres request for GPU)]
-        <li>Queued by QoS: [QOS*]
+        <li>Queued by Resource: [Resources(other than GPU), ReqNodeNotAvail*, Nodes_required_for_job_are_DOWN]
+        <li>Queued by GPU Resource: [Resources(with unsatisfied GPU request)]
+        <li>Queued by Group QoS: [QOSGrp*]
+        <li>Queued by User QoS: [QOS*(other than QOSGrp*)]
         <li>Queued by Job Defination: [Dependency,BeginTime,JobArrayTaskLimit]
         <li>Queued by other: {other_reason}
+        <p> {note}
         </ul>
 </html>
