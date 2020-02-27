@@ -15,7 +15,7 @@ $(document).ready(function(){{
     //create table job_table and part_table
     var j_h_titles     = {{'JobID':'Job ID', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
     if ({worker_proc}) {{
-       createMultiTable ({worker_proc}, 'div_worker_proc', {proc_field}, {job_id})
+       createMultiTable ({worker_proc}, 'div_worker_proc', {title_list}, {job_id})
     }}
 
     createTable ({job_report}, j_h_titles,  'job_history_table', 'job_report') 

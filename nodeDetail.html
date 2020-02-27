@@ -24,9 +24,9 @@ $(document).ready(function(){{
     //['PID', 'Create Time', 'Avg CPU', 'User Time', 'Sys Time', 'RSS', 'VMS', 'Avg IO', 'Command']
 
     if (node_data["gpus"])
-       d3.select("#node_summary").html("Node " + node_data["name"]+ ": " + node_data["state"] + " state, <a href='nodeGraph?node=" + node_data["name"] + "'>Usage Graph</a>, <a href='nodeGPUGraph?node=" + node_data["name"] + "'>GPU Graph</a>")
+       d3.select("#node_summary").html("Node " + node_data["name"]+ ": " + node_data["state"] + " (<a href='nodeGraph?node=" + node_data["name"] + "'>Usage Graph</a>, <a href='nodeGPUGraph?node=" + node_data["name"] + "'>GPU Graph</a>)")
     else
-       d3.select("#node_summary").html("Node " + node_data["name"]+ ": " + node_data["state"] + " state, <a href='nodeGraph?node=" + node_data["name"] + "'>Usage Graph</a>")
+       d3.select("#node_summary").html("Node " + node_data["name"]+ ": " + node_data["state"] + " (<a href='nodeGraph?node=" + node_data["name"] + "'>Usage Graph</a>)")
     d3.select("#summary").text(node_data["jobCnt"]+" Jobs with a total of " + node_data["procCnt"] + " Processes running on node, allocating "+node_data["alloc_cpus"] +" CPUs and " + node_data["alloc_gpus"] + " GPUs")
     console.log(node_data)
     createMultiTable2 (node_data["jobProc"], 'div_job', proc_title, node_data["name"], node_data["alloc_gpus"])

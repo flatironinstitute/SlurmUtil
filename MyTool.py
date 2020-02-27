@@ -13,8 +13,7 @@ THREE_DAYS_SEC     = 3*24*3600
 ONEDAY_SECS       = 24*3600
 
 LOCAL_TZ   = timezone(timedelta(hours=-4))
-#ORG_GROUPS = list(map((lambda x: grp.getgrnam(x)), ['genedata','cca','ccb','ccm', 'ccq', 'scc']))
-ORG_GROUPS = list(map((lambda x: grp.getgrnam(x)), ['genedata','cca','ccb','ccq', 'scc']))
+ORG_GROUPS = list(map((lambda x: grp.getgrnam(x)), ['genedata','cca','ccb','ccm', 'ccq', 'scc']))
     
 def getUid (user):
     try:
@@ -449,16 +448,20 @@ def getGPUCount (gres_list, gres_used_list=[]):
         #idx_list = str2intList (idx_str)
     return gpu_total, gpu_used
 
-#gpu:v100-16gb(IDX:0-1) or gpu(IDX:0-3)
+#gpu:v100-16gb(IDX:0-1) or gpu(IDX:0-3) or gpu(IDX:0,3)
 def parse_gpu_detail(gpu_str):
     m = re.match('gpu.*\(IDX:(.+)\)', gpu_str)
     if not m or not m.group(1):
        return None
     # idx_str 0-1 or 0
-    lst = [eval(item) for item in m.group(1).split('-')]
-    if len(lst) == 1:
-       return lst
-    return list(range(lst[0], lst[1]+1))
+    rlt = []
+    lst1 = m.group(1).split(',')
+    for i1 in lst1:
+       lst2 = [eval(item) for item in i1.split('-')]
+       if len(lst2) > 1:
+          lst2 = list(range(lst2[0], lst2[1]+1))
+       rlt.extend(lst2)
+    return rlt
 
 #return gpu allocate index on node_iter, {node: [0],}
 def getGPUAlloc_layout (node_iter, gpu_detail_iter):
@@ -474,6 +477,40 @@ def getGPUAlloc_layout (node_iter, gpu_detail_iter):
 
     return dict(result)
     
+#input is Bps
+def getDisplayBps (n):
+   return '{}Bps'.format(getDisplayI(n))
+#input is B
+def getDisplayB (n):
+   if n < 1024:
+      return '{} B'.format(n)
+   n /= 1024
+   return getDisplayKB(n)
+#input is nKB
+def getDisplayKB (n):
+    return '{}B'.format(getDisplayK(n))
+
+def getDisplayI (n):
+   if n < 1024:
+      return '{} '.format(n)
+   n /= 1024
+   return getDisplayK(n)
+
+def getDisplayK (n):
+   if n < 1024:
+      if isinstance(n, int):
+         return '{} K'.format(n)
+      else:
+         return '{:.2f} K'.format(n)
+   n /= 1024
+   if n < 1024: 
+      return '{:.2f} M'.format(n)
+   n /= 1024
+   if n < 1024: 
+      return '{:.2f} G'.format(n)
+   n = n / 1024
+   return '{:.2f} T'.format(n)
+
 def test1():
     level = logging.DEBUG
     logger=getFileLogger('test', level)

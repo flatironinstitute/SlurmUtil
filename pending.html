@@ -23,16 +23,18 @@ $(document).ready(function(){{
 
     //add expand icon or space to data-group if more than one item is there
     $('#job_table>tbody>tr[data-group-idx="0"]:not([data-group-cnt="1"])').find('td:first').addClass('group_plus')    
+    //$('#job_table td.group_plus').text(function(i, origText) {{ var cnt=$(this).parent().attr('data-group-cnt'); return origText + "(Total " + cnt + " jobs)"; }})
 
     //hide row with same data-group except the first one
     $('#job_table>tbody>tr:not([data-group-idx="0"])').find('td:first').addClass('group_sub')    
     $('#job_table>tbody>tr:not([data-group-idx="0"])').hide()
 
+
     //add click function to right arrow
     $('#job_table td.group_plus').click(function(event) {{
        var group = $(this).parent().attr('data-group')
        console.log('click ' + group)
-       $(this).toggleClass('group_minus')
+       $(this).toggleClass('group_minus')  //toggleClass() toggles between adding and removing one or more class names from the selected elements. 
        $('#job_table>tbody>tr:has(td.group_sub)[data-group=' + group + ']').toggle()
     }});
 }});
@@ -42,11 +44,11 @@ $(document).ready(function(){{
 <body>
 <div class="tab" id="tabmenu"></div>
 <div id="pending_jobs" class="page-wrap">
-   <h1>Pending Queue: {job_cnt} Jobs <small>(<a href="./pending_history?days=7"> History of last 7 days</a>)</small></h1>
+   <h2>Pending Queue: {job_cnt} Jobs <small>(<a href="./pending_history?days=7"> History of last 7 days</a>)</small></h2>
    <i>Update time: {update_time}</i>
 </div>
 <div id="partitions" class="page-wrap">
-   <h1>Partitions</h1>
+   <h2>Partitions</h2>
    <i>Click the table header to sort data according to that column</i>
 </div>
 </body>

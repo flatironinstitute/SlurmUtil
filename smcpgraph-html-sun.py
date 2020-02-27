@@ -141,6 +141,9 @@ class SLURMMonitor(object):
         ins        = SlurmEntities.SlurmEntities()
         pendingLst = ins.getPendingJobs()
         partLst    = ins.getPartitions ()
+        for p in partLst:
+            p['running_jobs'] = ' '.join(str(e) for e in p['running_jobs'])
+            p['pending_jobs'] = ' '.join(str(e) for e in p['pending_jobs'])
         
         htmlTemp   = os.path.join(wai, 'pending.html')
         timestr    = ins.update_time.ctime()
@@ -727,12 +730,12 @@ class SLURMMonitor(object):
                         nodeLabel = '{} cpu_util {:.1%},'.format(nodeLabel, cpu_load/node_cores)
                      label     = nodeLabel
                   
-                  gpu2jid=dict([(gpu_idx, jid) for jid in alloc_jobs for gpu_idx in self.currJobs[jid]['gpus_allocated'].get(hostname,[])]) #TODO: assume gpu is not shared
+                  gpu2jid=dict([(gpu_idx, jid) for jid in alloc_jobs for gpu_idx in self.currJobs[jid]['gpus_allocated'].get(hostname,[])]) #TODO: assume gpu is not shared, gpus_allocated': {'workergpu14': [(0, 2)]
                   for i in range(0, node_gpus):
                       gpu_name  = 'gpu{}'.format(i)
-                      gpu_state = state
+                      gpu_state = state     # inherit node's state
                       state_str = hostinfo[1]
-                      if (state==1) and (i not in gpu2jid):
+                      if (gpu_state==1) and (i not in gpu2jid):
                          gpu_state, state_str = 0, "IDLE"
                       if gpu_state==1:
                          jid = gpu2jid[i]
@@ -947,7 +950,7 @@ class SLURMMonitor(object):
         self.updateTS, jobs, hn2info, self.pyslurmNodeData = cPickle.loads(zlib.decompress(d))
         self.updateTS = int(self.updateTS)
         self.allJobs  = jobs
-        self.currJobs = dict([(jid,job) for jid, job in jobs.items() if job['job_state']=='RUNNING'])
+        self.currJobs = dict([(jid,job) for jid, job in jobs.items() if job['job_state'] in ['RUNNING', 'CONFIGURING']])
         self.rawData = hn2info
 
         self.updateNode2Jobs (self.currJobs)
@@ -1261,7 +1264,6 @@ class SLURMMonitor(object):
                                                   pending_job_cnt=len(userjob['PENDING']), pending_jobs=json.dumps(userjob.get('PENDING',None)), 
                                                   worker_cnt=len(userworker), core_cnt=core_cnt, proc_cnt=proc_cnt, worker_proc=json.dumps(userworker), note=note,
                                                   part_cnt=len(part), part_info=json.dumps(part),
-
                                                   job_history=past_job, day_cnt = days)
         return htmlStr
         # Currently, running jobs & pending jobs of the user
@@ -1303,9 +1305,9 @@ class SLURMMonitor(object):
                        if jid == job_info['job_id']:
                           job_stime   = job_info.get('start_time', 0)
                           job_avg_cpu = (user_time+system_time) / (ts-job_stime) if job_stime > 0 else 0
-                          rlt_procs.append ([pid, '{:.2f}'.format(intervalCPUtimeAvg), '{:.2f}'.format(job_avg_cpu), '{:.2e}'.format(rss/1024), '{:.2e}'.format(vms/1024), '{:.2f}'.format(intervalIOByteAvg), ' '.join(cmdline)])
+                          rlt_procs.append ([pid, '{:.2f}'.format(intervalCPUtimeAvg), '{:.2f}'.format(job_avg_cpu), MyTool.getDisplayB(rss), MyTool.getDisplayB(vms), MyTool.getDisplayBps(intervalIOByteAvg), ' '.join(cmdline)])
                    result[node_name]= [int(alloc_core_cnt), int(proc_cnt), t_cpu, t_rss, t_vms, rlt_procs, t_io]
-        return result, ['PID', 'Inst CPU Util', 'Avg CPU Util', 'RSS (KB)', 'VMS (KB)', 'IO Rate (bps)', 'Command']
+        return result, ['PID', 'Inst CPU Util', 'Avg CPU Util', 'RSS', 'VMS', 'IO Rate', 'Command']
 
     @cherrypy.expose
     def jobByName(self, name='script', curr_jid=None):
@@ -1356,14 +1358,13 @@ class SLURMMonitor(object):
                  msg_note="WARNING: no record of user's process has been saved in the database."
               else:
                  worker_proc = {}
-                 proc_fields = ['PID', 'Avg CPU Util', 'RSS (KB)',  'VMS (KB)', 'IO Rate (KB/s)', 'Command']
-                 data_fields = ['pid', 'avg_util',     'mem_rss_K', 'mem_vms_K','avg_io'       , 'cmdline']
+                 proc_fields = ['PID', 'Avg CPU Util', 'RSS',  'VMS', 'IO Rate', 'Command']
+                 #data_fields = ['pid', 'avg_util',     'mem_rss_K', 'mem_vms_K','avg_io'       , 'cmdline']
                  for node, procs in node2procs.items():
-                  #result[node_name]= [int(alloc_core_cnt), int(proc_cnt), t_cpu, t_rss, t_vms, rlt_procs, t_io]
                     worker_proc[node]=[0,len(procs),0,0,0,[],0]
                     for proc in procs:
 	             #{'time': 1568554426, 'cmdline': '[]', 'cpu_affinity': '[0, 1]', 'cpu_system_time': 0.64, 'cpu_user_time': 0.2, 'end_time': 1568577027, 'hostname': 'worker1031', 'io_read_bytes': 3629056, 'io_read_count': 4947, 'io_write_bytes': 8396800, 'io_write_count': 1701, 'mem_data': 213565440, 'mem_lib': 0, 'mem_rss': 20221952, 'mem_shared': 13574144, 'mem_text': 4096, 'mem_vms': 364032000, 'name': 'orted', 'num_fds': 166, 'pid': '224668', 'ppid': 224662, 'status': 'sleeping', 'uid': '1431'}
-                       worker_proc[node][5].append([proc['pid'], '{:.2f}'.format(proc['avg_util']), '{:.2e}'.format(proc['mem_rss_K']), '{:.2e}'.format(proc['mem_vms_K']), '{:.2f}'.format(proc['avg_io']), proc['cmdline']])
+                       worker_proc[node][5].append([proc['pid'], '{:.2f}'.format(proc['avg_util']), MyTool.getDisplayKB(proc['mem_rss_K']), MyTool.getDisplayKB(proc['mem_vms_K']), MyTool.getDisplayBps(proc['avg_io']), proc['cmdline']])
                   
         grafana_url = 'http://mon8:3000/d/jYgoAfiWz/yanbin-slurm-node-util?orgId=1&from={}{}&var-jobID={}&theme=light'.format(start*1000, '&var-hostname=' + '&var-hostname='.join(job_report['NodeList']), jid)
         proc_cnt   = sum([val[1] for val in worker_proc.values()])
@@ -1371,7 +1372,7 @@ class SLURMMonitor(object):
         htmlStr    = open(htmlTemp).read().format(job_id=jid, job_name=job_name, job_state=job_report['State'], user=user, 
                                                   update_time=datetime.datetime.fromtimestamp(ts).ctime(),
                                                   grafana_url=grafana_url,
-                                                  worker_proc=worker_proc, proc_field=proc_fields,
+                                                  worker_proc=worker_proc, title_list=proc_fields,
                                                   worker_cnt=worker_cnt, core_cnt=cpu_cnt, proc_cnt=proc_cnt,note=msg_note,
                                                   job_report=jobs_report)
         return htmlStr
@@ -1752,9 +1753,9 @@ class SLURMMonitor(object):
         io_w_all_nodes = []  ##[{'data': [[1531147508, value]...], 'name':'workerXXX'}, ...] 
         for hostname, hostdict in node2seq.items():
             cpu_all_nodes.append  ({'name': hostname, 'data': [[ts, hostdict[ts][0]] for ts in hostdict.keys()]})
-            io_r_all_nodes.append ({'name': hostname, 'data': [[ts, hostdict[ts][1]] for ts in hostdict.keys()]})
-            io_w_all_nodes.append ({'name': hostname, 'data': [[ts, hostdict[ts][2]] for ts in hostdict.keys()]})
-            mem_all_nodes.append  ({'name': hostname, 'data': [[ts, hostdict[ts][3]] for ts in hostdict.keys()]})
+            mem_all_nodes.append  ({'name': hostname, 'data': [[ts, hostdict[ts][1]] for ts in hostdict.keys()]})
+            io_r_all_nodes.append ({'name': hostname, 'data': [[ts, hostdict[ts][2]] for ts in hostdict.keys()]})
+            io_w_all_nodes.append ({'name': hostname, 'data': [[ts, hostdict[ts][3]] for ts in hostdict.keys()]})
         return start, stop, cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes
 
     def jobGraph_cache(self, jobid):
@@ -1822,13 +1823,16 @@ class SLURMMonitor(object):
         data    = client.getDumpAllGPU(node)
         start   = min([item['data'][0][0] for item in data['data']])
         stop    = max([item['data'][-1][0] for item in data['data']])
+        series  = data['data']       # [{name:, data:[[ts,val]],}]
+        for item in series:
+            item['data'] = [[i[0]*1000,i[1]] for i in item['data']]
 
         htmltemp = os.path.join(wai, 'nodeGPUGraph.html')
         h = open(htmltemp).read()%{'spec_title': ' on {}'.format(node),
                                    #'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(data['data'][0]['data'][0][0])),
                                    'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(start)),
                                    'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(stop)),
-                                   'series'    : data['data'],}
+                                   'series'    : series}
         return h
 
     @cherrypy.expose
@@ -1998,8 +2002,6 @@ class SLURMMonitor(object):
 
     @cherrypy.expose
     def sunburst(self):
-
-        #sunburst
         if type(self.data) == str: return self.data# error of some sort.
 
         #prepare required information in data_dash
@@ -2058,7 +2060,6 @@ class SLURMMonitor(object):
         list_group_flatn    =reduce((lambda x,y: x+y), [v['list_group']   for v in data_dash.values()])
 
         # merge above list into nested list
-        #listn  =[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_loads_flat[i]] for i in range(len(list_nodes_flat))]
         listn  =[[list_group_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_loads_flat[i]] for i in range(len(list_nodes_flat))]
         listrss=[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_RSS_flat[i]]   for i in range(len(list_nodes_flat))]
         listvms=[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_VMS_flat[i]]   for i in range(len(list_nodes_flat))]
@@ -2100,8 +2101,12 @@ class SLURMMonitor(object):
 
     sunburst.exposed = True
 
+def error_page_500(status, message, traceback, version):
+    return "Error %s - Well, I'm very sorry but the page your requested is not implemented!" % status
+
 cherrypy.config.update({#'environment': 'production',
                         'log.access_file':    '/tmp/slurm_util/smcpgraph-html-sun.log',
+#                        'error_page.500':     error_page_500,
                         'server.socket_host': '0.0.0.0', 
                         'server.socket_port': WebPort})
 conf = {

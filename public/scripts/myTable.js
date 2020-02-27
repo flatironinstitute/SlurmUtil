@@ -1,6 +1,5 @@
 //typeof(data) is object and thus pass by reference
 function prepareData (data) {
-
    return data
 }
 
@@ -15,7 +14,6 @@ function createMultiTable (data_dict, parent_id, table_title_list, job_id) {
                .enter().append('div')
    pas.append('p')
       .attr('class', 'thick')
-      //.html(function (d) {return '<a href="./nodeJobProcGraph?node=' + d + '&jid=' + job_id + '">' + d + ': alloc cores ' + data_dict[d][0] + ' , running processes ' + data_dict[d][1]+'</a>'} )
       .html(function (d) {return d + ': alloc ' + data_dict[d][0] + ' CPUs, running processes ' + data_dict[d][1]+'<a href="./nodeJobProcGraph?node=' + d + '&jid=' + job_id + '"> (Proc Usage Graph) </a>'} )
 
    var tables = pas.append('table').property('id', function(d) {return d+'_proc'}).attr('class','noborder')
@@ -34,7 +32,7 @@ function createMultiTable (data_dict, parent_id, table_title_list, job_id) {
    trs.selectAll('td')
       .data(function(d) {return d})
       .enter().append('td')
-         .attr('class','noborder')
+         .attr('class', function(d,i) {return 'noborder ' + table_title_list[i]})
          .text(function (d) {return d})
 }
 

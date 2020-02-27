@@ -2,13 +2,13 @@
 
 import time
 t1=time.time()
-import os, sys
-import pyslurm
+import os, requests, sys
 import MyTool
-import requests
 
 from collections import defaultdict
-from datetime import datetime, date, timezone, timedelta
+
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class BrightRestClient:
     def __init__(self):
@@ -17,12 +17,20 @@ class BrightRestClient:
         self.cert      = ('/mnt/home/yliu/projects/bright/prometheus.cm/cert.pem', '/mnt/home/yliu/projects/bright/prometheus.cm/cert.key')
   
     #r = requests.get('https://ironbcm:8081/rest/v1/monitoring/latest?measurable=gpu_utilization:gpu0', verify=False, cert=('/mnt/home/yliu/projects/bright/prometheus.cm/cert.pem', '/mnt/home/yliu/projects/bright/prometheus.cm/cert.key'))
-    def getLatestGPU (self, gpuId='gpu0'):
+    def getLatestGPU (self, gpuId='gpu0'): #TODO: use dump instead of latest to get latest value
         r = requests.get('https://ironbcm:8081/rest/v1/monitoring/latest?measurable=gpu_utilization:{}'.format(gpuId), verify=False, cert=self.cert)
         j = r.json() #j['data'][0]={'age': 144.381, 'entity': 'workergpu00', 'measurable': 'gpu_utilization', 'raw': 0.0, 'time': 1580872073796, 'value': '0.0%'}
         if j['data']:
            d   = dict([(item['entity'], item['raw']) for item in j['data']])
            return d
+        else:
+           return None
+
+    def getNodeLatestGPU (self, node, gpuId='gpu0'):
+        r = requests.get('https://ironbcm:8081/rest/v1/monitoring/latest?entity={}&measurable=gpu_utilization:{}'.format(node,gpuId), verify=False, cert=self.cert)
+        j = r.json() #{'data': [{'age': 46.366, 'entity': 'workergpu00', 'measurable': 'gpu_utilization', 'raw': 1.0, 'time': 1582647355478, 'value': '100.0%'}]}
+        if j['data']:
+           return j['data'][0]
         else:
            return None
 
@@ -39,12 +47,12 @@ class BrightRestClient:
         else:
            return None
 
-    def getDumpAllGPU (self, node):
+    def getDumpAllGPU (self, node, hours=72):
         idx = 0
         rlt = {'node': node, 'time': int(time.time()), 'data': []}
         while True:
            gpuId = 'gpu{}'.format(idx)
-           d = self.getDumpGPU(node, gpuId)
+           d = self.getDumpGPU(node, gpuId, hours=hours)
            if d:
               rlt['data'].append({'name': gpuId, 'data': d})
               idx += 1
@@ -71,11 +79,12 @@ def test1():
     rlt    = client.getLatestAllGPU()
     print(rlt)
 
-def test2(node):
+def test2(node, hours=1):
     client = BrightRestClient()
-    rlt    = client.getDumpAllGPU(node)
+    rlt    = client.getDumpAllGPU(node, hours=hours)
     cnt    = sum([len(item['data']) for item in rlt['data']])
     print('{}: {} samples'.format(node, cnt))
+    print('{}'.format(rlt))
     return rlt
 
 def test3():
@@ -88,13 +97,23 @@ def test3():
 
     print('Total: {} samples'.format(cnt))
         
-
+def test4(node):
+    client = BrightRestClient()
+    sav    = {}
+    for i in range(20):
+       rlt = client.getNodeLatestGPU(node,'gpu0')
+       sav[round(rlt['time']/1000)]= rlt['raw']
+       time.sleep(5)
+    rlt = client.getDumpAllGPU(node)
+    print(sav)
+    print(rlt['data'][0]['data'][-20:])
 
 def main():
     t1=time.time()
     
-    test2(sys.argv[1])
+    #test2(sys.argv[1])
     #test3()
+    test4(sys.argv[1])
     print("main take time " + str(time.time()-t1))
 
 if __name__=="__main__":

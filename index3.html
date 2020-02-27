@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<title>Tabular Summary</title>
 <link rel="stylesheet" href="/static/css/style.css">
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
 
@@ -17,6 +18,9 @@ const DEC_ORDER      = 1
 const NODE_IDX       = 0
 const JOB_IDX        = 3
 const USER_IDX       = 4
+const RSS_IDX        = 9
+const VMS_IDX        = 10
+const IO_IDX         = 11
 const COL_COUNT      = 12
 const expDict          ={0:JOB_IDX, 1:0, 2:0, 3:0, 4:JOB_IDX, 5:JOB_IDX, 6:JOB_IDX, 7:JOB_IDX, 8:JOB_IDX, 9:JOB_IDX, 10:JOB_IDX, 11:JOB_IDX}  // 0:2 when sorted on 0, 2 is expandable 
 const typeDict         ={0:0, 1:0, 2:2, 3:0, 4:0, 5:1, 6:1, 7:2, 8:2, 9:3, 10:3, 11:1}  // 0:0 type of column 0 is string(0), integer(1), float(2), float exp(3)
@@ -27,7 +31,6 @@ var currSortOrder    = INC_ORDER
 var orderBy          =0 // 0: node inc, 1: node dec, ... (2*idx + inc?0:1)
 var load_data        =%(tableData)s
 var summary_data     =[] // [[startIdx, endIdx, [summaryAttr ...]]...]
-
 
 // init
 initData  ()
@@ -98,8 +101,8 @@ function getSingleSummaryData(table_data, startRow, endRow, sortIdx) {
    // loop over the column to compute the summary data
    for (var i=0; i< colVals.length; i++) {
       if ( i != sortIdx ) {
-         switch ( typeDict[i] ) {
-         case 0: // string
+        switch ( typeDict[i] ) {
+          case 0: // string
             var setTmp = new Set(colVals[i])
             summary[i] = "Count " + setTmp.size
             if ( setTmp.size == 1 )
@@ -107,14 +110,21 @@ function getSingleSummaryData(table_data, startRow, endRow, sortIdx) {
             else if (setTmp.size > 1)
                summary[i]  += " [" + colVals[i][0] + ",...]";  
             break;
-         case 1: //integer
-            summary[i] = "Total " + colVals[i].reduce(getSum, 0);  
+          case 1: //integer
+            if ( i == IO_IDX )
+	       summary[i] = "Total " + getDisplayBS(colVals[i].reduce(getSum, 0)); 
+            else
+               summary[i] = "Total " + colVals[i].reduce(getSum, 0);  
             break
-         case 2: // float
+          case 2: // float
             summary[i] = "Avg. " + (colVals[i].reduce(getSum, 0.0)/totalCnt).toFixed(2);       
             break
-         case 3:
-            summary[i] = "Avg. " + (colVals[i].reduce(getSum, 0.0)/totalCnt).toExponential(2); break
+          case 3:
+            if ( i == RSS_IDX || i == VMS_IDX )
+	       summary[i] = "Avg. " + getDisplayKB(colVals[i].reduce(getSum, 0.0)/totalCnt); 
+            else
+               summary[i] = "Avg. " + (colVals[i].reduce(getSum, 0.0)/totalCnt).toExponential(2); 
+            break
          }
       }
    }
@@ -187,6 +197,28 @@ function getPlusSign () {
 function getMinusSign() {
    return '<span class="glyphicon glyphicon-minus-sign"></span>'
 }
+function getDisplayBS (n) {
+   if (n < 1024)
+      return n + " Bps"
+   n = n /1024
+   return getDisplayKB(n) + "ps"
+}
+function getDisplayKB (n) {
+   if (n < 1024) {
+      if (Number.isInteger(n))
+         return n + " KB"
+      else
+         return n.toFixed(2) + " KB"
+   }
+   n = n / 1024
+   if ( n < 1024 ) 
+      return n.toFixed(2) + " MB"
+   n = n / 1024
+   if ( n < 1024 ) 
+      return n.toFixed(2) + " GB"
+   n = n / 1024
+   return n.toFixed(2) + " TB"
+}
 
 function getTDsHtml (r) {
    // 0:Node, Status, Delay, Job, User, 5:Cores Allocated, Processes, Aggregate Load, RSS, 9:VMS
@@ -198,7 +230,10 @@ function getTDsHtml (r) {
       var userC = getCategory(r[7], r[5]-1, r[5]+1, '', '', '"alarm"') 
       var utilC = getCategory(r[7], r[5]-1, r[5]+1, '"right inform"', '"right"', '"right"') 
       var avgC  = getCategory(r[8], r[5]-1, r[5]+1, '"right inform"', '"right"', '"right"') 
-      tds2 = `<td><a href="./jobDetails?jid=${jid}">${jid}</td><td class=${userC}><a href="./userDetails?user=${r[4]}">${r[4]}</a></td><td class="right">${r[5]}</td><td class="right">${r[6]}</td><td class=${utilC}>${r[7]}</td><td class=${avgC}>${r[8]}</td><td class="right">${r[9].toExponential(2)}</td><td class="right">${r[10].toExponential(2)}</td><td class="right">${r[11]}</td></tr>`
+      var rss   = getDisplayKB (r[9])
+      var vms   = getDisplayKB (r[10])
+      var io    = getDisplayBS (r[11])
+      tds2 = `<td><a href="./jobDetails?jid=${jid}">${jid}</td><td class=${userC}><a href="./userDetails?user=${r[4]}">${r[4]}</a></td><td class="right">${r[5]}</td><td class="right">${r[6]}</td><td class=${utilC}>${r[7]}</td><td class=${avgC}>${r[8]}</td><td class="right">${rss}</td><td class="right">${vms}</td><td class="right">${io}</td></tr>`
    }
 
    return tds + tds2
@@ -276,7 +311,7 @@ function extractSelector(str, sortIdx) {
 }
 
 function incF (a, b, idx) {
-   if ( idx >= a.length ) return -1
+   if ( idx >= a.length ) return -1   // no a[idx] value
    if ( idx >= b.length ) return 1
 
    if ( !a[idx] && !b[idx] ) return 0
@@ -320,7 +355,7 @@ function setTableBody () {
    $(".glyphicon-plus-sign").click(function() {
       var idx=$(".glyphicon-plus-sign").index(this)
       var cls=extractSelector(summary_data[idx][2][orderIdx], orderIdx)
-      console.log("detail selector " + cls)
+      //console.log("detail selector " + cls)
       
       // display detail record
       $(`.detail.${cls}`).show()
@@ -384,7 +419,7 @@ $(document).ready(function(){
 <body>
 <div class="tab" id="tabmenu"></div>
 <div>
-<h4>Cluster Nodes & Jobs <small>(<a href="./test?days=7">7 days History Graph</a>)</small></h4>
+<h3>Cluster Nodes & Jobs <small>(<a href="./test?days=7">7 days History Graph</a>)</small></h3>
 <i>Update time: %(update_time)s</i>
 <p>(Refreshed every 10 minutes automatically)</p>
 <table class="slurminfo">
@@ -401,7 +436,7 @@ $(document).ready(function(){
    <th class="sortable">Avg CPU Util    <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">RSS             <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">VMS             <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
-   <th class="sortable">I/O B/s         <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
+   <th class="sortable">I/O         <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
 </tr>
 </thead>
 <tbody id="tbody"> </tbody>

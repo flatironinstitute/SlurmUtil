@@ -13,10 +13,10 @@ from time import gmtime, strftime, sleep
 from datetime import datetime
 
 PEND_EXP={
-    'QOSMaxCpuPerUserLimit': 'QoS User CPU  limit ({max_cpu_user})  exceeded. User {user} already alloc {curr_cpu_user}  CPUs in {partition}.', # QOS MaxTRESPerUser exceeded (CPU) 
-    'QOSMaxNodePerUserLimit':'QoS User Node limit ({max_node_user}) exceeded. User {user} already alloc {curr_node_user} Nodes in {partition}',	                         # QOS MaxTRESPerUser exceeded (Node)
-    'QOSGrpNodeLimit':       'QoS Group Node limit ({max_node_grp}) exceeded. Group already alloc {curr_node_grp} Nodes in {partition}.', # QOS GrpTRES exceeded (Node)
-    'QOSGrpCpuLimit':        'QoS Group CPU limit  ({max_cpu_grp})  exceeded. Group already alloc {curr_cpu_grp}  CPUs in {partition}.',
+    'QOSMaxCpuPerUserLimit': 'Will exceed QoS User CPU  limit ({max_cpu_user}). User {user} already alloc {curr_cpu_user}  CPUs in {partition}.', # QOS MaxTRESPerUser exceeded (CPU) 
+    'QOSMaxNodePerUserLimit':'Will exceed QoS User Node limit ({max_node_user}). User {user} already alloc {curr_node_user} Nodes in {partition}',	                         # QOS MaxTRESPerUser exceeded (Node)
+    'QOSGrpNodeLimit':       'Will exceed QoS Group Node limit ({max_node_grp}). Group already alloc {curr_node_grp} Nodes in {partition}.', # QOS GrpTRES exceeded (Node)
+    'QOSGrpCpuLimit':        'Will exceed QoS Group CPU limit  ({max_cpu_grp}). Group already alloc {curr_cpu_grp}  CPUs in {partition}.',
     'QOSMaxWallDurationPerJobLimit': 'Job time {job_time_limit} exceed QoS {qos}\'s MaxWallDurationPerJob limit ({qos_limit}).',
     'Dependency':            'Dependent jobs ({dependency}) have not completed', #/* dependent job has not completed */
     'Priority':              'Higher priority jobs exist. Partition {partition} queue higher priority jobs {higher_job}.', #/* higher priority jobs exist */
