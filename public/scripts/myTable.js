@@ -121,7 +121,7 @@ function createNestedTable (data, field_key, title_dict, sub_data, table_id, par
             .html(function (d) {
                  if (d.name == 'user') {
                     return '<a href=./userJobs?user=' + d.value+'>' + d.value + '</a>'
-                 } else if (d.name == 'partition') {
+                 } else if (d.name == 'partition') {  // not sure if it is used
                     return '<a href=./partitionDetail?partition=' + d.value+'>' + d.value + '</a>'
                  } else if (d.name == 'job_id') {
                     return '<a href=./jobDetails?jid=' + d.value + '>' + d.value + '</a>'
@@ -141,8 +141,8 @@ function createNestedTable (data, field_key, title_dict, sub_data, table_id, par
                 
 };
              
-function createTable (data, titles_dict, table_id, parent_id, pre_data_func=prepareData) {
-        console.log("createTable data=", data, ",pre_data_fun=", pre_data_func)
+function createTable (data, titles_dict, table_id, parent_id, pre_data_func=prepareData, type_dict) {
+        console.log("createTable data=", data, ",pre_data_fun=", pre_data_func, ",type_dict=", type_dict)
         var sortAscending = true;
         var table         = d3.select('#'+parent_id).append('table').property('id', table_id);
         var firstKey      = Object.keys(titles_dict)[0]   <!--use jobid as tie breaker for sorting -->
@@ -192,16 +192,32 @@ function createTable (data, titles_dict, table_id, parent_id, pre_data_func=prep
         rows.selectAll('td')
             .data(function (d) {
                 return Object.keys(titles_dict).map(function (k) {
-                    return { 'value': d[k], 'name': k};
+                    if (d.data_group_cnt) 
+                       return { 'value': d[k], 'name': k, 'group_cnt': d.data_group_cnt};
+                    else
+                       return { 'value': d[k], 'name': k};
                 });
             }).enter()
             .append('td')
             .attr('data-th', function (d) {
                         return d.name; })
+            .attr('group-cnt', function (d) {
+                        if (d.group_cnt) return d.group_cnt; })
             .html(function (d) {
+                 if (type_dict && type_dict[d.name]) {
+                    if (type_dict[d.name] == 'Partition')
+                       return '<a href=./partitionDetail?partition=' + d.value+'>' + d.value + '</a>'
+                    else if (type_dict[d.name] == 'JobList') {
+                       var jids = d.value.split(" ")
+                       var str  = ''
+                       for (jid of jids) 
+                           str  = str + ' ' + getJobDetailHtml(jid)
+                       return str
+                    }
+                 }
                  if (d.name == 'user') {
-                    return '<a href=./userJobs?user=' + d.value+'>' + d.value + '</a>'
-                 } else if (d.name == 'partition') {
+                    return '<a href=./userDetails?user=' + d.value+'>' + d.value + '</a>'
+                 } else if (d.name == 'partition') {  
                     return '<a href=./partitionDetail?partition=' + d.value+'>' + d.value + '</a>'
                  } else if ((d.name == 'job_id') || (d.name == 'id_job')) {
                     return '<a href=./jobDetails?jid=' + d.value + '>' + d.value + '</a>'
@@ -210,6 +226,9 @@ function createTable (data, titles_dict, table_id, parent_id, pre_data_func=prep
                  return d.value;
             });
 };
+function getJobDetailHtml (jid) {
+    return '<a href=./jobDetails?jid=' + jid + '>' + jid + '</a>'
+}
 
 function prepareData_pending (data) {
    var savGID   = 'noGroup'

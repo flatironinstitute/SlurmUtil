@@ -1060,6 +1060,7 @@ class SLURMMonitor(object):
 
     @cherrypy.expose
     def user_fileReport(self, user, start='', stop='', days=180):
+        # click from File Usage
         start, stop   = MyTool.getStartStopTS (start, stop, '%Y-%m-%d', int(days))
         fc_seq,bc_seq = fs2hc.gendata_user(user, start, stop)
         
@@ -1237,9 +1238,10 @@ class SLURMMonitor(object):
         if not user:
            user = MyTool.getUser(uid)
  
-        uid            = MyTool.getUid(user)
-        if not uid:
+        userInfo       = MyTool.getUserStruct (uname=user)
+        if not userInfo or not userInfo.pw_uid:
            return 'Cannot find uid of user {}!'.format(user)
+        uid            = userInfo.pw_uid
         userjob        = ins.getUserJobsByState (uid)
         uid, grp, part = ins.getUserPartition (user)
         for p in part:
@@ -1259,7 +1261,7 @@ class SLURMMonitor(object):
         past_job      = SlurmCmdQuery.sacct_getUserJobReport(user, days=int(days))
 
         htmlTemp   = os.path.join(wai, 'userDetail.html')
-        htmlStr    = open(htmlTemp).read().format(user=user, uid=uid, update_time=ins.update_time.ctime(), 
+        htmlStr    = open(htmlTemp).read().format(user=userInfo.pw_gecos.split(',')[0], uname=user, uid=uid, update_time=ins.update_time.ctime(), 
                                                   running_job_cnt=len(userjob['RUNNING']), running_jobs=json.dumps(userjob['RUNNING']), 
                                                   pending_job_cnt=len(userjob['PENDING']), pending_jobs=json.dumps(userjob.get('PENDING',None)), 
                                                   worker_cnt=len(userworker), core_cnt=core_cnt, proc_cnt=proc_cnt, worker_proc=json.dumps(userworker), note=note,
@@ -1311,12 +1313,18 @@ class SLURMMonitor(object):
 
     @cherrypy.expose
     def jobByName(self, name='script', curr_jid=None):
-        fields =['id_job','job_name', 'id_user','state', 'nodelist', 'time_start','time_end', 'exit_code', 'tres_req', 'tres_alloc', 'gres_req', 'gres_alloc', 'work_dir']
-        data   = SlurmDBQuery().getJobByName(name, fields)  #user, duration is added by the function
-        d_flds = {'id_job':'Job ID', 'state':'State', 'user':'User', 'nodelist':'Alloc Node', 'time_start':'Start', 'time_end':'End', 'duration':'Duration', 'exit_code':'Exit', 'tres_req':'Req Tres', 'gres_req':'Req Gres', 'work_dir':'Work Dir'}
+        fields    =['id_job','job_name', 'id_user','state', 'nodelist', 'time_start','time_end', 'exit_code', 'tres_req', 'tres_alloc', 'gres_req', 'gres_alloc', 'work_dir']
+        data      = SlurmDBQuery().getJobByName(name, fields)  #user, duration is added by the function
+        d_flds    = {'id_job':'Job ID', 'state':'State', 'user':'User', 'nodelist':'Alloc Node', 'time_start':'Start', 'time_end':'End', 'duration':'Duration', 'exit_code':'Exit', 'tres_req':'Req Tres', 'gres_req':'Req Gres', 'work_dir':'Work Dir'}
+        total_cnt = len(data)
+        if len(data) > 100:
+           data=data[-100:]
+        for d in data:
+           d['time_start'] = MyTool.getTsString(d['time_start'])
+           d['time_end']   = MyTool.getTsString(d['time_end'])
 
         htmlTemp   = os.path.join(wai, 'jobByName.html')
-        htmlStr    = open(htmlTemp).read().format(job_name=name, job_list=data, job_title=d_flds)
+        htmlStr    = open(htmlTemp).read().format(job_name=name, job_cnt=total_cnt, job_list=data, job_title=d_flds)
         return htmlStr
         #return '{}\n{}'.format(fields, data)
         
@@ -1371,7 +1379,7 @@ class SLURMMonitor(object):
         htmlTemp   = os.path.join(wai, 'jobDetail.html')
         htmlStr    = open(htmlTemp).read().format(job_id=jid, job_name=job_name, job_state=job_report['State'], user=user, 
                                                   update_time=datetime.datetime.fromtimestamp(ts).ctime(),
-                                                  grafana_url=grafana_url,
+        #                                          grafana_url=grafana_url,
                                                   worker_proc=worker_proc, title_list=proc_fields,
                                                   worker_cnt=worker_cnt, core_cnt=cpu_cnt, proc_cnt=proc_cnt,note=msg_note,
                                                   job_report=jobs_report)

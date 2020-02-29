@@ -16,26 +16,33 @@ LOCAL_TZ   = timezone(timedelta(hours=-4))
 ORG_GROUPS = list(map((lambda x: grp.getgrnam(x)), ['genedata','cca','ccb','ccm', 'ccq', 'scc']))
     
 def getUid (user):
-    try:
-       p=pwd.getpwnam(user)
-    except KeyError:
-       print('ERROR: MyTool::getUid uid with user name {} cannot be found.'.format(user))
-       return None
-    return p.pw_uid
+    p = getUserStruct(uname=user)
+    if p:
+       return p.pw_uid
+    return None
 
 def getUser (uid):
+    p = getUserStruct(int(uid))
+    if p:
+       return p.pw_name
+    return None
+
+def getUserStruct (uid=None, uname=None):
+    p = None
     try:
-       p=pwd.getpwuid(int(uid))
+       if uid != None:
+          p=pwd.getpwuid(int(uid))
+       if uname:
+          p=pwd.getpwnam(uname)
     except KeyError:
        print('ERROR: MyTool::getUser user with uid {} cannot be found.'.format(uid))
        return None
-    return p.pw_name
+    return p
 
 def getUserGroups (user):
     groups = [g.gr_name for g in grp.getgrall() if user in g.gr_mem]
     gid    = pwd.getpwnam(user).pw_gid
     groups.append(grp.getgrgid(gid).gr_name)
-
     return groups
 
 def getUserOrgGroup (user):
@@ -352,14 +359,6 @@ def gresList2Str (gresList):
         rlt += gres.replace(':','=')
     return rlt
 
-#'gpu:k40c:1(IDX:1)', 'gpu:k40c:0(IDX:N/A)'
-def extractInt (pattern, s, idx=0):
-    lst=re.findall(pattern, s)
-    if len(lst) > idx:
-       return int(lst[idx])
-    else:
-       return 0
-    
 def readFile (filename):
    result = None
    if os.path.isfile(filename) and os.stat(filename).st_size>0:
@@ -414,6 +413,14 @@ def getSeqDeri_x (seq, xIdx, yIdx):
     x    = [ item[xIdx] for item in seq ]
     x.pop(0)
     return [[item[0], item[1]] for item in zip(x,deri)]
+
+#'tres_per_node': 'gpu:1'
+#'gpu:v100-32gb:1'
+def tresStr2Dict(tres_per_node_str):
+    if not tres_per_node_str or ':' not in tres_per_node_str:
+       return {}
+    l = tres_per_node_str.split(':')
+    return {l[0]:int(l[-1])}
 
 #job 'tres_alloc_str': 'cpu=2,mem=36000M,node=2,billing=2,gres/gpu=4'
 #    'tres_req_str': 'cpu=2,mem=36000M,node=2,billing=2,gres/gpu=4'

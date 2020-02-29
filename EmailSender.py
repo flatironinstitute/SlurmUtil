@@ -8,8 +8,8 @@ from email.message import EmailMessage
 
 RECIPIENTS    =['yliu@flatironinstitute.org','ncarriero@flatironinstitute.org','dsimon@flatironinstitute.org']
 #RECIPIENTS    =['yliu@flatironinstitute.org','yanbin_liu@yahoo.com']
-MSG_LOW_UTIL  ='Dear user, \n\nYour job {} has run for {} with an average CPU utilization of {:.2f} and MEM utilization of {:.2f} on node {} with a total of {} cpus. You may check the details of the resource usage at {}. \n\n Please verify that this job is behaving as expected. If you no longer need the job, please terminate it (e.g., use "scancel"), so that the resources allocated to it can be used by others. \n\n Thank you very much! \n SCC team'
-SCC_USERS     =['yliu', 'ncarriero', 'dsimon', 'ifisk', 'apataki', 'jcreveling', 'awatter', 'ntrikoupis', 'jmoore', 'pgunn', 'achavkin', 'elovero']
+MSG_LOW_UTIL  ='Dear {}, \n\nYour job {} has run for {} with an average CPU utilization of {:.2f} and MEM utilization of {:.2f} on node {} with a total of {} cpus. You may check the details of the resource usage at {}. \n\n Please verify that this job is behaving as expected. If you no longer need the job, please terminate it (e.g., use "scancel"), so that the resources allocated to it can be used by others. \n\n Thank you very much! \n SCC team'
+SCC_USERS     =['yliu', 'ncarriero', 'dsimon', 'ifisk', 'apataki', 'jcreveling', 'awatter', 'ntrikoupis', 'jmoore', 'pgunn', 'achavkin', 'elovero', 'rblackwell']
 
 
 def getMsg_test ():
@@ -56,18 +56,21 @@ class JobNoticeSender:
         MyTool.writeFile (self.cacheFile, self.last_jobNotice)
         
     def sendJobNotice (self, ts, job):
-        user   =MyTool.getUser(job['user_id'])
-        if user in SCC_USERS:
+        user   =MyTool.getUserStruct(int(job['user_id']))
+        groups =MyTool.getUserGroups(user.pw_name)
+        if 'scc' in groups:
            return
         
+        userName     = user.pw_name
+        userFullName = user.pw_gecos.split(',')[0]
         addr   ='http://mon7:8126/jobDetails?jid={}'.format(job['job_id'])
-        content=MSG_LOW_UTIL.format(job['job_id'], timedelta(seconds=ts - int(job['start_time'])), job['job_avg_util'], job['job_mem_util'], job['nodes'], job['num_cpus'], addr)
-        #to_list=RECIPIENTS + ['@flatironinstitute.org'.format(user)]
+        content=MSG_LOW_UTIL.format(userFullName, job['job_id'], timedelta(seconds=ts - int(job['start_time'])), job['job_avg_util'], job['job_mem_util'], job['nodes'], job['num_cpus'], addr)
+        #to_list=RECIPIENTS + ['@flatironinstitute.org'.format(userName)]
         to_list=RECIPIENTS
 
         msg = EmailMessage()
         msg.set_content(content)
-        msg['Subject'] = 'Long runnig job with low utilization at slurm cluster -- Job {} by {}'.format(job['job_id'], user)
+        msg['Subject'] = 'Long runnig job with low utilization at slurm cluster -- Job {} by {}'.format(job['job_id'], userName)
         msg['From']    = 'yliu'
         msg['To']      = ', '.join(to_list)
         
