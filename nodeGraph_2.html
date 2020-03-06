@@ -6,12 +6,6 @@
 	<script type="text/javascript" src="static/scripts/annotations.js"></script>
 	<script type="text/javascript" src="static/scripts/exporting.js"></script>
         <script type="text/javascript" src="static/scripts/myHC.js"></script>
-<!--
-<script src="https://code.highcharts.com/highcharts.js"></script>
-<script src="https://code.highcharts.com/modules/annotations.js"></script>
-<script src="https://code.highcharts.com/modules/exporting.js"></script>
--->
-
     </head>
     <body>
 	<div id="loadChart" style="min-width: 1000px; height: 400px; margin: 0 auto"></div>
@@ -23,7 +17,7 @@
         <p>
         Data from %(note)s
         <script>
-         timeSeriesScatterPlot   (%(lseries)s,   "loadChart", "CPU Usage          %(spec_title)s from %(start)s to %(stop)s", "CPU Load ", []);
+         timeSeriesScatterPlot   (%(lseries)s,   "loadChart", "CPU Usage          %(spec_title)s from %(start)s to %(stop)s", "CPU Usage", []);
 	 timeSeriesScatterPlot_KB(%(mseries)s,   "memChart",  "Memory Usage (rss) %(spec_title)s from %(start)s to %(stop)s", "Mem (KB)",  []);
 	 timeSeriesScatterPlot   (%(iseries_rw)s,"ioChart",   "IO Rate            %(spec_title)s from %(start)s to %(stop)s", "Bytes/Sec", []);
 	</script>

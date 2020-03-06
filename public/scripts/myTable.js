@@ -2,12 +2,53 @@
 function prepareData (data) {
    return data
 }
+function getDisplayBps(n) {
+   return getDisplayI(n) + ' Bps'
+}
+//input is nB
+function getDisplayB (n) {
+   if (typeof (n) != 'Number')
+      n = parseFloat (n) 
+   if (n < 1024)
+      return n.toString() + ' B'
+   n /= 1024
+   return getDisplayK(n) + 'B'
+}
+function getDisplayI (n) {
+   if (typeof (n) != 'Number')
+      n = parseFloat (n) 
+   if ( n < 1024)
+      return n.toString() 
+   return getDisplayK(n)
+}
+function getDisplayK (n) {
+   if (typeof (n) != 'Number')
+      n = parseFloat (n) 
+   if (n < 1024) {
+      if (n.isInteger())
+         return n.toString() + ' K'
+      else
+         return n.toFixed(2) + ' K'
+   }
+   n /= 1024
+   if (n < 1024)
+      return n.toFixed(2) + ' M'
+   n /= 1024
+   if (n < 1024)
+      return n.toFixed(2) + ' G'
+   n = n / 1024
+   return n.toFixed(2) + ' T'
+}
+function getDisplayFloat (n) {
+   if (typeof (n) != 'Number')
+      n = parseFloat (n) 
+   return n.toFixed(2)
+}
 
 //data_dict is a dictionary of a fixed format
 function createMultiTable (data_dict, parent_id, table_title_list, job_id) {
    console.log(data_dict)
-   console.log(parent_id)
-   console.log(table_title_list)
+   console.log("table_title_list=", table_title_list)
 
    var pas = d3.select('#'+parent_id).selectAll('p')
                .data(Object.keys(data_dict))
@@ -33,15 +74,13 @@ function createMultiTable (data_dict, parent_id, table_title_list, job_id) {
       .data(function(d) {return d})
       .enter().append('td')
          .attr('class', function(d,i) {return 'noborder ' + table_title_list[i]})
-         .text(function (d) {return d})
+         .text(function (d) {return d}) //TODO: change to createMultiTable2 style
 }
 
 //data_dict is a dictionary of a fixed format
-function createMultiTable2 (data_dict, parent_id, table_title_list, node, alloc_gpus) {
+function createMultiTable2 (data_dict, parent_id, table_title_list, node, alloc_gpus, type_list) {
    console.log(data_dict)
-   console.log(parent_id)
-   console.log("table_title_list")
-   console.log(table_title_list)
+   console.log("table_title_list=", table_title_list)
 
    var pas = d3.select('#'+parent_id).selectAll('p')
                .data(Object.keys(data_dict))
@@ -74,8 +113,19 @@ function createMultiTable2 (data_dict, parent_id, table_title_list, node, alloc_
    trs.selectAll('td')
       .data(function(d) {console.log(d); return d})
       .enter().append('td')
-         .attr('class','noborder')
-         .text(function (d) {return d})
+         .attr('class', function(d,i) {return 'noborder ' + table_title_list[i]})
+         .html(function (d, i) {
+                 if (type_list && type_list[i]) {
+                    if (type_list[i] == 'B')
+                       return getDisplayB(d) 
+                    else if (type_list[i] == 'Bps')
+                       return getDisplayBps(d)
+                    else if (type_list[i] == 'Float')
+                       return getDisplayFloat(d) 
+                 }
+             return d
+         })
+         //.text(function (d) {return d})
 }
 
 function createMultiList (data_dict, parent_id) {
@@ -94,53 +144,6 @@ function createMultiList (data_dict, parent_id) {
           .text(function(d) { return d })
 }
 
-function createNestedTable (data, field_key, title_dict, sub_data, table_id, parent_id) {
-        console.log('createNestedTable')
-        console.log(data)
-        console.log(sub_data)
-        var col_cnt = Object.keys(title_dict).length 
-        var table  = d3.select('#'+parent_id).append('table').property('id', table_id);
-        var header = table.append('thead')
-                          .append('tr')
-                          .selectAll('th')
-                          .data(Object.keys(title_dict))
-                          .enter().append('th')
-                          .text(function (d,i) { return title_dict[i]; })
-        var enterRows   = table.append('tbody').selectAll('tr')
-                          .data(data).enter()
-        enterRows.append('tr')
-            .selectAll('td')
-            .data(function (d) {
-                return Object.keys(title_dict).map(function (k) {
-                    return { 'value': d[k], 'name': k};
-                });
-             })
-            .enter().append('td')
-            .attr('data-th', function (d) {
-                        return d.name; })
-            .html(function (d) {
-                 if (d.name == 'user') {
-                    return '<a href=./userJobs?user=' + d.value+'>' + d.value + '</a>'
-                 } else if (d.name == 'partition') {  // not sure if it is used
-                    return '<a href=./partitionDetail?partition=' + d.value+'>' + d.value + '</a>'
-                 } else if (d.name == 'job_id') {
-                    return '<a href=./jobDetails?jid=' + d.value + '>' + d.value + '</a>'
-                 }
-                 return d.value;})
-
-         var subRows = enterRows.insert('tr')
-            .attr('class', function(d) {return d['job_id'] + ' worker_proc';})
-            .append('td')
-            .attr('colspan', col_cnt)
-         subRows.append('table')
-                .attr('class', 'nested_table')
-                .selectAll('tr')
-                .data(function (d) {return d['nodes_flat']})
-                .enter().append('tr').append('td')
-                   .text(function (d) {return d;})
-                
-};
-             
 function createTable (data, titles_dict, table_id, parent_id, pre_data_func=prepareData, type_dict) {
         console.log("createTable data=", data, ",pre_data_fun=", pre_data_func, ",type_dict=", type_dict)
         var sortAscending = true;
@@ -215,7 +218,7 @@ function createTable (data, titles_dict, table_id, parent_id, pre_data_func=prep
                        return str
                     }
                  }
-                 if (d.name == 'user') {
+                 if (d.name == 'user') { // TODO: change to use type_dict
                     return '<a href=./userDetails?user=' + d.value+'>' + d.value + '</a>'
                  } else if (d.name == 'partition') {  
                     return '<a href=./partitionDetail?partition=' + d.value+'>' + d.value + '</a>'

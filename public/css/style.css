@@ -257,9 +257,12 @@ li span{
   margin: 40px;
 }
 td.group_plus:before {
+//   content: "\2795\ ";
    content: "\25b8\ ";
+//   content: "\e081\ ";
 }
 td.group_minus:before {
+//   content: "\2796\ ";
    content: "\25be\ ";
 }
 td.group_sub:before {
@@ -298,6 +301,9 @@ td.VMS {
    text-align: right;
 }
 td.IO {
+   text-align: right;
+}
+td.KB {
    text-align: right;
 }
 .hide {

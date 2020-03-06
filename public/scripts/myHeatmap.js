@@ -179,6 +179,11 @@ function prepareGPUData(nodeData, gpu_labels)
                    di['gpuIdx'] = i
                    di['gpuLabel'] = d['gpus']['gpu'+i]['label']
                    di['stat']     = d['gpus']['gpu'+i]['state']
+                   job            = d['gpus']['gpu'+i]['job']
+                   if (job != 0 ) 
+                      di['jobs']  = [job]
+                   else
+                      di['jobs']  = []
                    gpuData.push(di)
                 }
                 gpu_labels.push(d['name'])

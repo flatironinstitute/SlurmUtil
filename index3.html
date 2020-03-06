@@ -4,8 +4,9 @@
 <title>Tabular Summary</title>
 <link rel="stylesheet" href="/static/css/style.css">
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+<script type="text/javascript" src="static/scripts/jquery.min.js"></script>
+<script type="text/javascript" src="static/scripts/myTable.js"></script>
 
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 <script>
 const INTERVAL_REFRESH=600
 function timedRefresh(timeoutPeriod) {
@@ -21,10 +22,11 @@ const USER_IDX       = 4
 const RSS_IDX        = 9
 const VMS_IDX        = 10
 const IO_IDX         = 11
-const COL_COUNT      = 12
-const expDict          ={0:JOB_IDX, 1:0, 2:0, 3:0, 4:JOB_IDX, 5:JOB_IDX, 6:JOB_IDX, 7:JOB_IDX, 8:JOB_IDX, 9:JOB_IDX, 10:JOB_IDX, 11:JOB_IDX}  // 0:2 when sorted on 0, 2 is expandable 
-const typeDict         ={0:0, 1:0, 2:2, 3:0, 4:0, 5:1, 6:1, 7:2, 8:2, 9:3, 10:3, 11:1}  // 0:0 type of column 0 is string(0), integer(1), float(2), float exp(3)
-const rightDict        ={0:0, 1:0, 2:1, 3:0, 4:0, 5:1, 6:1, 7:1, 8:1, 9:1, 10:1, 11:1}  // 9:1 include right class of 9
+const FD_IDX         = 12
+const COL_COUNT      = 13
+const expDict          ={0:JOB_IDX, 1:0, 2:0, 3:0, 4:JOB_IDX, 5:JOB_IDX, 6:JOB_IDX, 7:JOB_IDX, 8:JOB_IDX, 9:JOB_IDX, 10:JOB_IDX, 11:JOB_IDX, 12:JOB_IDX}  // 0:2 when sorted on 0, 2 is expandable 
+const typeDict         ={0:0, 1:0, 2:2, 3:0, 4:0, 5:1, 6:1, 7:2, 8:2, 9:3, 10:3, 11:1, 12:1}  // 0:0 type of column 0 is string(0), integer(1), float(2), float exp(3)
+const rightDict        ={0:0, 1:0, 2:1, 3:0, 4:0, 5:1, 6:1, 7:1, 8:1, 9:1, 10:1, 11:1, 12:1}  // 9:1 include right class of 9
 
 var currSortIdx      = 0
 var currSortOrder    = INC_ORDER
@@ -112,7 +114,7 @@ function getSingleSummaryData(table_data, startRow, endRow, sortIdx) {
             break;
           case 1: //integer
             if ( i == IO_IDX )
-	       summary[i] = "Total " + getDisplayBS(colVals[i].reduce(getSum, 0)); 
+	       summary[i] = "Total " + getDisplayBps(colVals[i].reduce(getSum, 0)); 
             else
                summary[i] = "Total " + colVals[i].reduce(getSum, 0);  
             break
@@ -121,7 +123,7 @@ function getSingleSummaryData(table_data, startRow, endRow, sortIdx) {
             break
           case 3:
             if ( i == RSS_IDX || i == VMS_IDX )
-	       summary[i] = "Avg. " + getDisplayKB(colVals[i].reduce(getSum, 0.0)/totalCnt); 
+	       summary[i] = "Avg. " + getDisplayB(colVals[i].reduce(getSum, 0.0)/totalCnt); 
             else
                summary[i] = "Avg. " + (colVals[i].reduce(getSum, 0.0)/totalCnt).toExponential(2); 
             break
@@ -197,43 +199,22 @@ function getPlusSign () {
 function getMinusSign() {
    return '<span class="glyphicon glyphicon-minus-sign"></span>'
 }
-function getDisplayBS (n) {
-   if (n < 1024)
-      return n + " Bps"
-   n = n /1024
-   return getDisplayKB(n) + "ps"
-}
-function getDisplayKB (n) {
-   if (n < 1024) {
-      if (Number.isInteger(n))
-         return n + " KB"
-      else
-         return n.toFixed(2) + " KB"
-   }
-   n = n / 1024
-   if ( n < 1024 ) 
-      return n.toFixed(2) + " MB"
-   n = n / 1024
-   if ( n < 1024 ) 
-      return n.toFixed(2) + " GB"
-   n = n / 1024
-   return n.toFixed(2) + " TB"
-}
-
 function getTDsHtml (r) {
    // 0:Node, Status, Delay, Job, User, 5:Cores Allocated, Processes, Aggregate Load, RSS, 9:VMS
    var delayC= getCategory(r[2], 120, '"right"', '"right"', '"right alarm"')
    var tds   = `<td><a href="./nodeDetails?node=${r[0]}">${r[0]}</a></td><td>${r[1]}</td><td class=${delayC}>${r[2]}</td>`
-   var tds2  = '<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>'
+   var tds2  = ''
+   for (let i=JOB_IDX; i<COL_COUNT; i++) tds2 += '<td></td>'
    if ( r.length > JOB_IDX ) {
       var jid   = r[JOB_IDX]
       var userC = getCategory(r[7], r[5]-1, r[5]+1, '', '', '"alarm"') 
       var utilC = getCategory(r[7], r[5]-1, r[5]+1, '"right inform"', '"right"', '"right"') 
       var avgC  = getCategory(r[8], r[5]-1, r[5]+1, '"right inform"', '"right"', '"right"') 
-      var rss   = getDisplayKB (r[9])
-      var vms   = getDisplayKB (r[10])
-      var io    = getDisplayBS (r[11])
-      tds2 = `<td><a href="./jobDetails?jid=${jid}">${jid}</td><td class=${userC}><a href="./userDetails?user=${r[4]}">${r[4]}</a></td><td class="right">${r[5]}</td><td class="right">${r[6]}</td><td class=${utilC}>${r[7]}</td><td class=${avgC}>${r[8]}</td><td class="right">${rss}</td><td class="right">${vms}</td><td class="right">${io}</td></tr>`
+      var rss   = getDisplayB (r[9])
+      var vms   = getDisplayB (r[10])
+      var io    = getDisplayBps (r[11])
+      var fd    = r[12]
+      tds2 = `<td><a href="./jobDetails?jid=${jid}">${jid}</td><td class=${userC}><a href="./userDetails?user=${r[4]}">${r[4]}</a></td><td class="right">${r[5]}</td><td class="right">${r[6]}</td><td class=${utilC}>${r[7]}</td><td class=${avgC}>${r[8]}</td><td class="right">${rss}</td><td class="right">${vms}</td><td class="right">${io}</td><td class="right">${fd}</td></tr>`
    }
 
    return tds + tds2
@@ -285,9 +266,9 @@ function getTableBodyHtml() {
             result.push (getTRecordHtml(load_data[i], orderIdx))
          }
       } // else skip the other records
-      //else {
-      //   console.log("getTableBodyHtml skip record " + load_data[i] + " " + load_data[i][orderIdx])
-      //}
+      else {
+         console.log("getTableBodyHtml skip record ", load_data[i], load_data[i][orderIdx])
+      }
       i++
    }
 
@@ -436,7 +417,8 @@ $(document).ready(function(){
    <th class="sortable">Avg CPU Util    <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">RSS             <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
    <th class="sortable">VMS             <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
-   <th class="sortable">I/O         <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
+   <th class="sortable">I/O             <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
+   <th class="sortable">Num Fds         <span class="glyphicon glyphicon-triangle-top"></span><span class="glyphicon glyphicon-triangle-bottom"></span></th>
 </tr>
 </thead>
 <tbody id="tbody"> </tbody>

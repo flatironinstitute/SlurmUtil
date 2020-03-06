@@ -13,5 +13,8 @@
    "log": {
        "level": "logging.INFO"
    },
+   "email": {
+       "flag": false
+   },
    "test":  false
 }
