@@ -75,7 +75,7 @@ then
     while [[ 1 ]] 
     do
 #	python -m cProfile -o profile.log ${ScriptDir}/mqtMonStream.py ${pData} mqt_urls 2>&1 &
-	python ${ScriptDir}/mqttMonStream.py ${pData} mqt_urls 2>&1 &
+	python ${ScriptDir}/mqttMonStream.py 2>&1 &
 	pid=$!
 	echo ${pid} > ${cm}_monitor_mqt.pid
 	wait ${pid}

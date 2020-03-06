@@ -112,7 +112,7 @@ class FileWebUpdater(threading.Thread):
                d = 1
             IOBps   = int((proc['io']['read_bytes']+proc['io']['write_bytes'] - i0)/d)
             #add jid 12/09/2019, add io_read, write 12/13/2019
-            uid2procs[proc['uid']].append([pid, CPURate, proc['create_time'], proc['cpu']['user_time'], proc['cpu']['system_time'], proc['mem']['rss'], proc['mem']['vms'], proc['cmdline'], IOBps, proc['jid'], proc['io']['read_bytes'], proc['io']['write_bytes']])
+            uid2procs[proc['uid']].append([pid, CPURate, proc['create_time'], proc['cpu']['user_time'], proc['cpu']['system_time'], proc['mem']['rss'], proc['mem']['vms'], proc['cmdline'], IOBps, proc['jid'], proc['num_fds'], proc['io']['read_bytes'], proc['io']['write_bytes']])
 
         # get summary over processes of uid
         for uid, procs in uid2procs.items():  # proc: [pid, CPURate, create_time, user_time, system_time, rss, vms, cmdline, IOBps]
