@@ -7,7 +7,6 @@ import MyTool
 from email.message import EmailMessage
 
 RECIPIENTS    =['yliu@flatironinstitute.org','ncarriero@flatironinstitute.org','dsimon@flatironinstitute.org']
-#RECIPIENTS    =['yliu@flatironinstitute.org','yanbin_liu@yahoo.com']
 MSG_LOW_UTIL  ='Dear {}, \n\nYour job {} has run for {} with an average CPU utilization of {:.2f} and MEM utilization of {:.2f} on node {} with a total of {} cpus. You may check the details of the resource usage at {}. \n\n Please verify that this job is behaving as expected. If you no longer need the job, please terminate it (e.g., use "scancel"), so that the resources allocated to it can be used by others. \n\n Thank you very much! \n SCC team'
 SCC_USERS     =['yliu', 'ncarriero', 'dsimon', 'ifisk', 'apataki', 'jcreveling', 'awatter', 'ntrikoupis', 'jmoore', 'pgunn', 'achavkin', 'elovero', 'rblackwell']
 
