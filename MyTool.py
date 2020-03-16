@@ -15,6 +15,10 @@ ONEDAY_SECS       = 24*3600
 LOCAL_TZ   = timezone(timedelta(hours=-4))
 ORG_GROUPS = list(map((lambda x: grp.getgrnam(x)), ['genedata','cca','ccb','ccm', 'ccq', 'scc']))
     
+def getAllUsers():
+    lst = pwd.getpwall()
+    return [p[0] for p in lst]
+
 def getUid (user):
     p = getUserStruct(uname=user)
     if p:
@@ -483,7 +487,20 @@ def getGPUAlloc_layout (node_iter, gpu_detail_iter):
            idx += 1
 
     return dict(result)
-    
+     
+#'tres_req_str': 'cpu=400,node=10,billing=400'
+def getTresDict (tres_str):
+    d  = {}
+    if not tres_str:
+       return d
+    for item in tres_str.split(','):
+        k,v  = item.split('=')
+        if v.isnumeric():
+           d[k] = int(v)
+        else:
+           d[k] = v
+    return d
+
 #input is Bps
 def getDisplayBps (n):
    return '{}Bps'.format(getDisplayI(n))

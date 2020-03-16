@@ -3,12 +3,13 @@
 
 <head>
 <meta charset='UTF-8'>
-<title>Pending Jobs</title>
+<title>User Detail</title>
 <link rel="stylesheet" href="/static/css/style.css">
 
 <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
 <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
 <script type="text/javascript" src="static/scripts/myTable.js"></script>
+<script type="text/javascript" src="static/scripts/myList.js"></script>
 <script type="text/javascript">
 
 $(document).ready(function(){{
@@ -17,38 +18,52 @@ $(document).ready(function(){{
     var p_j_titles     = {{'job_id':'Job ID', 'name':'Name', 'submit_time':'Submit Time', 'num_nodes':'Req Node', 'num_cpus':'Req CPU', 'account':'Account', 'partition':'Req Part.', 'state_reason':'Pending Reason', 'state_exp':'Note'}}
     var part_titles    = {{'name': 'Partition', 'flag_shared':'Share', 'total_nodes':'Total Node', 'total_cpus':'Total CPU', 'total_gpus':'Total GPU', 'avail_nodes_cnt':'Avail Node', 'avail_cpus_cnt':'Avail CPU', 'avail_gpus':'Avail GPU', 'user_lmt_nodes':'User Node Lmt', 'user_lmt_cpus':'User CPU Lmt', 'grp_lmt_nodes':'Grp Node Lmt', 'grp_lmt_cpus':'Grp CPU Lmt', 'user_alloc_nodes':'User Alloc Node', 'user_alloc_cpus':'User Alloc CPU', 'grp_alloc_nodes':'Grp Alloc Node','grp_alloc_cpus':'Grp Alloc CPU', 'user_avail_nodes': 'User Avail Node', 'user_avail_cpus': 'User Avail CPU'}}
     var j_h_titles     = {{'job_id':'Job ID', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
+    var part_type_dict = {{'name':'Partition'}}
+    var job_type_dict  = {{'JobName':'JobName', 'name':'JobName'}}
+    var running_jobs   = {running_jobs}
+    var pending_jobs   = {pending_jobs}
+    var part_info      = {part_info}
+    var user_assoc     = {user_assoc}
 
-    if ({running_jobs}) {{
-       createTable ({running_jobs}, r_j_titles, 'run_job_table',  'running_jobs');
+    createList (user_assoc, '#user_assoc')
+    if (running_jobs.length >0) {{
+       createTable (running_jobs, r_j_titles, 'run_job_table',  'running_jobs', undefined, job_type_dict);
     }}
-
-    if ({pending_jobs}) {{
-       createTable ({pending_jobs}, p_j_titles, 'pend_job_table',  'pending_jobs');
+    if (pending_jobs.length >0) {{
+       createTable (pending_jobs, p_j_titles, 'pend_job_table',  'pending_jobs',undefined, job_type_dict);
     }}
-
-    createTable ({part_info},   part_titles, 'part_table',        'qos_part')
+    createTable (part_info,     part_titles, 'part_table',        'qos_part', undefined, part_type_dict)
     createTable ({job_history}, j_h_titles,  'job_history_table', 'past_job') 
+
+    $("#running_jobs_len").text(running_jobs.length)
+    $("#pending_jobs_len").text(pending_jobs.length)
+    $("#part_len").text(part_info.length)
 }});
 </script>
 </head>
 
 <body>
 <div id="user" calss="page-wrap">
-<h3> {user}: ({uname}, {uid}, <a href='userJobGraph?uname={uname}'>Usage Graph</a>)</h3>
+<h3> {user}: ({uname}, 
+   <a href='userJobGraph?uname={uname}'>Usage Graph</a>,
+   <a href='user_fileReport?user={uname}&days=30'>File Usage Report
+)</h3>
    <b>Jump to <a href='#running_jobs'>Running Jobs, </a>
       <a href='#pending_jobs'>Pending Jobs, </a>
       <a href='#qos_part'>Partition Resources, </a>
       <a href='#past_job'>Jobs in the Past </a></b>
    <p><i>Update time: {update_time}</i>
 <hr>
+<div id="user_assoc">
+</div>
 <div id="running_jobs" class="page-wrap">
-   <h3>{running_job_cnt} Running Jobs</h3>
+   <h3>Total <font id="running_jobs_len"></font> Running Jobs</h3>
 </div>
 <div id="pending_jobs" class="page-wrap">
-   <h3>{pending_job_cnt} Pending Jobs</h3>
+   <h3>Total <font id="pending_jobs_len"></font> Pending Jobs</h3>
 </div>
 <div id="qos_part" class="page-wrap">
-   <h3>{part_cnt} Partition Resources</h3>
+   <h3>Total <font id="part_len"></font> Available Partitions</h3>
 </div>
 <div id="past_job" class="page-wrap">
    <h3>Jobs of Last {day_cnt} Days</h3>

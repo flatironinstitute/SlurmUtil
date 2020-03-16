@@ -9,6 +9,7 @@
 <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
 <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
 <script type="text/javascript" src="static/scripts/myTable.js"></script>
+<script type="text/javascript" src="static/scripts/myList.js"></script>
 <script type="text/javascript">
 
 $(document).ready(function(){{
@@ -18,20 +19,23 @@ $(document).ready(function(){{
        createMultiTable ({worker_proc}, 'div_worker_proc', {title_list}, {job_id})
     }}
 
-    createTable ({job_report}, j_h_titles,  'job_history_table', 'job_report') 
+    createList  ({job_info},  '#job_info')
+    createTable ({job_report}, j_h_titles,  'job_history_table', 'job_report')
 }});
 </script>
 </head>
 
 <body>
 <div id="user" class="page-wrap">
-<h3> Job {job_id}: <a href='./jobByName?name={job_name}'>{job_name}</a> (<a href='jobGraph?jobid={job_id}'>Usage Graph</a>), State: {job_state}, User:{user}</h3>
+<h3> Job {job_id}: <a href='./jobByName?name={job_name}'>{job_name}</a> (<a href='jobGraph?jobid={job_id}'>Usage Graph</a>)</h3>
    <b>Jump to <a href='#job_report'>sacct</a></b>
    <p><i>Update time: {update_time}</i>
 <hr>
 </div>
+<div id="job_info">
+</div>
 <div id="div_worker_proc" class="page-wrap">
-   <h3>Total: {worker_cnt} Worker Nodes, {core_cnt} Cores & {proc_cnt} Processes</h3>
+   <h3>Total {proc_cnt} Processes on {worker_cnt} Allocated Nodes and {core_cnt} Cores</h3>
    <div><font color='orange'>{note}</font></div>
 </div>
 <div id="job_report" class="page-wrap">

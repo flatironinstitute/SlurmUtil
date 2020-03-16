@@ -5,23 +5,8 @@
 
 <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
 <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
+<script type="text/javascript" src="static/scripts/myList.js"></script>
 <script type="text/javascript">
-
-    function addList  (data_dict, div_id) {{
-        var data = []
-        for ( var k in data_dict) {{
-            if ( data_dict.hasOwnProperty(k)) {{
-               data.push ({{key:k, value:data_dict[k]}})
-            }}
-        }}
-
-        console.log(data)
-        var ul = d3.select(div_id).append ('ul');
-        ul.selectAll('li')
-          .data  (data).enter()
-          .append('li')
-          .html  (function(d) {{return '<span>' + d['key'] + ':</span>' + d['value']}})
-    }};
 
     function addTable (data, titles_dict, div_id) {{
         console.log(data)
@@ -87,7 +72,7 @@
 <script type="text/javascript">
     var nodes      = {p_nodes};
     var titles     = {n_titles};
-    addList  ({p_detail},    '#details');
+    createList  ({p_detail},    '#details');
     addTable (nodes, titles, '#nodes');
 </script>
 </body>

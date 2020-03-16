@@ -40,6 +40,9 @@ class SlurmEntities:
     self.node_dict      = pyslurm.node().get()
     self.job_dict       = pyslurm.job().get()
     self.update_time    = datetime.now()
+    self.part_node_cpu  = {}  # {'gen': [40, 28], 'ccq': [40, 28], 'ib': [44, 28], 'gpu': [40, 36, 28], 'mem': [96], 'bnl': [40], 'bnlx': [40], 'genx': [44, 40, 28], 'amd': [128, 64]}
+    for pname,part in self.partition_dict.items():
+        self.part_node_cpu[pname] = sorted(set([self.node_dict[name]['cpus'] for name in MyTool.nl2flat(part['nodes'])]), reverse=True)
 
     # extend job_dict by adding nodes_flat
     for job in self.job_dict.values():
@@ -190,7 +193,7 @@ class SlurmEntities:
       else:
          return False
 
-  def getPartitionAvailNodeCPU (self, p_name, features=[], min_mem_per_node=0, gpu={}, gres=[]):
+  def getPartitionAvailNodeCPU (self, p_name, features=[], min_mem_per_node=0, gpu={}, gres=[], cpu_per_node=0):
       avail_nodes          = self.partition_dict[p_name]['avail_nodes']
       avail_cpus_cnt,lst1  = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
 
@@ -203,6 +206,10 @@ class SlurmEntities:
       if gpu:
          avail_nodes     = [n for n in avail_nodes if self.nodeWithGPU (self.node_dict[n], gpu)]
          avail_cpus_cnt,lst1 = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
+      if cpu_per_node:
+         avail_nodes     = [n for n in avail_nodes if (self.node_dict[n]['cpus']-self.node_dict[n]['alloc_cpus'])>=cpu_per_node]
+         avail_cpus_cnt,lst1 = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
+         
       return len(avail_nodes), avail_cpus_cnt, avail_nodes
 
   # return list of partitions with fields, add attributes to partition_dict
@@ -245,7 +252,7 @@ class SlurmEntities:
 
           if job['state_reason'] == 'QOSMaxCpuPerUserLimit':
              u_node_qos, u_cpu_qos = self.getPartitionTres (p_name, 'max_tres_pu')
-             u_node,     u_cpu= SlurmEntities.getUserAllocInPartition(job['user_id'], p_name, self.partition_dict[p_name], self.job_dict)
+             u_node,     u_cpu     = SlurmEntities.getUserAllocInPartition(job['user_id'], p_name, self.partition_dict[p_name], self.job_dict)
              job['state_exp']      = job['state_exp'].format(user=job['user'], max_cpu_user=u_cpu_qos, curr_cpu_user=u_cpu, partition=p_name)
           elif job['state_reason'] == 'QOSMaxNodePerUserLimit':
              u_node_qos, u_cpu_qos = self.getPartitionTres (p_name, 'max_tres_pu')
@@ -267,13 +274,16 @@ class SlurmEntities:
              j_min_mem_pn          = job.get('pn_min_memory', 0)  if job.get('mem_per_node') else 0
              j_min_mem_pc          = job.get('min_memory_cpu', 0) if job.get('mem_per_cpu') else 0
              # check gres requirement
-             #j_gres                = MyTool.gresList2Dict(job.get('gres', []))
              j_tres                = MyTool.tresStr2Dict(job.get('tres_per_node', ''))
+             j_tres_req            = MyTool.getTresDict (job.get('tres_req_str', ''))
              j_min_mem_pn          = max(j_min_mem_pn, j_min_mem_pc*job['num_cpus'])
-             pa_node, pa_cpu, pa_node_lst = self.getPartitionAvailNodeCPU (p_name, j_features, j_min_mem_pn, j_tres)
-             #if j_tres:              j_features.append (MyTool.gresList2Str(job['gres']))
-             if j_tres:              j_features.append (job['tres_per_node'].replace(':','='))
-             if j_min_mem_pn:        j_features.append ('mem_per_node={}MB'.format(j_min_mem_pn))
+             j_min_cpu             = 0
+             j_avg_cpu             = int(j_tres_req['cpu'] / j_tres_req['node']) # TODO: did not consider complext case
+             print('{} {} {}'.format(j_avg_cpu, p_name, self.part_node_cpu[p_name]))
+             if j_avg_cpu == self.part_node_cpu[p_name][0]:
+                j_min_cpu          = j_avg_cpu 
+             pa_node, pa_cpu, pa_node_lst = self.getPartitionAvailNodeCPU (p_name, j_features, j_min_mem_pn, j_tres, cpu_per_node=j_min_cpu)
+             if j_min_mem_pn:        j_feature.append ('mem_per_node={}MB'.format(j_min_mem_pn))
              if j_min_mem_pc:        j_features.append ('mem_per_cpu={}MB'.format(j_min_mem_pc))
              #print("getPendingJobs {} {}".format(pa_node, pa_cpu))
              if pa_node:

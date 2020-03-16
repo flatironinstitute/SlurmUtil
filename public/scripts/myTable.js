@@ -150,7 +150,7 @@ function createTable (data, titles_dict, table_id, parent_id, pre_data_func=prep
         var table         = d3.select('#'+parent_id).append('table').property('id', table_id);
         var firstKey      = Object.keys(titles_dict)[0]   <!--use jobid as tie breaker for sorting -->
 
-        pre_data_func (data)
+        pre_data_func (data)   //data is modified on site
         var headers = table.append('thead')
                            .append('tr')
                            .selectAll('th')
@@ -216,14 +216,22 @@ function createTable (data, titles_dict, table_id, parent_id, pre_data_func=prep
                        for (jid of jids) 
                            str  = str + ' ' + getJobDetailHtml(jid)
                        return str
+                    } else if (type_dict[d.name] == 'JobName') {
+                       return '<a href=./jobByName?name=' + d.value+'>' + d.value + '</a>'
+                    } else if (type_dict[d.name] == 'JobAndStep') {
+                       console.log(d)
+                       if ((d.value.toString().indexOf('.') == -1) && (d.value.toString().indexOf('_')==-1))   // not jobstep
+                          return '<a href=./jobDetails?jid=' + d.value+'>' + d.value + '</a>'
                     }
                  }
                  if (d.name == 'user') { // TODO: change to use type_dict
                     return '<a href=./userDetails?user=' + d.value+'>' + d.value + '</a>'
                  } else if (d.name == 'partition') {  
                     return '<a href=./partitionDetail?partition=' + d.value+'>' + d.value + '</a>'
-                 } else if ((d.name == 'job_id') || (d.name == 'id_job')) {
-                    return '<a href=./jobDetails?jid=' + d.value + '>' + d.value + '</a>'
+                 } else if ((d.name == 'job_id') || (d.name == 'id_job') || (d.name=='JobID')) {
+                    console.log(d)
+                    if ((d.value.toString().indexOf('.') == -1) && (d.value.toString().indexOf('_')==-1))   // not jobstep
+                       return '<a href=./jobDetails?jid=' + d.value + '>' + d.value + '</a>'
                  }
                 
                  return d.value;

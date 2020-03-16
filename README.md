@@ -66,8 +66,8 @@ SLURM_INC = ""
 python setup.py build
 
 cd <dir>
-virtualenv monitor_env
-source ./monitor_env/bin/activate
+virtualenv env_slurm18
+source ./env_slurm18/bin/activate
 pip install Cython
 python setup.py install
 

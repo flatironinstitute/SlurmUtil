@@ -2,12 +2,10 @@
 
 import time
 t1=time.time()
-import subprocess
-import os
+import os,re,subprocess
+import pandas
 import pyslurm
 import MyTool
-import pandas as pd
-
 from collections import defaultdict
 from datetime import datetime, date, timezone, timedelta
 
@@ -42,7 +40,7 @@ class SlurmDBQuery:
         f_name = "slurm_cluster_job_table.csv"
         m_time = os.stat(f_name).st_mtime
         if m_time > self.job_df_ts:
-           self.job_df    = pd.read_csv(f_name,usecols=['cpus_req','id_job','state', 'time_submit', 'time_eligible', 'time_start', 'time_end'])
+           self.job_df    = pandas.read_csv(f_name,usecols=['cpus_req','id_job','state', 'time_submit', 'time_eligible', 'time_start', 'time_end'])
            self.job_df_ts = m_time
 
         return self.job_df
@@ -53,11 +51,11 @@ class SlurmDBQuery:
         # generate 
 
         #cluster usage
-        df         = pd.read_csv("slurm_cluster_assoc_usage_hour_table.csv", names=['creation_time','mod_time','deleted','id','id_tres','time_start','alloc_secs'], usecols=['id','id_tres','time_start','alloc_secs'])
+        df         = pandas.read_csv("slurm_cluster_assoc_usage_hour_table.csv", names=['creation_time','mod_time','deleted','id','id_tres','time_start','alloc_secs'], usecols=['id','id_tres','time_start','alloc_secs'])
         st, stp, df= MyTool.getDFBetween (df, 'time_start', start, stop)
 
         # get account's data, id_assoc (user) - account
-        userDf     = pd.read_csv("slurm_cluster_assoc_table.csv", usecols=['id_assoc','acct'], index_col=0)
+        userDf     = pandas.read_csv("slurm_cluster_assoc_table.csv", usecols=['id_assoc','acct'], index_col=0)
         # add acct to df
         df['acct'] = df['id'].map(userDf['acct'])
         df.drop('id', axis=1, inplace=True)
@@ -70,7 +68,7 @@ class SlurmDBQuery:
 
     def getUserReport_hourly(self, start='', stop='', top=5):
         # get top 5 user for each resource
-        df     = pd.read_csv("slurm_cluster_assoc_usage_day_table.csv", names=['creation_time','mod_time','deleted','id','id_tres','time_start','alloc_secs'], usecols=['id','id_tres', 'alloc_secs', 'time_start'])
+        df     = pandas.read_csv("slurm_cluster_assoc_usage_day_table.csv", names=['creation_time','mod_time','deleted','id','id_tres','time_start','alloc_secs'], usecols=['id','id_tres', 'alloc_secs', 'time_start'])
         st, stp, df     = MyTool.getDFBetween (df, 'time_start', start, stop)
         sumDf  = df.groupby(['id_tres','id']).sum()
 
@@ -80,8 +78,8 @@ class SlurmDBQuery:
         nodeIdx= sumDf.loc[(4,)].nlargest(top, 'alloc_secs').index
         #topIdx = cpuIdx.union(memIdx).union(nodeIdx)
 
-        userDf = pd.read_csv("slurm_cluster_assoc_table.csv",            usecols=['id_assoc','user','acct'], index_col=0)
-        df     = pd.read_csv("slurm_cluster_assoc_usage_hour_table.csv", names=['creation_time','mod_time','deleted','id','id_tres','time_start','alloc_secs'], usecols=['id','id_tres','time_start','alloc_secs'])
+        userDf = pandas.read_csv("slurm_cluster_assoc_table.csv",            usecols=['id_assoc','user','acct'], index_col=0)
+        df     = pandas.read_csv("slurm_cluster_assoc_usage_hour_table.csv", names=['creation_time','mod_time','deleted','id','id_tres','time_start','alloc_secs'], usecols=['id','id_tres','time_start','alloc_secs'])
         st, stp, df     = MyTool.getDFBetween (df, 'time_start', start, stop)
         # get top users data only
         dfg    = df.groupby(['id_tres','id'])
@@ -110,7 +108,7 @@ class SlurmDBQuery:
         #job_db_inx,mod_time,deleted,account,admin_comment,array_task_str,array_max_tasks,array_task_pending,cpus_req,derived_ec,derived_es,exit_code,job_name,id_assoc,id_array_job,id_array_task,id_block,id_job,id_qos,id_resv,id_wckey,id_user,id_group,pack_job_id,pack_job_offset,kill_requid,mcs_label,mem_req,nodelist,nodes_alloc,node_inx,partition,priority,state,timelimit,time_submit,time_eligible,time_start,time_end,time_suspended,gres_req,gres_alloc,gres_used,wckey,work_dir,track_steps,tres_alloc,tres_req
         # index is id_job
 
-        #df            = pd.read_csv("slurm_cluster_job_table.csv",usecols=['account', 'cpus_req','id_job','id_qos', 'id_user', 'nodes_alloc', 'state', 'time_submit', 'time_eligible', 'time_start', 'time_end', 'tres_alloc'])
+        #df            = pandas.read_csv("slurm_cluster_job_table.csv",usecols=['account', 'cpus_req','id_job','id_qos', 'id_user', 'nodes_alloc', 'state', 'time_submit', 'time_eligible', 'time_start', 'time_end', 'tres_alloc'])
         df            = self.getJobTable()
         start,stop,df = MyTool.getDFBetween (df, 'time_submit', start, stop)
 
@@ -145,7 +143,7 @@ class SlurmDBQuery:
     # get jobs information as eligible_time, start_time, id_job, id_user, account, cpus_req, nodes_alloc
     def getJobsName (self, start='', stop=''):
         # index is id_job
-        df            = pd.read_csv("slurm_cluster_job_table.csv",usecols=['account', 'cpus_req','job_name', 'id_job','id_qos', 'id_user', 'nodes_alloc', 'state', 'time_submit', 'time_eligible', 'time_start', 'time_end', 'tres_alloc', 'tres_req'],index_col=3)
+        df            = pandas.read_csv("slurm_cluster_job_table.csv",usecols=['account', 'cpus_req','job_name', 'id_job','id_qos', 'id_user', 'nodes_alloc', 'state', 'time_submit', 'time_eligible', 'time_start', 'time_end', 'tres_alloc', 'tres_req'],index_col=3)
         start,stop,df = MyTool.getDFBetween (df, 'time_submit', start, stop)
 
         df['count']   = 1
@@ -158,7 +156,7 @@ class SlurmDBQuery:
 
     def getQoS (self):
         # index is id_job
-        df = pd.read_csv("qos_table.csv",usecols=['deleted','id','name','max_tres_pu','max_wall_duration_per_job','grp_tres','preempt','preempt_mode','priority','usage_factor'], index_col=1)
+        df = pandas.read_csv("qos_table.csv",usecols=['deleted','id','name','max_tres_pu','max_wall_duration_per_job','grp_tres','preempt','preempt_mode','priority','usage_factor'], index_col=1)
         df = df[df['deleted']==0]
 
         return df
@@ -178,8 +176,8 @@ class SlurmDBQuery:
 
     #return jobs that run on node during [start, stop]
     def getNodeRunJobs (self, node, start, stop):
-        df            = pd.read_csv("slurm_cluster_job_table.csv",usecols=['id_job','id_user','nodelist','nodes_alloc','state','time_start','time_end','time_suspended'])
-        #df            = pd.read_csv("slurm_cluster_job_table.csv",usecols=['id_job','id_user','nodelist','nodes_alloc','state','time_start','time_end','time_suspended'],index_col=0)
+        df            = pandas.read_csv("slurm_cluster_job_table.csv",usecols=['id_job','id_user','nodelist','nodes_alloc','state','time_start','time_end','time_suspended'])
+        #df            = pandas.read_csv("slurm_cluster_job_table.csv",usecols=['id_job','id_user','nodelist','nodes_alloc','state','time_start','time_end','time_suspended'],index_col=0)
         start,stop,df = MyTool.getDFBetween (df, 'time_start', start, stop)
         df            = df[df['nodes_alloc'] > 0]
 
@@ -194,7 +192,7 @@ class SlurmDBQuery:
     # return jobs with the given job_name
     # add fields user, duration
     def getJobByName (self, job_name, fields=['id_job','job_name', 'id_user','state', 'nodes_alloc','nodelist', 'time_start','time_end', 'tres_req', 'gres_req']):
-        df             = pd.read_csv("slurm_cluster_job_table.csv",usecols=fields)
+        df             = pandas.read_csv("slurm_cluster_job_table.csv",usecols=fields)
         df             = df[df['job_name']==job_name]
         df['state']    = df['state'].map(lambda x: SLURM_STATE_DICT.get(x, x))
         df['user']     = df['id_user'].map(lambda x: MyTool.getUser(x))
@@ -206,13 +204,16 @@ class SlurmDBQuery:
 
     # return jobs after the given start time
     def getJobByStartTime (self, start_time, fields=['id_job','job_name', 'id_user','state', 'nodes_alloc','nodelist', 'time_start','time_end', 'tres_req', 'gres_req']):
-        df             = pd.read_csv("slurm_cluster_job_table.csv",usecols=fields)
+        df             = pandas.read_csv("slurm_cluster_job_table.csv",usecols=fields)
         df             = df[df['time_start']>start_time]
         lst            = df.to_dict(orient='records')
         return lst
     
 class SlurmCmdQuery:
-    LOCAL_TZ = timezone(timedelta(hours=-4))
+    #DF_ASSOC   = pandas.read_csv ("sacctmgr_assoc.csv", sep='|')
+    #DICT_QOS   = DF_ASSOC.set_index("User").to_dict()['QOS']   # {User:QOS}
+    TS_ASSOC   = 0
+    DICT_ASSOC = {}
 
     def __init__(self):
         pass
@@ -230,20 +231,12 @@ class SlurmCmdQuery:
         return jobs
  
     @staticmethod
-    def sacct_getJobReport (jobid):
+    def sacct_getJobReport (jobid, skipJobStep=False):
         output = 'JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocNodes,NodeList'
-        jobs   = SlurmCmdQuery.sacct_getReport(['-j', str(jobid)], days=None, output=output, skipJobStep=False)
+        # may include sub jobs
+        jobs   = SlurmCmdQuery.sacct_getReport(['-j', str(jobid)], days=None, output=output, skipJobStep=skipJobStep)
         if not jobs:
            return None
-        job  = jobs[0]
-        #if 'Start' in output:
-        #   job['Start']      = MyTool.str2ts(job.get('Start',None))
-        if 'NodeList' in output:
-           job['NodeList']   = MyTool.nl2flat(job['NodeList'])
-        if 'AllocNodes' in output:
-           job['AllocNodes'] = int(job['AllocNodes'])
-        if 'AllocCPUS' in output:
-           job['AllocCPUS']  = int(job['AllocCPUS'])
         return jobs
 
     # return {jid:jinfo, ...}
@@ -261,22 +254,29 @@ class SlurmCmdQuery:
             if not line: continue
             ff = line.split(sep='|')
             if (skipJobStep and '.' in ff[0]): continue # indicates a job step --- under what circumstances should these be broken out?
+            #508550_0.extern, 508550_[111-626%20], (array job) 511269+0, 511269+0.extern, 511269+0.0 (?)
             if ( '.' in ff[0] ):
                ff0 = ff[0].split(sep='.')[0]
             else:
                ff0 = ff[0]
 
-            f0p = ff0.split(sep='_')
-            try:
-                jid, aId = int(f0p[0]), int(f0p[1])
-            except:
-                jid, aId = int(f0p[0]), -1
+            m  = re.fullmatch(r'(\d+)([_\+])(.*)', ff0)
+            if not m:
+               jid = int(ff0)
+            else:
+               jid = int(m.group(1))
+            #f0p = ff0.split(sep='_')
+            #try:
+            #    jid, aId = int(f0p[0]), f0p[1]
+            #except:
+            #    jid, aId = int(f0p[0]), -1
             if ff[3].startswith('CANCELLED by '):
                 uid   = ff[3].rsplit(' ', 1)[1]
                 uname = MyTool.getUser(uid)
                 ff[3] = '%s (%s)'%(ff[3], uname)
             keys = output.split(sep=',')
             job = dict(zip(keys, ff))
+            #job['JobID']  = jid
             job['job_id'] = job['JobID']
             jobs.append(job)
 
@@ -285,7 +285,7 @@ class SlurmCmdQuery:
     @staticmethod
     def sacctCmd (criteria, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End'):
         cmd = ['sacct', '-n', '-P', '-o', output] + criteria
-        print('{}'.format(cmd)) 
+        #print('{}'.format(cmd)) 
         try:
             #TODO: capture standard error separately?
             d = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
@@ -305,21 +305,64 @@ class SlurmCmdQuery:
             return 'Command "%s" ERROR: returned %d with output %s.<br>'%(' '.join(cmd), e.returncode, repr(e.output))
 
         d    = d.decode('utf-8')
-        info = d.rstrip().split('|')
-        if info[4]!='Unknown':
-           return [info[0], MyTool.getUid(info[1]), MyTool.convert2list(info[2]), MyTool.str2ts(info[3]), MyTool.str2ts(info[4])]
-        else:
-           return [info[0], MyTool.getUid(info[1]), MyTool.convert2list(info[2]), MyTool.str2ts(info[3]), time.time()]
-        
-    #return [[...],[...],[...]], each of which
-    #[{'node':nodename, 'data':[[timestamp, value]...]} ...]
-    def getSlurmJobMonData(self, jid, uid, nodelist, start_time, stop_time):
-        pass
+        lines= d.split('\n')
+        info = lines[0].rstrip().split('|')
+        if not info or len(info)<5:
+           return [None, None, None, None, None]
 
-    #return [[...],[...],[...]], each of which
-    #[{'node':nodename, 'data':[[timestamp, value]...]} ...]
-    def getSlurmUidMonData(self, uid, nodelist, start_time, stop_time):
-        pass
+        idx  = info[0].find('_')
+        s    = []
+        if idx != -1:  # job array
+           jobid = info[0].split('_')[0]  #jobid
+           for l in lines:
+               if not l.rstrip():      #empty
+                  continue
+               li = l.rstrip().split('|')
+               #print('--{} - {}'.format(l, li[2]))
+               if len(li)>2 and li[2] != "None assigned":
+                  s.extend(MyTool.nl2flat(li[2]))
+           nodelist = list(set(s))                #nodelist
+        else:
+           jobid = info[0]
+           nodelist = MyTool.convert2list(info[2])
+           
+        if info[4]!='Unknown':
+           return [jobid, MyTool.getUid(info[1]), nodelist, MyTool.str2ts(info[3]), MyTool.str2ts(info[4])]
+        else:
+           return [jobid, MyTool.getUid(info[1]), nodelist, MyTool.str2ts(info[3]), time.time()]
+        
+    @staticmethod
+    def updateAssoc ():
+        file_nm = "sacctmgr_assoc.csv"
+        file_ts = os.path.getmtime(file_nm)
+        if file_ts > SlurmCmdQuery.TS_ASSOC:
+           #SlurmCmdQuery.DF_ASSOC   = pandas.read_csv ("sacctmgr_assoc.csv", sep='|')
+           #SlurmCmdQuery.DICT_QOS   = SlurmCmdQuery.DF_ASSOC.set_index("User").to_dict()['QOS']   # {User:QOS}
+           with open(file_nm) as fp: 
+                lines = fp.read().splitlines()
+           fields = lines[0].split('|')
+           d      = {}
+           for i in range(1, len(lines)):
+               values = lines[i].split('|')
+               d[values[0]] = dict(zip(fields,values))
+           SlurmCmdQuery.DICT_ASSOC = d
+           SlurmCmdQuery.TS_ASSOC   = file_ts
+
+    #sacctmgr list user -P -s 
+    @staticmethod
+    def getUserQOS (user):
+        userAssoc = getUserAssoc (user)
+        if userAssoc:
+           return userAssoc['QOS'].split(',')
+        return []
+
+    @staticmethod
+    def getUserAssoc (user):
+        SlurmCmdQuery.updateAssoc ()
+        print("getUserAssoc dict={}".format(SlurmCmdQuery.DICT_ASSOC))
+        if user in SlurmCmdQuery.DICT_ASSOC:
+           return SlurmCmdQuery.DICT_ASSOC[user]
+        return {}
 
 def test1():
     client = SlurmCmdQuery()
@@ -339,6 +382,10 @@ def test5():
     jobs=SlurmCmdQuery.sacct_getNodeReport('workergpu00')
     print(repr(jobs))
 
+def test6():
+    user=SlurmCmdQuery.getUserAssoc('adaly')
+    print('{}'.format(user))
+
 def main():
     #job= pyslurm.job().find_id ('88318')
     #job= pyslurm.slurmdb_jobs().get ()
@@ -349,7 +396,7 @@ def main():
     #print(SlurmStatus.getStatus(1))
     #info = client.getSlurmJobInfo('105179')
     #info = client.test()
-    test5()
+    test6()
     print("main take time " + str(time.time()-t1))
 
 if __name__=="__main__":

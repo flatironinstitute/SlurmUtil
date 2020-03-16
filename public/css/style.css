@@ -274,6 +274,11 @@ div {
 div.tab{
    margin: 0px;
 }
+div.border {
+   margin: 10px;
+   border: 1px solid gray; 
+   padding: 10px;
+}
 rect.bordered {
    stroke:       #E6E6E6;
    stroke-width: 2px;
@@ -308,4 +313,13 @@ td.KB {
 }
 .hide {
    display: none
+}
+legend{
+   padding-top: 10px;
+   font-size:    16pt;
+   color:#3A509C
+}
+label.short {
+   display: inline-block;
+   width:  5em;
 }
