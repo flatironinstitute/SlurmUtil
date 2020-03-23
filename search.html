@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<meta charset='UTF-8'>
+<title>Search</title>
+
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
+  <script type="text/javascript" src="static/scripts/jquery-ui.js"></script>
+  <!--
+  <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+  -->
+
+<script type="text/javascript">
+$(document).ready(function(){{
+    $("#tabmenu").load("/getHeader?page=inputSearch")
+
+    $("#user").autocomplete({{
+      source: {users},
+      autoFocus: true
+    }});
+    $("#job").autocomplete({{
+      source: {jobs},
+    }});
+    $("#node").autocomplete({{
+      source: {nodes},
+    }});
+    $("#partition").autocomplete({{
+      source: {partitions},
+    }});
+    //$("#user").change(function() {{
+    //  window.location.href = "./userDetails?user=" + $(this).val()
+    //}});
+    //$("#job").change(function() {{
+    //  window.location.href = "./jobDetails?jid=" + $(this).val()
+    //}});
+    //$("#node").change(function() {{
+    //  window.location.href = "./nodeDetails?node=" + $(this).val()
+    //}});
+    //$("#partition").change(function() {{
+    //  window.location.href = "./partitionDetail?partition=" + $(this).val()
+    //}});
+    //$("input").on('keydown', function(e) {{
+    //  if (e.which == 13) {{ 
+    //      console.log(e, this.id, this.tgt, this.value)
+          //window.location.href = "http://www.google.com"
+    //  }}
+    //}});
+}} );
+</script>
+</head>
+<body>
+<div class="tab" id="tabmenu"></div>
+
+<fieldset>
+  <legend>Retrieve information of typed-in input</legend>
+  <p>
+  <form action="./userDetails">
+    <label for="user" class="short">User: </label>
+    <input id="user" name="user"> 
+    <input type="submit" value="Submit">
+  </form>
+  <p>
+  <form action="./jobDetails">
+    <label for="job" class="short">Job: </label>
+    <input id="job" name="jid"> 
+    <input type="submit" value="Submit">
+  </form>
+  <p>
+  <form action="./nodeDetails">
+    <label for="node" class="short">Node: </label>
+    <input id="node" name="node"> 
+    <input type="submit" value="Submit">
+  </form>
+  <p>
+  <form action="./partitionDetail">
+    <label for="partition" class="short">Partition: </label>
+    <input id="partition" name="partition"> 
+    <input type="submit" value="Submit">
+  </form>
+</fieldset>
+</div>
+
+</body>
+</html>
