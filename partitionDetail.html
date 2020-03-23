@@ -5,76 +5,28 @@
 
 <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
 <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
+<script type="text/javascript" src="static/scripts/myTable.js"></script>
 <script type="text/javascript" src="static/scripts/myList.js"></script>
 <script type="text/javascript">
 
-    function addTable (data, titles_dict, div_id) {{
-        console.log(data)
-        var sortAscending = true;
-        var table         = d3.select(div_id).append('table');
-        var firstKey      = Object.keys(titles_dict)[0]   <!--use jobid as tie breaker for sorting -->
-        //var titles        = d3.keys(data[0]);
+$(document).ready(function(){{
+    var part       = {p_detail};
+    var nodes      = {p_nodes};
+    var node_title_dict = {{'name':'Node', 'state':'State', 'tres_fmt_str':'TRES', 'features':'Features', 'alloc_cpus':'Alloc CPU','alloc_mem':'Alloc Mem', 'cpu_load':'CPU Load', 'gres_used':'Used Gres', 'running_jobs':'Run Job'}}       
+    var part_list_title = {{'allow_accounts':'Allow Accounts','qos_char':'QoS','nodes':'Nodes','tres_fmt_str':'TRES','flag_shared':'Sharable', 'default_time_str':'Default Job Time', 'avail_nodes_cnt':'Avail Nodes','avail_cpus_cnt':'Avail CPUs','running_jobs':'Running Jobs', 'pending_jobs':'Pending Jobs'}}
 
-        var headers = table.append('thead')
-                           .append('tr')
-                           .selectAll('th')
-                           .data(Object.keys(titles_dict)).enter()
-                           .append('th')
-                           .text(function (d) {{ return titles_dict[d]; }})
-                           .on('click', function (d) {{
-                               console.log ('on click ' + d)
-                               headers.attr('class', 'header');
-                                           
-                               if (sortAscending) {{
-                                  rows.sort(function(a, b) {{
-                                      console.log('cmp ' + d + ' value ' + JSON.stringify(b[d]) + '<' + JSON.stringify(a[d])); 
-                                      if (a[d] == b[d]) {{console.log('ret ' + (b[firstKey]<a[firstKey])); return b[firstKey]<a[firstKey];}} 
-                                      else {{console.log('ret ' + (b[d]<a[d])); return b[d] < a[d];}} }});
-                                  sortAscending  = false;
-                                  this.className = 'aes';
-                               }} else {{
-                                  rows.sort(function(a, b) {{ if (b[d] == a[d]) {{return b[firstKey]>a[firstKey];}} else {{return b[d] > a[d];}} }});
-                                  sortAscending  = true;
-                                  this.className = 'des';
-                               }}
-                                           
-                            }});
-        var rows = table.append('tbody').selectAll('tr')
-                               .data(data).enter()
-                               .append('tr')
-                               .attr('class', function(d) {{
-                                   return d['state']
-                               }});
-        rows.selectAll('td')
-            .data(function (d) {{
-                return Object.keys(titles_dict).map(function (k) {{
-                    return {{ 'value': d[k], 'name': k}};
-                }});
-            }}).enter()
-            .append('td')
-            .attr('data-th', function (d) {{
-                        return d.name;
-            }})
-            .html(function (d) {{
-                 return d.value;
-            }});
-
-    }};
-
+    $("#part_name").text(part.name)
+    createList  (part,   part_list_title, '#details');
+    //createList  (part,   ['allow_accounts','qos_char','nodes','tres_fmt_str','flag_shared', 'default_time_str', 'avail_nodes_cnt','avail_cpus_cnt','running_jobs', 'pending_jobs'], '#details');
+    createTable (nodes,  node_title_dict,  'table_nodes', 'nodes', undefined, {{'name':'Node','running_jobs':'JobArray'}})
+}})
 </script>
 </head>
 <body>
-  <h3>Partition: {p_name}</h3> <hr>
+  <h3>Partition <font id="part_name"></font>:</h3> <hr>
   <div id="details"> </div>
   <h3>Partition Nodes:</h3> <hr>
   <div id="nodes"> </div>
-
-<script type="text/javascript">
-    var nodes      = {p_nodes};
-    var titles     = {n_titles};
-    createList  ({p_detail},    '#details');
-    addTable (nodes, titles, '#nodes');
-</script>
 </body>
 </html>
 

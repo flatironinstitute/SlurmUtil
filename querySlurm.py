@@ -219,11 +219,11 @@ class SlurmCmdQuery:
         pass
 
     @staticmethod
-    def sacct_getUserJobReport (user, days=3, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End', skipJobStep=True):
+    def sacct_getUserJobReport (user, days=3, output='JobID,JobIDRaw,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End', skipJobStep=True):
         return SlurmCmdQuery.sacct_getReport(['-u', user], days, output, skipJobStep)
 
     @staticmethod
-    def sacct_getNodeReport (nodeName, days=3, output = 'JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocTRES', skipJobStep=True):
+    def sacct_getNodeReport (nodeName, days=3, output = 'JobID,JobIDRaw,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocTRES', skipJobStep=True):
         jobs = SlurmCmdQuery.sacct_getReport(['-N', nodeName], days, output, skipJobStep)
         if 'AllocTRES' in output:
            for job in jobs:
@@ -232,7 +232,7 @@ class SlurmCmdQuery:
  
     @staticmethod
     def sacct_getJobReport (jobid, skipJobStep=False):
-        output = 'JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocNodes,NodeList'
+        output = 'JobID,JobIDRaw,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocNodes,NodeList'
         # may include sub jobs
         jobs   = SlurmCmdQuery.sacct_getReport(['-j', str(jobid)], days=None, output=output, skipJobStep=skipJobStep)
         if not jobs:
@@ -359,7 +359,6 @@ class SlurmCmdQuery:
     @staticmethod
     def getUserAssoc (user):
         SlurmCmdQuery.updateAssoc ()
-        print("getUserAssoc dict={}".format(SlurmCmdQuery.DICT_ASSOC))
         if user in SlurmCmdQuery.DICT_ASSOC:
            return SlurmCmdQuery.DICT_ASSOC[user]
         return {}

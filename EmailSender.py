@@ -31,8 +31,8 @@ class JobNoticeSender:
         self.interval_secs   = interval         #interval to send repeated notice for the same job
 
     def sendNotice (self, ts, jobs):
-        curr_jids      = set(jobs.keys())
-        last_jids      = set(self.last_jobNotice.keys())
+        curr_jids = set(jobs.keys())
+        last_jids = set(self.last_jobNotice.keys())
         
         dup_jids  = curr_jids.intersection(last_jids)
         rmv_jids  = last_jids.difference(dup_jids)
@@ -76,13 +76,17 @@ class JobNoticeSender:
         with smtplib.SMTP('localhost') as s:
             s.send_message(msg)
           
+def sendMessage (subject, content):
+    msg = EmailMessage()
+    msg.set_content(content)
+    msg['Subject'] = subject
+    msg['From']    = 'yliu'
+    msg['To']      = 'yliu@flatironinstitute.org'
+    with smtplib.SMTP('localhost') as s:
+         s.send_message(msg)
+
 def main():
-    # Send the message via our own SMTP server.
-    s = smtplib.SMTP('localhost')
-    msg = getMsg_test()
-    print('{}'.format(msg))
-    s.send_message(msg)
-    s.quit()
+    sendMessage('hello', 'hello')
 
 if __name__=="__main__":
    main()

@@ -9,28 +9,32 @@
 <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
 <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
 <script type="text/javascript" src="static/scripts/myTable.js"></script>
+<script type="text/javascript" src="static/scripts/myList.js"></script>
 <script type="text/javascript">
 
 $(document).ready(function(){{
-    //var r_j_titles     = {{'job_id':'Job ID', 'name':'Name', 'submit_time_str':'Submit Time', 'start_time_str':'Start Time', 'qos':'QoS','partition':'Partition','nodes':'Nodes', 'tres_req_str':'Tres Req', 'tres_alloc_str':'Tres Alloc', 'run_time_str':'Run Time', 'command':'Command', 'work_dir':'Work Dir'}}
-    //var p_j_titles     = {{'job_id':'Job ID', 'name':'Name', 'submit_time':'Submit Time', 'num_nodes':'Req Node', 'num_cpus':'Req CPU', 'account':'Account', 'partition':'Req Part.', 'state_reason':'Pending Reason', 'state_exp':'Note'}}
     var node_data      = {node_data}
     var proc_title     = ['PID', 'Avg CPU Util', 'RSS', 'VMS','IO Rate', 'Command']
     var proc_type      = [null,  'Float',        'B',   'B',  'Bps',      null]
     var j_h_titles     = {{'JobID':'Job ID', 'JobName':'Name','AllocCPUS':'Alloc CPU','AllocGPUS':'Allc GPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
+    var j_h_type_dict  = {{'JobID':'JobAndStep'}}
+    var array_het_jids = {array_het_jids}
     if (!node_data["gpus"]) 
        j_h_titles     = {{'JobID':'Job ID', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
-    //['PID', 'Avg CPU', 'Create Time', 'User Time', 'Sys Time', 'RSS', 'VMS', 'Command', 'Avg IO']
-    //['PID', 'Create Time', 'Avg CPU', 'User Time', 'Sys Time', 'RSS', 'VMS', 'Avg IO', 'Command']
 
     if (node_data["gpus"])
        d3.select("#node_summary").html("Node " + node_data["name"]+ ": " + node_data["state"] + " (<a href='nodeGraph?node=" + node_data["name"] + "'>Usage Graph</a>, <a href='nodeGPUGraph?node=" + node_data["name"] + "'>GPU Graph</a>)")
     else
        d3.select("#node_summary").html("Node " + node_data["name"]+ ": " + node_data["state"] + " (<a href='nodeGraph?node=" + node_data["name"] + "'>Usage Graph</a>)")
-    d3.select("#summary").text(node_data["jobCnt"]+" Jobs with a total of " + node_data["procCnt"] + " Processes running on node, allocating "+node_data["alloc_cpus"] +" CPUs and " + node_data["alloc_gpus"] + " GPUs")
+    d3.select("#summary").text("Total " +node_data["jobCnt"]+" running Jobs with " + node_data["procCnt"] + " Processes, allocating "+node_data["alloc_cpus"] +" CPUs and " + node_data["alloc_gpus"] + " GPUs")
     console.log(node_data)
+    createList        ({node_display_data}, null, '#div_node_info')
     createMultiTable2 (node_data["jobProc"], 'div_job', proc_title, node_data["name"], node_data["alloc_gpus"], proc_type)
-    createTable       ({node_report}, j_h_titles,  'node_history_table', 'div_sacct_report') 
+    if (array_het_jids) {{
+       j_h_titles     = {{'JobID':'Job ID', 'JobIDRaw':'Job ID(Raw)','JobName':'Name','AllocCPUS':'Alloc CPU','AllocGPUS':'Allc GPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
+       j_h_type_dict  = {{'JobIDRaw':'JobAndStep'}}
+    }}
+    createTable       ({node_report}, j_h_titles,  'node_history_table', 'div_sacct_report', undefined, j_h_type_dict) 
 }});
 </script>
 </head>
@@ -42,11 +46,13 @@ $(document).ready(function(){{
    <p><i>Update time: {update_time}</i>
 <hr>
 </div>
+<div id="div_node_info" class="page-wrap">
+</div>
 <div id="div_job" class="page-wrap">
    <h3 id="summary"></h3>
 </div>
 <div id="div_sacct_report" class="page-wrap">
-   <h3>Jobs of Last 3 Days</h3>
+   <h3>Jobs of Last 3 Days on Node</h3>
 </div>
 </body>
 

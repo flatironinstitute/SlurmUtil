@@ -281,7 +281,7 @@ class InfluxQueryClient:
         query   = "select * from autogen.slurm_node_mon where "
         query   = self.extendQuery (query, st, et)
         query.replace ("and", "")
-        results = self.query(query)
+        results = self.query(query, "ms")
         points  = list(results.get_points()) # lists of dictionaries
         print("INFO: getNodeHistory {} points between {} and {} take time {}".format(len(points), st, et, time.time()-t1))
         #point['tags']   = MyTool.sub_dict_exist_remove (item, ['name', 'boot_time', 'slurmd_start_time'])
@@ -298,8 +298,8 @@ class InfluxQueryClient:
         ts2IdleCPUCnt      = defaultdict(int)   # Idle + Mix idle
         ts2DownCPUCnt      = defaultdict(int)   # not usable
 
-        for point in points:
-            ts           = point['time']
+        for point in points:  
+            ts           = point['time']        #ts is same for all nodes at a time because of pyslurm calling
             node_state   = point['state']
 
             if 'ALLOCATED' in node_state: # running state
@@ -307,7 +307,6 @@ class InfluxQueryClient:
                ts2AllocCPUCnt[ts]  += point['alloc_cpus']
             elif 'MIXED' in node_state:
                ts2MixNodeCnt[ts]   += 1
-
                alloc_cpus           = int(point['alloc_cpus']) if point.get('alloc_cpus', None) else 0  #point['alloc_cpus'] may return None
                ts2IdleCPUCnt[ts]   += point['cpus'] - alloc_cpus
                ts2MixCPUCnt[ts]    += alloc_cpus
@@ -512,15 +511,15 @@ def main():
     t1=time.time()
     start, stop = MyTool.getStartStopTS(days=3) 
     app   = InfluxQueryClient()
-    start, stop, rlt   = app.getNodeJobProcData('worker1006',469406)
+    app.savNodeHistory(days=7)  # run in daily.sh
+    #start, stop, rlt   = app.getNodeJobProcData('worker1006',469406)
     #s1, e1, d1=app.getSlurmJobData(465261)
     #s2, e2, d2=app.getSlurmJobData(465262)
     #d3=app.getSlurmUidMonData(1012, ['workergpu30'], s1, e1)
     #app.getUserProc ('dhofmann', ['worker1031'], 1568554418, 1568908041)
     #rlt   = app.getSlurmJobRuntimeHistory(346864, 1566727264, 1567159264)
-    print('{}'.format(rlt))
+    #print('{}'.format(rlt))
     #app.getPendingCount(start, stop)
-    #app.savNodeHistory(days=7)
     #app.savJobRequestHistory(days=7)
     #app.getJobRequestHistory(start, stop)
     #app.getNodeHistory(start, stop)

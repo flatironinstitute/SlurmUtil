@@ -120,19 +120,10 @@ class SLURMMonitor(object):
 
     @cherrypy.expose
     def partitionDetail(self, partition='gpu'):
-        ins        = SlurmEntities.SlurmEntities()
-        fields     = ['name', 'state', 'tres_fmt_str', 'features', 'gres', 'alloc_cpus','alloc_mem', 'cpu_load', 'gres_used', 'run_jobs']
-        titles     = ['Node', 'State', 'TRES',         'Features', 'Gres', 'Alloc CPU', 'Alloc Mem', 'CPU Load', 'Gres_used', 'Run Job']
-        p_keys     = ['allow_accounts', 'allow_alloc_nodes', 'allow_groups', 'allow_qos', 'def_mem_per_cpu', 'default_time_str', 'flags', 
-                      'max_cpus_per_node', 'max_mem_per_node', 'max_nodes', 'max_share']
-        p, nodes   = ins.getPartitionInfo (partition, fields)
-        t          = dict(zip(fields, titles))
-
-        for node in nodes:
-            node['name']='<a href="./nodeDetails?node={nm}">{nm}</a>'.format(nm=node['name'])
-
-        htmlTemp   = os.path.join(wai, 'partitionDetail.html')
-        htmlStr    = open(htmlTemp).read().format(p_name=partition, p_detail=p, p_nodes=nodes, n_titles=t)
+        ins           = SlurmEntities.SlurmEntities()
+        p_info, nodes = ins.getPartitionAndNodes (partition)
+        htmlTemp      = os.path.join(wai, 'partitionDetail.html')
+        htmlStr       = open(htmlTemp).read().format(p_detail=p_info, p_nodes=json.dumps(nodes))
         return htmlStr
        
     @cherrypy.expose
@@ -354,7 +345,7 @@ class SLURMMonitor(object):
         return h
 
     @cherrypy.expose
-    def test(self, start='', stop='', days=3):
+    def clusterHistory(self, start='', stop='', days=3):
         start, stop  = MyTool.getStartStopTS (start, stop)
 
         #influxClient = InfluxQueryClient.getClientInstance()
@@ -1210,14 +1201,24 @@ class SLURMMonitor(object):
         if type(self.data) == str: return self.getWaitMsg()# error of some sort.
 
         nodeData    = self.getNodeProc(node)
+        nodeDisplay = MyTool.sub_dict_exist(self.pyslurmNodeData[node], ['features','partitions','tres_fmt_str','alloc_cpus'])
+        if nodeData['gpus']:
+           nodeDisplay['gpus'] = nodeData['gpus']
+        if nodeData['alloc_gpus']:
+           nodeDisplay['alloc_gpus'] = nodeData['alloc_gpus']
+        if nodeData['jobProc']:
+           nodeDisplay['running_jobs'] = list(nodeData['jobProc'].keys())
+    
         nodeReport  = SlurmCmdQuery.sacct_getNodeReport(node, days=3)
         if not nodeData:
            return "Node {} is not monitored".format(node)
+        array_het_jids = [ job['JobID'] for job in nodeReport if '_' in job['JobID'] or '+' in job['JobID']]
 
         htmlTemp   = os.path.join(wai, 'nodeDetail.html')
         htmlStr    = open(htmlTemp).read().format(update_time=MyTool.getTsString(nodeData['updateTS']), 
                                                   node_data=nodeData,
-                                                  node_report=nodeReport)
+                                                  node_display_data=nodeDisplay,
+                                                  array_het_jids=array_het_jids,node_report=nodeReport)
         return htmlStr
 
     @cherrypy.expose
@@ -1235,17 +1236,13 @@ class SLURMMonitor(object):
         if not userInfo or not userInfo.pw_uid:
            return 'Cannot find uid of user {}!'.format(user)
         uid            = userInfo.pw_uid
-        userAssoc       = SlurmCmdQuery.getUserAssoc(user)
-        userAssoc['uid']= uid
-        existKey        = [k for k,v in userAssoc.items() if v]
-        userAssoc       = MyTool.sub_dict_exist(userAssoc, ['uid', 'Account', 'Partition', 'QOS', 'MaxJobs', 'MaxNodes', 'MaxCPUs', 'MaxSubmit', 'MaxWall', 'MaxCPUMins'])
-
+        userAssoc      = SlurmCmdQuery.getUserAssoc(user)
         ins            = SlurmEntities.SlurmEntities()
         userjob        = ins.getUserJobsByState (uid)
-        uid, grp, part = ins.getUserPartition (user)
-        for p in part:
+        part           = ins.getAccountPartition (userAssoc['Account'], uid)
+        for p in part:  #replace big number with n/a
             for k,v in p.items():
-                if v == 4294967295: p[k]='None'
+                if v == SlurmEntities.SlurmEntities.TCMO: p[k]='n/a'
         if type(self.data) == dict:
            note       = ''
            userworker = self.getUserNodeData(user)
@@ -1257,16 +1254,26 @@ class SLURMMonitor(object):
            core_cnt   = 0
            proc_cnt   = 0
         past_job      = SlurmCmdQuery.sacct_getUserJobReport(user, days=int(days))
+        array_het_jids= [job['JobID'] for job in past_job if '_' in job['JobID'] or '+' in job['JobID']]  # array of heterogenour job
 
+        running_jobs  = userjob.get('RUNNING',[])
+        tres_alloc    = [MyTool.getTresDict(j['tres_alloc_str']) for j in running_jobs]
+        userAssoc['uid']        = uid
+        userAssoc['partitions'] = [p['name'] for p in part]
+        userAssoc['runng_jobs'] = [j['job_id'] for j in userjob.get('RUNNING',[])]
+        userAssoc['alloc_cpus'] = sum([t['cpu']  for t in tres_alloc])
+        userAssoc['alloc_nodes']= sum([t['node'] for t in tres_alloc])
+        userAssoc['alloc_mem']  = MyTool.sumOfListWithUnit([t['mem']  for t in tres_alloc])
+               
         htmlTemp   = os.path.join(wai, 'userDetail.html')
         htmlStr    = open(htmlTemp).read().format(user=userInfo.pw_gecos.split(',')[0], uname=user, 
                                                   user_assoc = userAssoc,
                                                   update_time=ins.update_time.ctime(), 
                                                   running_jobs=json.dumps(userjob.get('RUNNING',[])), 
                                                   pending_jobs=json.dumps(userjob.get('PENDING',[])), 
-                                                  worker_cnt=len(userworker), core_cnt=core_cnt, proc_cnt=proc_cnt, worker_proc=json.dumps(userworker), note=note,
+                                                  worker_proc=json.dumps(userworker), note=note,
                                                   part_info=json.dumps(part),
-                                                  job_history=past_job, day_cnt = days)
+                                                  array_het_jids=array_het_jids, job_history=past_job, day_cnt = days)
         return htmlStr
         # Currently, running jobs & pending jobs of the user processes in the worker nodes
         # Future, QoS and resource restriction
@@ -1357,7 +1364,6 @@ class SLURMMonitor(object):
            else:
               #msg_note='Job start at {} and end at {}'.format(MyTool.getTsString(start), MyTool.getTsString(end))
         
-              #influxClient = InfluxQueryClient.getClientInstance()
               influxClient = InfluxQueryClient(self.config['influxdb']['host'],'slurmdb')
               # query influx cpu_proc_info between start and end where uid and hostname
               query, node2procs = influxClient.getUserProc (user, MyTool.nl2flat(job_report['NodeList']), start, end)
@@ -1373,13 +1379,19 @@ class SLURMMonitor(object):
 	             #{'time': 1568554426, 'cmdline': '[]', 'cpu_affinity': '[0, 1]', 'cpu_system_time': 0.64, 'cpu_user_time': 0.2, 'end_time': 1568577027, 'hostname': 'worker1031', 'io_read_bytes': 3629056, 'io_read_count': 4947, 'io_write_bytes': 8396800, 'io_write_count': 1701, 'mem_data': 213565440, 'mem_lib': 0, 'mem_rss': 20221952, 'mem_shared': 13574144, 'mem_text': 4096, 'mem_vms': 364032000, 'name': 'orted', 'num_fds': 166, 'pid': '224668', 'ppid': 224662, 'status': 'sleeping', 'uid': '1431'}
                        worker_proc[node][5].append([proc['pid'], '{:.2f}'.format(proc['avg_util']), MyTool.getDisplayKB(proc['mem_rss_K']), MyTool.getDisplayKB(proc['mem_vms_K']), MyTool.getDisplayBps(proc['avg_io']), proc['cmdline']])
                   
-        grafana_url = 'http://mon8:3000/d/jYgoAfiWz/yanbin-slurm-node-util?orgId=1&from={}{}&var-jobID={}&theme=light'.format(start*1000, '&var-hostname=' + '&var-hostname='.join(MyTool.nl2flat(job_report['NodeList'])), jid)
+        #grafana_url = 'http://mon8:3000/d/jYgoAfiWz/yanbin-slurm-node-util?orgId=1&from={}{}&var-jobID={}&theme=light'.format(start*1000, '&var-hostname=' + '&var-hostname='.join(MyTool.nl2flat(job_report['NodeList'])), jid)
         proc_cnt   = sum([val[1] for val in worker_proc.values()])
+        job_info   = MyTool.sub_dict_exist(job_report, ['State', 'User', 'AllocCPUS', 'NodeList', 'Start', 'End', 'ExitCode'])
+        if '_' in job_report['JobID']:
+           job_info['ArrayJobID']  = job_report['JobID']
+        elif '+' in job_report['JobID']:
+           job_info['HeterogeneousJobID']  = job_report['JobID']
+
         htmlTemp   = os.path.join(wai, 'jobDetail.html')
         htmlStr    = open(htmlTemp).read().format(job_id=jid, job_name=job_name, 
                                                   update_time=datetime.datetime.fromtimestamp(ts).ctime(),
         #                                          grafana_url=grafana_url,
-                                                  job_info=MyTool.sub_dict_exist(job_report, ['State', 'User', 'AllocCPUS', 'NodeList', 'Start', 'End', 'ExitCode']), 
+                                                  job_info=job_info,
                                                   worker_proc=worker_proc, title_list=proc_fields,
                                                   worker_cnt=nodes_cnt, core_cnt=cpu_cnt, proc_cnt=proc_cnt,note=msg_note,
                                                   job_report=jobs_report)

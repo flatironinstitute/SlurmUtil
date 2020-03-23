@@ -489,16 +489,16 @@ def getGPUAlloc_layout (node_iter, gpu_detail_iter):
     return dict(result)
      
 #'tres_req_str': 'cpu=400,node=10,billing=400'
+#'tres_fmt_str': 'cpu=1612,mem=28375G,node=43,billing=1612,gres/gpu=148'
 def getTresDict (tres_str):
     d  = {}
-    if not tres_str:
-       return d
-    for item in tres_str.split(','):
-        k,v  = item.split('=')
-        if v.isnumeric():
-           d[k] = int(v)
-        else:
-           d[k] = v
+    if tres_str:
+       for item in tres_str.split(','):
+           k,v  = item.split('=')
+           if v.isnumeric():
+              d[k] = int(v)
+           else:
+              d[k] = v
     return d
 
 #input is Bps
@@ -534,6 +534,29 @@ def getDisplayK (n):
       return '{:.2f} G'.format(n)
    n = n / 1024
    return '{:.2f} T'.format(n)
+
+#sum of ['123', '123K', '123M']
+def sumOfListWithUnit (lst):
+    if not lst:   
+       return '0'
+    lst_D = list(filter(lambda x: str.isnumeric(x), lst))
+    lst_K = list(filter(lambda x: x[-1]=='K', lst))
+    lst_M = list(filter(lambda x: x[-1]=='M', lst))
+    lst_G = list(filter(lambda x: x[-1]=='G', lst))
+    total = 0
+    if lst_G:
+       total   = sum([int(n[:-1]) for n in lst_G])
+       postfix = 'G'
+    if lst_M:
+       total   = sum([int(n[:-1]) for n in lst_M]) + total * 1024
+       postfix = 'M'
+    if lst_K:
+       total   = sum([int(n[:-1]) for n in lst_K]) + total * 1024
+       postfix = 'K'
+    if lst_D:
+       total   = sum([int(n)      for n in lst_D]) + total * 1024
+       postfix = ''
+    return str(str(total) + postfix)
 
 def test1():
     level = logging.DEBUG

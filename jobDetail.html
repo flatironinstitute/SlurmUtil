@@ -14,13 +14,17 @@
 
 $(document).ready(function(){{
     //create table job_table and part_table
+    var j_info         = {job_info}
     var j_h_titles     = {{'JobID':'Job ID', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
+    var type_dict      = {{'JobIDRaw':'JobAndStep'}}
+    if (("ArrayJobID" in j_info) || ('HeterogeneousJobID' in j_info)) 
+       j_h_titles     = {{'JobID':'Job ID', 'JobIDRaw':'Job ID(Raw)', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
     if ({worker_proc}) {{
        createMultiTable ({worker_proc}, 'div_worker_proc', {title_list}, {job_id})
     }}
 
-    createList  ({job_info},  '#job_info')
-    createTable ({job_report}, j_h_titles,  'job_history_table', 'job_report')
+    createList  (j_info,  null, '#job_info')
+    createTable ({job_report}, j_h_titles,  'job_history_table', 'job_report', undefined, {{'JobIDRaw':'JobAndStep'}})
 }});
 </script>
 </head>
