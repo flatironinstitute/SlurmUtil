@@ -172,7 +172,8 @@ class InfluxQueryClient:
 
         return start_time, stop_time, rlt
 
-    def extendQuery (self, query, start_time='', stop_time='', nodelist=[]):
+    #if first_flag, then remove first and
+    def extendQuery (self, query, start_time='', stop_time='', nodelist=[], first_flag=False):
         if start_time:
            query += " and time >= {}000000000".format(str(int(start_time)))
         if stop_time:
@@ -183,6 +184,8 @@ class InfluxQueryClient:
               query += " and hostname=~/{}/".format(hostnames)
            else:
               query += " and hostname='{}'".format(nodelist[0])
+        if first_flag:
+           query= query.replace("and", "", 1)
         return query
 
     #return the query result list of dictionaries
@@ -278,14 +281,11 @@ class InfluxQueryClient:
   
     # query autogen.slurm_pending and return {ts_in_sec:{state_reason:count}], ...}  
     def getNodeHistory(self, st, et):
-        query   = "select * from autogen.slurm_node_mon where "
-        query   = self.extendQuery (query, st, et)
-        query.replace ("and", "")
+        query   = "select * from autogen.slurm_node_mon1 where "
+        query   = self.extendQuery (query, st, et, first_flag=True)
         results = self.query(query, "ms")
         points  = list(results.get_points()) # lists of dictionaries
         print("INFO: getNodeHistory {} points between {} and {} take time {}".format(len(points), st, et, time.time()-t1))
-        #point['tags']   = MyTool.sub_dict_exist_remove (item, ['name', 'boot_time', 'slurmd_start_time'])
-        #point['fields'] = MyTool.sub_dict_exist_remove (item, ['cpus', 'cpu_load', 'alloc_cpus', 'state', 'free_mem', 'gres', 'gres_used', 'partitions', 'reason', 'reason_time', 'reason_uid', 'err_cpus', 'alloc_mem'])
 
         ts2AllocNodeCnt    = defaultdict(int)   # Alloc
         ts2IdleNodeCnt     = defaultdict(int)   # Idle
@@ -304,10 +304,10 @@ class InfluxQueryClient:
 
             if 'ALLOCATED' in node_state: # running state
                ts2AllocNodeCnt[ts] += 1
-               ts2AllocCPUCnt[ts]  += point['alloc_cpus']
+               ts2AllocCPUCnt[ts]  += point['alloc_cpus']   # if 'ALLOCATED', alloc_cpus=cpus
             elif 'MIXED' in node_state:
                ts2MixNodeCnt[ts]   += 1
-               alloc_cpus           = int(point['alloc_cpus']) if point.get('alloc_cpus', None) else 0  #point['alloc_cpus'] may return None
+               alloc_cpus           = int(point.get('alloc_cpus',0))   #point['alloc_cpus'] may return None
                ts2IdleCPUCnt[ts]   += point['cpus'] - alloc_cpus
                ts2MixCPUCnt[ts]    += alloc_cpus
             elif 'IDLE'  in node_state:
@@ -332,7 +332,7 @@ class InfluxQueryClient:
              pickle.dump(rltSet, f)
   
     def getJobRequestHistory(self, st, et):
-        query= "select * from autogen.slurm_job_mon where time >= " + str(int(st)) + "000000000 and time <= " + str(int(et)) + "000000000"
+        query= "select * from autogen.slurm_job_mon1 where time >= " + str(int(st)) + "000000000 and time <= " + str(int(et)) + "000000000"
         results    = self.query(query, epoch='ms')
         points     = list(results.get_points())
  
@@ -445,48 +445,41 @@ class InfluxQueryClient:
         print("getNodeMonData_1 take time " + str(time.time()-t1))
         return ts2data
 
-    def getUserProc(self, user, nodelist, start_time, stop_time):
+    #return a dict {node:[proc1, proc2...]
+    def queryJobProc(self, jid, nodelist, start_time, stop_time):
         t1=time.time()
 
-        uid       = MyTool.getUid(user)
-        g =['({})'.format(n) for n in nodelist]
-        hostnames = '|'.join(g)
-        query= "select * from autogen.cpu_proc_info where uid = '" + str(uid) + "' and hostname=~/"+ hostnames + "/ and time >= " + str(int(start_time)) + "000000000 and time <= " + str(int(stop_time)+1) + "000000000"
-        print ("getUserProc " + query)
-
-        #execute query, returned time is local timestamp, epoch is for returned result, not for query
-        query_rlt = self.influx_client.query(query, epoch='s') 
+        query     = "select * from autogen.node_proc_info where jid = " + str(jid) #jid is integer, show field keys from autogen.node_proc_info
+        query     = self.extendQuery (query, start_time, stop_time, nodelist)
+        query_rlt = self.query(query, epoch='s') 
         rlt       = {}
         for node in nodelist:
             points = query_rlt.get_points(tags={'hostname':node})
             procs  = list(points)
             #time cmdline cpu_affinity cpu_system_time cpu_user_time end_time hostname io_read_bytes io_read_count io_write_bytes io_write_count mem_data   mem_lib mem_rss   mem_shared mem_text mem_vms    name    num_fds pid    ppid   status   uid 
-            #{'time': 1564604764, 'cmdline': "['/mnt/home/ageorgescu/qe/qe_release_6.4/bin/pw.x', '-nk', '270', '-ndiag', '1']", 'hostname': 'worker0031', 'name': 'pw.x', 'pid': '1003095', 'ppid': 1002972, 'uid': '1144'},
             for proc in procs:
                 if 'end_time' not in proc or not proc['end_time']:
-                   print('WARNING: getUserProc do not have end_time {}'.format(proc)) 
-                   proc['avg_util'] = -1
-                   proc['avg_io']   = -1
+                   print('WARNING: queryJobProc do not have end_time {}'.format(proc)) 
+                   period = stop_time-proc['time']
                 else:
                    period = proc['end_time']-proc['time']
-                   proc['avg_util'] = (proc.get('cpu_system_time',0)+proc.get('cpu_user_time',0))/period            
-                   proc['avg_io']   = (proc.get('io_write_bytes',0)+proc.get('io_write_bytes',0))/1024/period
+                cpu_system_time = proc['cpu_system_time'] if 'cpu_system_time' in proc and proc['cpu_system_time'] else 0
+                cpu_user_time   = proc['cpu_user_time']   if 'cpu_user_time'   in proc and proc['cpu_user_time']   else 0
+                io_read_bytes   = proc['io_read_bytes']   if 'io_read_bytes'   in proc and proc['io_read_bytes']   else 0
+                io_write_bytes  = proc['io_write_bytes']  if 'io_write_bytes'  in proc and proc['io_write_bytes']  else 0
+                proc['avg_util']= (cpu_system_time + cpu_user_time)/period            
+                proc['avg_io']  = (io_read_bytes + io_write_bytes)/1024/period
 
                 proc['cmdline']  = ' '.join(eval(proc['cmdline']))
                 if 'mem_rss_K' not in proc:
                    if proc['mem_rss']:
                       proc['mem_rss_K'] = int(proc['mem_rss'] / 1024)
-                   else:
-                      proc['mem_rss_K'] = -1
                 if 'mem_vms_K' not in proc:
                    if proc['mem_vms']:
                       proc['mem_vms_K'] = int(proc['mem_vms'] / 1024)
-                   else:
-                      proc['mem_vms_K'] = -1
-
             rlt[node] = procs
             
-        return repr(query), rlt
+        return rlt
 
     def query(self, query, epoch='s'):
         t1=time.time()
@@ -507,11 +500,16 @@ class InfluxQueryClient:
 def test():
     pass
  
+def daily():
+    app   = InfluxQueryClient()
+    app.savNodeHistory      (days=7)  # run in daily.sh
+    app.savJobRequestHistory(days=7)
+
 def main():
     t1=time.time()
-    start, stop = MyTool.getStartStopTS(days=3) 
-    app   = InfluxQueryClient()
-    app.savNodeHistory(days=7)  # run in daily.sh
+    daily()
+    #start, stop = MyTool.getStartStopTS(days=3) 
+    #app   = InfluxQueryClient()
     #start, stop, rlt   = app.getNodeJobProcData('worker1006',469406)
     #s1, e1, d1=app.getSlurmJobData(465261)
     #s2, e2, d2=app.getSlurmJobData(465262)
@@ -520,9 +518,7 @@ def main():
     #rlt   = app.getSlurmJobRuntimeHistory(346864, 1566727264, 1567159264)
     #print('{}'.format(rlt))
     #app.getPendingCount(start, stop)
-    #app.savJobRequestHistory(days=7)
     #app.getJobRequestHistory(start, stop)
-    #app.getNodeHistory(start, stop)
     #point = app.getSlurmJobInfo('70900')
     #point = app.getSlurmJobInfo('105179')
     #print("getSlurmJobInfo result " + repr(point))

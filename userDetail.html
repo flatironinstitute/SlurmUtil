@@ -46,9 +46,10 @@ $(document).ready(function(){{
        createTable (pending_jobs, p_j_titles, 'pend_job_table',  'pending_jobs',undefined, job_type_dict);
     }}
     createTable (part_info,     part_titles,  'part_table',        'qos_part', undefined, part_type_dict)
+    // add one extra line to category table headers
     $('#part_table thead').prepend('<tr><th colspan="2"></th><th colspan="3">User Lmt</th><th colspan="3">User Alloc</th><th colspan="3">User Avail</th><th colspan="3">Grp Lmt</th><th colspan="3">Grp Alloc</th><th colspan="3">Part. Total</th><th colspan="3">Part. Avail</th></tr>')
     if (array_het_jids) {{
-       j_h_titles     = {{'JobIDRaw':'Job ID', 'job_id':'Job ID(Report)', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
+       j_h_titles     = {{'JobIDRaw':'Job ID', 'JobID':'Job ID(Report)', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
        jr_type_dict   = {{'JobIDRaw':'JobAndStep'}}
     }}
     createTable (job_history, j_h_titles,  'job_history_table', 'past_job', undefined, jr_type_dict) 
@@ -60,8 +61,8 @@ $(document).ready(function(){{
 
     //$('.table_title + table').hide()
     $('.table_title').click(function(event) {{
-       console.log('click', this)
        //$(this).children("i").toggleClass('hide')
+       console.log("---click")
        $(this).toggleClass('table_title_collapse')
        $(this).next().toggleClass('hide')
     }});

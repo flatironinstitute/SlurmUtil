@@ -72,6 +72,18 @@ class BrightRestClient:
            else:
               return rlt
            
+    def getGPU (self, node_list, start_ts, max_gpu_id=3):
+        nodes     = ','.join(node_list)
+        gpus_util = ','.join(['gpu_utilization:gpu{}'.format(i) for i in range(max_gpu_id+1)])
+        req_str   = 'https://ironbcm:8081/rest/v1/monitoring/dump?entity={}&measurable={}&start={}&epoch=1'.format(nodes,gpus_util,start_ts)
+        #req_str   = 'https://ironbcm:8081/rest/v1/monitoring/dump?entity={}&measurable={}&start={}&epoch=1&intervals=10000'.format(nodes,gpus_util,start_ts) #intervals not very useful
+        r         = requests.get(req_str, verify=False, cert=self.cert)
+        print('---{}'.format(r.json()))
+        d         = r.json()['data']   #[{'entity': 'workergpu16', 'measurable': 'gpu_utilization:gpu0', 'raw': 0.3096027944984667, 'time': 1584396000000, 'value': '31.0%'}, 
+        rlt       = defaultdict(list)                 #{'workergpu16.gpu0':[[ts,val],]
+        for item in d:
+            rlt['{}.{}'.format(item['entity'],item['measurable'].split(':')[1])].append([item['time'], item['raw']])
+        return dict(rlt)
     #@staticmethod
 
 def test1():

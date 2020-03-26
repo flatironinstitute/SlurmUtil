@@ -47,15 +47,19 @@ function getDisplayFloat (n) {
 
 //data_dict is a dictionary of a fixed format
 function createMultiTable (data_dict, parent_id, table_title_list, job_id) {
-   console.log(data_dict)
-   console.log("table_title_list=", table_title_list)
+   console.log("createMultiTable: data_dict=", data_dict, ", table_title_list=", table_title_list)
 
    var pas = d3.select('#'+parent_id).selectAll('p')
                .data(Object.keys(data_dict))
                .enter().append('div')
    pas.append('p')
-      .attr('class', 'thick')
-      .html(function (d) {return d + ': alloc ' + data_dict[d][0] + ' CPUs, running processes ' + data_dict[d][1]+'<a href="./nodeJobProcGraph?node=' + d + '&jid=' + job_id + '"> (Proc Usage Graph) </a>'} )
+      .attr('class', 'thick table_title')
+      .html(function (d) {
+               if (data_dict[d][0]>0) 
+                  return d + ': ' + data_dict[d][1] + ' processes <a href="./nodeJobProcGraph?node=' + d + '&jid=' + job_id + '"> (Proc Usage Graph) </a> on ' + data_dict[d][0] + ' CPUs'
+                  //return d + ': alloc ' + data_dict[d][0] + ' CPUs, have ' + data_dict[d][1] + ' processes <a href="./nodeJobProcGraph?node=' + d + '&jid=' + job_id + '"> (Proc Usage Graph) </a>'
+               else
+                  return d + ': ' + data_dict[d][1] + ' processes <a href="./nodeJobProcGraph?node=' + d + '&jid=' + job_id + '"> (Proc Usage Graph) </a>'})
 
    var tables = pas.append('table').property('id', function(d) {return d+'_proc'}).attr('class','noborder')
    var theads    = tables.append('thead')

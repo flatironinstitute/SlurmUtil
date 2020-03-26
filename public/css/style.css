@@ -323,10 +323,10 @@ label.short {
    display: inline-block;
    width:  5em;
 }
-h3.table_title:before {
+.table_title:before {
 //   content: "\25b8\ ";
    content: "\25be\ ";
 }
-h3.table_title_collapse:before {
+.table_title_collapse:before {
    content: "\25b8\ ";
 }

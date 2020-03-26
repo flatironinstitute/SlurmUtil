@@ -232,9 +232,9 @@ class SlurmCmdQuery:
  
     @staticmethod
     def sacct_getJobReport (jobid, skipJobStep=False):
-        output = 'JobID,JobIDRaw,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocNodes,NodeList'
+        #output = 'JobID,JobIDRaw,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocNodes,NodeList'
         # may include sub jobs
-        jobs   = SlurmCmdQuery.sacct_getReport(['-j', str(jobid)], days=None, output=output, skipJobStep=skipJobStep)
+        jobs   = SlurmCmdQuery.sacct_getReport(['-j', str(jobid)], days=None, output='ALL', skipJobStep=skipJobStep)
         if not jobs:
            return None
         return jobs
@@ -248,51 +248,44 @@ class SlurmCmdQuery:
            startDate = '%d-%02d-%02d'%(t.year, t.month, t.day)
            criteria  = ['-S', startDate] + criteria
 
-        sacct_str = SlurmCmdQuery.sacctCmd (criteria, output)
-        jobs      = []
-        for line in sacct_str.splitlines():
-            if not line: continue
+        field_str, sacct_rlt = SlurmCmdQuery.sacctCmd (criteria, output)
+        keys                 = field_str.split(sep='|')
+        jobs                 = []
+        jid_idx              = keys.index('JobID')
+        for line in sacct_rlt:
             ff = line.split(sep='|')
-            if (skipJobStep and '.' in ff[0]): continue # indicates a job step --- under what circumstances should these be broken out?
+            if (skipJobStep and '.' in ff[jid_idx]): continue # indicates a job step --- under what circumstances should these be broken out?
             #508550_0.extern, 508550_[111-626%20], (array job) 511269+0, 511269+0.extern, 511269+0.0 (?)
-            if ( '.' in ff[0] ):
-               ff0 = ff[0].split(sep='.')[0]
+            if ( '.' in ff[jid_idx] ):
+               ff0 = ff[jid_idx].split(sep='.')[0]
             else:
-               ff0 = ff[0]
+               ff0 = ff[jid_idx]
 
             m  = re.fullmatch(r'(\d+)([_\+])(.*)', ff0)
             if not m:
                jid = int(ff0)
             else:
                jid = int(m.group(1))
-            #f0p = ff0.split(sep='_')
-            #try:
-            #    jid, aId = int(f0p[0]), f0p[1]
-            #except:
-            #    jid, aId = int(f0p[0]), -1
             if ff[3].startswith('CANCELLED by '):
                 uid   = ff[3].rsplit(' ', 1)[1]
                 uname = MyTool.getUser(uid)
                 ff[3] = '%s (%s)'%(ff[3], uname)
-            keys = output.split(sep=',')
             job = dict(zip(keys, ff))
-            #job['JobID']  = jid
-            job['job_id'] = job['JobID']
             jobs.append(job)
 
         return jobs
 
     @staticmethod
     def sacctCmd (criteria, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End'):
-        cmd = ['sacct', '-n', '-P', '-o', output] + criteria
+        cmd = ['sacct', '-P', '-o', output] + criteria
         #print('{}'.format(cmd)) 
         try:
             #TODO: capture standard error separately?
             d = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             return 'Command "%s" returned %d with output %s.<br>'%(' '.join(cmd), e.returncode, repr(e.output))
-
-        return d.decode('utf-8')
+        fields, *rlt = d.decode('utf-8').splitlines()
+        return fields, rlt
 
     # given a jid, return [jid, uid, start_time, end_time]
     # if end_time is unknown, return current time
@@ -363,6 +356,15 @@ class SlurmCmdQuery:
            return SlurmCmdQuery.DICT_ASSOC[user]
         return {}
 
+class PyslurmQuery():
+    @staticmethod
+    def getJob (jid):
+        jobs = pyslurm.job().get()
+        if jid in jobs:
+           return jobs[jid]
+        else:
+           return None
+
 def test1():
     client = SlurmCmdQuery()
     info = client.getSlurmJobInfo('110972')
@@ -376,7 +378,9 @@ def test3():
     client.getJobByName ('script.sh')
 
 def test4():
-    SlurmCmdQuery.sacct_getJobReport(470143, 'Start')
+    jobs=SlurmCmdQuery.sacct_getJobReport(514269)
+    print(repr(jobs))
+
 def test5():
     jobs=SlurmCmdQuery.sacct_getNodeReport('workergpu00')
     print(repr(jobs))
@@ -395,7 +399,7 @@ def main():
     #print(SlurmStatus.getStatus(1))
     #info = client.getSlurmJobInfo('105179')
     #info = client.test()
-    test6()
+    test4()
     print("main take time " + str(time.time()-t1))
 
 if __name__=="__main__":

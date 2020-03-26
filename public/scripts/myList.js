@@ -5,12 +5,12 @@ function prepareDictData (data_dict, fields_dict)
        return Object.entries(data_dict)
     fields = Object.keys(fields_dict)
     f = fields.filter(function (k) {return data_dict.hasOwnProperty(k) && data_dict[k]})  //keep the order in fields
-    return f.map(function (k) { return [fields_dict[k], data_dict[k]] })
+    return f.map(function (k) { return [fields_dict[k], data_dict[k], k] })
 }
 
-function createList  (data, fields, parent_id, prepare_data_func=prepareDictData) 
+function createList  (data, fields, parent_id, type_dict, prepare_data_func=prepareDictData) 
 {
-        console.log('createList: orig data=', data, ',fields=', fields)
+        console.log('createList: orig data=', data, ',fields=', fields, ",type_dict=", type_dict)
         data = prepare_data_func(data, fields)
         console.log('createList: data=', data)
         var ul = d3.select(parent_id).append ('ul');
@@ -32,6 +32,12 @@ function createList  (data, fields, parent_id, prepare_data_func=prepareDictData
                            str  = str + getJobDetailHtml(jid) + ' '
                        return '<span>' + d[0] + ':</span>' + str
                      }
+                     if (type_dict && type_dict[d[2]]) {
+                       if (type_dict[d[2]] == 'TresShort') {
+                           return '<span>' + d[0] + ':</span>' + getTres_short(d[1])
+                       }
+                     }
+
                      return '<span>' + d[0] + ':</span>' + d[1]})
 };
 function getJobDetailHtml (jid) {
@@ -39,4 +45,7 @@ function getJobDetailHtml (jid) {
 }
 function getPartDetailHtml (pid) {
     return '<a href=./partitionDetail?partition=' + pid +'>' + pid + '</a>'
+}
+function getTres_short(tres) {
+    return tres.replace(/billing=\d+,/,'')
 }

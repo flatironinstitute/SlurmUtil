@@ -18,28 +18,40 @@ $(document).ready(function(){{
     var j_h_titles     = {{'JobID':'Job ID', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
     var type_dict      = {{'JobIDRaw':'JobAndStep'}}
     if (("ArrayJobID" in j_info) || ('HeterogeneousJobID' in j_info)) 
-       j_h_titles     = {{'JobID':'Job ID', 'JobIDRaw':'Job ID(Raw)', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
+       j_h_titles     = {{'JobIDRaw':'Job ID', 'JobID':'Job ID(Report)', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
     if ({worker_proc}) {{
        createMultiTable ({worker_proc}, 'div_worker_proc', {title_list}, {job_id})
     }}
 
-    createList  (j_info,  null, '#job_info')
-    createTable ({job_report}, j_h_titles,  'job_history_table', 'job_report', undefined, {{'JobIDRaw':'JobAndStep'}})
+    createList  (j_info,  {{'State':'State','User':'User','QOS':'QOS','ReqTRES':'Req TRES','AllocTRES':'Alloc TRES','Eligible':'Eligible Time','Start':'Start Time', 'End':'End Time','CPUTime':'CPU Time','WorkDir':'Work Dir','ExitCode':'Exit Code','ArrayJobID':'Array Job','HeterogeneousJobID':'Heterogeneous Job'}}, '#job_info', {{'ReqTRES':'TresShort','AllocTRES':'TresShort'}})
+    createTable ({job_report}, j_h_titles,  'job_history_table', 'job_report', undefined, {{'JobID':'JobAndStep'}})
+    $("#node_cnt").text(j_info['AllocNodes'])
+    $("#cpu_cnt").text(j_info['AllocCPUS'])
+    $('.table_title').click(function(event) {{
+       //$(this).children("i").toggleClass('hide')
+       $(this).toggleClass('table_title_collapse')
+       $(this).next().toggleClass('hide')
+    }});
+
+    if (j_info['AllocGRES'])
+       $("#extra_link").html(", <a href='jobGPUGraph?jid=" + {job_id} + "'>GPU Usage Graph</a>")
+
 }});
 </script>
 </head>
 
 <body>
 <div id="user" class="page-wrap">
-<h3> Job {job_id}: <a href='./jobByName?name={job_name}'>{job_name}</a> (<a href='jobGraph?jobid={job_id}'>Usage Graph</a>)</h3>
-   <b>Jump to <a href='#job_report'>sacct</a></b>
-   <p><i>Update time: {update_time}</i>
+<h3 id="title"> 
+  Job {job_id}: <a href='./jobByName?name={job_name}'>{job_name}</a> (<a href='jobGraph?jobid={job_id}'>Usage Graph</a><font id='extra_link'></font>)</h3>
+<b>Jump to <a href='#job_report'>sacct</a></b>
+<p><i>Update time: {update_time}</i>
 <hr>
 </div>
 <div id="job_info">
 </div>
 <div id="div_worker_proc" class="page-wrap">
-   <h3>Total {proc_cnt} Processes on {worker_cnt} Allocated Nodes and {core_cnt} Cores</h3>
+   <h3>Total {proc_cnt} Processes on <font id="node_cnt"></font> Allocated Nodes and <font id="cpu_cnt"></font> Cores</h3>
    <div><font color='orange'>{note}</font></div>
 </div>
 <div id="job_report" class="page-wrap">

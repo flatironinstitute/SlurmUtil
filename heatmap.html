@@ -53,18 +53,13 @@
           users_data  = %(users)s                                   //input
           gpu_obj     = %(gpu)s
 
-      console.log("workers=", workers)
-      console.log("jobs=", jobs_data)
-      console.log("users=", users_data)
-      console.log("orig gpu=", gpu_obj)
+      console.log("workers=", workers, "jobs=", jobs_data, "users=", users_data, "orig gpu=", gpu_obj)
       var labels       = [], gpu_labels=[];                   // labels, save results 
       var grpCnt       = [0,0,0,0,0,0,0,0,0];  // count for each group worker0..., ..., save results from function call
       var workers_data = prepareNodeData (workers, grpCnt, labels, gpu_obj)
       var gpu_data     = prepareGPUData  (workers_data,    gpu_labels)
       var gpu_gridSize = Math.floor(width / gpu_labels.length)
-      console.log("workers_data=",workers_data);
-      console.log("gpu_data=",gpu_data);
-      //console.log(gpu_labels);
+      console.log("workers_data=",workers_data, "gpu_data=",gpu_data);
 
       var gpu_update = new Date(gpu_obj["time"]*1000)
       d3.select("#gpu_update").text("Update time: " + gpu_update.toString());

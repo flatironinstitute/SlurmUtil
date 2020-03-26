@@ -471,16 +471,16 @@ class PyslurmReader (threading.Thread):
            points.append(pendpoint)
 
         # slurm_job_mon: ts, job_id
-        point =  {'measurement':'slurm_job_mon', 'time': ts}
-        point['tags']   = MyTool.sub_dict_remove       (item, ['job_id', 'user_id'])
-        point['fields'] = MyTool.sub_dict_exist_remove (item, ['job_state', 'state_reason', 'run_time', 'suspend_time', 'num_cpus', 'num_nodes', 'tres_req_str']) # add tres_req_str 06/28/2019
+        point =  {'measurement':'slurm_job_mon1', 'time': ts}  #03/23/2020 change
+        point['tags']   = MyTool.sub_dict_remove       (item, ['job_id'])
+        point['fields'] = MyTool.sub_dict_exist_remove (item, ['user_id', 'job_state', 'state_reason', 'run_time', 'suspend_time', 'num_cpus', 'num_nodes', 'tres_req_str']) # add tres_req_str 06/28/2019
         points.append(point)
 
         # slurm_job_info: submit_time, job_id, user_id
         infopoint = {'measurement':'slurm_job', 'time': (int)(item.pop('submit_time'))}
         infopoint['tags']   = MyTool.sub_dict (point['tags'], ['job_id', 'user_id'])
         infopoint['fields'] = item
-        infopoint['fields'].update (MyTool.sub_dict(point['fields'], ['job_state', 'state_reason', 'num_cpus', 'num_nodes', 'tres_req_str']))
+        infopoint['fields'].update (MyTool.sub_dict(point['fields'], ['job_state', 'state_reason', 'num_cpus', 'num_nodes', 'tres_req_str','tres_alloc_str']))
         MyTool.update_dict_value2string(infopoint['fields'])
        
         newValue = json.dumps(infopoint)
@@ -502,9 +502,9 @@ class PyslurmReader (threading.Thread):
 
         name = item['name']
         # slurm_node_mon: ts, name
-        point           =  {'measurement':'slurm_node_mon', 'time': ts}
-        point['tags']   = MyTool.sub_dict_exist_remove (item, ['name', 'boot_time', 'slurmd_start_time'])
-        point['fields'] = MyTool.sub_dict_exist_remove (item, ['cpus', 'cpu_load', 'alloc_cpus', 'state', 'free_mem', 'gres', 'gres_used', 'partitions', 'reason', 'reason_time', 'reason_uid', 'err_cpus', 'alloc_mem'])
+        point           =  {'measurement':'slurm_node_mon1', 'time': ts}  #03/23/2020, replace slurm_node_mon
+        point['tags']   = MyTool.sub_dict_exist_remove (item, ['name'])
+        point['fields'] = MyTool.sub_dict_exist_remove (item, ['boot_time', 'slurmd_start_time', 'cpus', 'cpu_load', 'alloc_cpus', 'state', 'free_mem', 'gres', 'gres_used', 'partitions', 'reason', 'reason_time', 'reason_uid', 'err_cpus', 'alloc_mem'])
         MyTool.update_dict_value2string(point['fields'])
         points.append(point)
 
