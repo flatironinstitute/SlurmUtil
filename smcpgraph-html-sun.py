@@ -863,14 +863,29 @@ class SLURMMonitor(object):
                   #print('WARNING: Job {} does not have proc on nodes {}'.format(jid, job['nodes']))
                   job['job_avg_util'] = 0
                   job['job_mem_util'] = 0
-            job['gpus_allocated'] = SLURMMonitor.getJobAllocatedGPU(job, self.pyslurmNodeData)
+            job['gpus_allocated'] = SLURMMonitor.getJobAllocGPU(job, self.pyslurmNodeData)
  
         return jobs
 
-    def getJobAllocatedGPU (job, node_dict):
+    def getJobAllocGPU (job, node_dict):
         node_list      = [node_dict[node] for node in job['cpus_allocated']]
         gpus_allocated = MyTool.getGPUAlloc_layout(node_list, job['gres_detail'])
         return gpus_allocated
+
+    def getUserAllocGPU (uid, node_dict):
+        rlt      = {}
+        rlt_jobs = []
+        jobs     = PyslurmQuery.getUserCurrJobs(uid)
+        if jobs:
+           for job in jobs:
+               job_gpus = SLURMMonitor.getJobAllocGPU(job, node_dict)
+               for node, gpu_ids in job_gpus.items():
+                   rlt_jobs.append(job)
+                   if node in rlt:
+                      rlt[node].extend (gpu_ids)
+                   else:
+                      rlt[node] = gpu_ids
+        return rlt, rlt_jobs
 
     @cherrypy.expose
     def getLowResourceJobs (self, job_length_secs=ONE_DAY_SECS, job_width_cpus=1, job_cpu_avg_util=0.1, job_mem_util=0.3):
@@ -1258,6 +1273,7 @@ class SLURMMonitor(object):
         userAssoc['runng_jobs'] = [j['job_id'] for j in userjob.get('RUNNING',[])]
         userAssoc['alloc_cpus'] = sum([t['cpu']  for t in tres_alloc])
         userAssoc['alloc_nodes']= sum([t['node'] for t in tres_alloc])
+        userAssoc['alloc_gpus'] = sum([t.get('gres/gpu',0) for t in tres_alloc])
         userAssoc['alloc_mem']  = MyTool.sumOfListWithUnit([t['mem']  for t in tres_alloc if 'mem' in t])
                
         htmlTemp   = os.path.join(wai, 'userDetail.html')
@@ -1330,17 +1346,44 @@ class SLURMMonitor(object):
         #return '{}\n{}'.format(fields, data)
         
     @cherrypy.expose
+    def userGPUGraph (self, user):
+        uid                     = MyTool.getUid (user)
+        jobs_gpu_alloc,jobs_gpu = SLURMMonitor.getUserAllocGPU(uid, pyslurm.node().get())  #{'workergpu01':[0,1]
+        if not jobs_gpu_alloc:                            #TODO: done jobs
+           return "User {} does not have jobs using GPU.".format(user)
+
+        start_ts     = min([job['start_time'] for job in jobs_gpu])
+        brightClient = BrightRestClient()
+        max_gpu_id   = max([i for id_lst in jobs_gpu_alloc.values() for i in id_lst])
+        gpu_dict     = brightClient.getGPU (list(jobs_gpu_alloc.keys()), start_ts, max_gpu_id)
+        series       = []
+        idx          = 0
+        for node,gpu_list in jobs_gpu_alloc.items():
+            for gpu_id in gpu_list:
+                name = '{}.gpu{}'.format(node, gpu_id)
+                if gpu_dict[name][0][0] < (start_ts - 600) * 1000:
+                   gpu_dict[name][0][0] = start_ts * 1000
+                series.append ({'name':'{} ({})'.format(jobs_gpu[idx]['job_id'], name), 'data':gpu_dict[name]})
+            idx +=1
+
+        htmltemp = os.path.join(wai, 'nodeGPUGraph.html')
+        h = open(htmltemp).read()%{'spec_title': ' of User {}'.format(user),
+                                   'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(start_ts)),
+                                   'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(int(time.time()))),
+                                   'series'    : json.dumps(series)}
+        return h
+
+    @cherrypy.expose
     def jobGPUGraph (self, jid):
         jid = int(jid)
-        job = PyslurmQuery.getJob(jid)
+        job = PyslurmQuery.getCurrJob(jid)
         if not job:                            #TODO: done jobs
-           return "Job {} is not running or done in last 600 seconds(slurm.conf::MinJobAge)".format(jid)
+           return "Job {} is not running/pending or done in last 600 seconds(slurm.conf::MinJobAge.)".format(jid)
 
         job_start    = job['start_time']
         if not job['gres_detail']:
            return "No GPU Alloc for job {}".format(jid)
-        job_gpu_alloc= SLURMMonitor.getJobAllocatedGPU(job, pyslurm.node().get())  #{'workergpu01':[0,1]
-        print('---{}'.format(job_gpu_alloc))
+        job_gpu_alloc= SLURMMonitor.getJobAllocGPU(job, pyslurm.node().get())  #{'workergpu01':[0,1]
         brightClient = BrightRestClient()
         max_gpu_id   = max([i for id_lst in job_gpu_alloc.values() for i in id_lst])
         gpu_dict     = brightClient.getGPU (list(job_gpu_alloc.keys()), job_start, max_gpu_id)
@@ -1957,11 +2000,11 @@ class SLURMMonitor(object):
         return WAIT_MSG + repr(elapse_time) + " seconds since server restarted."
 
     @cherrypy.expose
-    def userJobGraph(self,uname,start='', stop=''):
+    def userJobGraph(self,user,start='', stop=''):
         if not self.currJobs: return self.getWaitMsg()
 
         #{jid: df, ...}
-        uid                      = MyTool.getUid(uname)
+        uid                      = MyTool.getUid(user)
         start, jid2df, jid2dsc   = self.getUserJobMeasurement (uid)
         if not jid2df:          return "User does not have running jobs at this time"
       
@@ -1977,11 +2020,11 @@ class SLURMMonitor(object):
         
         #if len(msg)==6:
         htmltemp = os.path.join(wai, 'nodeGraph_2.html')
-        h        = open(htmltemp).read()%{'spec_title': ' of user {}'.format(uname),
+        h        = open(htmltemp).read()%{'spec_title': ' of user {}'.format(user),
                                    'note'      : 'influxdb',
                                    'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(start)),
                                    'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(time.time())),
-                                   'lseries'   : series['cpu'],
+                                   'lseries'   : json.dumps(series['cpu']),
                                    'mseries'   : series['mem'],
                                    'iseries_rw' : series['io'],
                                    }

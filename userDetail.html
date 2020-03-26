@@ -29,7 +29,7 @@ $(document).ready(function(){{
     var part_type_dict = {{'name':'Partition'}}
     var job_type_dict  = {{'JobName':'JobName', 'name':'JobName', 'submit_time':'Time','start_time':'Time', 'tres_req_str':'TresShort', 'tres_alloc_str':'TresShort'}}
     var jr_type_dict   = {{'JobID':'JobAndStep', 'JobIDRaw':'JobAndStep'}}
-    var u_fields_title = {{'uid':'User ID', 'Account':'Account', 'MaxSubmit':'Max Submit', 'MaxJobs':'Max Jobs', 'MaxNodes':'Max Nodes', 'MaxCPUs':'Max CPUs', 'MaxWall':'Max Wall Time', 'MaxCPUMins':'Max CPU min', 'alloc_nodes':'Alloc Nodes', 'alloc_cpus':'Alloc CPUs', 'alloc_mem':'Alloc Mem'}}
+    var u_fields_title = {{'uid':'User ID', 'Account':'Account', 'MaxSubmit':'Max Submit', 'MaxJobs':'Max Jobs', 'MaxNodes':'Max Nodes', 'MaxCPUs':'Max CPUs', 'MaxWall':'Max Wall Time', 'MaxCPUMins':'Max CPU min', 'alloc_nodes':'Alloc Nodes', 'alloc_cpus':'Alloc CPUs', 'alloc_gpus':'Alloc GPUs','alloc_mem':'Alloc Mem'}}
     var running_jobs   = {running_jobs}
     var pending_jobs   = {pending_jobs}
     var part_info      = {part_info}
@@ -38,7 +38,6 @@ $(document).ready(function(){{
     var array_het_jids = {array_het_jids}
 
     createList (user_assoc, u_fields_title, '#user_assoc')
-    //createList (user_assoc, ['uid', 'Account', 'MaxJobs', 'MaxNodes', 'MaxCPUs', 'MaxSubmit', 'MaxWall', 'MaxCPUMins', 'alloc_nodes', 'alloc_cpus', 'alloc_mem'], '#user_assoc')
     if (running_jobs.length >0) {{
        createTable (running_jobs, r_j_titles, 'run_job_table',  'running_jobs', undefined, job_type_dict);
     }}
@@ -66,6 +65,9 @@ $(document).ready(function(){{
        $(this).toggleClass('table_title_collapse')
        $(this).next().toggleClass('hide')
     }});
+
+    if (user_assoc['alloc_gpus']) 
+       $("#gpu_link").html ("<a href='userGPUGraph?user={uname}'>GPU Usage Graph, </a>")
 }});
 </script>
 </head>
@@ -73,7 +75,8 @@ $(document).ready(function(){{
 <body>
 <div id="user" class="page-wrap">
   <h3> {user} ({uname}): 
-    <a href='userJobGraph?uname={uname}'>Usage Graph</a>,
+    <a href='userJobGraph?user={uname}'>Usage Graph</a>,
+    <font id='gpu_link'></font>
     <a href='user_fileReport?user={uname}&days=30'>File Usage Report</a>
   </h3>
   <p><i>Update time: {update_time}</i>

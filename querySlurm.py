@@ -358,12 +358,17 @@ class SlurmCmdQuery:
 
 class PyslurmQuery():
     @staticmethod
-    def getJob (jid):
+    def getCurrJob (jid):
         jobs = pyslurm.job().get()
         if jid in jobs:
            return jobs[jid]
         else:
            return None
+
+    @staticmethod
+    def getUserCurrJobs (user_id):
+        jobs = pyslurm.job().get()
+        return [job for job in jobs.values() if job['user_id']==user_id]
 
 def test1():
     client = SlurmCmdQuery()

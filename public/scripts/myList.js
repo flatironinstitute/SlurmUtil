@@ -12,7 +12,6 @@ function createList  (data, fields, parent_id, type_dict, prepare_data_func=prep
 {
         console.log('createList: orig data=', data, ',fields=', fields, ",type_dict=", type_dict)
         data = prepare_data_func(data, fields)
-        console.log('createList: data=', data)
         var ul = d3.select(parent_id).append ('ul');
         ul.selectAll('li')
           .data(data).enter()
