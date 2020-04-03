@@ -33,18 +33,18 @@ function createList  (data, fields, parent_id, type_dict, prepare_data_func=prep
                      }
                      if (type_dict && type_dict[d[2]]) {
                        if (type_dict[d[2]] == 'TresShort') {
-                           return '<span>' + d[0] + ':</span>' + getTres_short(d[1])
-                       }
-                     }
+                           return '<span>' + d[0] + ':</span>' + getTresWithoutBilling(d[1])
+                       }else if (type_dict[d[2]] == 'Time') {
+                           return '<span>' + d[0] + ':</span>' + getTS_string(d[1])
+                       }else if (type_dict[d[2]] == 'Mem_MB') {
+                           return '<span>' + d[0] + ':</span>' + d[1] + 'MB'
+                       }else if (type_dict[d[2]] == 'JobArray' && d[1]) {
+                           return '<span>' + d[0] + ':</span>' + getJobArrayDetail(d[1])
+                       }else if (type_dict[d[2]] == 'QoS' && d[1]) {
+                           return '<span>' + d[0] + ':</span>' + getQoSDetailHtml(d[1])
+                       }else if (type_dict[d[2]] == 'TresInteger' && d[1]) 
+                           return '<span>' + d[0] + ':</span>' + getTresReplaceInteger(d[1])
+                     } 
 
                      return '<span>' + d[0] + ':</span>' + d[1]})
 };
-function getJobDetailHtml (jid) {
-    return '<a href=./jobDetails?jid=' + jid + '>' + jid + '</a>'
-}
-function getPartDetailHtml (pid) {
-    return '<a href=./partitionDetail?partition=' + pid +'>' + pid + '</a>'
-}
-function getTres_short(tres) {
-    return tres.replace(/billing=\d+,/,'')
-}

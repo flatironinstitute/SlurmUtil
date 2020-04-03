@@ -45,24 +45,26 @@ function getDisplayFloat (n) {
    return n.toFixed(2)
 }
 
-//data_dict is a dictionary of a fixed format
-function createMultiTable (data_dict, parent_id, table_title_list, job_id) {
-   console.log("createMultiTable: data_dict=", data_dict, ", table_title_list=", table_title_list)
-
-   var pas = d3.select('#'+parent_id).selectAll('p')
+function createMultiTitle (data_dict, parent_id, job_id) {
+   var pas = d3.select(parent_id).selectAll('p')
                .data(Object.keys(data_dict))
                .enter().append('div')
    pas.append('p')
       .attr('class', 'thick table_title')
       .html(function (d) {
-               if (data_dict[d][0]>0) 
-                  return d + ': ' + data_dict[d][1] + ' processes <a href="./nodeJobProcGraph?node=' + d + '&jid=' + job_id + '"> (Proc Usage Graph) </a> on ' + data_dict[d][0] + ' CPUs'
-                  //return d + ': alloc ' + data_dict[d][0] + ' CPUs, have ' + data_dict[d][1] + ' processes <a href="./nodeJobProcGraph?node=' + d + '&jid=' + job_id + '"> (Proc Usage Graph) </a>'
-               else
-                  return d + ': ' + data_dict[d][1] + ' processes <a href="./nodeJobProcGraph?node=' + d + '&jid=' + job_id + '"> (Proc Usage Graph) </a>'})
+               var rlt = '<a href="./nodeDetails?node=' + d + '">' + d + '</a>: ' + data_dict[d][1] + ' processes <a href="./nodeJobPro    cGraph?node=' + d + '&jid=' + job_id + '"> (Proc Usage Graph) </a>'
+               if (data_dict[d][0]>0)
+                  rlt  = rlt + ' on ' + data_dict[d][0] + ' CPUs'
+               return rlt})
+   return pas
+}
 
+//data_dict is a dictionary of a fixed format
+function createMultiTable (data_dict, parent_id, table_title_list, job_id) {
+   console.log("createMultiTable: data_dict=", data_dict, ", table_title_list=", table_title_list)
+   var pas    = createMultiTitle (data_dict, parent_id, job_id)
    var tables = pas.append('table').property('id', function(d) {return d+'_proc'}).attr('class','noborder')
-   var theads    = tables.append('thead')
+   var theads = tables.append('thead')
                      .append('tr')
                      .selectAll('th')
                      .data(table_title_list)
@@ -79,28 +81,45 @@ function createMultiTable (data_dict, parent_id, table_title_list, job_id) {
       .enter().append('td')
          .attr('class', function(d,i) {return 'noborder ' + table_title_list[i]})
          .text(function (d) {return d}) //TODO: change to createMultiTable2 style
+
+   collapseTitle ()
 }
 
-//data_dict is a dictionary of a fixed format
-function createMultiTable2 (data_dict, parent_id, table_title_list, node, alloc_gpus, type_list) {
-   console.log(data_dict)
-   console.log("table_title_list=", table_title_list)
-
-   var pas = d3.select('#'+parent_id).selectAll('p')
+function createMultiTitle2 (data_dict, parent_id, node) {
+   var pas = d3.select(parent_id).selectAll('p')
                .data(Object.keys(data_dict))
                .enter().append('div')
    pas.append('p')
-      .attr('class', 'thick')
+      .attr('class', 'thick table_title')
       .html(function (d) {
                var str= "Job " + d + ': '
                if ( d!= 'undefined') {
-                  str += 'alloc ' + data_dict[d]["job"]["cpus_allocated"][node] + ' CPUs, ' + alloc_gpus + ' GPUs'
+                  var job = data_dict[d]["job"]
+                  str += 'alloc ' + job["cpus_allocated"][node] + ' CPUs'
+                  if (("gpus_allocated" in job) && (node in job["gpus_allocated"]))  
+                     str += ', ' + job["gpus_allocated"][node].length + ' GPUs'
                   if (data_dict[d]["procs"] != undefined)
 		     str += ', running processes ' + data_dict[d]["procs"].length +'<a href="./nodeJobProcGraph?node=' + node + '&jid=' + d + '"> (Proc Usage Graph) </a>'
                   else
 		     str += ', no running processes.'
                }
                return str; })
+    return pas
+}
+
+function collapseTitle () {
+   // collapse behavior
+   $('.table_title').click(function(event) {
+       //$(this).children("i").toggleClass('hide')
+      $(this).toggleClass('table_title_collapse')
+      $(this).next().toggleClass('hide')
+   });
+}
+
+//data_dict is a dictionary of a fixed format
+function createMultiTable2 (data_dict, parent_id, table_title_list, node, type_list) {
+   console.log("createMultiTable2 data_dict=", data_dict, "table_title_list=", table_title_list, "node=", node, "type_list=", type_list)
+   var pas    = createMultiTitle2(data_dict, parent_id, node)
    var tables = pas.append('table').property('id', function(d) {return d+'_proc'}).attr('class','noborder')
    var theads = tables.append('thead')
                      .append('tr')
@@ -129,6 +148,9 @@ function createMultiTable2 (data_dict, parent_id, table_title_list, node, alloc_
                  }
              return d
          })
+
+   // collapse behavior
+   collapseTitle ()
 }
 
 function createTable (data, titles_dict, table_id, parent_id, pre_data_func=prepareData, type_dict) {
@@ -194,7 +216,7 @@ function createTable (data, titles_dict, table_id, parent_id, pre_data_func=prep
             .html(function (d) {
                  if (type_dict && type_dict[d.name]) {
                     if (type_dict[d.name] == 'Partition')
-                       return '<a href=./partitionDetail?partition=' + d.value+'>' + d.value + '</a>'
+                       return getPartDetailHtml(d.value)
                     else if (type_dict[d.name] == 'Time')
                        return getTS_string(d.value)
                     else if (type_dict[d.name] == 'TresShort')
@@ -206,17 +228,16 @@ function createTable (data, titles_dict, table_id, parent_id, pre_data_func=prep
                            str  = str + ' ' + getJobDetailHtml(jid)
                        return str
                     } else if (type_dict[d.name] == 'JobArray' && d.value) {
-                       var str  = ''
-                       for (jid of d.value) 
-                           str  = str + ' ' + getJobDetailHtml(jid)
-                       return str
+                       return getJobArrayDetail(d.value)
                     } else if (type_dict[d.name] == 'JobName') {
                        return '<a href=./jobByName?name=' + d.value+'>' + d.value + '</a>'
                     } else if (type_dict[d.name] == 'JobAndStep') {
                        if ((d.value.toString().indexOf('.') == -1) && (d.value.toString().indexOf('_')==-1))   // not jobstep
                           return '<a href=./jobDetails?jid=' + d.value+'>' + d.value + '</a>'
-                    } else if (type_dict[d.name] == 'Node') 
+                    } else if (type_dict[d.name] == 'Node') {
                        return getNodeDetailHtml (d.value)
+                    } else if (type_dict[d.name] == 'User') 
+                       return '<a href=./userDetails?user=' + d.value+'>' + d.value + '</a>'
                  }
                  if (d.name == 'user') { // TODO: change to use type_dict
                     return '<a href=./userDetails?user=' + d.value+'>' + d.value + '</a>'
@@ -230,17 +251,6 @@ function createTable (data, titles_dict, table_id, parent_id, pre_data_func=prep
                  return d.value;
             });
 };
-function getJobDetailHtml (jid) {
-    return '<a href=./jobDetails?jid=' + jid + '>' + jid + '</a>'
-}
-function getNodeDetailHtml (id) {
-    return '<a href=./nodeDetails?node=' + id + '>' + id + '</a>'
-}
-function getTS_string (ts) {
-    var d = new Date(ts * 1000)
-    //return d.toLocaleDateString() + ' ' + d.toLocaleTimeString()
-    return d.toLocaleString()
-}
 function getTres_short(tres) {
     return tres.replace(/,billing=\d+/,'')
 }
@@ -252,9 +262,7 @@ function prepareData_pending (data) {
    var group
 
    data.forEach (function (d) {
-      group = d.user+d.partition+d.state_reason;
-      //group = d.account; 
-
+      group = d.user+d.partition+d.state_reason;   // will collapse onto same group in the pending table
       if ( group != savGName) {
          // group changed, deal with saved ones
          savGroup.forEach(function (d) {

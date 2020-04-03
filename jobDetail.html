@@ -8,6 +8,7 @@
 
 <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
 <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+<script type="text/javascript" src="static/scripts/myFunc.js"></script>
 <script type="text/javascript" src="static/scripts/myTable.js"></script>
 <script type="text/javascript" src="static/scripts/myList.js"></script>
 <script type="text/javascript">
@@ -15,25 +16,25 @@
 $(document).ready(function(){{
     //create table job_table and part_table
     var j_info         = {job_info}
+    var job            = {job}
     var j_h_titles     = {{'JobID':'Job ID', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
     var type_dict      = {{'JobIDRaw':'JobAndStep'}}
     if (("ArrayJobID" in j_info) || ('HeterogeneousJobID' in j_info)) 
        j_h_titles     = {{'JobIDRaw':'Job ID', 'JobID':'Job ID(Report)', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
-    if ({worker_proc}) {{
-       createMultiTable ({worker_proc}, 'div_worker_proc', {title_list}, {job_id})
-    }}
 
-    createList  (j_info,  {{'State':'State','User':'User','QOS':'QOS','ReqTRES':'Req TRES','AllocTRES':'Alloc TRES','Eligible':'Eligible Time','Start':'Start Time', 'End':'End Time','CPUTime':'CPU Time','WorkDir':'Work Dir','ExitCode':'Exit Code','ArrayJobID':'Array Job','HeterogeneousJobID':'Heterogeneous Job'}}, '#job_info', {{'ReqTRES':'TresShort','AllocTRES':'TresShort'}})
+    if (job)
+       createList  (job,  {{'job_state':'State','user':'User','qos':'QOS','num_tasks':'Number of Tasks','ntasks_per_node':'Tasks Per Node','tres_req_str':'Req TRES','exc_nodes':'Exclude Nodes','shared':'Shared','tres_alloc_str':'Alloc TRES','submit_time':'Submit Time','eligible_time':'Eligible Time','start_time':'Start Time', 'end_time':'End Time','CPUTime':'CPU Time','command':'Command','work_dir':'Work Dir','exit_code':'Exit Code','ArrayJobID':'Array Job','HeterogeneousJobID':'Heterogeneous Job'}}, '#job_info', {{'tres_req_str':'TresShort','tres_alloc_str':'TresShort','submit_time':'Time','eligible_time':'Time','start_time':'Time', 'end_time':'Time', 'qos':'QoS'}})
+    else
+       createList  (j_info,  {{'State':'State','User':'User','QOS':'QOS','ReqTRES':'Req TRES','AllocTRES':'Alloc TRES','Eligible':'Eligible Time','Start':'Start Time', 'End':'End Time','CPUTime':'CPU Time','WorkDir':'Work Dir','ExitCode':'Exit Code','ArrayJobID':'Array Job','HeterogeneousJobID':'Heterogeneous Job'}}, '#job_info', {{'ReqTRES':'TresShort','AllocTRES':'TresShort', 'QOS':'QOS'}})
+
+    if ({worker_proc}) {{
+       createMultiTable ({worker_proc}, '#div_worker_proc', {title_list}, {job_id})
+    }}
     createTable ({job_report}, j_h_titles,  'job_history_table', 'job_report', undefined, {{'JobID':'JobAndStep'}})
     $("#node_cnt").text(j_info['AllocNodes'])
     $("#cpu_cnt").text(j_info['AllocCPUS'])
-    $('.table_title').click(function(event) {{
-       //$(this).children("i").toggleClass('hide')
-       $(this).toggleClass('table_title_collapse')
-       $(this).next().toggleClass('hide')
-    }});
 
-    if (j_info['AllocGRES'])
+    if (job['gres_detail'] || j_info['AllocGRES'])
        $("#extra_link").html(", <a href='jobGPUGraph?jid=" + {job_id} + "'>GPU Usage Graph</a>")
 
 }});

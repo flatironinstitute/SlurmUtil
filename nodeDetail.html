@@ -8,39 +8,47 @@
 
 <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
 <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
+<script type="text/javascript" src="static/scripts/myFunc.js"></script>
 <script type="text/javascript" src="static/scripts/myTable.js"></script>
 <script type="text/javascript" src="static/scripts/myList.js"></script>
 <script type="text/javascript">
 
 $(document).ready(function(){{
-    var node_data      = {node_data}
-    var proc_title     = ['PID', 'Avg CPU Util', 'RSS', 'VMS','IO Rate', 'Command']
-    var proc_type      = [null,  'Float',        'B',   'B',  'Bps',      null]
-    var j_h_titles     = {{'JobID':'Job ID', 'JobName':'Name','AllocCPUS':'Alloc CPU','AllocGPUS':'Allc GPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
-    var j_h_type_dict  = {{'JobID':'JobAndStep'}}
-    var array_het_jids = {array_het_jids}
-    if (!node_data["gpus"]) 
-       j_h_titles     = {{'JobID':'Job ID', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
+    var node_data         = {node_data}
+    var node_display_data = {node_display_data}
+    var proc_title        = ['PID', 'Avg CPU Util', 'RSS', 'VMS','IO Rate', 'Command']
+    var proc_type         = [null,  'Float',        'B',   'B',  'Bps',      null]
+    var j_h_titles        = {{'JobIDRaw':'Job ID', 'JobID':'Job ID(Report)','JobName':'Name','User':'User','AllocCPUS':'Alloc CPU','AllocGPUS':'Allc GPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
+    var j_h_type_dict     = {{'JobID':'JobAndStep','JobIDRaw':'JobAndStep','User':'User'}}
+    var array_het_jids    = {array_het_jids}
 
+    $("#node_state").text(node_data["state"])
     if (node_data["gpus"])
-       d3.select("#node_summary").html("Node " + node_data["name"]+ ": " + node_data["state"] + " (<a href='nodeGraph?node=" + node_data["name"] + "'>Usage Graph</a>, <a href='nodeGPUGraph?node=" + node_data["name"] + "'>GPU Graph</a>)")
+       $("#gpu_link").html(", <a href='nodeGPUGraph?node=" + node_data["name"] + "'>GPU Graph</a>")
     else
-       d3.select("#node_summary").html("Node " + node_data["name"]+ ": " + node_data["state"] + " (<a href='nodeGraph?node=" + node_data["name"] + "'>Usage Graph</a>)")
-    d3.select("#summary").text("Total " +node_data["jobCnt"]+" running Jobs with " + node_data["procCnt"] + " Processes, allocating "+node_data["alloc_cpus"] +" CPUs and " + node_data["alloc_gpus"] + " GPUs")
-    console.log(node_data)
-    createList        ({node_display_data}, null, '#div_node_info')
-    createMultiTable2 (node_data["jobProc"], 'div_job', proc_title, node_data["name"], node_data["alloc_gpus"], proc_type)
-    if (array_het_jids) {{
-       j_h_titles     = {{'JobID':'Job ID', 'JobIDRaw':'Job ID(Raw)','JobName':'Name','AllocCPUS':'Alloc CPU','AllocGPUS':'Allc GPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
-       j_h_type_dict  = {{'JobIDRaw':'JobAndStep'}}
-    }}
+       delete j_h_titles.AllocGPUS
+    if (node_data["jobCnt"])
+       $("#summary").text("Total " +node_data["jobCnt"]+" running Jobs with " + node_data["procCnt"] + " Processes, allocating "+node_data["alloc_cpus"] +" CPUs and " + node_data["alloc_gpus"] + " GPUs")
+    else
+       $("#summary").text("No running jobs at this time")
+
+    createList        (node_display_data, {{'features':'Features','partitions':'Partitions','tres_fmt_str':'TRES','gres':'GRES','boot_time':'Boot Time','alloc_cpus':'Alloc CPUs','alloc_mem':'Alloc Mem','alloc_gpus':'Alloc GPUs','running_jobs':'Running Jobs'}}, '#div_node_info', {{'boot_time':'Time','alloc_mem':'Mem_MB'}})
+    createMultiTable2 (node_data["jobProc"], '#div_job', proc_title, node_data["name"], proc_type)
+
+    if (!array_het_jids.length) 
+       delete j_h_titles.JobID
     createTable       ({node_report}, j_h_titles,  'node_history_table', 'div_sacct_report', undefined, j_h_type_dict) 
+
+    //collapse behavior
 }});
 </script>
 </head>
 
 <body>
 <div id="user" class="page-wrap">
+<h3>{node_name} : <font id='node_state'></font>  
+   (<a href='nodeGraph?node={node_name}'>Usage Graph</a><font id='gpu_link'></font>)
+</h3>
 <h3 id="node_summary"></h3>
    <b>Jump to <a href='#sacct_history'>sacct report</a></b>
    <p><i>Update time: {update_time}</i>
