@@ -161,7 +161,7 @@ function prepareNodeData (nodeData, grpCnt, labels, gpu_obj) {
                    obj[gpuID] = gpu_obj[gpuID][obj['name']]
                 }
              }
-             console.log(obj)
+             //console.log(obj)
           }
           objData.push (obj);
         }

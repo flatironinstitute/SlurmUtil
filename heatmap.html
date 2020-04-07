@@ -34,7 +34,8 @@
        <p><svg id="legend_svg"></svg></div>
     <div><svg id="node_svg"></svg></div>
     <div>
-       <h3>GPU Utilization</h3>
+       <h3>GPU Average Utilization of 5 Minutes</h3>
+       <i>Update time: %(gpu_update_time)s</i>
        <i id='gpu_update'></i>
        <p> <i>"Click" to see the co-allocated worker nodes for the same job. "Double Click" to see the worker node details.</i>
        <hr></div>
@@ -61,8 +62,8 @@
       var gpu_gridSize = Math.floor(width / gpu_labels.length)
       console.log("workers_data=",workers_data, "gpu_data=",gpu_data);
 
-      var gpu_update = new Date(gpu_obj["time"]*1000)
-      d3.select("#gpu_update").text("Update time: " + gpu_update.toString());
+      //var gpu_update = new Date(gpu_obj["time"]*1000)
+      //d3.select("#gpu_update").text("Update time: " + gpu_update.toString());
 
       var legend_svg = d3.select("#legend_svg")
           .attr("width",  width + margin.left + margin.right)

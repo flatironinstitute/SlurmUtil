@@ -181,7 +181,7 @@ function createTable (data, titles_dict, table_id, parent_id, pre_data_func=prep
                                } else {
                                   rows.sort(function(a, b) { 
                                       if (a[d] == b[d]) {
-                                         if (b[firstKey]<a[firstKey]) {return -1;} else {return 1;}} 
+                                         if (b[firstKey]<a[firstKey]) {return 1;} else {return -1;}} // firstKey always ascending
                                       else {
                                          if (b[d] < a[d]) {return -1;} else {return 1;} } });
                                   sortAscending  = true;
@@ -262,7 +262,9 @@ function prepareData_pending (data) {
    var group
 
    data.forEach (function (d) {
-      group = d.user+d.partition+d.state_reason;   // will collapse onto same group in the pending table
+      //group = d.user+d.partition+d.state_reason;   // will collapse onto same group in the pending table
+                                                   // identical user ID, partition name, account, and QOS -> identical user ID, parition name
+      group = d.user+d.partition+d.qos;   // will collapse onto same group in the pending table
       if ( group != savGName) {
          // group changed, deal with saved ones
          savGroup.forEach(function (d) {

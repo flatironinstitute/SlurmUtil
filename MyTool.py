@@ -418,14 +418,6 @@ def getSeqDeri_x (seq, xIdx, yIdx):
     x.pop(0)
     return [[item[0], item[1]] for item in zip(x,deri)]
 
-#'tres_per_node': 'gpu:1'
-#'gpu:v100-32gb:1'
-def tresStr2Dict(tres_per_node_str):
-    if not tres_per_node_str or ':' not in tres_per_node_str:
-       return {}
-    l = tres_per_node_str.split(':')
-    return {l[0]:int(l[-1])}
-
 #job 'tres_alloc_str': 'cpu=2,mem=36000M,node=2,billing=2,gres/gpu=4'
 #    'tres_req_str': 'cpu=2,mem=36000M,node=2,billing=2,gres/gpu=4'
 def getTresGPUCount (tres_str):

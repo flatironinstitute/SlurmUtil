@@ -758,18 +758,31 @@ class SLURMMonitor(object):
                                
         return workers,jobs,users
                    
+    def getGPUNodes (self):
+        #TODO: need to change if no-GPU node add other gres
+        gpu_nodes   = [n_name for n_name, node in self.pyslurmNodeData.items() if node['gres']]
+        max_gpu_cnt = max([len(self.pyslurmNodeData[n]['gres']) for n in gpu_nodes])
+        return gpu_nodes, max_gpu_cnt
+
     @cherrypy.expose
     def utilHeatmap(self, **args):
         if type(self.data) == str: return self.getWaitMsg() # error of some sort.
 
-        gpudata            = BrightRestClient().getLatestAllGPU()
-        workers,jobs,users = self.getHeatmapData (gpudata)
+        #gpudata              = BrightRestClient().getLatestAllGPU()
+        gpu_nodes,max_gpu_cnt= self.getGPUNodes()
+        gpu_ts, gpudata      = BrightRestClient().getAllGPUAvg (gpu_nodes, minutes=5, max_gpu_cnt=max_gpu_cnt)
+        workers,jobs,users   = self.getHeatmapData (gpudata)
+        
         
         htmltemp = os.path.join(wai, 'heatmap.html')
-        h        = open(htmltemp).read()%{'update_time': datetime.datetime.fromtimestamp(self.updateTS).ctime(), 'data1': workers, 'data2': jobs, 'users':users, 'gpu':gpudata}
+        h        = open(htmltemp).read()%{'update_time': MyTool.getTsString(self.updateTS),
+                                          'data1'      : workers, 
+                                          'data2'      : jobs, 
+                                          'users'      : users, 
+                                          'gpu_update_time' : MyTool.getTsString(gpu_ts),
+                                          'gpu':gpudata}
  
         return h 
-        #return repr(data)
 
     @cherrypy.expose
     def forecast(self, page=None):
@@ -1425,10 +1438,6 @@ class SLURMMonitor(object):
             for proc in procs:
                 worker2proc[node][5].append([proc['pid'], '{:.2f}'.format(proc['avg_util']), MyTool.getDisplayKB(proc.get('mem_rss_K',0)), MyTool.getDisplayKB(proc.get('mem_vms_K',0)), MyTool.getDisplayBps(proc.get('avg_io',0)), proc['cmdline']])
   
-        if '_' in job_report['JobID']:
-           job_report['ArrayJobID']  = job_report['JobID']
-        elif '+' in job_report['JobID']:
-           job_report['HeterogeneousJobID']  = job_report['JobID']
         return ['PID', 'Avg CPU Util', 'RSS',  'VMS', 'IO Rate', 'Command'], worker2proc
 
     @cherrypy.expose
@@ -1466,24 +1475,25 @@ class SLURMMonitor(object):
                     proc_disp_field, worker2proc = self.getJobProc (self.currJobs[jid])     #from monitored data        
                     if len(worker2proc) != int(job_report['AllocNodes']):
                        msg_note='WARNING: Job {} is running on {} nodes, which is less than {} allocated nodes.'.format(jid, len(worker2proc), job_report['AllocNodes'])
-        proc_cnt   = sum([val[1] for val in worker2proc.values()])
+        job_report['ArrayJobID']         = job_report['JobID'] if '_' in job_report['JobID'] else None
+        job_report['HeterogeneousJobID'] = job_report['JobID'] if '+' in job_report['JobID'] else None
         if job:
-           job['user']               = MyTool.getUser(job['user_id'])
-           if '_' in job_report['JobID']:
-              job['ArrayJobID']          = job_report['JobID']
-           elif '+' in job_report['JobID']:
-              job['HeterogeneousJobID']  = job_report['JobID']
+           job['user']                   = MyTool.getUser(job['user_id'])
+           job['ArrayJobID']             = job_report['ArrayJobID']
+           job['HeterogeneousJobID']     = job_report['HeterogeneousJobID']
 
         #grafana_url = 'http://mon8:3000/d/jYgoAfiWz/yanbin-slurm-node-util?orgId=1&from={}{}&var-jobID={}&theme=light'.format(start*1000, '&var-hostname=' + '&var-hostname='.join(MyTool.nl2flat(job_report['NodeList'])), jid)
-
         htmlTemp   = os.path.join(wai, 'jobDetail.html')
-        htmlStr    = open(htmlTemp).read().format(job_id=jid, job_name=job_name, 
+        htmlStr    = open(htmlTemp).read().format(job_id     =jid, 
+                                                  job_name   =job_name, 
                                                   update_time=datetime.datetime.fromtimestamp(ts).ctime(),
-        #                                          grafana_url=grafana_url,
-                                                  job_info=job_report, job=json.dumps(job),
-                                                  worker_proc=worker2proc, title_list=proc_disp_field,
-                                                  proc_cnt=proc_cnt,note=msg_note,
-                                                  job_report=jobstep_report)
+                                                  job        =json.dumps(job),
+                                                  job_info   =json.dumps(job_report), 
+                                                  title_list =proc_disp_field,
+                                                  proc_cnt   =sum([val[1] for val in worker2proc.values()]),
+                                                  worker_proc=json.dumps(worker2proc), 
+                                                  note       =msg_note,
+                                                  job_report =json.dumps(jobstep_report))
         return htmlStr
 
     @cherrypy.expose
@@ -1846,7 +1856,6 @@ class SLURMMonitor(object):
         else:
            job      = self.currJobs[jobid]
            nodelist, start, stop, uid = list(job['cpus_allocated']), int(job['start_time']), int(time.time()), job['user_id']
-        print("---{} {} {} {}".format(jobid, nodelist, start, stop, uid))
         cpu_all_seq, mem_all_seq, io_all_seq = hostData.queryDataHosts(nodelist, start, stop, uid)
         return start, stop, cpu_all_seq, mem_all_seq, io_all_seq
 
@@ -1924,13 +1933,13 @@ class SLURMMonitor(object):
 
     @cherrypy.expose
     def nodeGPUGraph(self, node):  #the GPU util for the node of last day
-        client  = BrightRestClient()
         nodeData= pyslurm.node().get_node(node)
         if not nodeData:
            return 'Node {} is not in slurm cluster.'.format(node)
         if not nodeData[node]['gres']:
            return 'Node {} does not have gres resource'.format(node)
-        data    = client.getDumpAllGPU(node)
+        client  = BrightRestClient()
+        data    = client.getDumpNodeGPU(node)
         start   = min([item['data'][0][0] for item in data['data']])
         stop    = max([item['data'][-1][0] for item in data['data']])
         series  = data['data']       # [{name:, data:[[ts,val]],}]
@@ -2005,6 +2014,7 @@ class SLURMMonitor(object):
             sumDf = pandas.DataFrame({})
             for name, group in df.groupby('hostname'):
                 group          = group.reset_index(drop=True)
+                del group['hostname']
                 group['count'] = 1
                 if sumDf.empty:
                    sumDf = group

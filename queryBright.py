@@ -6,6 +6,7 @@ import os, requests, sys
 import MyTool
 
 from collections import defaultdict
+from statistics  import mean   #fmean faster than mean, but not until 3.8
 
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -47,7 +48,51 @@ class BrightRestClient:
         else:
            return None
 
-    def getDumpAllGPU (self, node, hours=72):
+    # get the avg utilization of last {minutes} minutes
+    #reture {'time': , 'gpu0':{'workergpu00':0.34 ... }, }
+    def getAllGPUAvg (self, node_list, minutes=5, max_gpu_cnt=4):
+        entities = ','.join(node_list)
+        measures = ','.join(['gpu_utilization:gpu{}'.format(i) for i in range(max_gpu_cnt)])
+        ts       = int(time.time())
+        q_str    = '{}/dump?entity={}&measurable={}&start=-{}m&epoch=1'.format(self.base_url,entities,measures,minutes)
+                              #epoch: time stamp as unix epoch
+        r        = requests.get(q_str, verify=False, cert=self.cert)
+        # deal with the data
+        # divide by node and gpu
+        d       = defaultdict(lambda:defaultdict(list)) 
+        for item in r.json()['data']:
+            gpu_id   = item['measurable'].split(':')[1]
+            d[gpu_id][item['entity']].append(item)
+
+        # calculate average
+        rlt      = defaultdict(dict)
+        for gpu, gpu_nodes in d.items():
+            for node, seq in gpu_nodes.items():
+                rlt[gpu][node] = mean([item['raw'] for item in seq])
+        return ts, dict(rlt)
+
+    def getDumpRequest (self, node_list, max_gpu_cnt=4, minutes=None):
+        entities = ','.join(node_list)
+        measures = ','.join(['gpu_utilization:gpu{}'.format(i) for i in range(max_gpu_cnt)])
+        q_str    = '{}/dump?entity={}&measurable={}&epoch=1'.format(self.base_url,entities,measures)
+        if minutes:
+           q_str = '{}&start=-{}m'.format(q_str, minutes)
+        return q_str
+
+    def getDumpNodeGPU (self, node, hours=72, max_gpu_cnt=4):
+        q_str    = self.getDumpRequest([node], minutes=hours * 60, max_gpu_cnt=max_gpu_cnt)
+        ts       = int(time.time())
+        q_rlt    = requests.get(q_str, verify=False, cert=self.cert)
+        print('---{}'.format(q_str))
+        # deal with the data
+        # divide by gpu
+        q_d      = defaultdict(list)  #{'gpu0':[[time,value],...],...}
+        for item in q_rlt.json()['data']:
+            gpu_id  = item['measurable'].split(':')[1]
+            q_d[gpu_id].append([item['time'], item['raw']])
+        print('---{}'.format(q_d))
+        # deal with 1st time, if less than start time, then cute
+        
         idx = 0
         rlt = {'node': node, 'time': int(time.time()), 'data': []}
         while True:
@@ -59,7 +104,7 @@ class BrightRestClient:
            else:
               return rlt
 
-    #reture [{'workergpu00':0.34 ... }, ]
+    #reture {'time': , 'gpu0':{'workergpu00':0.34 ... }, }
     def getLatestAllGPU (self):
         idx = 0
         rlt = {'time': int(time.time())}
@@ -93,7 +138,7 @@ def test1():
 
 def test2(node, hours=1):
     client = BrightRestClient()
-    rlt    = client.getDumpAllGPU(node, hours=hours)
+    rlt    = client.getDumpNodeGPU(node, hours=hours)
     cnt    = sum([len(item['data']) for item in rlt['data']])
     print('{}: {} samples'.format(node, cnt))
     print('{}'.format(rlt))
@@ -116,7 +161,7 @@ def test4(node):
        rlt = client.getNodeLatestGPU(node,'gpu0')
        sav[round(rlt['time']/1000)]= rlt['raw']
        time.sleep(5)
-    rlt = client.getDumpAllGPU(node)
+    rlt = client.getDumpNodeGPU(node)
     print(sav)
     print(rlt['data'][0]['data'][-20:])
 
