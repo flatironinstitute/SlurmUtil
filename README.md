@@ -129,9 +129,14 @@ In pyslurm/pyslurm.pyx, changed line 1901 to:
 > 
 5365a5372
 >                 JOBS_info[u'state_str'] = slurm.slurm_job_state_string(job.state)
+modify pyslurm to add state_reason_desc 02/27/2020
+2274                 Job_dict[u'state_reason_desc'] = self._record.state_desc.decode("UTF-8").replace(" ", "_")
+
 
 rebuild pyslurm
 python setup.py build
+python setup.py install
+. env_slurm18/activate/bin
 
 ```
 MQTT server running on mon5.flatironinstitute.org

@@ -54,7 +54,8 @@ class BrightRestClient:
         entities = ','.join(node_list)
         measures = ','.join(['gpu_utilization:gpu{}'.format(i) for i in range(max_gpu_cnt)])
         ts       = int(time.time())
-        q_str    = '{}/dump?entity={}&measurable={}&start=-{}m&epoch=1'.format(self.base_url,entities,measures,minutes)
+        intervals= minutes * 6            # bright returns one sample per 10 seconds
+        q_str    = '{}/dump?entity={}&measurable={}&start=-{}m&intervals={}&epoch=1'.format(self.base_url,entities,measures,minutes,intervals)
                               #epoch: time stamp as unix epoch
         r        = requests.get(q_str, verify=False, cert=self.cert)
         # deal with the data
@@ -68,7 +69,9 @@ class BrightRestClient:
         rlt      = defaultdict(dict)
         for gpu, gpu_nodes in d.items():
             for node, seq in gpu_nodes.items():
-                rlt[gpu][node] = mean([item['raw'] for item in seq])
+                print('---{}-{}={}\n==={}'.format(gpu, node, seq, [(item['time'],item['raw']) for item in seq if item['raw']!=None]))
+                rlt[gpu][node] = mean([item['raw'] for item in seq if item['raw']!=None])  # some lastest ts will have raw None
+            
         return ts, dict(rlt)
 
     def getDumpRequest (self, node_list, max_gpu_cnt=4, minutes=None):
@@ -80,17 +83,17 @@ class BrightRestClient:
         return q_str
 
     def getDumpNodeGPU (self, node, hours=72, max_gpu_cnt=4):
-        q_str    = self.getDumpRequest([node], minutes=hours * 60, max_gpu_cnt=max_gpu_cnt)
-        ts       = int(time.time())
-        q_rlt    = requests.get(q_str, verify=False, cert=self.cert)
-        print('---{}'.format(q_str))
+        #q_str    = self.getDumpRequest([node], minutes=hours * 60, max_gpu_cnt=max_gpu_cnt)
+        #ts       = int(time.time())
+        #q_rlt    = requests.get(q_str, verify=False, cert=self.cert)
+        #print('---{}'.format(q_str))
         # deal with the data
         # divide by gpu
-        q_d      = defaultdict(list)  #{'gpu0':[[time,value],...],...}
-        for item in q_rlt.json()['data']:
-            gpu_id  = item['measurable'].split(':')[1]
-            q_d[gpu_id].append([item['time'], item['raw']])
-        print('---{}'.format(q_d))
+        #q_d      = defaultdict(list)  #{'gpu0':[[time,value],...],...}
+        #for item in q_rlt.json()['data']:
+        #    gpu_id  = item['measurable'].split(':')[1]
+        #    q_d[gpu_id].append([item['time'], item['raw']])
+        #print('---{}'.format(q_d))
         # deal with 1st time, if less than start time, then cute
         
         idx = 0
