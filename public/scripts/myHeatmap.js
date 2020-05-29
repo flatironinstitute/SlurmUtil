@@ -90,7 +90,7 @@ function createHeatMap(svg, data, acctColor, grpCnt, cntLine, gridSize)
               .attr("title", function (d) {return d["name"]})
               .attr("value", function (d) {return d["util"]})
               .on("dblclick", function(d) {
-                              if (d3,event.ctrlKey) {
+                              if (d3.event.shiftKey) { // Ctrl seems not working with MacOS
                                  location.href="jobDetails?jid="+d["jobs"]
                               } else {
                                  location.href="nodeDetails?node="+d["name"]
