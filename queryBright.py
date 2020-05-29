@@ -171,9 +171,9 @@ def test4(node):
 def main():
     t1=time.time()
     
-    #test2(sys.argv[1])
+    test2(sys.argv[1])
     #test3()
-    test4(sys.argv[1])
+    #test4(sys.argv[1])
     print("main take time " + str(time.time()-t1))
 
 if __name__=="__main__":

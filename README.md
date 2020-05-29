@@ -132,6 +132,10 @@ In pyslurm/pyslurm.pyx, changed line 1901 to:
 modify pyslurm to add state_reason_desc 02/27/2020
 2274                 Job_dict[u'state_reason_desc'] = self._record.state_desc.decode("UTF-8").replace(" ", "_")
 
+2198             if self._record.pack_job_id_set:
+2199                 Job_dict[u'pack_job_id_set'] = slurm.stringOrNone(self._record.pack_job_id_set, '')
+
+
 
 rebuild pyslurm
 python setup.py build

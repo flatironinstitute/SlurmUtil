@@ -1,3 +1,15 @@
+//add a hide button to chart to hide all series of the chart
+function addHideButton(chart) {
+   chart.hideButton = chart.renderer.button('Hide All Series',chart.plotWidth-50, chart.plotTop-10)
+                                    .attr({zIndex:3})
+                                    .on('click', function () {
+                                        chart.series.forEach(function (item, index) {
+                                            item.hide();
+                                        });
+                                     })
+                                    .add();
+}
+
 function graphSeries_stackColumn_CDF(dataSeries, chartTag, title, xType, xMax, xLabel, yLabel) {
              console.log(dataSeries)
 	     $('#'+chartTag).highcharts({
@@ -195,11 +207,19 @@ function pointFormat_func_KB() {
    return '<br/>' + Highcharts.dateFormat('%b %e %H:%M:%S', new Date(this.x)) + ', ' + this.y + ' KB';
 }
 
+function timeSeriesColumnPlot(series, chartTag, title, yCap, aSeries, pf_func=pointFormat_func) {
+   timeSeriesPlot(series, "column", chartTag, title, yCap, aSeries, pf_func)
+}
+
 function timeSeriesScatterPlot_KB(series, chartTag, title, yCap, aSeries, pf_func=pointFormat_func_KB) {
    timeSeriesScatterPlot(series, chartTag, title, yCap, aSeries, pf_func)
 }
 function timeSeriesScatterPlot(series, chartTag, title, yCap, aSeries, pf_func=pointFormat_func) {
-             function crtLabel (vx, vy, txt) {
+   timeSeriesPlot(series, "scatter", chartTag, title, yCap, aSeries, pf_func)
+}
+function timeSeriesPlot(series, chartType, chartTag, title, yCap, aSeries, pf_func=pointFormat_func) {
+   console.log('series', chartType, series)
+   function crtLabel (vx, vy, txt) {
                 return {
                       point: {
                           xAxis: 0,
@@ -208,10 +228,9 @@ function timeSeriesScatterPlot(series, chartTag, title, yCap, aSeries, pf_func=p
                           y    : vy
                       },
                       text: txt }
-             }
+   }
 
-             console.log(series)
-             if ( aSeries.length > 0 ) {
+   if ( aSeries.length > 0 ) {
                 baseY = series[0]['data'][0][1]
                 cus_labels = aSeries.map(function(x) {return crtLabel(x[0], baseY, x[1])})
                 cus_anno = [{
@@ -220,14 +239,14 @@ function timeSeriesScatterPlot(series, chartTag, title, yCap, aSeries, pf_func=p
                     },
                     labels: cus_labels
                  }]
-             } else
+   } else
                 cus_anno = []
 
-             $('#'+chartTag).highcharts({
+   var chart=$('#'+chartTag).highcharts({
                  chart: {
-                     panKey: 'shift',
-                     panning: true,
-                     type: 'scatter',
+                     panKey:   'shift',
+                     panning:  true,
+                     type:     chartType,
                      zoomType: 'xy'
                  },
                  title: {
@@ -265,5 +284,6 @@ function timeSeriesScatterPlot(series, chartTag, title, yCap, aSeries, pf_func=p
                      },
                  },
                  series: series
-             });
+//             });
+           }, addHideButton); 
 }

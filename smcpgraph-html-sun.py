@@ -141,15 +141,19 @@ class SLURMMonitor(object):
     def pending(self, start='', stop='', state=3):
         ins        = SlurmEntities.SlurmEntities()
         pendingLst = ins.getPendingJobs()
+        #latest_eval_ts= set([j['last_sched_eval'] for j in pendingLst])  #more than one
+        relaxQoS   = ins.relaxQoS()
         partLst    = ins.getPartitions ()
         for p in partLst:
             p['running_jobs'] = ' '.join(str(e) for e in p['running_jobs'])
             p['pending_jobs'] = ' '.join(str(e) for e in p['pending_jobs'])
         
         htmlTemp   = os.path.join(wai, 'pending.html')
-        htmlStr    = open(htmlTemp).read().format(update_time=MyTool.getTsString(ins.ts_job_dict),
-                                                  job_cnt=len(pendingLst), 
-                                                  pending_jobs_input=json.dumps(pendingLst), partitions_input=json.dumps(partLst))
+        htmlStr    = open(htmlTemp).read().format(update_time       =MyTool.getTsString(ins.ts_job_dict),
+                                                  job_cnt           =len(pendingLst), 
+                                                  pending_jobs_input=json.dumps(pendingLst), 
+                                                  note              = '{}'.format(relaxQoS),
+                                                  partitions_input  =json.dumps(partLst))
         return htmlStr
        
     @cherrypy.expose
@@ -1096,8 +1100,8 @@ class SLURMMonitor(object):
                                    'start':   time.strftime(DATE_DISPLAY_FORMAT, time.localtime(start)),
                                    'stop':    time.strftime(DATE_DISPLAY_FORMAT, time.localtime(stop)),
                                    'spec_title': user,
-                                   'series1': fc_seq,   
-                                   'series2': bc_seq}
+                                   'series1': json.dumps(fc_seq),   
+                                   'series2': json.dumps(bc_seq)}
         return h
 
     @cherrypy.expose
@@ -1275,7 +1279,7 @@ class SLURMMonitor(object):
         part           = ins.getAccountPartition (userAssoc['Account'], uid)
         for p in part:  #replace big number with n/a
             for k,v in p.items():
-                if v == SlurmEntities.SlurmEntities.TCMO: p[k]='n/a'
+                if v == SlurmEntities.MAX_LIMIT: p[k]='n/a'
         if type(self.data) == dict:
            note       = ''
            userworker = self.getUserNodeData(user)
@@ -1290,23 +1294,24 @@ class SLURMMonitor(object):
         array_het_jids= [job['JobID'] for job in past_job if '_' in job['JobID'] or '+' in job['JobID']]  # array of heterogenour job
 
         running_jobs  = userjob.get('RUNNING',[])
+        pending_jobs  = userjob.get('PENDING',[])
         tres_alloc    = [MyTool.getTresDict(j['tres_alloc_str']) for j in running_jobs]
         userAssoc['uid']        = uid
         userAssoc['partitions'] = [p['name'] for p in part]
-        userAssoc['runng_jobs'] = [j['job_id'] for j in userjob.get('RUNNING',[])]
+        userAssoc['runng_jobs'] = [j['job_id'] for j in running_jobs]
         userAssoc['alloc_cpus'] = sum([t['cpu']  for t in tres_alloc])
         userAssoc['alloc_nodes']= sum([t['node'] for t in tres_alloc])
         userAssoc['alloc_gpus'] = sum([t.get('gres/gpu',0) for t in tres_alloc])
         userAssoc['alloc_mem']  = MyTool.sumOfListWithUnit([t['mem']  for t in tres_alloc if 'mem' in t])
                
         htmlTemp   = os.path.join(wai, 'userDetail.html')
-        htmlStr    = open(htmlTemp).read().format(user=userInfo.pw_gecos.split(',')[0], uname=user, 
-                                                  user_assoc = userAssoc,
-                                                  update_time= MyTool.getTsString(ins.ts_job_dict),
-                                                  running_jobs=json.dumps(userjob.get('RUNNING',[])), 
-                                                  pending_jobs=json.dumps(userjob.get('PENDING',[])), 
-                                                  worker_proc=json.dumps(userworker), note=note,
-                                                  part_info=json.dumps(part),
+        htmlStr    = open(htmlTemp).read().format(user        =userInfo.pw_gecos.split(',')[0], uname=user, 
+                                                  user_assoc  = userAssoc,
+                                                  update_time = MyTool.getTsString(ins.ts_job_dict),
+                                                  running_jobs=json.dumps(running_jobs),
+                                                  pending_jobs=json.dumps(pending_jobs), 
+                                                  worker_proc =json.dumps(userworker), note=note,
+                                                  part_info   =json.dumps(part),
                                                   array_het_jids=array_het_jids, job_history=past_job, day_cnt = days)
         return htmlStr
         # Currently, running jobs & pending jobs of the user processes in the worker nodes
@@ -1951,7 +1956,7 @@ class SLURMMonitor(object):
                                    #'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(data['data'][0]['data'][0][0])),
                                    'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(start)),
                                    'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(stop)),
-                                   'series'    : series}
+                                   'series'    : json.dumps(series)}
         return h
 
     @cherrypy.expose
@@ -1980,10 +1985,10 @@ class SLURMMonitor(object):
                                    'note'      : note,
                                    'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(msg[0])),
                                    'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(msg[1])),
-                                   'lseries'   : msg[2],
-                                   'mseries'   : msg[3],
-                                   'iseries_r' : msg[4],
-                                   'iseries_w' : msg[5]}
+                                   'lseries'   : json.dumps(msg[2]),
+                                   'mseries'   : json.dumps(msg[3]),
+                                   'iseries_r' : json.dumps(msg[4]),
+                                   'iseries_w' : json.dumps(msg[5])}
         return h
 
     #return jobstarttime, data, datadescription

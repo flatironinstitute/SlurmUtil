@@ -63,13 +63,14 @@ def gendata_user(user, start='', stop=''):
             u_df         = df.loc[df['uid']==uid]  #filter on uid
             if not u_df.empty:
                 values = u_df.values.tolist()[0]   #one record for each day
-                fc_list.append([day*1000, values[1]])
-                bc_list.append([day*1000, values[2]])
+                fc_list.append([day, values[1]])
+                bc_list.append([day, values[2]])
         fc_rlt.append({"name":fs, "data":fc_list}) 
         bc_rlt.append({"name":fs, "data":bc_list}) 
         
     return fc_rlt, bc_rlt
 
+#assume fs is valid
 def gendata_fs_history(fs, start='', stop=''):
     label, dataDir, suffix, uidx, fcx, bcx, rge = FileSystems[fs] #uidx is uid index in file
     fsDict                                      = getFilenames (dataDir, rge)
@@ -81,29 +82,16 @@ def gendata_fs_history(fs, start='', stop=''):
         if stop:  flag &= ( d<= stop)
         if flag:
            #0: uid, 3: fc(filecount), 4: bc(byte_count)
-           df            = pandas.read_csv(fname, sep='\t', header=None, usecols=[0,3,4])
+           df            = pandas.read_csv(fname, sep='\t', header=None, usecols=[uidx,fcx,bcx])
            df.columns    = ['uid', 'fc', 'bc']
-           dDict[d]      = df  #?really need to *1000
+           dDict[d*1000]      = df  #?really need to *1000
     return dDict
 
 def gendata_all(fs, start='', stop='', topN=5):
-    if fs not in FileSystems: return 'Unknown file system: "%s"'%fs, ''
-    label, dataDir, suffix, uidx, fcx, bcx, rge = FileSystems[fs] #uidx is uid index in file
-
-    fsDict  = getFilenames (dataDir, rge)
-    # read files one by one to save the data in u2s
-    dDict   = {}
-    for d, fname in fsDict.items():
-        flag = True
-        if start: flag &= ( d>=start)
-        if stop:  flag &= ( d<= stop)
-        if flag:
-           #df            = pd.read_table(fname, names=fhead,usecols=['uid','fc','bc'],index_col=uidx)
-           #0: uid, 3: fc(filecount), 4: bc(byte_count)
-           df            = pandas.read_csv(fname, sep='\t', header=None, usecols=[0,3,4])
-           df.columns    = ['uid', 'fc', 'bc']
-           dDict[d*1000] = df
-
+    if fs not in FileSystems: 
+       print("WARNING gendata_all: Unknown file system: {}".format(fs))
+       return [], []
+    dDict   = gendata_fs_history (fs, start, stop)
     if not dDict:
        return [], []
 
@@ -193,8 +181,13 @@ def gendata_fs(yyyymmdd, fs, anon=False):
 
     return [label, r, yyyymmdd]
 
+def test1(user):
+    print("Test user {}'s history".format(user))
+    print (gendata_user(user))
+   
 if '__main__' == __name__:
     #print (gendata(*sys.argv[1:]))
     #print (gendata_all(*sys.argv[1:], 2))
-    print (gendata_user(*sys.argv[1:]))
+    #print (gendata_user(*sys.argv[1:]))
+    test1 (sys.argv[1])
 

@@ -50,9 +50,6 @@ def getUserGroups (user):
     return groups
 
 def getUserOrgGroup (user):
-    #groups = [g.gr_name for g in grp.getgrall() if user in g.gr_mem]
-    #gid = pwd.getpwnam(user).pw_gid
-    #groups.append(grp.getgrgid(gid).gr_name)
     groups     = [g.gr_name for g in ORG_GROUPS if user in g.gr_mem]
     if groups:
        return groups[0]
@@ -74,11 +71,9 @@ def expandStr(s, numberWidth=4):
     if '-' in s:
        s  = re.sub('([0-9]+)-([0-9]+)',       expandRange, s)
     #print("expandRange " + s)
-
     if '[' in s:
        s  = re.sub('([a-zA-Z0-9]+)\[(.*?)\]', expandList,  s)
     #print("expandList " + s)
-   
     return s
 
 #convert job['nodes'] short format to list: worker[1015-1031,1066-1077,1137-1154,1180-1193,1200-1202] to [worker1015, worker1016, ... worker1202]
@@ -108,10 +103,6 @@ def str2ts (slurm_datetime_str):
     d = dateutil.parser.parse(slurm_datetime_str)
     return int(d.timestamp())
     
-def upd_dict(d1, d2):
-    d2.update(d1)
-    return d2
-
 def sub_dict(somedict, somekeys, default=None):
     return dict([ (k, somedict.get(k, default)) for k in somekeys ])
 def sub_dict_remove(somedict, somekeys, default=None):
@@ -332,6 +323,7 @@ def getDFBetween(df, field, start, stop):
 # Expand slurm's cute compressed node listing scheme into a full list
 # of nodes.
 def nl2flat(nl):
+    if not nl: return []
     flat = []
     prefix = None
     for x in re.split(r'(\[.*?\])', nl):
@@ -482,15 +474,18 @@ def getGPUAlloc_layout (node_iter, gpu_detail_iter):
      
 #'tres_req_str': 'cpu=400,node=10,billing=400'
 #'tres_fmt_str': 'cpu=1612,mem=28375G,node=43,billing=1612,gres/gpu=148'
-def getTresDict (tres_str):
+#mapKey=true, then for "1=40,2=700000", return {cpu:40,...}
+TRES_KEY_MAP={1:'cpu',2:'mem',4:'node',1001:'gpu'}
+def getTresDict (tres_str, mapKey=False):
     d  = {}
     if tres_str:
        for item in tres_str.split(','):
            k,v  = item.split('=')
            if v.isnumeric():
-              d[k] = int(v)
-           else:
-              d[k] = v
+              v = int(v)
+           if mapKey and k.isnumeric():
+              k = TRES_KEY_MAP[int(k)]
+           d[k] = v
     return d
 
 #input is Bps

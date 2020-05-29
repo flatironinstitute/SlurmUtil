@@ -52,9 +52,11 @@ function createMultiTitle (data_dict, parent_id, job_id) {
    pas.append('p')
       .attr('class', 'thick table_title')
       .html(function (d) {
-               var rlt = '<a href="./nodeDetails?node=' + d + '">' + d + '</a>: ' + data_dict[d][1] + ' processes <a href="./nodeJobPro    cGraph?node=' + d + '&jid=' + job_id + '"> (Proc Usage Graph) </a>'
+               var procLink = '<a href="./nodeJobProcGraph?node=' + d + '&jid=' + job_id + '"> (Proc Usage Graph) </a>'
+               var rlt      = '<a href="./nodeDetails?node=' + d + '">' + d + '</a>: ' + data_dict[d][1] + ' processes'
                if (data_dict[d][0]>0)
                   rlt  = rlt + ' on ' + data_dict[d][0] + ' CPUs'
+               rlt          = rlt + procLink
                return rlt})
    return pas
 }

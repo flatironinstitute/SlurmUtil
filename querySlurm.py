@@ -356,6 +356,11 @@ class SlurmCmdQuery:
            return SlurmCmdQuery.DICT_ASSOC[user]
         return {}
 
+    @staticmethod
+    def getAllUserAssoc ():
+        SlurmCmdQuery.updateAssoc ()
+        return SlurmCmdQuery.DICT_ASSOC
+
 class PyslurmQuery():
     @staticmethod
     def getCurrJob (jid):
