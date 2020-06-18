@@ -75,9 +75,8 @@ class InfluxWriter (threading.Thread):
 
           if len(points) == 0: continue
 
-          #p1  = points[:InfluxWriter.MAX_SIZE]
           self.influx_client = self.connectInflux (influxServer, influxDB)
-          ret = self.writeInflux (points)
+          ret                = self.writeInflux (points)
           self.influx_client.close()
           if ret:
              #del points[:InfluxWriter.MAX_SIZE]   # at most remove BATCH_SIZE items 
@@ -352,8 +351,10 @@ class Node2PidsCache:
 
    def __init__ (self, savFile='node2pids.cache'):
        self.filename    = savFile
-       self.node2TsPids = DDict(lambda:DDict(), MyTool.readFile(savFile))
-       if not self.node2TsPids:
+       sav              = MyTool.readFile(savFile)
+       if sav:
+          self.node2TsPids = DDict(lambda:DDict(), sav)
+       else:
           self.node2TsPids = DDict(lambda: DDict())  #{node: {curr_ts: curr_pids: pre_ts: pre_pids:}}
 
    #pids is set of pids on node reported at time ts
@@ -588,26 +589,23 @@ def main(influxServer, influxDB, testMode=False):
     pyslm_thd  = startPyslurmThread()
     time.sleep(5)
     ifx_thd    = startInfluxThread(mqtt_thd,pyslm_thd, testMode)
-    #InfluxWriter    (influxServer, influxDB, testMode)
-    #ifx_thd.addSource (mqtt_thd)
-    #ifx_thd.addSource (pyslm_thd)
-    #ifx_thd.start()
 
     while True:
        if not mqtt_thd.is_alive():
+          EmailSender.sendMessage ("ERROR: MQTTReader thread is dead. Restart it!", "Check it!")
           logger.error("ERROR: MQTTReader thread is dead. Restart it!")
           mqtt_thd   = startMQTTThread()
           ifx_thd    = startInfluxThread(mqtt_thd,pyslm_thd, testMode)
-          EmailSender.sendMessage ("ERROR: MQTTReader thread is dead. Restart it!", "Check it!")
        if not pyslm_thd.is_alive():
+          EmailSender.sendMessage ("ERROR: MQTTReader thread is dead. Restart it!", "Check it!")
           logger.error("ERROR: Pyslurm thread is dead. Restart it!")
           pyslm_thd  = startPyslurmThread()
           ifx_thd    = startInfluxThread(mqtt_thd,pyslm_thd, testMode)
-          EmailSender.sendMessage ("ERROR: MQTTReader thread is dead. Restart it!", "Check it!")
        if not ifx_thd.is_alive():
-          logger.error("ERROR: Influx thread is dead. Restart it!")
-          ifx_thd    = startInfluxThread(mqtt_thd,pyslm_thd)
           EmailSender.sendMessage ("ERROR: MQTTReader thread is dead. Restart it!", "Check it!")
+          logger.error("ERROR: Influx thread is dead. Restart it!")
+          ifx_thd    = startInfluxThread(mqtt_thd,pyslm_thd, testMode)
+          logger.info("New Influx thread {}.".format(ifx_thd))
           
        time.sleep (600)  # check every 10 minutes
 

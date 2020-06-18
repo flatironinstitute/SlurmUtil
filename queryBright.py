@@ -69,7 +69,7 @@ class BrightRestClient:
         rlt      = defaultdict(dict)
         for gpu, gpu_nodes in d.items():
             for node, seq in gpu_nodes.items():
-                print('---{}-{}={}\n==={}'.format(gpu, node, seq, [(item['time'],item['raw']) for item in seq if item['raw']!=None]))
+                #print('---{}-{}={}\n==={}'.format(gpu, node, seq, [(item['time'],item['raw']) for item in seq if item['raw']!=None]))
                 rlt[gpu][node] = mean([item['raw'] for item in seq if item['raw']!=None])  # some lastest ts will have raw None
             
         return ts, dict(rlt)

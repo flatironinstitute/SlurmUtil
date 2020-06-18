@@ -155,6 +155,7 @@ function createMultiTable2 (data_dict, parent_id, table_title_list, node, type_l
    collapseTitle ()
 }
 
+//data is a list of dict
 function createTable (data, titles_dict, table_id, parent_id, pre_data_func=prepareData, type_dict) {
         console.log("createTable data=", data, ",pre_data_fun=", pre_data_func, ",type_dict=", type_dict)
         var sortAscending = true;

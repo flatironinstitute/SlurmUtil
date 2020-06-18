@@ -8,6 +8,7 @@ function prepareDictData (data_dict, fields_dict)
     return f.map(function (k) { return [fields_dict[k], data_dict[k], k] })
 }
 
+//data, fields, type_dict are all objects(python dict)
 function createList  (data, fields, parent_id, type_dict, prepare_data_func=prepareDictData) 
 {
         console.log('createList: orig data=', data, ',fields=', fields, ",type_dict=", type_dict)

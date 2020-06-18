@@ -10,6 +10,7 @@
 <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
 <script type="text/javascript" src="static/scripts/myFunc.js"></script>
 <script type="text/javascript" src="static/scripts/myTable.js"></script>
+<script type="text/javascript" src="static/scripts/myList.js"></script>
 <script type="text/javascript">
 
 $(document).ready(function(){{
@@ -22,6 +23,7 @@ $(document).ready(function(){{
     var type         = {{'name':'Partition', 'pending_jobs':'JobList', 'running_jobs':'JobList'}}
     createTable ({pending_jobs_input}, j_titles, 'job_table',  'pending_jobs', prepareData_pending, {{'submit_time':'Time'}});
     createTable ({partitions_input},   p_titles, 'part_table', 'partitions',   undefined, type);  //undefined will use default value
+    createList  ({note},               null,     '#note')
 
     //add expand icon or space to data-group if more than one item is there
     $('#job_table>tbody>tr[data-group-idx="0"]:not([data-group-cnt="1"])').find('td:first').addClass('group_plus')    
@@ -49,7 +51,8 @@ $(document).ready(function(){{
    <h2>Pending Queue: {job_cnt} Jobs <small>(<a href="./pending_history?days=7"> History of last 7 days</a>)</small></h2>
    <i>Update time: {update_time}</i>
 </div>
-<div> {note}
+<div id="note" class="page-wrap"> 
+   <h2>Administrator Note: </h2>
 </div>
 <div id="partitions" class="page-wrap">
    <h2>Partitions</h2>

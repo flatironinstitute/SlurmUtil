@@ -51,8 +51,12 @@ class SlurmEntities:
     py_job              = pyslurm.job()
     self.job_dict       = py_job.get()
     self.ts_job_dict    = py_job.lastUpdate()
-    reservation         = pyslurm.reservation().get()
-    self.res_future     = [res for res in reservation.values() if res['start_time']>time.time()]
+    #self.res_future     = [res for res in pyslurm.reservation().get().values() if res['start_time']>time.time()]  # reservation in the future
+    self.res_future     = []
+    for name,res in pyslurm.reservation().get().items():
+        if res['start_time']>time.time():  # reservation in the future
+           res['job_id']    = name          # just for simplicity
+           self.res_future.append (res)
     self.user_assoc_dict= SlurmCmdQuery.getAllUserAssoc()
 
     self.part_node_cpu  = {}  # {'gen': [40, 28], 'ccq': [40, 28], 'ib': [44, 28], 'gpu': [40, 36, 28], 'mem': [96], 'bnl': [40], 'bnlx': [40], 'genx': [44, 40, 28], 'amd': [128, 64]}
@@ -225,14 +229,23 @@ class SlurmEntities:
                return True
       return False
 
-  def getConflictResNodes(self, job):  #supporse job run from now to job_end_time
-      conflict_nodes= []
-      if self.res_future:
+  # get a node_list such that if job will run on node_list, it will not conflict with any job in job_list
+  # return node and the conflict jobs in res_list
+  def getConflictResNodes(self, job, candidate_nodes, res_list, node_field='node_list'):  #supporse job run from now to job_end_time
+      cand_nodes    = set(candidate_nodes)
+      conflict_res  = []  #reservation that has conflict
+      if res_list:
          end_time = int(time.time()) + job['time_limit']*60  #time_limit is in minutes
-         for res in res_future:
-             if res['start_time'] < end_time:   #conflict
-                conflict_nodes.extend(MyTool.nl2flat(res['node_list']))
-      return conflict_nodes 
+         for res in res_list:
+             if res['start_time'] < end_time and res[node_field]:   #conflict
+                res_nodes = set(MyTool.nl2flat(res[node_field]))
+                if not cand_nodes.isdisjoint (res_nodes):
+                   cand_nodes = cand_nodes.difference(res_nodes)
+                   conflict_res.append (res)
+                #if not (conflict_nodes.issuperset(new_set)):
+                #   conflict_nodes = conflict_nodes.union(new_set)
+                #   conflict_res.append  (res)
+      return list(cand_nodes), conflict_res
 
   #return a sublist rlt of input lst, 
   #the sum of the count number of items in rlt will be over min_sum
@@ -254,18 +267,25 @@ class SlurmEntities:
 
   #check reservation and other constaints such as features
   #return nodes that can be used 
-  def getPartitionAvailNodeCPU (self, p_name, job, strictFlag=False):
+  #strictFlag=True means request number of nodes with min cpus instead of satisfy sum
+  def getPartitionAvailNodeCPU (self, p_name, job, strictFlag=False, higherPending=[]):
+      conflict_res = []
       # partition available
       avail_nodes         = self.partition_dict[p_name]['avail_nodes']
-      print('---Job {} free avail_nodes={}'.format(job['job_id'], avail_nodes))
+      print('---Job {} init avail_nodes={}'.format(job['job_id'], avail_nodes))
 
       # exclude reserved nodes
-      if avail_nodes:
-         res_nodes           = self.getConflictResNodes(job)
-         if res_nodes:
-            avail_nodes      = [node for node in avail_nodes if node not in res_nodes]
-            print('---reservation avail_nodes={}'.format(avail_nodes))
+      if avail_nodes and self.res_future:
+         avail_nodes, conflict_res = self.getConflictResNodes(job, avail_nodes, self.res_future, node_field='node_list')
+         #avail_nodes          = [node for node in avail_nodes if node not in res_nodes]
+         print('---reservation avail_nodes={}'.format(avail_nodes))
 
+      # avail_nodes - reserved_nodes_for_higherPending
+      if avail_nodes and higherPending:
+         avail_nodes, conflict_res = self.getConflictResNodes(job, avail_nodes, higherPending, node_field='sched_nodes')
+         #avail_nodes          = [node for node in avail_nodes if node not in res_nodes]
+         print('---higher_pending, avail_nodes={}'.format(avail_nodes))
+         
       # exclude nodes by job request
       if avail_nodes and job.get('exc_nodes',[]):
          exc_nodes        = []
@@ -331,7 +351,7 @@ class SlurmEntities:
          features.append ('{}MB mem_per_cpu'.format (job['min_memory_cpu']))
          print('---mem_per_cpu avail_nodes={}'.format(avail_nodes))
 
-      return len(avail_nodes), avail_cpus_cnt, avail_nodes, features
+      return len(avail_nodes), avail_cpus_cnt, avail_nodes, features, conflict_res
       
   # return list of partitions with fields, add attributes to partition_dict
   def getPartitions(self, fields=['name', 'flag_shared', 'total_nodes', 'total_cpus', 'avail_nodes_cnt', 'avail_cpus_cnt', 'running_jobs', 'pending_jobs', 'total_gpus', 'avail_gpus']):
@@ -379,80 +399,88 @@ class SlurmEntities:
 
   #return list of jobs sorted by jid and with state_exp filled
   def getPendingJobs (self):
-      pending = [job for jid,job in sorted(self.job_dict.items()) if job['job_state']=='PENDING']
+      pending   = [job for jid,job in sorted(self.job_dict.items()) if job['job_state']=='PENDING']
+      res_nodes = []
+      higherJobs= []
       for job in pending:
           p_name_lst = job['partition'].split(',')
           for p_name in p_name_lst:
-              job['state_exp'] = job.get('state_exp','') + self.explainPendingJob (job, p_name)
+              exp              = self.explainPendingJob (job, p_name, higherJobs, res_nodes)
+              job['state_exp'] = exp if 'state_exp' not in job else '{}\n{}'.format(job['state_exp'],exp)
+          if job['sched_nodes']:
+             higherJobs.append (job)
+             res_nodes.extend  (MyTool.nl2flat(job['sched_nodes']))
       return pending
 
-  def explainPendingJob(self, job, p_name):
+  def explainPendingJob(self, job, p_name, higherJobs, reserved_nodes):
       job['user']    = MyTool.getUser(job['user_id'])  # will be used in html
       state_exp      = PEND_EXP.get(job['state_reason'], '')
 
       if job['state_reason'] == 'QOSMaxWallDurationPerJobLimit':
-             qos, lmt       = self.getMaxWallPJ(job)
-             state_exp      = state_exp.format(job_time_limit=job.get('time_limit_str'), qos=qos, qos_limit=lmt)
+         qos, lmt       = self.getMaxWallPJ(job)
+         state_exp      = state_exp.format(job_time_limit=job.get('time_limit_str'), qos=qos, qos_limit=lmt)
       elif job['state_reason'] == 'QOSMinGRES':
-             state_exp      = '{} {}'.format('A job need to request at least 1 GPU.')     
+         state_exp      = 'A job need to request at least 1 GPU in partition {}'.format(p_name)     
       elif 'PerUser' in job['state_reason']:
-             u_node_qos, u_cpu_qos, u_gpu_qos = self.getJobQoSTresLimit (job, p_name, 'max_tres_pu')
-             u_node,     u_cpu,     u_gpu     = SlurmEntities.getUserAllocInPartition(job['user_id'], p_name, self.job_dict)
-             if job['state_reason'] == 'QOSMaxCpuPerUserLimit':
-                state_exp      = state_exp.format(user=job['user'], max_cpu_user=u_cpu_qos, curr_cpu_user=u_cpu, partition=p_name)
-                u_cpu_avail    = u_cpu_qos - u_cpu
-                if job['shared']!= 'OK' and (u_cpu_avail >0) and (MyTool.getTresDict(job['tres_req_str'])['cpu']) <= u_cpu_avail:
+         u_node_qos, u_cpu_qos, u_gpu_qos = self.getJobQoSTresLimit (job, p_name, 'max_tres_pu')
+         u_node,     u_cpu,     u_gpu     = SlurmEntities.getUserAllocInPartition(job['user_id'], p_name, self.job_dict)
+         if job['state_reason'] == 'QOSMaxCpuPerUserLimit':
+            state_exp      = state_exp.format(user=job['user'], max_cpu_user=u_cpu_qos, curr_cpu_user=u_cpu, partition=p_name)
+            u_cpu_avail    = u_cpu_qos - u_cpu
+            if job['shared']!= 'OK' and (u_cpu_avail >0) and (MyTool.getTresDict(job['tres_req_str'])['cpu']) <= u_cpu_avail:
                    state_exp   = '{} {}'.format(state_exp, 'Job request exclusive nodes and may allocate more CPUs than requested.')
-             elif job['state_reason'] == 'QOSMaxGRESPerUser':
-                state_exp      = state_exp.format(user=job['user'], max_gpu_user=u_gpu_qos, curr_gpu_user=u_gpu, partition=p_name)
-             elif job['state_reason'] == 'QOSMaxNodePerUserLimit':
-                state_exp      = state_exp.format(user=job['user'], max_node_user=u_node_qos, curr_node_user=u_node, partition=p_name)
+         elif job['state_reason'] == 'QOSMaxGRESPerUser':
+            state_exp      = state_exp.format(user=job['user'], max_gpu_user=u_gpu_qos, curr_gpu_user=u_gpu, partition=p_name)
+         elif job['state_reason'] == 'QOSMaxNodePerUserLimit':
+            state_exp      = state_exp.format(user=job['user'], max_node_user=u_node_qos, curr_node_user=u_node, partition=p_name)
       elif job['state_reason'] == 'QOSGrpNodeLimit':
-                a_node_qos, a_cpu_qos, etc    = self.getJobQoSTresLimit (job, p_name, 'grp_tres')
-                j_account                     = self.user_assoc_dict[MyTool.getUser(job['user_id'])]['Account']
-                a_node,     a_cpu,     etc    = SlurmEntities.getAllAllocInPartition(p_name, self.job_dict)
-                #a_ex_node,a_sh_node,a_cpu     = self.getAccountAllocInPartition(p_name, j_account)  #Grp limit seems to address all accounts
-                state_exp                     = state_exp.format(max_node_grp=a_node_qos, curr_node_grp=a_node, partition=p_name)
+         a_node_qos, a_cpu_qos, etc    = self.getJobQoSTresLimit (job, p_name, 'grp_tres')
+         j_account                     = self.user_assoc_dict[MyTool.getUser(job['user_id'])]['Account']
+         a_node,     a_cpu,     etc    = SlurmEntities.getAllAllocInPartition(p_name, self.job_dict)
+         #a_ex_node,a_sh_node,a_cpu     = self.getAccountAllocInPartition(p_name, j_account)  #Grp limit seems to address all accounts
+         state_exp                     = state_exp.format(max_node_grp=a_node_qos, curr_node_grp=a_node, partition=p_name)
       elif job['state_reason'] == 'QOSGrpCpuLimit':
-                a_node_qos, a_cpu_qos, etc    = self.getJobQoSTresLimit (job, p_name, 'grp_tres')
-                j_account                     = self.user_assoc_dict[MyTool.getUser(job['user_id'])]['Account']
-                a_node,     a_cpu,     etc    = SlurmEntities.getAllAllocInPartition(p_name, self.job_dict)
-                #a_ex_node,a_sh_node,a_cpu     = self.getAccountAllocInPartition(p_name, j_account)
-                state_exp                     = state_exp.format(max_cpu_grp=a_cpu_qos, curr_cpu_grp=a_cpu, partition=p_name)
+         a_node_qos, a_cpu_qos, etc    = self.getJobQoSTresLimit (job, p_name, 'grp_tres')
+         j_account                     = self.user_assoc_dict[MyTool.getUser(job['user_id'])]['Account']
+         a_node,     a_cpu,     etc    = SlurmEntities.getAllAllocInPartition(p_name, self.job_dict)
+         #a_ex_node,a_sh_node,a_cpu     = self.getAccountAllocInPartition(p_name, j_account)
+         state_exp                     = state_exp.format(max_cpu_grp=a_cpu_qos, curr_cpu_grp=a_cpu, partition=p_name)
       elif job['state_reason'] == 'Resources':
-             pa_node, pa_cpu, pa_node_lst, features= self.getPartitionAvailNodeCPU (p_name, job)
-             if pa_node:
-                pa_node = '{}({})'.format(pa_node,['<a href=./nodeDetails?node={node_name}>{node_name}</a>'.format(node_name=node) for node in sorted(pa_node_lst)])
-             state_exp      = state_exp.format(partition=p_name, avail_node=pa_node, avail_cpu=pa_cpu, feature='({0})'.format(features))
-             if job.get('state_reason_desc',None): #modify pyslurm to add state_reason_desc 02/27/2020
-                state_exp   = '{}. {}'.format(job['state_reason_desc'].replace('_',' '), state_exp)
+         pa_node, pa_cpu, pa_node_lst, features, conflict_res = self.getPartitionAvailNodeCPU (p_name, job, higherPending=higherJobs)
+         pa_node_str                                          = '{}'.format(pa_node)
+         if pa_node:
+            pa_node_str = '{} ({})'.format(pa_node,['<a href=./nodeDetails?node={node_name}>{node_name}</a>'.format(node_name=node) for node in sorted(pa_node_lst)])
+         state_exp      = state_exp.format(partition=p_name, avail_node=pa_node_str, avail_cpu=pa_cpu, feature='({0})'.format(features))
+         if job.get('state_reason_desc',None): #modify pyslurm to add state_reason_desc 02/27/2020
+            #pa_node_lst = list( set(pa_node_lst) - set(reserved_nodes) )
+            state_exp   = '{} ({}). {} '.format(job['state_reason_desc'].replace('_',' '), [res['job_id'] for res in conflict_res], state_exp)
       elif job['state_reason'] == 'Priority':
-             earlierJobs    = self.getSmallerJobIDs(job['job_id'], self.partition_dict[p_name].get('pending_jobs',[]))
-             state_exp      = state_exp.format(partition=p_name, higher_job=earlierJobs)
+         earlierJobs    = self.getSmallerJobIDs(job['job_id'], self.partition_dict[p_name].get('pending_jobs',[]))
+         state_exp      = state_exp.format(partition=p_name, higher_job=earlierJobs)
       elif job['state_reason'] == 'JobArrayTaskLimit':
-             array_tasks_lst = [j.get('array_task_id','') for j in self.job_dict.values() if j.get('array_job_id',-1) == job['job_id'] and j.get('job_state','') == 'RUNNING'] 
-             array_tasks_lst = [t for t in array_tasks_lst if t]
-             state_exp       = state_exp.format(array_task_str=job.get('array_task_str', ''), array_max_tasks=job.get('array_max_tasks', ''), array_tasks=array_tasks_lst)
+         array_tasks_lst = [j.get('array_task_id','') for j in self.job_dict.values() if j.get('array_job_id',-1) == job['job_id'] and j.get('job_state','') == 'RUNNING'] 
+         array_tasks_lst = [t for t in array_tasks_lst if t]
+         state_exp       = state_exp.format(array_task_str=job.get('array_task_str', ''), array_max_tasks=job.get('array_max_tasks', ''), array_tasks=array_tasks_lst)
       elif job['state_reason'] == 'Dependency':
-             state_exp      = state_exp.format(dependency=job.get('dependency'))
+         state_exp      = state_exp.format(dependency=job.get('dependency'))
       elif job['state_reason'] == 'QOSMaxNodePerJobLimit':
-             pa_qos         = self.partition_dict[job['partition']]['qos_char']
-             state_exp      = state_exp.format(max_tres_pj=MyTool.getTresDict(self.qos_dict[pa_qos]['max_tres_pj'],mapKey=True))
+         pa_qos         = self.partition_dict[job['partition']]['qos_char']
+         state_exp      = state_exp.format(max_tres_pj=MyTool.getTresDict(self.qos_dict[pa_qos]['max_tres_pj'],mapKey=True))
           
       # information added to state_exp for all reasons
       if job['sched_nodes']:
-             state_exp      += ' Job is scheduled on {}'.format(job['sched_nodes'])
-             if job['start_time']:
-                state_exp   += ' starting from {}'.format(MyTool.getTsString(job['start_time']))
-             running    = [job for jid,job in self.job_dict.items() if job['job_state']=='RUNNING']
-             schedNode  = set([nm for nm in MyTool.nl2flat (job['sched_nodes']) if self.node_dict[nm]['state']!='IDLE'])
-             waitForJob = ['<a href="./jobDetails?jid={jid}">{jid}</a>'.format(jid=job['job_id']) for job in running if schedNode.intersection(set(job['cpus_allocated']))]
-             if waitForJob:
-                state_exp      += ', waiting for running jobs {}.'.format(waitForJob)
-             else:
-                state_exp      += '.'
+         state_exp      += ' Job is scheduled on {}'.format(job['sched_nodes'])
+         if job['start_time']:
+            state_exp   += ' starting from {}'.format(MyTool.getTsString(job['start_time']))
+         running    = [job for jid,job in self.job_dict.items() if job['job_state']=='RUNNING']
+         schedNode  = set([nm for nm in MyTool.nl2flat (job['sched_nodes']) if self.node_dict[nm]['state']!='IDLE'])
+         waitForJob = ['<a href="./jobDetails?jid={jid}">{jid}</a>'.format(jid=job['job_id']) for job in running if schedNode.intersection(set(job['cpus_allocated']))]
+         if waitForJob:
+            state_exp      += ', waiting for running jobs {}.'.format(waitForJob)
+         else:
+            state_exp      += '.'
       elif job['start_time']:
-             state_exp      += ' Job will start no later than '.format(job['start_time'])
+         state_exp      += ' Job will start no later than {}.'.format(MyTool.getTsString(job['start_time']))
  
       return state_exp
 
@@ -608,7 +636,7 @@ class SlurmEntities:
     for jid in pendingJids:
         print('---relaxQoS Job {}'.format(jid))
         job = self.job_dict[jid]
-        uid = job['user_id']
+        uid = job['user'] if 'user' in job else job['user_id']
         if 'QOS' in job['state_reason'] and uid not in rlt.keys():  # if pending for QOS reason
            p_name = job['partition'].split(',')[0]
            if self.partition_dict[p_name]['avail_cpus_cnt']:
@@ -628,30 +656,33 @@ class SlurmEntities:
                  ng_NodeAlloc,ng_CPUAlloc_min,ng_CPUAlloc_max,ng_GPUAlloc = g_node_alloc+job['num_nodes'],g_cpu_alloc+j_min_cpus,g_cpu_alloc+j_max_cpus,g_gpu_alloc+j_gpu
                  if nu_NodeAlloc > u_node_qos:
                     print('---Increase User Node Limit to {}'.format (nu_NodeAlloc))
-                    suggestion += 'Increase User Node Limit to {}.'.format (nu_NodeAlloc)
+                    suggestion += 'Increase User Node Limit to {}. '.format (nu_NodeAlloc)
                  if nu_CPUAlloc_min  > u_cpu_qos:
                     print('---Increase User CPU Limit to {}'.format  (nu_CPUAlloc_min))
                     if nu_CPUAlloc_min == nu_CPUAlloc_max:
-                       suggestion += 'Increase User CPU Limit to {}.'.format (nu_CPUAlloc_min)
+                       suggestion += 'Increase User CPU Limit to {}. '.format (nu_CPUAlloc_min)
                     else:
-                       suggestion += 'Increase User CPU Limit to {}-{}.'.format (nu_CPUAlloc_min,nu_CPUAlloc_max)
+                       suggestion += 'Increase User CPU Limit to [{},{}]. '.format (nu_CPUAlloc_min,nu_CPUAlloc_max)
                  if ng_NodeAlloc > g_node_qos:
                     print('---Increase Group Node Limit to {}'.format(ng_NodeAlloc))
-                    suggestion += 'Increase Group Node Limit to {}.'.format (ng_NodeAlloc)
+                    suggestion += 'Increase Group Node Limit to {}. '.format (ng_NodeAlloc)
                  if ng_CPUAlloc_min  > g_cpu_qos:
                     print('---Increase Group CPU Limit to {}'.format (ng_CPUAlloc_min))
-                    suggestion += 'Increase Group CPU Limit to {}-{}.'.format (ng_CPUAlloc_min, ng_CPUAlloc_max)
+                    if ng_CPUAlloc_min == ng_CPUAlloc_max:
+                       suggestion += 'Increase Group CPU Limit to {}. '.format (ng_CPUAlloc_min)
+                    else:
+                       suggestion += 'Increase Group CPU Limit to [{},{}]. '.format (ng_CPUAlloc_min, ng_CPUAlloc_max)
                  delayJobs = self.mayDelayPending(job, higherJobs)
                  if delayJobs:
                     suggestion += 'QoS relax of the job may delay highe priority pending jobs {}'.format([job['job_id'] for job in delayJobs])
-                 print('---May delay jobs {} in {}'.format(delayJobs, [job['job_id'] for job in higherJobs]))
+                 print('---May delay jobs {} in {}'.format([job['job_id'] for job in delayJobs], [job['job_id'] for job in higherJobs]))
                  if suggestion:
-                    suggestion = 'To run pending Job {} in partition {} on available nodes {}, the following relaxation of QoS {} will be recommended. '.format(jid,p_name, job['qos_relax_nodes'], self.partition_dict[p_name]['qos_char']) + suggestion
+                    suggestion = 'To run job {} in partition {} with candidate nodes {}, the following relaxation of QoS {} will be recommended. '.format(jid,p_name, job['qos_relax_nodes'], self.partition_dict[p_name]['qos_char']) + suggestion
                     rlt[uid]= suggestion
  
         if job['start_time']:   # see if will influce other jobs
            higherJobs.append(job)
-    print ('---Jobs with start_time={}'.format([(job['job_id'],job['state_reason']) for job in higherJobs]))
+    #print ('---Jobs with start_time={}'.format([(job['job_id'],job['state_reason']) for job in higherJobs]))
     return rlt
 
   # if job's running will influce other pending jobs's start time
@@ -663,7 +694,7 @@ class SlurmEntities:
      
   # if the requested part has enough resouces to run the job
   def partHasJobResource (self, job, p_name):
-      p_node_avail,p_cpu_avail,p_node_avail_lst,features= self.getPartitionAvailNodeCPU (p_name, job, strictFlag=True) #some subset of p_node_avail can satisfy job requirement
+      p_node_avail,p_cpu_avail,p_node_avail_lst,features,conflict_res= self.getPartitionAvailNodeCPU (p_name, job, strictFlag=True) #some subset of p_node_avail can satisfy job requirement
       #enough nodes
       if p_node_avail==0:
          return False

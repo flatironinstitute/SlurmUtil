@@ -421,26 +421,37 @@ def getTresGPUCount (tres_str):
     return int(m.group(1))
     
 #node 'gres': ['gpu:k40c:1', 'gpu:k40c:1'], 'gres_used': ['gpu:k40c:2(IDX:0-1)', 'mic:0']
+def getNodeGresGPUCount (gres_list):
+    if not gres_list:
+       return 0
+    gpu_total = sum([ 1 for g in gres_list if 'gpu:' in g])
+    return gpu_total
+
+def getNodeGresUsedGPUCount (gres_used_list):
+    if not gres_used_list:
+       return 0
+    gpu_used  = 0
+    for gres in gres_used_list:
+       #if 'gpu:' not in gres:    #not gpu, ignore
+       #    continue
+       m = re.search('gpu:(.+):(\d+)\(IDX:(.+)\)', gres)
+       if not m or not m.group(0):
+           continue
+       cate      = m.group(1)
+       gpu_used += int(m.group(2))
+       idx_str   = m.group(3)
+       #idx_list = str2intList (idx_str)
+    return gpu_used
+
+#node 'gres': ['gpu:k40c:1', 'gpu:k40c:1'], 'gres_used': ['gpu:k40c:2(IDX:0-1)', 'mic:0']
 #     'tres_fmt_str': 'cpu=28,mem=375G,billing=28,gres/gpu=2'
 #return gpus, alloc_gpus, alloc_gpus_idx
 def getGPUCount (gres_list, gres_used_list=[]):
-    if not gres_list:
-       return 0, 0
-    gpu_total = sum([ 1 for g in gres_list if 'gpu:' in g])
+    gpu_total = getNodeGresGPUCount (gres_list)
     if not gpu_total:
        return 0, 0
 
-    gpu_used  = 0
-    for gres in gres_used_list:
-        if 'gpu:' not in gres: 
-           continue
-        m = re.search('gpu:(.+):(\d+)\(IDX:(.+)\)', gres)
-        if not m or not m.group(0):
-           continue
-        cate     = m.group(1)
-        gpu_used+= int(m.group(2))
-        idx_str  = m.group(3)
-        #idx_list = str2intList (idx_str)
+    gpu_used  = getNodeGresUsedGPUCount (gres_used_list)
     return gpu_total, gpu_used
 
 #gpu:v100-16gb(IDX:0-1) or gpu(IDX:0-3) or gpu(IDX:0,3)

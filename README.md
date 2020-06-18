@@ -41,44 +41,44 @@ http://scclin011:8126/jobGraph?jobid=93585
 
 These instructions will get you a copy of the project up and running on your local machine.  See deployment for notes on how to deploy the project on a live system.
 
-### Prerequisites
+
+### Prerequisites and Environment setup
+module add slurm gcc/10.1.0 python3
+
+[yliu@scclin011 utils]$ module list
+Currently Loaded Modulefiles:
+ 1) slurm/18.08.8   2) gcc/10.1.0   3) python3/3.7.3  
 
 ```
-slurm 17.02.2
-/etc/slurm/slurm.conf
+slurm configuration file at /etc/slurm/slurm.conf
 ```
 
-```
-Python 3.6
-```
-
-Create python virutal environment:
-```
-
-#install pyslurm
-#download pyslurm, untar,
+####install pyslurm
+#####download pyslurm, untar,
 https://pypi.org/project/pyslurm/18.8.1.1/#history
 cd <pyslurm_source_dir>
-#modify setup.py
+#####modify setup.py to set slurm directories
 SLURM_DIR = ""
 SLURM_LIB = ""
 SLURM_INC = ""
-python setup.py build
 
+Set up a python virutal environment:
+```
 cd <dir>
-virtualenv env_slurm18
-source ./env_slurm18/bin/activate
+python3 -m venv env_slurm18_python37
+source ./env_slurm18_python37/bin/activate
 pip install Cython
-python setup.py install
+cd <pyslurm_dir>
+python setup.py build install
 
 #install other packages
-pip install pandas
 pip install cherrypy
-pip install pystan
-pip install fbprophet
-pip install influxdb
 pip install paho-mqtt
+pip install influxdb
+pip install fbprophet
 ```
+The installation of fbprophet includes pystan, pandas, matplotlib, ...
+May need to pip uninstall numpy; pip install numpy; to solve error of import pandas 
 
 Python virtual environment with packages:
 ```
@@ -131,8 +131,6 @@ In pyslurm/pyslurm.pyx, changed line 1901 to:
 >                 JOBS_info[u'state_str'] = slurm.slurm_job_state_string(job.state)
 modify pyslurm to add state_reason_desc 02/27/2020
 2274                 Job_dict[u'state_reason_desc'] = self._record.state_desc.decode("UTF-8").replace(" ", "_")
-
-2198             if self._record.pack_job_id_set:
 2199                 Job_dict[u'pack_job_id_set'] = slurm.stringOrNone(self._record.pack_job_id_set, '')
 
 
@@ -140,7 +138,8 @@ modify pyslurm to add state_reason_desc 02/27/2020
 rebuild pyslurm
 python setup.py build
 python setup.py install
-. env_slurm18/activate/bin
+. env_slurm18/bin/activate
+pip install -e ../pyslurm
 
 ```
 MQTT server running on mon5.flatironinstitute.org
