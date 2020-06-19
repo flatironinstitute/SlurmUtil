@@ -68,7 +68,7 @@ function createLegend (legend_svg, acctColor, gridSize) {
 };
 
 //
-function createHeatMap(svg, data, acctColor, grpCnt, cntLine, gridSize) 
+function createHeatMap(svg, data, acctColor, grpCnt, cntLine, gridSize, colorAttr="util") 
 {
           var cards = svg.selectAll(".node")
               .data(data);
@@ -105,13 +105,14 @@ function createHeatMap(svg, data, acctColor, grpCnt, cntLine, gridSize)
               .style("fill", function(d) { var currColorS = getColorScale(d, acctColor)
                                            if (d["stat"]==0) return "gray";
                                            else if (d["stat"]==-1) return "black";
-                                           else return currColorS(d["util"]); });
+                                           else return currColorS(d[colorAttr]); });
           cards.append("title");
           cards.select("title").text(function(d) {return d["labl"]});
           cards.exit().remove();
 };
 
 function createSelectList (parent_id, data, tag, value_fld, func_onchg){
+          console.log('createSelectList, data=', data)
           d3.select(parent_id.concat(" select")).remove();
           var s = d3.select(parent_id).append("select")
                           .on('change', func_onchg)
@@ -123,6 +124,40 @@ function createSelectList (parent_id, data, tag, value_fld, func_onchg){
                  .attr("value",    function(d) {return d[value_fld]})
                  .attr("disabled", function(d) {if (d["disabled"]) return d["disabled"]; else return undefined});
 };
+
+function prepareNodeData_1 (nodeData, grpCnt, labels, gpu_obj) {
+        var name2idx = new Object()
+        for (var i=0; i<nodeData.length; i++) {
+          var obj = nodeData[i]
+          name2idx[obj['name']] = i
+          switch (obj['name'].slice(6,7)) {
+                 case "0": obj.gID = 0; break; // worker0...
+                 case "1": obj.gID = 1; break; // worker1...
+                 case "2": obj.gID = 2; break; // worker2...
+                 case "3": obj.gID = 3; break; // worker3...
+                 case "4": obj.gID = 4; break; // worker4...
+                 case "a": obj.gID = 5; break; // workeramd...
+                 case "g": obj.gID = 6; obj.gpu=true; break; // workergpu..
+                 case "m": obj.gID = 7; break; // workermem..
+                 case "p": obj.gID = 8; break; // workerphi..
+          }
+          obj.gIdx        = grpCnt[obj.gID];
+          if ( Math.floor(grpCnt[obj.gID] / cntPerLine)*cntPerLine == grpCnt[obj.gID] )
+             labels.push(obj.name+",...");
+          grpCnt[obj.gID] ++;
+        }
+
+        // gpu data
+        for (let [gpuID, gpuNodes] of Object.entries(gpu_obj)) {
+            if (gpuID == "time") continue;
+            for ( let [node, util] of Object.entries(gpuNodes) ) {
+                nodeData[name2idx[node]][gpuID] = util
+            }
+        }
+
+        return nodeData
+};
+
 function prepareNodeData (nodeData, grpCnt, labels, gpu_obj) {
         var objData  = [];             // data that will be used later
 

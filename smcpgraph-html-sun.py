@@ -670,25 +670,29 @@ class SLURMMonitor(object):
                    
     # return a list of jobs with attribute long_label and disabled
     # generate jobs info {job_id, long_label, disabled}
-    def getJobsLabel (self):
+    def getAllocJobsWithLabel (self):
         jobs    = []
         for jid, jobinfo in self.currJobs.items():
             if jobinfo['tres_alloc_str']:  # alloc resource
-               long_label = '{}({}) {} with {}'.format       (jid, jobinfo['user'], jobinfo['job_state'], jobinfo['tres_alloc_str'])
+               long_label = '{}({}) alloc {}'.format (jid, jobinfo['user'], jobinfo['tres_alloc_str'])
                disabled   = ""
-            else:                          # wait resource
-               long_label = '{}({}) {} waiting for {}'.format(jid, jobinfo['user'], jobinfo['job_state'], jobinfo['tres_req_str'])
-               disabled   = "disabled"
+            #else:                          # wait resource
+            #   long_label = '{}({}) {} waiting for {}'.format(jid, jobinfo['user'], jobinfo['job_state'], jobinfo['tres_req_str'])
+            #   disabled   = "disabled"
             jobs.append({"job_id":jid, "long_label":long_label, "disabled":disabled})
         return jobs
 
-    #generate users info {user, jobs, long_label}
-    def getUsersLabel (self):
+    #generate users with job allocation with info {user, jobs, long_label}
+    def getAllocUsersWithLabel (self):
         users_dict = defaultdict(list)
         for jid, jobinfo in self.currJobs.items():
             if jobinfo['tres_alloc_str']: 
                users_dict[jobinfo['user']].append (jid)
-        users = [ {"user":user, "jobs":jobs, "long_label":'{} with running jobs {}'.format(user, jobs)} for user, jobs in sorted(users_dict.items())]
+        users      = []
+        for user, jobs in sorted(users_dict.items()):
+            job_count = len(jobs)
+            jobs_str  = '{}'.format(jobs) if job_count <=5 else '{}'.format(jobs[0:5]).replace(']',', ...]')
+            users.append({"user":user, "jobs":jobs, "long_label":'{} has {} job {}'.format(user, job_count, jobs_str)})
         return users
 
     # return list of job label on hostname
@@ -727,8 +731,8 @@ class SLURMMonitor(object):
 
     def getHeatmapData (self, gpudata):
         node2job= self.node2jobs            
-        jobs    = self.getJobsLabel ()  #jobs list  [{job_id, long_label, disabled}, ...]
-        users   = self.getUsersLabel()  #users list [{user, jobs, long_label}, ...]
+        jobs    = self.getAllocJobsWithLabel ()  #jobs list  [{job_id, long_label, disabled}, ...]
+        users   = self.getAllocUsersWithLabel()  #users list [{user, jobs, long_label}, ...]
         workers = []  #dataset1 in heatmap
         for hostname, hostinfo in sorted(self.data.items()):
             try:
@@ -741,15 +745,15 @@ class SLURMMonitor(object):
                else:
                   node_cpu_util  = 0
                gpus         = {}   #{'gpu0':{'label':,'state':}}
+               alloc_jobs   = node2job.get(hostname, [])
+               job_accounts = [self.currJobs[jid].get('account', None)        for jid in alloc_jobs]
+               job_cores    = [self.currJobs[jid]['cpus_allocated'][hostname] for jid in alloc_jobs]  #
+               node_mem_util= (node_mem_K-pyslurmNode['free_mem']) / node_mem_K  #ATTN: from slurm, not monitor
 
                if SLURMMonitor.nodeAllocated(hostinfo):                  #in use
                   state        = 1
-                  # get node label
-                  node_mem_util= (node_mem_K-pyslurmNode['free_mem']) / node_mem_K  #ATTN: from slurm, not monitor
-                  alloc_jobs   = node2job.get(hostname, [])
-                  job_accounts = [self.currJobs[jid].get('account', None)        for jid in alloc_jobs]
                   job_users    = [self.currJobs[jid].get('user',    None)        for jid in alloc_jobs]
-                  job_cores    = [self.currJobs[jid]['cpus_allocated'][hostname] for jid in alloc_jobs]  #
+                  # get node label
                   if not node_gpus:  #no GPU node
                      lst       = list(zip(alloc_jobs, job_users, ['{} cpu'.format(jc) for jc in job_cores]))
                      nodeLabel = '{} ({} cpu, {}GB): cpu_util={:.1%}, mem_util={:.1%}, jobs={}'.format(hostname, node_cores, int(node_mem_K/1024), node_cpu_util/node_cores, node_mem_util, lst)
@@ -759,13 +763,13 @@ class SLURMMonitor(object):
                      nodeLabel = '{} ({} cpu, {} gpu, {}GB): cpu_util={:.1%}, used_gpu={}, mem_util={:.1%}, jobs={}'.format(hostname, node_cores, node_gpus, int(node_mem_K/1024), node_cpu_util/node_cores, MyTool.getNodeGresUsedGPUCount (pyslurmNode['gres_used']), node_mem_util, lst)
                      gpus = self.getNodeGPULabel (gpudata, hostname, state, hostinfo[0], node_gpus, alloc_jobs) 
                else:      # node not in use
-                  state = 0 if 'IDLE' in hostinfo[0] else -1
+                  state        = 0 if 'IDLE' in hostinfo[0] else -1
                   if not node_gpus:
                      nodeLabel = '{} ({} cpu, {}GB): state={}'.format        (hostname, node_cores, int(node_mem_K/1024), hostinfo[0])
                   else:
                      nodeLabel = '{} ({} cpu, {} gpu, {}GB): state={}'.format(hostname, node_cores, node_gpus, int(node_mem_K/1024), hostinfo[0])
                      gpus = self.getNodeGPULabel (gpudata, hostname, state, hostinfo[0], node_gpus, []) 
-               workers.append([hostname, state, node_cores, node_cpu_util, alloc_jobs, job_accounts, nodeLabel, gpus])
+               workers.append({'name':hostname, 'stat':state, 'core':node_cores, 'util':node_cpu_util/node_cores, 'mem_util':node_mem_util, 'jobs':alloc_jobs, 'acct':job_accounts, 'labl':nodeLabel, 'gpus':gpus, 'gpuCount':node_gpus})
             except Exception as exp:
                print("ERROR getHeatmapData: {0}".format(exp))
                                
@@ -786,14 +790,13 @@ class SLURMMonitor(object):
         gpu_ts, gpudata      = BrightRestClient().getAllGPUAvg (gpu_nodes, minutes=5, max_gpu_cnt=max_gpu_cnt)
         workers,jobs,users   = self.getHeatmapData (gpudata)
         
-        
         htmltemp = os.path.join(wai, 'heatmap.html')
         h        = open(htmltemp).read()%{'update_time': MyTool.getTsString(self.updateTS),
-                                          'data1'      : workers, 
+                                          'data1'      : json.dumps(workers), 
                                           'data2'      : jobs, 
                                           'users'      : users, 
                                           'gpu_update_time' : MyTool.getTsString(gpu_ts),
-                                          'gpu':gpudata}
+                                          'gpu'        : gpudata}
  
         return h 
 

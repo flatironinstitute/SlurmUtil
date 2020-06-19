@@ -18,7 +18,12 @@
   <body>
     <div class="tab" id="tabmenu"></div>
     <div id="header">
-       <h3>Worker Nodes Utilization</h3>
+       <h3>Worker Nodes Utilization
+         <span style="padding: 6px"> 
+           <select id="select_cpu_mem">
+             <option value="util"> CPU </option>
+             <option value="mem_util">Memory</option></select></span>
+       </h3>
        <i>Update time: %(update_time)s</i>
        <p> <i>"Click" to see the co-allocated worker nodes for the same job. "Double Click" to see the worker node detail. "Shift + Double Click" to see the job detail</i>
        <hr></div>
@@ -26,8 +31,9 @@
        <select id="select_job_user">
           <option value="job"> Job </option>
           <option value="user">User</option>
-       </select></div>
-    <div id="select_list_div"></div>
+       </select>
+       <span id="select_list_div"></span>
+   </div>
     <div id="legend"> 
        <input type="checkbox" id="colorCheckbox" name="colorCheckBox" checked> 
        <label for="color"> Color to differentiate account </label>
@@ -54,16 +60,12 @@
           users_data  = %(users)s                                   //input
           gpu_obj     = %(gpu)s
 
-      console.log("workers=", workers, "jobs=", jobs_data, "users=", users_data, "orig gpu=", gpu_obj)
       var labels       = [], gpu_labels=[];                   // labels, save results 
       var grpCnt       = [0,0,0,0,0,0,0,0,0];  // count for each group worker0..., ..., save results from function call
-      var workers_data = prepareNodeData (workers, grpCnt, labels, gpu_obj)
+      var workers_data = prepareNodeData_1 (workers, grpCnt, labels, gpu_obj)
       var gpu_data     = prepareGPUData  (workers_data,    gpu_labels)
       var gpu_gridSize = Math.floor(width / gpu_labels.length)
       console.log("workers_data=",workers_data, "gpu_data=",gpu_data);
-
-      //var gpu_update = new Date(gpu_obj["time"]*1000)
-      //d3.select("#gpu_update").text("Update time: " + gpu_update.toString());
 
       var legend_svg = d3.select("#legend_svg")
           .attr("width",  width + margin.left + margin.right)
@@ -76,11 +78,13 @@
           svg_line += Math.ceil(grpCnt[i] / cntPerLine)
       var svg     = createSVG    ("#node_svg", ".label",        labels, width+margin.left+margin.right, svg_line*gridSize +margin.top+margin.bottom, margin, gridSize)
       var gpu_svg = createGPUSVG ("#gpu_svg",  ".gpuNodeLabel", ".gpuLabel", gpu_labels, width+margin.left+margin.right, 4*gridSize+margin.top+margin.bottom+100, gpu_margin, gpu_gridSize)
+      var color_attr = "util"
 
       // add heatmap labels under svg
       var heatmapChart = function(data) {
           createLegend    (legend_svg, acctColor, gridSize);
-          createHeatMap   (svg,     data,     acctColor, grpCnt, cntPerLine, gridSize)
+          createHeatMap   (svg,     data,     acctColor, grpCnt, cntPerLine, gridSize, color_attr)
+          //createHeatMap   (svg,     data,     acctColor, grpCnt, cntPerLine, gridSize, "mem_util")
           createGPUHeatMap(gpu_svg, gpu_data, acctColor, grpCnt, cntPerLine, gpu_gridSize)
       };
 
@@ -95,7 +99,6 @@
          console.log("user_onchange " + jids)
          $(".bordered").removeClass("popout");
          jids.forEach(function(e) {
-            console.log(e)
             $(`.${e}`).addClass("popout");
          });
       }
@@ -119,6 +122,11 @@
            d3.selectAll(".legend").remove()
            heatmapChart(workers_data)
          })
+      d3.select("#select_cpu_mem")
+        .on('change', function () {
+           color_attr = d3.select(this).property('value');
+           heatmapChart(workers_data)
+        })
       createSelectList ("#select_list_div", jobs_data,  "#select_list",  "job_id", job_onchange);
       heatmapChart     (workers_data);
       

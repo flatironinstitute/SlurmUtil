@@ -39,6 +39,12 @@ h4{
     text-align: right;
 }
 
+.slurminfo th {
+    position: -webkit-sticky;
+    position: sticky;
+    top:      0;
+}
+
 em.alarm, .slurminfo td.alarm, .slurminfo tr.alt td.alarm {
     background-color: #F65700;
 }
@@ -282,10 +288,11 @@ div.border {
 rect.bordered {
    stroke:       #E6E6E6;
    stroke-width: 2px;
+   z-index:      1;
 }
 rect.popout{
    stroke:       black;
-   stroke-width: 4px;
+   stroke-width: 5px;
    z-index:      999;
 }
 text.mono {
