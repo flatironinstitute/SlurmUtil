@@ -296,12 +296,14 @@ div.border {
 rect.bordered {
    stroke:       #E6E6E6;
    stroke-width: 2px;
-   z-index:      1;
+   z-index:      0;
+   position:     relative;
 }
 rect.popout{
    stroke:       black;
    stroke-width: 5px;
-   z-index:      999;
+   z-index:      9999;
+   position:     relative;
 }
 text.mono {
    font-size:    9pt;

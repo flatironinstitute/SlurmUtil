@@ -67,9 +67,26 @@ function createLegend (legend_svg, acctColor, gridSize) {
            legend.exit().remove();
 };
 
-//
+//d is data, called by createHeatMap
+function getClass(d) {
+   var str      = "bordered";
+   var selected = false;
+   d["jobs"].forEach(function(e) {
+      str += " " + e;
+      if (!selected && select_jids.includes(e))
+         selected = true;
+      });
+   if (selected) return str + " popout";
+   else          return str;
+}
+
+//use global variable select_jids
 function createHeatMap(svg, data, acctColor, grpCnt, cntLine, gridSize, colorAttr="util") 
 {
+          console.log("createHeatMap select_jids=", select_jids)       // select_jids is global
+          svg.selectAll("*:not(text)").remove()
+          //svg.selectAll("*").remove()
+          //console.log ("sav.node=", svg.selectAll(".node"), "popout=", svg.selectAll(".bordered"))
           var cards = svg.selectAll(".node")
               .data(data);
           cards.enter().append("rect")
@@ -81,10 +98,7 @@ function createHeatMap(svg, data, acctColor, grpCnt, cntLine, gridSize, colorAtt
                             return (y + Math.floor(d["gIdx"]/cntLine) )* gridSize; })
               .attr("rx", 4)
               .attr("ry", 4)
-              .attr("class", function(d) { 
-                                var str="bordered"; 
-                                d["jobs"].forEach(function(e) {str += " " + e}); 
-                                return str;})
+              .attr("class", function(d) { return getClass(d);})
               .attr("width",  gridSize)
               .attr("height", gridSize)
               .attr("title", function (d) {return d["name"]})
@@ -99,7 +113,9 @@ function createHeatMap(svg, data, acctColor, grpCnt, cntLine, gridSize, colorAtt
                               var keyArr=d["jobs"]; 
                               keyArr.forEach(function(e) {
                                                $(".bordered").removeClass("popout");
-                                               $(`.${e}`).addClass("popout")})})
+                                               $(`.${e}`).addClass("popout")});
+                              select_jids = keyArr;
+                              })
               .style("fill",  "gray");
           cards.transition().duration(1000)
               .style("fill", function(d) { var currColorS = getColorScale(d, acctColor)
@@ -260,10 +276,7 @@ function createGPUHeatMap(svg, gpuData, acctColor, grpCnt, cntLine, gridSize)
               .attr("y", function(d, i) { return d['gpuIdx'] * gridSize; })
               .attr("rx", 4)
               .attr("ry", 4)
-              .attr("class", function(d) { 
-                                var str="bordered"; 
-                                d["jobs"].forEach(function(e) {str += " " + e}); 
-                                return str;})
+              .attr("class", function(d) { return getClass(d);})
               .attr("width",  gridSize)
               .attr("height", gridSize)
               .attr("title", function (d) {return d["name"]})
@@ -276,9 +289,11 @@ function createGPUHeatMap(svg, gpuData, acctColor, grpCnt, cntLine, gridSize)
                               }})
               .on("click", function(d) {
                               var keyArr=d["jobs"];
+                              console.log ("---keyArr", keyArr)
                               keyArr.forEach(function(e) {
                                                $(".bordered").removeClass("popout");
-                                               $(`.${e}`).addClass("popout")})})
+                                               $(`.${e}`).addClass("popout")});
+                              select_jids = keyArr})
               .style("fill",  "gray");
           cards.transition().duration(1000)
               .style("fill", function(d) { var currColorS = getColorScale(d, acctColor);
