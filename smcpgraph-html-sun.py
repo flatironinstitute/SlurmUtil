@@ -51,10 +51,11 @@ class SLURMMonitor(object):
     def __init__(self):
         with open('./config.json') as config_file:
            self.config = json.load(config_file)
+        self.defaultSettings ()
+
         self.queryTxtClient  = TextfileQueryClient(os.path.join(wai, 'host_up_ts.txt'))
         self.querySlurmClient= SlurmDBQuery()
         self.jobNoticeSender = JobNoticeSender()
-
         self.startTime       = time.time()
         self.updateTS        = None
         self.rawData         = {}                   #not used
@@ -70,8 +71,16 @@ class SLURMMonitor(object):
                                                                                # modified through updateJobNode2ProcRecord only
         self.inMemCache      = inMemCache.InMemCache()
         self.bulletinBoard   = BulletinBoard()
- 
 
+    def defaultSettings (self):
+        if "settings" not in self.config:
+           self.config["settings"] = {}
+        if "low_util_job" not in self.config["settings"]:
+           self.config["settings"]["low_util_job"]  = {"cpu":0.01, "gpu":0.1, "mem":0.3, "run_time_hour":24, "alloc_cpus":2, "email":False}
+        if "low_util_node" not in self.config["settings"]:
+           self.config["settings"]["low_util_node"] = {"cpu":0.01, "gpu":0.1, "mem":0.3, "alloc_time_min":60}
+        if "summary_column" not in self.config["settings"]:
+           self.config["settings"]["summary_column"] = [0,1,2,3,4,5,6,7,8,9,10,11,12]
     # add processes info of jid, modify self.jobNode2ProcRecord
     # TODO: it is in fact userNodeHistory
     def updateJobNode2ProcRecord (self, ts, jobid, node, processes):
@@ -930,12 +939,24 @@ class SLURMMonitor(object):
                       rlt[node] = gpu_ids
         return rlt, rlt_jobs
 
+    
+
     @cherrypy.expose
     def getLowResourceJobs (self, job_length_secs=ONE_DAY_SECS, job_width_cpus=1, job_cpu_avg_util=0.1, job_mem_util=0.3):
-        job_dict = self.getLongrunLowUtilJobs(self.updateTS, self.currJobs, float(job_cpu_avg_util), int(job_length_secs), int(job_width_cpus), float(job_mem_util))
+        job_dict = self.getLUJobs(self.updateTS, self.currJobs, float(job_cpu_avg_util), int(job_length_secs), int(job_width_cpus), float(job_mem_util))
         return json.dumps([self.updateTS, job_dict])
 
-    def getLongrunLowUtilJobs (self, ts, jobs, low_util=0.01, long_period=ONE_DAY_SECS, job_width=1, low_mem=0.3):
+    def getLUJSettings (self):
+        luj_settings = self.config['settings']['low_util_job']
+        return luj_settings['cpu'], luj_settings['gpu'], luj_settings['mem'], luj_settings['run_time_hour'], luj_settings['alloc_cpus']
+
+    def getLongrunLowUtilJobs (self, ts, jobs):
+        low_util, low_gpu, low_mem, long_period, job_width = self.getLUJSettings()
+        long_period       = long_period * 3600          # hours -> seconds       
+        
+        return self.getLUJobs (ts, jobs, low_util, long_period, job_width, low_mem) 
+
+    def getLUJobs (self, ts, jobs, low_util, long_period, job_width, low_mem, exclude_acct=['scc']):
         #check self.currJobs and locate those jobs in question
         if not jobs:
            jobs   = self.currJobs
@@ -943,7 +964,7 @@ class SLURMMonitor(object):
         for jid, job in jobs.items():
             #if job run long enough
             period = ts - job['start_time']
-            if (period > long_period) and (job.get('num_cpus',1)>job_width) and (job['job_avg_util'] < low_util) and (job['job_mem_util']<low_mem) and (job['job_inst_util'] < low_util*10):
+            if (period > long_period) and (job.get('num_cpus',1)>=job_width) and (job['job_avg_util'] < low_util) and (job['job_mem_util']<low_mem) and (job['job_inst_util'] < low_util*10) and (job['account'] not in exclude_acct):
                result[job['job_id']] = job
  
         return result
@@ -1470,6 +1491,8 @@ class SLURMMonitor(object):
 
     @cherrypy.expose
     def jobDetails(self, jid):
+        if ',' in jid:
+           jid         = jid.split(',')[0]
         jid            = int(jid)
         ts             = int(time.time())
         jobstep_report = SlurmCmdQuery.sacct_getJobReport(jid)
@@ -2263,8 +2286,7 @@ class SLURMMonitor(object):
     def bulletinboard(self):
         if self.updateTS:
            low_util   = self.getLongrunLowUtilJobs(self.updateTS, self.currJobs)
-           self.bulletinBoard.addLowUtilJobNotice (self.updateTS, low_util)
-           msgs       = self.bulletinBoard.getLatest()  
+           msgs       = BulletinBoard.getLowUtilJobMsg (low_util)
            low_util_ts= MyTool.getTsString(self.updateTS)
 
            # node with low resource utlization
@@ -2291,6 +2313,38 @@ class SLURMMonitor(object):
                                                   qos_relax=json.dumps(qos_relax), qos_relax_ts=MyTool.getTsString(SE_ins.ts_job_dict),
                                                   other    =other)
         return htmlStr
+
+    @cherrypy.expose
+    def settings (self, **settings):
+        if settings:
+           self.chg_settings (settings)
+        htmlTemp   = os.path.join(wai, 'settings.html')
+        htmlStr    = open(htmlTemp).read().format(config=json.dumps(self.config))
+        return htmlStr
+
+    def chg_settings (self, settings):
+        chg_flag    = False
+        setting_key = settings.pop("setting_key")
+        sav_settings= self.config['settings']
+        
+        for key, value in settings.items():
+            try:
+               value = float(value)
+            except TypeError as ex:
+               value = True
+            except ValueError as ex:
+               value = True  if value == "true"  else value
+               value = False if value == "false" else value
+            if sav_settings[setting_key][key] != value:
+               sav_settings[setting_key][key] = value
+               chg_flag                       = True
+        htmlTemp   = os.path.join(wai, 'settings.html')
+        htmlStr    = open(htmlTemp).read().format(config=json.dumps(self.config))
+        return htmlStr
+
+        return "{} {} input={}, result={}".format(chg_flag, setting_key, settings, self.config["settings"])
+        
+       
 
 def error_page_500(status, message, traceback, version):
     return "Error %s - Well, I'm very sorry but the page your requested is not implemented!" % status

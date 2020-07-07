@@ -26,6 +26,10 @@ class BulletinBoard:
    def get (self, latestN):
       return self._store.get(latestN)
    
+   def getLowUtilJobMsg (job_dict):
+       msg = [{'id': jid, 'msg': MSG_LOW_UTIL.format(job['user'], job['job_id'], timedelta(seconds=int(time.time()) - int(job['start_time'])), job.get('job_avg_util',-1), job.get('job_mem_util',-1), job.get('nodes',''), job.get('num_cpus',-1))} for jid, job in job_dict.items()]
+       return msg
+
    
 # save message in in-mem cache with size, flushed to file from time to time 
 class MessageCache:

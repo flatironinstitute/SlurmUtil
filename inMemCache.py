@@ -54,8 +54,8 @@ class InMemCache:
                       job_procs   = [ p for p in procs if p[9]==jid]
                       j_cpuUtil   = sum([ p[1]      for p in job_procs])
                       j_cpuTime   = sum([ p[3]+p[4] for p in job_procs])
-                      j_rss       = sum([ p[5]      for p in job_procs])
-                      j_vms       = sum([ p[6]      for p in job_procs])
+                      j_rss       = sum([ p[5]      for p in job_procs])/1024
+                      j_vms       = sum([ p[6]      for p in job_procs])/1024
                       j_ioBps     = sum([ p[8]      for p in job_procs])
                       j_read      = sum([ p[10]      for p in job_procs])
                       j_write     = sum([ p[11]      for p in job_procs])

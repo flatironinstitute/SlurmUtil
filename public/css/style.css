@@ -259,6 +259,14 @@ li span{
   font-weight: bold;
   display: inline-block;
 }
+form {
+  padding: 4px;
+}
+form label.title{
+  display: inline-block;
+  width: 44ch;
+  font-weight: bold;
+}
 .page-wrap {
   margin: 40px;
 }

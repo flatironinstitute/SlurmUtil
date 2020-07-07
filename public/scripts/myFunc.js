@@ -29,4 +29,24 @@ function getTresReplaceInteger(tres_str) {
     tres_str = tres_str.replace(/2=(\d+)000/, 'mem=$1G')
     return     tres_str.replace('1=',         'cpu=')
 }
+//display 12390(K) as 12.39 M
+function getDisplayK (n) {
+   if (typeof (n) != 'Number')
+      n = parseFloat (n)
+   if (n < 1024) {
+      if (Number.isInteger(n))
+         return n.toString() + ' K'
+      else
+         return n.toFixed(2) + ' K'
+   }
+   n /= 1024
+   if (n < 1024)
+      return n.toFixed(2) + ' M'
+   n /= 1024
+   if (n < 1024)
+      return n.toFixed(2) + ' G'
+   n = n / 1024
+   return n.toFixed(2) + ' T'
+}
+
 

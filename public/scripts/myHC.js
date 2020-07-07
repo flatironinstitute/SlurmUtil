@@ -201,14 +201,10 @@ function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit=
 }
 
 function pointFormat_func() {
-   return '<br/>' + Highcharts.dateFormat('%b %e %H:%M:%S', new Date(this.x)) + ', ' + this.y.toFixed(2);
+   return '<br/>' + Highcharts.dateFormat('%b %e %H:%M:%S', new Date(this.x)) + ', ' + this.y.toLocaleString();
 }
 function pointFormat_func_KB() {
-   return '<br/>' + Highcharts.dateFormat('%b %e %H:%M:%S', new Date(this.x)) + ', ' + this.y + ' KB';
-}
-
-function timeSeriesColumnPlot(series, chartTag, title, yCap, aSeries, pf_func=pointFormat_func) {
-   timeSeriesPlot(series, "column", chartTag, title, yCap, aSeries, pf_func)
+   return '<br/>' + Highcharts.dateFormat('%b %e %H:%M:%S', new Date(this.x)) + ', ' + this.y.toLocaleString() + ' KB';
 }
 
 function timeSeriesScatterPlot_KB(series, chartTag, title, yCap, aSeries, pf_func=pointFormat_func_KB) {
@@ -217,19 +213,19 @@ function timeSeriesScatterPlot_KB(series, chartTag, title, yCap, aSeries, pf_fun
 function timeSeriesScatterPlot(series, chartTag, title, yCap, aSeries, pf_func=pointFormat_func) {
    timeSeriesPlot(series, "scatter", chartTag, title, yCap, aSeries, pf_func)
 }
-function timeSeriesPlot(series, chartType, chartTag, title, yCap, aSeries, pf_func=pointFormat_func) {
-   console.log('series', chartType, series)
-   function crtLabel (vx, vy, txt) {
-                return {
-                      point: {
-                          xAxis: 0,
-                          yAxis: 0,
-                          x    : vx,
-                          y    : vy
-                      },
-                      text: txt }
-   }
+function timeSeriesColumnPlot(series, chartTag, title, yCap, aSeries, pf_func=pointFormat_func) {
+   timeSeriesPlot(series, "column", chartTag, title, yCap, aSeries, pf_func)
+}
+function crtLabel (vx, vy, txt) {
+   return { point: { xAxis: 0,
+                     yAxis: 0,
+                     x    : vx,
+                     y    : vy},
+            text: txt }
+}
 
+function timeSeriesPlot(series, chartType, chartTag, title, yCap, aSeries, pf_func=pointFormat_func) {
+   console.log('timeSeriesPlot series=', chartType, series)
    if ( aSeries.length > 0 ) {
                 baseY = series[0]['data'][0][1]
                 cus_labels = aSeries.map(function(x) {return crtLabel(x[0], baseY, x[1])})
@@ -242,6 +238,21 @@ function timeSeriesPlot(series, chartType, chartTag, title, yCap, aSeries, pf_fu
    } else
                 cus_anno = []
 
+   if (pf_func == pointFormat_func_KB) {
+      console.log(pf_func)
+      Highcharts.setOptions({
+       lang: {
+           numericSymbols: ['k KB', 'M KB', 'G KB', 'T KB', 'P KB', 'E KB']
+       }
+      });
+   } else {
+      Highcharts.setOptions({
+       lang: {
+           numericSymbols: ["k", "M", "G", "T", "P", "E"]
+       }
+      });
+
+   }
    var chart=$('#'+chartTag).highcharts({
                  chart: {
                      panKey:   'shift',
@@ -265,8 +276,11 @@ function timeSeriesPlot(series, chartType, chartTag, title, yCap, aSeries, pf_fu
                  },
                  yAxis: {
                      title: {
-                         text: yCap
-                     }
+                         text: yCap 
+                     },
+                     //labels: {
+                     //    format: '{value} KB'
+                     //}
                  },
                  legend: {
                      enabled: true

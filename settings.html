@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<meta charset='UTF-8'>
+<title>Settings</title>
+<link rel="stylesheet" href="/static/css/style.css">
+
+<script type="text/javascript" src="static/scripts/jquery.min.js"></script>
+<script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+<script type="text/javascript" src="static/scripts/myFunc.js"></script>
+<script type="text/javascript" src="static/scripts/myForm.js"></script>
+<script type="text/javascript">
+
+$(document).ready(function(){{
+   //add menu
+    $("#tabmenu").load("/getHeader?page=bulletinboard")
+
+    //create table job_table and part_table
+    console.log($("#cpu"))
+    //$("#cpu").val(50)
+    var settings={config}.settings
+    var low_util_job =settings.low_util_job
+    var low_util_node=settings.low_util_node
+    var luj_label   ={{"cpu":"% CPU, ", "gpu":"% GPU, ", "mem":"% Mem, ", "run_time_hour":"Hours of Run Time, ", "alloc_cpus":"Min CPUs, ", "email":"Daily Reminder"}}
+    var luj_type    ={{"cpu":"percent", "gpu":"percent", "mem":"percent", "run_time_hour":"number",              "alloc_cpus":"number",     "email":"checkbox"}}
+    var nuj_label   ={{"cpu":"% CPU, ", "gpu":"% GPU, ", "mem":"% Mem, ", "alloc_time_min":"Min of Alloc Time"}}
+    var nuj_type    ={{"cpu":"percent", "gpu":"percent", "mem":"percent", "alloc_time_min":"number"}}
+    var sc_label    ={{"cpu":"Node, ", "gpu":"Node Status, ", "mem":"Delay, ", "alloc_time_min":"Job", "c4":"User","c5":"Alloc CPU","c6":"Process", "c7":"CPU Util", "c8":"Avg CPU Util", "c9":"RSS", "c10":"VMS", "c11":"I/O", "c12":"Fds #"}}
+    var sc_type     ={{"cpu":"checkbox", "gpu":"checkbox", "mem":"checkbox", "alloc_time_min":"checkbox", "c4":"checkbox","c5":"checkbox","c6":"checkbox", "c7":"checkbox", "c8":"checkbox", "c9":"checkbox", "c10":"checkbox", "c11":"checkbox", "c12":"checkbox"}}
+    console.log(settings.low_util_job)
+    d3.select("form").selectAll("input").data(Object.values(settings.low_util_job))
+                                        .attr("value", function(d) {{console.log(this.name); return d}})
+    createFormInput ("low_util_job",   low_util_job,  luj_label, luj_type, "#low_util_job")
+    createFormInput ("low_util_node",  low_util_node, nuj_label, nuj_type, "#low_util_node")
+    createFormInput ("summary_column", low_util_node, sc_label,  sc_type,  "#summary_column")
+    console.log($("#low_util_job"))
+    $("form").submit(function (event) {{
+                                 var values = $(this).serialize()
+                                 console.log("event=", event, "inputs=", values);
+                                 alert("The values have been submitted");
+                             }});
+    
+}})
+</script>
+</head>
+
+<body>
+<div class="tab" id="tabmenu"></div>
+<div> <fieldset>
+  <legend>Bulletin Board Settings</legend>
+  <form id="low_util_job" action="./settings" method="post">
+    <label class="title">Low Resource Util Threshold for Running Job: </label>
+  </form>
+  <form id="low_util_node" action="./settings" method="post">
+    <label class="title">Low Resource Util Threshold for Alloc Node : </label>
+  </form>
+</fieldset> </div>
+<div> <fieldset>
+  <legend>Table Summary Settings</legend>
+  <form id="summary_column" action="./settings" method="post">
+    <label class="title">Displayed Columns: </label>
+  </form>
+</fieldset> </div>
+</body>
+
+</html>

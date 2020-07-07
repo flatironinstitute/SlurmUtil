@@ -73,16 +73,16 @@ class JobNoticeSender:
         msg['From']    = 'yliu'
         msg['To']      = ', '.join(to_list)
         
-        with smtplib.SMTP('localhost') as s:
+        with smtplib.SMTP('smtp-relay.gmail.com') as s:
             s.send_message(msg)
           
 def sendMessage (subject, content):
     msg = EmailMessage()
     msg.set_content(content)
     msg['Subject'] = subject
-    msg['From']    = 'yliu'
+    msg['From']    = 'yliu@mon7.flatironinstitute.org'
     msg['To']      = 'yliu@flatironinstitute.org'
-    with smtplib.SMTP('localhost') as s:
+    with smtplib.SMTP('smtp-relay.gmail.com') as s:
          s.send_message(msg)
 
 def main():

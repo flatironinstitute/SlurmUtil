@@ -76,40 +76,38 @@
       var svg_line = 0
       for (var i=0; i<grpCnt.length; i++)
           svg_line += Math.ceil(grpCnt[i] / cntPerLine)
-      var svg     = createSVG    ("#node_svg", ".label",        labels, width+margin.left+margin.right, svg_line*gridSize +margin.top+margin.bottom, margin, gridSize)
-      var gpu_svg = createGPUSVG ("#gpu_svg",  ".gpuNodeLabel", ".gpuLabel", gpu_labels, width+margin.left+margin.right, 4*gridSize+margin.top+margin.bottom+100, gpu_margin, gpu_gridSize)
-      var color_attr = "util"
+      var svg           = createSVG    ("#node_svg", ".label",        labels, width+margin.left+margin.right, svg_line*gridSize +margin.top+margin.bottom, margin, gridSize)
+      var gpu_svg       = createGPUSVG ("#gpu_svg",  ".gpuNodeLabel", ".gpuLabel", gpu_labels, width+margin.left+margin.right, 4*gridSize+margin.top+margin.bottom+100, gpu_margin, gpu_gridSize)
+      var color_attr    = "util"
 
       // add heatmap labels under svg
       var heatmapChart = function(data) {
-          createLegend    (legend_svg, acctColor, gridSize);
-          createHeatMap   (svg,     data,     acctColor, grpCnt, cntPerLine, gridSize, color_attr)
-          //createHeatMap   (svg,     data,     acctColor, grpCnt, cntPerLine, gridSize, "mem_util")
-          createGPUHeatMap(gpu_svg, gpu_data, acctColor, grpCnt, cntPerLine, gpu_gridSize)
+          createLegend     (legend_svg, acctColor, gridSize);
+          createHeatMap    (svg,     data,     acctColor, grpCnt, cntPerLine, gridSize, color_attr)
+          createGPUHeatMap (gpu_svg, gpu_data, acctColor, grpCnt, cntPerLine, gpu_gridSize)
+          
+          //console.log("---", $("#select_job_user").prop("value"))
+          //console.log("---", $("#select_list").prop("value"))
+          var val = $("#select_job_user").prop("value")
+          if (val == 'job') {
+             job_onchange()
+          } else {
+             user_onchange()
+          }
       };
 
-      function job_onchange() {
-         selectedJid=d3.select("#select_list_div select").property("value");
-         $(".bordered").removeClass("popout");
-         $(`.${selectedJid}`).addClass("popout");
-      }
-      function user_onchange() {
-         sel_jids=d3.select("#select_list_div select").property("value");
-         jids    =sel_jids.split(',')
-         console.log("user_onchange " + jids)
-         $(".bordered").removeClass("popout");
-         jids.forEach(function(e) {
-            $(`.${e}`).addClass("popout");
-         });
-      }
-      
+      d3.select("#select_cpu_mem")
+        .on('change', function () {
+           color_attr = d3.select(this).property('value');
+           heatmapChart(workers_data)
+        })
       d3.select("#select_job_user")
         .on('change', function() {
            val = d3.select(this).property('value');
            if (val == 'job') {
-              createSelectList ("#select_list_div", jobs_data,  "#select_list",  "job_id", job_onchange);
+              createSelectList ("#select_list_div", jobs_data,  "select_list",  "job_id", job_onchange);
            } else {
-              createSelectList ("#select_list_div", users_data, "#select_list",  "jobs",   user_onchange);
+              createSelectList ("#select_list_div", users_data, "select_list",  "jobs",   user_onchange);
            }
          });
       d3.select("#colorCheckbox")
@@ -122,13 +120,25 @@
            d3.selectAll(".legend").remove()
            heatmapChart(workers_data)
          })
-      d3.select("#select_cpu_mem")
-        .on('change', function () {
-           color_attr = d3.select(this).property('value');
-           heatmapChart(workers_data)
-        })
-      createSelectList ("#select_list_div", jobs_data,  "#select_list",  "job_id", job_onchange);
+      // init
+      createSelectList ("#select_list_div", jobs_data,  "select_list",  "job_id", job_onchange);
       heatmapChart     (workers_data);
+      
+      function job_onchange() {
+         selectedJid=d3.select("#select_list_div select").property("value");
+         //console.log("job_onchange", selectedJid)
+         $(".bordered").removeClass("popout");
+         $(`.${selectedJid}`).addClass("popout");
+      }
+      function user_onchange() {
+         sel_jids=d3.select("#select_list_div select").property("value");
+         jids    =sel_jids.split(',')
+         //console.log("user_onchange " + jids)
+         $(".bordered").removeClass("popout");
+         jids.forEach(function(e) {
+            $(`.${e}`).addClass("popout");
+         });
+      }
       
     </script>
   </body>

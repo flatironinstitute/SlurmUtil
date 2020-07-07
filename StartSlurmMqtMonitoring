@@ -38,7 +38,7 @@ declare -A CMAliases=( [bcm1]=bcm [bcm2]=bcm [ironbcm1]=ironbcm [ironbcm2]=ironb
     PLHACK="LD_PRELOAD=${CmSlurmRoot}/lib64/slurm/libslurmfull.so"
 
     # activate python virutal environment
-    . ~yliu/projects/slurm/utils/env_slurm18/bin/activate
+    . ~yliu/projects/slurm/utils/env_slurm18_python37/bin/activate
     # This allows us to use the same data archive for bcm1 and bcm2
 #else
 #    export PATH=/mnt/xfs1/bioinfoCentos7/software/installs/python/2.7.9/bin:$PATH

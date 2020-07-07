@@ -459,7 +459,7 @@ class InfluxQueryClient:
             #time cmdline cpu_affinity cpu_system_time cpu_user_time end_time hostname io_read_bytes io_read_count io_write_bytes io_write_count mem_data   mem_lib mem_rss   mem_shared mem_text mem_vms    name    num_fds pid    ppid   status   uid 
             for proc in procs:
                 if 'end_time' not in proc or not proc['end_time']:
-                   print('WARNING: queryJobProc do not have end_time {}'.format(proc)) 
+                   #print('WARNING: queryJobProc do not have end_time {}'.format(proc)) 
                    period = stop_time-proc['time']
                 else:
                    period = proc['end_time']-proc['time']
@@ -470,7 +470,7 @@ class InfluxQueryClient:
                 proc['avg_util']= (cpu_system_time + cpu_user_time)/period            
                 proc['avg_io']  = (io_read_bytes + io_write_bytes)/1024/period
 
-                proc['cmdline']  = ' '.join(eval(proc['cmdline']))
+                proc['cmdline']  = ' '.join(eval(proc.get('cmdline','')))
                 if 'mem_rss_K' not in proc:
                    if proc['mem_rss']:
                       proc['mem_rss_K'] = int(proc['mem_rss'] / 1024)

@@ -103,7 +103,7 @@ function createHeatMap(svg, data, acctColor, grpCnt, cntLine, gridSize, colorAtt
               .style("fill",  "gray");
           cards.transition().duration(1000)
               .style("fill", function(d) { var currColorS = getColorScale(d, acctColor)
-                                           console.log ('currColorS=', currColorS, 'd=', d);
+                                           //console.log ('currColorS=', currColorS, 'd=', d);
                                            if (d["stat"]==0) return "gray";
                                            else if (d["stat"]==-1) return "black";
                                            else return currColorS(d[colorAttr]); });
@@ -116,6 +116,7 @@ function createSelectList (parent_id, data, tag, value_fld, func_onchg){
           console.log('createSelectList, data=', data)
           d3.select(parent_id.concat(" select")).remove();
           var s = d3.select(parent_id).append("select")
+                          .attr("id", tag)
                           .on('change', func_onchg)
                           .on('select.editable-select', function(e) {console.log(e)});
           s.selectAll("option")
