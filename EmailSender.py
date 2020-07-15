@@ -24,7 +24,7 @@ def getMsg_test ():
 
 class JobNoticeSender:
     def __init__(self, interval=86400, cacheFile='jobNotice.cache'):
-        self.cacheFile       = cacheFile
+        self.cacheFile       = cacheFile                                #disk file to persist self.last_jobNotice
         self.last_jobNotice  = MyTool.readFile(cacheFile)               #{jid:ts}
         if not self.last_jobNotice:
            self.last_jobNotice = DDict(int)

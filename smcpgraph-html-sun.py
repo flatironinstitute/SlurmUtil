@@ -44,6 +44,7 @@ ONE_HOUR_SECS      = 3600
 ONE_DAY_SECS       = 86400
 TIME_DISPLAY_FORMAT        = '%m/%d/%y %H:%M'
 DATE_DISPLAY_FORMAT        = '%m/%d/%y'
+SUMMARY_TABLE_COL  = ['node', 'status', 'delay', 'node_mem_M', 'job', 'user', 'alloc_cpus', 'proc_count', 'cpu_util', 'avg_cpu_util', 'rss', 'vms', 'io', 'fds', 'alloc_gpus']
 
 @cherrypy.expose
 class SLURMMonitor(object):
@@ -72,15 +73,25 @@ class SLURMMonitor(object):
         self.inMemCache      = inMemCache.InMemCache()
         self.bulletinBoard   = BulletinBoard()
 
+    #SUMMARY_TABLE_COL  = ['node', 'status', 'delay', 'job', 'user', 'alloc_cpus', 'proc_count', 'cpu_util', 'avg_cpu_util', 'rss', 'vms', 'io', 'fds']
     def defaultSettings (self):
         if "settings" not in self.config:
            self.config["settings"] = {}
-        if "low_util_job" not in self.config["settings"]:
-           self.config["settings"]["low_util_job"]  = {"cpu":0.01, "gpu":0.1, "mem":0.3, "run_time_hour":24, "alloc_cpus":2, "email":False}
+        if "low_util_job" not in self.config["settings"]:  #percentage
+           self.config["settings"]["low_util_job"]  = {"cpu":1, "gpu":10, "mem":30, "run_time_hour":24, "alloc_cpus":2, "email":False}
         if "low_util_node" not in self.config["settings"]:
-           self.config["settings"]["low_util_node"] = {"cpu":0.01, "gpu":0.1, "mem":0.3, "alloc_time_min":60}
+           self.config["settings"]["low_util_node"] = {"cpu":1, "gpu":10, "mem":30, "alloc_time_min":60}
         if "summary_column" not in self.config["settings"]:
-           self.config["settings"]["summary_column"] = [0,1,2,3,4,5,6,7,8,9,10,11,12]
+           self.config["settings"]["summary_column"] = dict(zip(SUMMARY_TABLE_COL, [True]*len(SUMMARY_TABLE_COL)))
+        if "summary_low_util" not in self.config["settings"]:
+           self.config["settings"]["summary_low_util"]  = {"cpu_util":1, "avg_cpu_util":1, "rss":1, "type":"inform"} 
+        if "summary_high_util" not in self.config["settings"]:
+           self.config["settings"]["summary_high_util"] = {"cpu_util":90,"avg_cpu_util":90, "rss":90, "type":"alarm"}  
+        if "heatmap_avg" not in self.config["settings"]:
+           self.config["settings"]["heatmap_avg"]       = {"cpu":0,"gpu":5}  
+        if "heatmap_weight" not in self.config["settings"]:
+           self.config["settings"]["heatmap_weight"]    = {"cpu":50,"gpu":50}  
+
     # add processes info of jid, modify self.jobNode2ProcRecord
     # TODO: it is in fact userNodeHistory
     def updateJobNode2ProcRecord (self, ts, jobid, node, processes):
@@ -574,11 +585,12 @@ class SLURMMonitor(object):
     def getNode2Jobs1 (self):
         return "{}".format(self.node2jobs)
 
-    def updateNode2Jobs (self, jobData):
-        self.node2jobs = defaultdict(list)  #nodename: joblist
+    def createNode2Jobs (self, jobData):
+        node2jobs = defaultdict(list)  #nodename: joblist
         for jid, jinfo in jobData.items():
             for nodename in jinfo.get('cpus_allocated', {}).keys():
-                self.node2jobs[nodename].append(jid)
+                node2jobs[nodename].append(jid)
+        return node2jobs
 
     #TODO: for the case that 1 user - n job
     def uid2jids  (self, uid, node):
@@ -618,9 +630,14 @@ class SLURMMonitor(object):
         else:
            return 0, 0, 0, 0, 0, 0
 
-    def getSummaryTableData(self, hostData, jobData, node2jobs):
+    def getSummaryTableData_1(self):
+        lst_lst = self.getSummaryTableData (self.data, self.currJobs, self.node2jobs, self.pyslurmNode)
+        return [dict(zip(SUMMARY_TABLE_COL, lst)) for lst in lst_lst]
+            
+    def getSummaryTableData(self, hostData, jobData, node2jobs, pyslurmNode):
         result    = []
         for node, nodeInfo in sorted(hostData.items()):
+            node_mem_M = pyslurmNode[node]['real_memory']
             if len(nodeInfo) < USER_INFO_IDX:
                print("ERROR: getSummaryTableData nodeInfo wrong format {}:{}".format(node, nodeInfo)) 
                continue
@@ -633,16 +650,17 @@ class SLURMMonitor(object):
                for jid in node2jobs[node]:                # for each job on the node, add one item
                   job_user    = MyTool.getUser(jobData[jid]['user_id'])
                   job_coreCnt = jobData[jid]['cpus_allocated'][node]
+                  job_gpuCnt  = jobData[jid]['gpus_allocated'][node].length if node in jobData[jid]['gpus_allocated'] else 0
                   job_cpuUtil, job_rss, job_vms, job_iobyteps, job_procCnt, job_fds = self.getJobUsageOnNode(jid, jobData[jid], nodeInfo)
                   if job_procCnt:
                      job_avg_cpu = self.getJobNodeTotalCPUTime(jid, node) / (ts-jobData[jid]['start_time']) if jobData[jid]['start_time'] > 0 else 0 
                      if job_avg_cpu < 0:
                         print ("ERROR: job_avg_cpu ({}, {}, {}) less than 0.".format(job_avg_cpu, ts, job_stime))
-                     result.append([node, status, delay, jid, job_user, job_coreCnt, job_procCnt, job_cpuUtil, job_avg_cpu, job_rss, job_vms, job_iobyteps, job_fds])
+                     result.append([node, status, delay, node_mem_M, jid, job_user, job_coreCnt, job_procCnt, job_cpuUtil, job_avg_cpu, job_rss, job_vms, job_iobyteps, job_fds, job_gpuCnt])
                   else:
-                     result.append([node, status, delay, jid, job_user, job_coreCnt, 0, 0, 0, 0, 0, 0, 0])
+                     result.append([node, status, delay, node_mem_M, jid, job_user, job_coreCnt, 0, 0, 0, 0, 0, 0, 0, 0])
             else:
-               result.append([node, status, delay])
+               result.append([node, status, delay, node_mem_M])
                 
         return result
         
@@ -747,7 +765,7 @@ class SLURMMonitor(object):
             try:
                pyslurmNode  = self.pyslurmNode[hostname]
                node_cores   = pyslurmNode['cpus']
-               node_mem_K   = pyslurmNode['real_memory']
+               node_mem_M   = pyslurmNode['real_memory']
                node_gpus    = MyTool.getNodeGresGPUCount     (pyslurmNode['gres'])
                if len(hostinfo) > USER_INFO_IDX: #has user proc information
                   node_cpu_util   = sum ([hostinfo[idx][4] for idx in range(USER_INFO_IDX, len(hostinfo))]) 
@@ -757,7 +775,7 @@ class SLURMMonitor(object):
                alloc_jobs   = node2job.get(hostname, [])
                job_accounts = [self.currJobs[jid].get('account', None)        for jid in alloc_jobs]
                job_cores    = [self.currJobs[jid]['cpus_allocated'][hostname] for jid in alloc_jobs]  #
-               node_mem_util= (node_mem_K-pyslurmNode['free_mem']) / node_mem_K  #ATTN: from slurm, not monitor
+               node_mem_util= (node_mem_M-pyslurmNode['free_mem']) / node_mem_M  #ATTN: from slurm, not monitor
 
                if SLURMMonitor.nodeAllocated(hostinfo):                  #in use
                   state        = 1
@@ -765,18 +783,18 @@ class SLURMMonitor(object):
                   # get node label
                   if not node_gpus:  #no GPU node
                      lst       = list(zip(alloc_jobs, job_users, ['{} cpu'.format(jc) for jc in job_cores]))
-                     nodeLabel = '{} ({} cpu, {}GB): cpu_util={:.1%}, mem_util={:.1%}, jobs={}'.format(hostname, node_cores, int(node_mem_K/1024), node_cpu_util/node_cores, node_mem_util, lst)
+                     nodeLabel = '{} ({} cpu, {}GB): cpu_util={:.1%}, mem_util={:.1%}, jobs={}'.format(hostname, node_cores, int(node_mem_M/1024), node_cpu_util/node_cores, node_mem_util, lst)
                   else:              # GPU node
                      job_gpus  = self.getNodeJobGPULabelList (hostname, alloc_jobs)
                      lst       = list(zip(alloc_jobs, job_users, ['{} cpu'.format(jc) for jc in job_cores], job_gpus))
-                     nodeLabel = '{} ({} cpu, {} gpu, {}GB): cpu_util={:.1%}, used_gpu={}, mem_util={:.1%}, jobs={}'.format(hostname, node_cores, node_gpus, int(node_mem_K/1024), node_cpu_util/node_cores, MyTool.getNodeGresUsedGPUCount (pyslurmNode['gres_used']), node_mem_util, lst)
+                     nodeLabel = '{} ({} cpu, {} gpu, {}GB): cpu_util={:.1%}, used_gpu={}, mem_util={:.1%}, jobs={}'.format(hostname, node_cores, node_gpus, int(node_mem_M/1024), node_cpu_util/node_cores, MyTool.getNodeGresUsedGPUCount (pyslurmNode['gres_used']), node_mem_util, lst)
                      gpus = self.getNodeGPULabel (gpudata, hostname, state, hostinfo[0], node_gpus, alloc_jobs) 
                else:      # node not in use
                   state        = 0 if 'IDLE' in hostinfo[0] else -1
                   if not node_gpus:
-                     nodeLabel = '{} ({} cpu, {}GB): state={}'.format        (hostname, node_cores, int(node_mem_K/1024), hostinfo[0])
+                     nodeLabel = '{} ({} cpu, {}GB): state={}'.format        (hostname, node_cores, int(node_mem_M/1024), hostinfo[0])
                   else:
-                     nodeLabel = '{} ({} cpu, {} gpu, {}GB): state={}'.format(hostname, node_cores, node_gpus, int(node_mem_K/1024), hostinfo[0])
+                     nodeLabel = '{} ({} cpu, {} gpu, {}GB): state={}'.format(hostname, node_cores, node_gpus, int(node_mem_M/1024), hostinfo[0])
                      gpus = self.getNodeGPULabel (gpudata, hostname, state, hostinfo[0], node_gpus, []) 
                workers.append({'name':hostname, 'stat':state, 'core':node_cores, 'util':node_cpu_util/node_cores, 'mem_util':node_mem_util, 'jobs':alloc_jobs, 'acct':job_accounts, 'labl':nodeLabel, 'gpus':gpus, 'gpuCount':node_gpus})
             except Exception as exp:
@@ -825,8 +843,8 @@ class SLURMMonitor(object):
 
     @cherrypy.expose
     def getHeader(self, page=None):
-        pages =["index",           "utilHeatmap", "pending",      "sunburst",       "usageGraph", "tymor2", "bulletinboard", "report", "inputSearch", "forecast"]
-        titles=["Tabular Summary", "Host Util.",  "Pending Jobs", "Sunburst Graph", "File Usage","Tymor", "Bulletin Board", "Report", "Search", "Forecast"]
+        pages =["index",           "utilHeatmap", "pending",      "sunburst",       "usageGraph", "tymor2", "bulletinboard", "report", "inputSearch", "settings", "forecast"]
+        titles=["Tabular Summary", "Host Util.",  "Pending Jobs", "Sunburst Graph", "File Usage","Tymor", "Bulletin Board", "Report", "Search", "Settings", "Forecast"]
  
         result=""
         for i in range (len(pages)):
@@ -840,8 +858,21 @@ class SLURMMonitor(object):
     @cherrypy.expose
     def index(self, **args):
         if type(self.data) == str: return self.getWaitMsg() # error of some sort.
+        data      = self.getSummaryTableData_1 ()
+        column    = [key for key, val in self.config["settings"]["summary_column"].items() if val]
+        alarm_lst = [self.config["settings"]["summary_low_util"], self.config["settings"]["summary_high_util"]]
+        htmltemp  = os.path.join(wai, 'index.html')
+        h         = open(htmltemp).read().format(table_data =json.dumps(data), 
+                                                 update_time=MyTool.getTsString(self.updateTS),
+                                                 column     =column,
+                                                 alarms     =alarm_lst)
+        return h
 
-        tableData = self.getSummaryTableData(self.data, self.currJobs, self.node2jobs)
+    @cherrypy.expose
+    def index3(self, **args):
+        if type(self.data) == str: return self.getWaitMsg() # error of some sort.
+
+        tableData = self.getSummaryTableData(self.data, self.currJobs, self.node2jobs, self.pyslurmNode)
         htmltemp  = os.path.join(wai, 'index3.html')
         h         = open(htmltemp).read()%{'tableData' : tableData, 'update_time': datetime.datetime.fromtimestamp(self.updateTS).ctime()}
         return h
@@ -948,7 +979,7 @@ class SLURMMonitor(object):
 
     def getLUJSettings (self):
         luj_settings = self.config['settings']['low_util_job']
-        return luj_settings['cpu'], luj_settings['gpu'], luj_settings['mem'], luj_settings['run_time_hour'], luj_settings['alloc_cpus']
+        return luj_settings['cpu']/100, luj_settings['gpu']/100, luj_settings['mem']/100, luj_settings['run_time_hour'], luj_settings['alloc_cpus']
 
     def getLongrunLowUtilJobs (self, ts, jobs):
         low_util, low_gpu, low_mem, long_period, job_width = self.getLUJSettings()
@@ -962,9 +993,8 @@ class SLURMMonitor(object):
            jobs   = self.currJobs
         result = {}            # return {jid:job,...}
         for jid, job in jobs.items():
-            #if job run long enough
             period = ts - job['start_time']
-            if (period > long_period) and (job.get('num_cpus',1)>=job_width) and (job['job_avg_util'] < low_util) and (job['job_mem_util']<low_mem) and (job['job_inst_util'] < low_util*10) and (job['account'] not in exclude_acct):
+            if (period > long_period) and (job.get('num_cpus',1)>=job_width) and (job['job_avg_util'] < low_util) and (job['job_mem_util']<low_mem) and (job['job_inst_util'] < low_util) and (job['account'] not in exclude_acct):
                result[job['job_id']] = job
  
         return result
@@ -1022,8 +1052,9 @@ class SLURMMonitor(object):
         self.allJobs  = jobs
         self.currJobs = dict([(jid,job) for jid, job in jobs.items() if job['job_state'] in ['RUNNING', 'CONFIGURING']])
         self.rawData  = hn2info
+        self.node2jobs= self.createNode2Jobs (self.currJobs)
 
-        self.updateNode2Jobs (self.currJobs)
+        # update self.data
         if type(self.data) != dict: self.data = {}  #may have old data from last round
         for node,nInfo in hn2info.items(): 
             if self.updateTS - int(nInfo[2]) > 600: # Ignore data
@@ -1053,13 +1084,16 @@ class SLURMMonitor(object):
         self.addAttr2CurrJobs(self.updateTS, self.currJobs)          #add attribute job_avg_util, job_mem_util, job_io_bps to self.currJobs
         self.inMemCache.append(self.data, self.updateTS, self.allJobs)
 
+        #self.config["settings"]["low_util_job"]  = {"cpu":1, "gpu":10, "mem":30, "run_time_hour":24, "alloc_cpus":2, "email":F     alse}
+
         #check for long run low util jobs and send notice
         #low_util = self.getLongrunLowUtilJobs(self.updateTS, self.currJobs)
         #print('low_util={}'.format(low_util.keys()))
-        #if self.config['email']['flag']:
-        #   self.jobNoticeSender.sendNotice(self.updateTS, low_util)
+        if (self.config['settings']['low_util_job']['email'] ):
+           hour = datetime.datetime.fromtimestamp(self.updateTS).hour
+           if hour == 8: # only check to send un-duplicate email 8:00am-9:00am
+              self.jobNoticeSender.sendNotice(self.updateTS, low_util)
         #BulletinBoard
-        #print('low_util={}'.format(low_util.keys()))
         #self.bulletinBoard.addLowUtilJobNotice (self.updateTS, low_util)
         
     def sacctData (self, criteria):
@@ -2317,6 +2351,7 @@ class SLURMMonitor(object):
     @cherrypy.expose
     def settings (self, **settings):
         if settings:
+           print("----settings{}".format(settings))
            self.chg_settings (settings)
         htmlTemp   = os.path.join(wai, 'settings.html')
         htmlStr    = open(htmlTemp).read().format(config=json.dumps(self.config))
@@ -2325,19 +2360,26 @@ class SLURMMonitor(object):
     def chg_settings (self, settings):
         chg_flag    = False
         setting_key = settings.pop("setting_key")
+        #chkbox_fld  = settings.pop("checkbox").split(',')
+        chkbox_fld  = dict([(key,1) for key in settings.pop("checkbox").split(',') if key])   # using dict to sav search time
         sav_settings= self.config['settings']
         
         for key, value in settings.items():
             try:
                value = float(value)
-            except TypeError as ex:
-               value = True
             except ValueError as ex:
                value = True  if value == "true"  else value
                value = False if value == "false" else value
+               chkbox_fld.pop (key)
             if sav_settings[setting_key][key] != value:
                sav_settings[setting_key][key] = value
                chg_flag                       = True
+        # remained in checkbox_fld are unreported false value
+        for key in chkbox_fld.keys():
+           if sav_settings[setting_key][key] != False:
+               sav_settings[setting_key][key] = False
+               chg_flag                       = True
+
         htmlTemp   = os.path.join(wai, 'settings.html')
         htmlStr    = open(htmlTemp).read().format(config=json.dumps(self.config))
         return htmlStr

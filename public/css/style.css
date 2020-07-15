@@ -81,6 +81,10 @@ em.inform, .slurminfo td.inform, .slurminfo tr.alt td.inform {
     background-color: blue;
     font-size: 1.2em;
 }
+.slurminfo th.sort_des {
+    background-color: blue;
+    font-size: 1.2em;
+}
 
 .glyphicon{
     float:right
@@ -267,6 +271,11 @@ form label.title{
   width: 44ch;
   font-weight: bold;
 }
+form label.title_short{
+  display: inline-block;
+  width: 20ch;
+  font-weight: bold;
+}
 .page-wrap {
   margin: 40px;
 }
@@ -346,4 +355,18 @@ label.short {
 }
 .table_title_collapse:before {
    content: "\25b8\ ";
+}
+td.expand:before {
+   content: "📁 ";
+//   content: "👉 "
+}
+td.collapse:before{
+   content: "📂 ";
+//   content: "👆 ";
+}
+th.sort:after{
+   content: " 🔼 ";
+}
+th.sort_des:after{
+   content: " 🔽 ";
 }
