@@ -44,7 +44,7 @@ ONE_HOUR_SECS      = 3600
 ONE_DAY_SECS       = 86400
 TIME_DISPLAY_FORMAT        = '%m/%d/%y %H:%M'
 DATE_DISPLAY_FORMAT        = '%m/%d/%y'
-SUMMARY_TABLE_COL  = ['node', 'status', 'delay', 'node_mem_M', 'job', 'user', 'alloc_cpus', 'proc_count', 'cpu_util', 'avg_cpu_util', 'rss', 'vms', 'io', 'fds', 'alloc_gpus']
+SUMMARY_TABLE_COL  = ['node', 'status', 'delay', 'node_mem_M', 'job', 'user', 'alloc_cpus', 'run_time', 'proc_count', 'cpu_util', 'avg_cpu_util', 'rss', 'vms', 'io', 'fds', 'alloc_gpus', 'gpu_util', 'avg_gpu_util']
 
 @cherrypy.expose
 class SLURMMonitor(object):
@@ -62,7 +62,7 @@ class SLURMMonitor(object):
         self.rawData         = {}                   #not used
         self.data            = 'No data received yet. Wait a minute and come back.'
         self.allJobs         = {}
-        self.currJobs        = {}
+        self.currJobs        = {}                   #re-created in updateSlurmData
         self.node2jobs       = {}                   #{node:[jid...]} {node:{jid: {'proc_cnt','cpu_util','rss','iobps'}}}
         self.uid2jid         = {}                   #
         self.pyslurmNode = None
@@ -73,7 +73,6 @@ class SLURMMonitor(object):
         self.inMemCache      = inMemCache.InMemCache()
         self.bulletinBoard   = BulletinBoard()
 
-    #SUMMARY_TABLE_COL  = ['node', 'status', 'delay', 'job', 'user', 'alloc_cpus', 'proc_count', 'cpu_util', 'avg_cpu_util', 'rss', 'vms', 'io', 'fds']
     def defaultSettings (self):
         if "settings" not in self.config:
            self.config["settings"] = {}
@@ -83,10 +82,11 @@ class SLURMMonitor(object):
            self.config["settings"]["low_util_node"] = {"cpu":1, "gpu":10, "mem":30, "alloc_time_min":60}
         if "summary_column" not in self.config["settings"]:
            self.config["settings"]["summary_column"] = dict(zip(SUMMARY_TABLE_COL, [True]*len(SUMMARY_TABLE_COL)))
+           self.config["settings"]["summary_column"]['avg_gpu_util'] = False
         if "summary_low_util" not in self.config["settings"]:
-           self.config["settings"]["summary_low_util"]  = {"cpu_util":1, "avg_cpu_util":1, "rss":1, "type":"inform"} 
+           self.config["settings"]["summary_low_util"]  = {"cpu_util":1, "avg_cpu_util":1, "rss":1, "gpu_util":10, "avg_gpu_util":10, "type":"inform"} 
         if "summary_high_util" not in self.config["settings"]:
-           self.config["settings"]["summary_high_util"] = {"cpu_util":90,"avg_cpu_util":90, "rss":90, "type":"alarm"}  
+           self.config["settings"]["summary_high_util"] = {"cpu_util":90,"avg_cpu_util":90, "rss":90, "gpu_util":90, "avg_gpu_util":90, "type":"alarm"}  
         if "heatmap_avg" not in self.config["settings"]:
            self.config["settings"]["heatmap_avg"]       = {"cpu":0,"gpu":5}  
         if "heatmap_weight" not in self.config["settings"]:
@@ -626,15 +626,17 @@ class SLURMMonitor(object):
            vms      = sum([proc[6]         for proc in job_proc])
            iobps    = sum([proc[8]         for proc in job_proc])
            fds      = sum([proc[10]        for proc in job_proc])
-           return cpuUtil, rss, vms, iobps, len(job_proc), fds,
+           return cpuUtil, rss, vms, iobps, len(job_proc), fds
         else:
            return 0, 0, 0, 0, 0, 0
 
-    def getSummaryTableData_1(self):
-        lst_lst = self.getSummaryTableData (self.data, self.currJobs, self.node2jobs, self.pyslurmNode)
+    def getSummaryTableData_1(self, gpudata, gpu_jid2data=None):
+        lst_lst = self.getSummaryTableData (self.data, self.currJobs, self.node2jobs, self.pyslurmNode, gpudata, gpu_jid2data)
+        # in self.currJobs, if gpus_allocated, then get the value
+        # gpudata[gpu_name][node_name]   
         return [dict(zip(SUMMARY_TABLE_COL, lst)) for lst in lst_lst]
             
-    def getSummaryTableData(self, hostData, jobData, node2jobs, pyslurmNode):
+    def getSummaryTableData(self, hostData, jobData, node2jobs, pyslurmNode, gpudata=None, gpu_jid2data=None):
         result    = []
         for node, nodeInfo in sorted(hostData.items()):
             node_mem_M = pyslurmNode[node]['real_memory']
@@ -650,20 +652,43 @@ class SLURMMonitor(object):
                for jid in node2jobs[node]:                # for each job on the node, add one item
                   job_user    = MyTool.getUser(jobData[jid]['user_id'])
                   job_coreCnt = jobData[jid]['cpus_allocated'][node]
-                  job_gpuCnt  = jobData[jid]['gpus_allocated'][node].length if node in jobData[jid]['gpus_allocated'] else 0
+                  job_runTime = int(ts)-jobData[jid]['start_time'] 
+                  # check job proc information
                   job_cpuUtil, job_rss, job_vms, job_iobyteps, job_procCnt, job_fds = self.getJobUsageOnNode(jid, jobData[jid], nodeInfo)
-                  if job_procCnt:
-                     job_avg_cpu = self.getJobNodeTotalCPUTime(jid, node) / (ts-jobData[jid]['start_time']) if jobData[jid]['start_time'] > 0 else 0 
-                     if job_avg_cpu < 0:
-                        print ("ERROR: job_avg_cpu ({}, {}, {}) less than 0.".format(job_avg_cpu, ts, job_stime))
-                     result.append([node, status, delay, node_mem_M, jid, job_user, job_coreCnt, job_procCnt, job_cpuUtil, job_avg_cpu, job_rss, job_vms, job_iobyteps, job_fds, job_gpuCnt])
+                  if job_procCnt:     # has proc information
+                     job_avg_cpu = self.getJobNodeTotalCPUTime(jid, node) / job_runTime if jobData[jid]['start_time'] > 0 else 0 
+                     job_info    = [node, status, delay, node_mem_M, jid, job_user, job_coreCnt, job_runTime, job_procCnt, job_cpuUtil, job_avg_cpu, job_rss, job_vms, job_iobyteps, job_fds]
                   else:
-                     result.append([node, status, delay, node_mem_M, jid, job_user, job_coreCnt, 0, 0, 0, 0, 0, 0, 0, 0])
-            else:
+                     job_info    = [node, status, delay, node_mem_M, jid, job_user, job_coreCnt, job_runTime, 0,           0,           0,           0,       0,       0,            0]
+                  # check job gpu information
+                  job_gpuCnt  = len(jobData[jid]['gpus_allocated'][node]) if node in jobData[jid]['gpus_allocated'] else 0
+                  if job_gpuCnt:
+                     job_gpuUtil    = self.getJobGPUUtil_node(jobData[jid], node, gpudata) if gpudata else 0
+                     job_avgGPUUtil = gpu_jid2data[node][jid]                              if gpu_jid2data and node in gpu_jid2data else 0
+                     job_info.extend ([job_gpuCnt, job_gpuUtil, job_avgGPUUtil])
+                  result.append(job_info)
+
+                  #if job_procCnt:  #TODO: reorder job_runtime earlier and only include gpu if allocated
+                  #   job_avg_cpu = self.getJobNodeTotalCPUTime(jid, node) / (ts-jobData[jid]['start_time']) if jobData[jid]['start_time'] > 0 else 0 
+                  #   if job_avg_cpu < 0:
+                  #      print ("ERROR: job_avg_cpu ({}, {}, {}) less than 0.".format(job_avg_cpu, ts, job_stime))
+                  #   result.append([node, status, delay, node_mem_M, jid, job_user, job_coreCnt, job_procCnt, job_cpuUtil, job_avg_cpu, job_rss, job_vms, job_iobyteps, job_fds, job_gpuCnt, job_gpuUtil, job_runTime, job_avgGPUUtil])
+                  #else:
+                  #   result.append([node, status, delay, node_mem_M, jid, job_user, job_coreCnt, 0, 0, 0, 0, 0, 0, 0, 0, job_gpuUtil, job_runTime, job_avgGPUUtil])
+            else:                                          # node has no allocated jobs
                result.append([node, status, delay, node_mem_M])
                 
         return result
         
+    def getJobGPUUtil_node (self, job, nodename, gpudata):
+        if not gpudata:
+           return 0
+        #gpudata[gpuname][nodename]
+        if nodename in job['gpus_allocated']:
+           return sum([gpudata['gpu{}'.format(idx)][nodename] for idx in job['gpus_allocated'][nodename]])
+        else:
+           return 0
+
     @cherrypy.expose
     def getNodeUtil (self, **args):
         return self.getNodeUtilData (self.pyslurmNode, self.data)
@@ -808,6 +833,25 @@ class SLURMMonitor(object):
         max_gpu_cnt = max([len(self.pyslurmNode[n]['gres']) for n in gpu_nodes])
         return gpu_nodes, max_gpu_cnt
 
+    def getJobGPUNodes (self, jobs):
+        gpu_nodes   = reduce(lambda rlt, curr: rlt.union(curr), [set(job['gpus_allocated'].keys()) for job in jobs.values() if 'gpus_allocated' in job and job['gpus_allocated']], set())
+        max_gpu_cnt = max([len(self.pyslurmNode[n]['gres'])  for n in gpu_nodes])
+        return gpu_nodes, max_gpu_cnt
+
+    # jobs is self.currJobs
+    def getJobGPUDetail (self, jobs):
+        rlt       = defaultdict(lambda: defaultdict())   # {'workergpu00':{'gpu0':job,...}
+        min_start = int(time.time())                          # earliest start time of jobs
+        for job in jobs.values():
+            if job['gpus_allocated']:
+               for gpuNode, gpuList in job['gpus_allocated'].items():
+                   for gpuIdx in gpuList:
+                       gpu = 'gpu{}'.format(gpuIdx)
+                       rlt[gpuNode][gpu] = job
+                       if job['start_time'] < min_start:  min_start = job['start_time']
+        #print ("getJobGPUDetail {}".format(rlt))
+        return min_start, rlt
+
     @cherrypy.expose
     def utilHeatmap(self, **args):
         if type(self.data) == str: return self.getWaitMsg() # error of some sort.
@@ -858,8 +902,22 @@ class SLURMMonitor(object):
     @cherrypy.expose
     def index(self, **args):
         if type(self.data) == str: return self.getWaitMsg() # error of some sort.
-        data      = self.getSummaryTableData_1 ()
         column    = [key for key, val in self.config["settings"]["summary_column"].items() if val]
+        if 'gpu_util' in column: 
+           gpu_nodes,max_gpu_cnt = self.getJobGPUNodes(self.currJobs)   
+           gpu_ts, gpudata       = BrightRestClient().getAllGPUAvg (gpu_nodes, minutes=5, max_gpu_cnt=max_gpu_cnt)
+           #workers,jobs,users   = self.getHeatmapData (gpudata)
+        else:
+           gpudata = None
+        if 'avg_gpu_util' in column:
+           min_start_ts, gpu_detail= self.getJobGPUDetail(self.currJobs)   #gpu_detail include job's start_time
+           minutes                 = int(int(time.time()) - min_start_ts)/60  
+           gpu_ts_d, gpu_jid2data  = BrightRestClient().getAllGPUAvg_jobs(gpu_detail, minutes)
+           print('---index gpudata_d={}'.format(gpu_jid2data))
+        else:
+           gpu_jid2data            = None
+
+        data      = self.getSummaryTableData_1 (gpudata, gpu_jid2data)
         alarm_lst = [self.config["settings"]["summary_low_util"], self.config["settings"]["summary_high_util"]]
         htmltemp  = os.path.join(wai, 'index.html')
         h         = open(htmltemp).read().format(table_data =json.dumps(data), 

@@ -247,25 +247,42 @@ function getTypedValueHtml (d_value, d_type)
 
 function getAlarmClass (d, key, alarm_list) {
    var classes = alarm_list.flatMap(function(alarm) {
-                    if (key in alarm && d[key]) { 
+                    if (key in alarm && (d[key] != undefined)) { 
+                       var val = d[key]
+                       if        (key.includes("rss") && ('node_mem_M' in d) ) {
+                          val = d[key]/1024/1024/d.node_mem_M*100
+                       } else if (key.includes("cpu") && ('alloc_cpus' in d) ) {
+                          val = d[key]*100/d.alloc_cpus
+                       } else if (key.includes("gpu") && ('alloc_gpus' in d) ) 
+                          val = d[key]*100/d.alloc_gpus
+                       if ( (alarm.type == "alarm" && val>alarm[key]) || (alarm.type == "inform" && val<alarm[key]))
+                          return alarm.type
+                    }
+                    return []
+                  })
+/*
                        if (alarm.type == "alarm") {
                           if (key.startsWith("rss")) {
                              if (('node_mem_M' in d) && (d[key]/1024/1024/d.node_mem_M*100>alarm[key])) {
-                                console.log("getAlarmClass ", d, key, d['node'], alarm[key], d[key], d[key]/1024/1024/d.node_mem_M*100)
                                 return alarm.type;
                              }
-                          } else if ( ('alloc_cpus' in d) && (d[key]*100/d.alloc_cpus>alarm[key]))
-                             return alarm.type;
+                          } else if (key.includes("cpu") && ('alloc_cpus' in d) && (d[key]*100/d.alloc_cpus>alarm[key])) {
+                                return alarm.type;
+                          } else if (key.includes("gpu") && ('alloc_gpus' in d) && (d[key]*100/d.alloc_gpus>alarm[key]))
+                                return alarm.type;
                        } else if (alarm.type == "inform") {
                           if (key.startsWith("rss")) {
                              if (('node_mem_M' in d) && (d[key]/1024/1024/d.node_mem_M*100<alarm[key]))
                                 return alarm.type;
-                          } else if ( ('alloc_cpus' in d) && (d[key]*100/d.alloc_cpus<alarm[key]))
-                             return alarm.type;
+                          } else if (key.includes("cpu") && ('alloc_cpus' in d) && (d[key]*100/d.alloc_cpus<alarm[key])) {
+                                return alarm.type;
+                          } else if (key.includes("gpu") && ('alloc_gpus' in d) && (d[key]*100/d.alloc_gpus<alarm[key]))
+                                return alarm.type;
                        }  // else return []
                     }        
                     return []
                  }) 
+*/
    return classes
 }
 
@@ -286,7 +303,7 @@ function getTRHtml (d, titles_dict, type_dict) {
 
 var Summary_ALARM    =null      // a list 
 var Summary_TYPE_DICT=null      // a dict
-function createSummaryTable (data, titles_dict, table_id, parent_id, type_dict, expand_col, summary_type, alarm_lst) {
+function createSummaryTable (data, titles_dict, table_id, parent_id, type_dict, summary_type, alarm_lst) {
    console.log("createTable data=", data, ",titles=", titles_dict, ",type=", type_dict, ",alarm=", alarm_lst)
    Summary_ALARM     = alarm_lst
    Summary_TYPE_DICT = type_dict   
@@ -396,7 +413,7 @@ function createSummaryTbody (tbody, allData, sortCol, titles_dict, type_dict, su
 function merge (detailData, summaryData, sortCol) {
    var data      = []
    var d_idx     = 0
-   const notEmptySortCol = ['node', 'status', 'job', 'user'] 
+   const notEmptySortCol = ['node', 'status', 'job', 'user', 'alloc_cpus', 'alloc_gpus', 'gpu_util', 'avg_gpu_util'] 
    var check     = false
    if (notEmptySortCol.includes(sortCol)) check = true
    for (var s_idx=0; s_idx < summaryData.length; s_idx++) {
@@ -414,7 +431,8 @@ function merge (detailData, summaryData, sortCol) {
        
    }
    while (d_idx < detailData.length ) {
-       data.push(detailData[d_idx])
+       if (!check || (check && currS[sortCol] != undefined))
+          data.push(detailData[d_idx])
        d_idx  = d_idx + 1
    } 
    //console.log("merge ", data.length)

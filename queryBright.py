@@ -48,30 +48,89 @@ class BrightRestClient:
         else:
            return None
 
-    # get the avg utilization of last {minutes} minutes
-    #reture {'time': , 'gpu0':{'workergpu00':0.34 ... }, }
-    def getAllGPUAvg (self, node_list, minutes=5, max_gpu_cnt=4):
+    # query bright all gpu data on node_list
+    def getAllGPU_raw (self, node_list, minutes=5, max_gpu_cnt=4, intervalFlag=False):
+        start    = time.time()
         entities = ','.join(node_list)
         measures = ','.join(['gpu_utilization:gpu{}'.format(i) for i in range(max_gpu_cnt)])
         ts       = int(time.time())
-        intervals= minutes * 6            # bright returns one sample per 10 seconds
-        q_str    = '{}/dump?entity={}&measurable={}&start=-{}m&intervals={}&epoch=1'.format(self.base_url,entities,measures,minutes,intervals)
+        if intervalFlag:
+           intervals= minutes * 6            # bright returns one sample per 10 seconds at most, use intervals will leave None at the end, this is for comparison and test purpose 
+           q_str    = '{}/dump?entity={}&measurable={}&start=-{}m&intervals={}&epoch=1'.format(self.base_url,entities,measures,minutes,intervals)
+        else:
+           # intervals=0 (default, = raw data), that is  
+           q_str    = '{}/dump?entity={}&measurable={}&start=-{}m&epoch=1'.format(self.base_url,entities,measures,minutes)
                               #epoch: time stamp as unix epoch
         r        = requests.get(q_str, verify=False, cert=self.cert)
-        # deal with the data
-        # divide by node and gpu
-        d       = defaultdict(lambda:defaultdict(list)) 
+        # divide raw data by node and gpu
+        d     = defaultdict(lambda:defaultdict(list)) 
         for item in r.json()['data']:
-            gpu_id   = item['measurable'].split(':')[1]
+            gpu_id   = item['measurable'].split(':')[1]  # remove gpu_utilization: gpu0, gpu1...
             d[gpu_id][item['entity']].append(item)
+        print("getAllGPUAvg len={}, took {}".format(len(r.json()['data']), time.time() - start))
+        return ts, d
 
-        # calculate average
-        rlt      = defaultdict(dict)
+    def getRawAvg (seq, startTS, stopTS):
+        if not seq:      return 0
+        if len(seq) < 2: return seq[0]['raw']   # only one data
+        total   = 0
+        maxP    = 0
+        minP    = 3600
+        lastIdx = 0
+        startIdx= 0
+        while (startIdx < len(seq)) and (seq[startIdx]['time']/1000 < startTS+1):  
+            startIdx+= 1    
+        if startIdx>0:    # seq[startIdx]['time'] > startTS
+            preTS    = startTS
+            #print("getRawAvg early first={}".format(seq[0]['time']/1000 - startTS))
+        else:             # startIdx = 0 and seq[0]['time'] > startTS, should not happen
+            total   += seq[0]['raw'] * (seq[0]['time']/1000 - startTS)
+            preTS    = seq[0]['time']/1000
+            startIdx = 1
+        #if (seq[0]['time']/1000 < startTS+1):   # should have at most one such item
+        #    preTS = startTS
+        #else:                                # should not happen
+        #    total += seq[0]['raw'] * (seq[0]['time']/1000 - startTS)
+        #    preTS = seq[0]['time']/1000
+        for idx in range(startIdx,len(seq)):
+            if seq[idx]['raw'] != None:
+               period = seq[idx]['time']/1000 - preTS
+               if period < minP:  minP=period
+               if period > maxP:  maxP=period; maxIdx = idx
+               total += seq[idx]['raw'] * period
+               preTS  = seq[idx]['time']/1000
+               lastIdx= idx
+        if seq[lastIdx]['time']/1000 < stopTS :     # last time period
+            total += seq[lastIdx]['raw'] * (stopTS - seq[lastIdx]['time']/1000)
+            #print("getRawAvg late last={}".format(stopTS - seq[lastIdx]['time']/1000))
+              
+        #print("getRawAvg min={},max={}".format(minP, maxP)) # preMax and max should have the same raw
+        return total/(stopTS-startTS)
+            
+    # get all gpu data on node_list, return avg util of last {minutes} minutes
+    # reture ['query_time': , {'gpu0':{'workergpu00':0.34 ... },} ]
+    def getAllGPUAvg (self, node_list, minutes=5, max_gpu_cnt=4, intervalFlag=False):
+        ts,d  = self.getAllGPU_raw (node_list, minutes, max_gpu_cnt, intervalFlag)
+
+        rlt   = defaultdict(dict)
         for gpu, gpu_nodes in d.items():
             for node, seq in gpu_nodes.items():
-                #print('---{}-{}={}\n==={}'.format(gpu, node, seq, [(item['time'],item['raw']) for item in seq if item['raw']!=None]))
-                rlt[gpu][node] = mean([item['raw'] for item in seq if item['raw']!=None])  # some lastest ts will have raw None
-            
+                # calculate average
+                rlt[gpu][node]  = BrightRestClient.getRawAvg(seq, ts-minutes*60, ts)
+                #rlt[gpu][node] = mean([item['raw'] for item in seq if item['raw']!=None])  # some lastest ts will have raw None if use interval
+        return ts, dict(rlt)
+
+    #node_dict {'workergpu00':{'gpu0':job}...}
+    def getAllGPUAvg_jobs (self, node_dict, minutes=5, max_gpu_cnt=4):
+        ts,d  = self.getAllGPU_raw (list(node_dict.keys()), minutes, max_gpu_cnt)
+
+        rlt   = defaultdict(lambda:defaultdict(int))
+        for gpu, gpu_nodes in d.items():
+            for node, seq in gpu_nodes.items():
+                # calculate average
+                if gpu in node_dict[node]:
+                   job = node_dict[node][gpu]    
+                   rlt[node][job['job_id']]  += BrightRestClient.getRawAvg(seq, job['start_time'], ts)
         return ts, dict(rlt)
 
     def getDumpRequest (self, node_list, max_gpu_cnt=4, minutes=None):
@@ -124,7 +183,6 @@ class BrightRestClient:
         nodes     = ','.join(node_list)
         gpus_util = ','.join(['gpu_utilization:gpu{}'.format(i) for i in range(max_gpu_id+1)])
         req_str   = 'https://ironbcm:8081/rest/v1/monitoring/dump?entity={}&measurable={}&start={}&epoch=1'.format(nodes,gpus_util,start_ts)
-        #req_str   = 'https://ironbcm:8081/rest/v1/monitoring/dump?entity={}&measurable={}&start={}&epoch=1&intervals=10000'.format(nodes,gpus_util,start_ts) #intervals not very useful
         r         = requests.get(req_str, verify=False, cert=self.cert)
         print('---{}'.format(r.json()))
         d         = r.json()['data']   #[{'entity': 'workergpu16', 'measurable': 'gpu_utilization:gpu0', 'raw': 0.3096027944984667, 'time': 1584396000000, 'value': '31.0%'}, 
@@ -168,10 +226,20 @@ def test4(node):
     print(sav)
     print(rlt['data'][0]['data'][-20:])
 
+def test5(minutes, flag):
+    client = BrightRestClient()
+    node_list = ['workergpu{}'.format(idx) for idx in range(17,18)]
+    rlt       = client.getAllGPUAvg(node_list, minutes, intervalFlag=flag) 
+    print(rlt)
+    
 def main():
     t1=time.time()
     
-    test2(sys.argv[1])
+    if len(sys.argv) < 3:
+       test5(int(sys.argv[1]), False)
+    else:
+       test5(int(sys.argv[1]), True)
+    #test2(sys.argv[1])
     #test3()
     #test4(sys.argv[1])
     print("main take time " + str(time.time()-t1))

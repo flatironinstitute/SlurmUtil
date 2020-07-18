@@ -29,13 +29,13 @@ $(document).ready(function(){{
     var luj_type    ={{"cpu":"number",  "gpu":"number",  "mem":"number",  "run_time_hour":"number",              "alloc_cpus":"number",     "email":"checkbox"}}
     var nuj_label   ={{"cpu":"% CPU, ", "gpu":"% GPU, ", "mem":"% Mem, ", "alloc_time_min":"Min of Alloc Time"}}
     var nuj_type    ={{"cpu":"number",  "gpu":"number",  "mem":"number",  "alloc_time_min":"number"}}
-    const sc_label    ={{'node':'Node, ', 'status':'Node Status, ', 'delay':'Report Delay, ', 'job':'Job, ', 'user':'User, ', 'alloc_cpus':'Alloc CPUs, ', 'proc_count':'Proc Count, ', 'cpu_util':'CPU Util, ', 'avg_cpu_util':'Avg CPU Util, ', 'rss':'RSS, ', 'vms':'VMS, ', 'io':'I/O, ', 'fds':'Num Fds, '}}
+    const sc_label    ={{'node':'Node, ', 'status':'Node Status, ', 'delay':'Report Delay, ', 'job':'Job, ', 'user':'User, ', 'alloc_cpus':'Alloc CPUs, ', 'proc_count':'Proc Count, ', 'cpu_util':'CPU Util, ', 'avg_cpu_util':'Avg CPU Util over Job Runtime, ', 'rss':'RSS, ', 'vms':'VMS, ', 'io':'I/O, ', 'fds':'Num Fds, ', 'alloc_gpus':'Alloc GPUs, ', 'gpu_util':'GPU Util (5 min avg), ', 'avg_gpu_util':'Avg GPU Util over Job Runtime (slow down loading page), ', 'run_time':'Job Runtime'}}
     console.log(sc_label)
     const sc_type     =Object.keys(summary_table).reduce(function(rltObj, key) {{rltObj[key]="checkbox";return rltObj}}, {{}})
     d3.select("form").selectAll("input").data(Object.values(settings.low_util_job))
                                         .attr("value", function(d) {{console.log(this.name); return d}})
-    const slu_label   ={{"cpu_util":"% CPU Util, ", "avg_cpu_util":"% Avg CPU Util, ", "rss":"% RSS/Mem Ratio"}}
-    const slu_type    ={{"cpu_util":"number", "avg_cpu_util":"number", "rss":"number"}}
+    const slu_label   ={{"cpu_util":"% CPU Util, ", "avg_cpu_util":"% Avg CPU Util, ", "rss":"% RSS/Mem Ratio, ", "gpu_util":"% GPU Util, ", "avg_gpu_util":"% Avg GPU Util"}}
+    const slu_type    ={{"cpu_util":"number", "avg_cpu_util":"number", "rss":"number", "gpu_util":"number", "avg_gpu_util":"number"}}
     const ha_label    ={{"cpu":" Minutes for CPU Avg, ", "gpu":" Minutes for GPU Avg"}}
     const ha_type     ={{"cpu":"number", "gpu":"number"}}
     const hw_label    ={{"cpu":" % CPU Util, ", "gpu":" % GPU Util"}}
