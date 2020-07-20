@@ -11,8 +11,9 @@ import time
 import urllib.request
 
 from collections import defaultdict
-from datetime import datetime, timezone, timedelta
-from bisect import bisect_right
+from datetime    import datetime, timezone, timedelta
+from bisect      import bisect_right
+from statistics  import mean 
 
 import MyTool
 import querySlurm
@@ -32,6 +33,7 @@ class InMemCache:
         self.node_user     = defaultdict(lambda:defaultdict(list))   # node: {uid:  JobNodeSeries}, ...
         self.nodes         = defaultdict(lambda:{'last_ts':0, 'first_ts':0, 'seq':[]})   # node: {'first_ts':, 'last_ts':, 'seq':[(ts, status)]}
         self.jobs          = defaultdict(lambda:{'submit_time':0, 'start_time':0, 'preempt_time':0, 'suspend_time':0, 'resize_time':0, 'nodes':[], 'seq':[]})   # jid: {'first_ts':, 'last_ts':, 'seq':[(ts, status)]}
+        self.start         = time.time()
 
     # return users' usage on the node in a dict
     # nodeInfo format: ['IDLE+POWER', 91.20261883735657, 1574352819.760845]
@@ -152,11 +154,35 @@ class InMemCache:
         for node in self.jobs[jid]['nodes']:
             #logger.debug("\t{}:{}".format(node, self.node_job[node][jid]))
             cpu_rlt.append  ({'name':node, 'data':[ [ts, usage[InMemCache.CPU_IDX]] for (ts, usage) in self.node_job[node][jid] ]})       
-            mem_rlt.append  ({'name':node, 'data':[ [ts, usage[9]]  for (ts, usage) in self.node_job[node][jid] ]})       
+            mem_rlt.append  ({'name':node, 'data':[ [ts, usage[InMemCache.RSS_IDX]]  for (ts, usage) in self.node_job[node][jid] ]})       
             read_rlt.append ({'name':node, 'data':[ [ts, usage[12]] for (ts, usage) in self.node_job[node][jid] ]})       
             write_rlt.append({'name':node, 'data':[ [ts, usage[13]] for (ts, usage) in self.node_job[node][jid] ]})       
 
         return self.jobs[jid], cpu_rlt, mem_rlt, read_rlt, write_rlt
+
+    # query worker's avg utilization, must be shorter than 3 days:
+    # get node's average resource util
+    def queryNodeAvg (self, node, minutes=5):
+        cpu_rlt, mem_rlt = 0, 0
+        start_ts         = time.time() - minutes*60
+        if node not in self.nodes:
+           logger.warning("queryNodeAvg: Node {} is not in cache".format(node, list(self.nodes.keys())))
+           return 0
+        if start_ts < self.nodes[node]['first_ts']-30:  # allow 30 mintues relax 
+           logger.warning("queryNodeAvg: Node {} period {}- is not in cache ({}-{})".format(node, start_ts, self.nodes[node]['first_ts'], self.nodes[node]['last_ts']))
+           return 0
+        #else start_ts >= self.nodes[node]['first_ts']-30
+
+        for uid, user_usage in self.node_user[node].items():
+            #logger.debug("\t{}:{}".format(node, self.node_user[node][uid]))
+            user = MyTool.getUser (uid)
+            idx  = bisect_right(user_usage, (start_ts,))
+            seq  = user_usage[idx:]
+            cpu_rlt += mean([usage[InMemCache.CPU_IDX] for (ts, usage) in seq])      #usage is evenly distributed, thus just mean, TODO: have problem when node is down and not sending data 
+            #mem_rlt += mean([usage[InMemCache.RSS_IDX] for (ts, usage) in seq])      #usage is evenly distributed, thus just mean 
+
+        logger.debug("\tnode={}:cpu_rlt={}, mem_rlt={}".format(self.nodes[node], cpu_rlt, mem_rlt))
+        return cpu_rlt 
 
     # query worker's history, must be shorter than 3 days:
     def queryNode (self, node, start_ts=None, end_ts=None):
@@ -167,21 +193,22 @@ class InMemCache:
         if start_ts and start_ts < self.nodes[node]['first_ts']-300:  # five minutes gap is allowed
            logger.debug("Node {}: period {}-{} is not in cache ({}-{})".format(node, start_ts, end_ts, self.nodes[node]['first_ts'], self.nodes[node]['last_ts']))
            return None, [], [], [], []
+        # else start_ts==None or start_ts >= self.nodes[node]['first_ts']-300
 
         for uid, user_usage in self.node_user[node].items():
-            logger.debug("\t{}:{}".format(node, self.node_user[node][uid]))
+            #logger.debug("\t{}:{}".format(node, self.node_user[node][uid]))
             user = MyTool.getUser (uid)
             seq  = user_usage
-            if start_ts and start_ts > self.nodes[node]['first_ts']+300:
+            if start_ts and start_ts >= self.nodes[node]['first_ts']-300:
                idx = bisect_right(seq, (start_ts,))
                seq = user_usage[idx:]
             if end_ts and end_ts >= self.nodes[node]['last_ts']-300:
                idx = bisect_right(seq, (end_ts,))
                seq = user_usage[:idx-1]
             cpu_rlt.append  ({'name':user, 'data':[ [ts*1000, usage[InMemCache.CPU_IDX]] for (ts, usage) in seq ]})       
-            mem_rlt.append  ({'name':user, 'data':[ [ts*1000, usage[9]] for (ts, usage) in seq ]})       
-            read_rlt.append ({'name':user, 'data':[ [ts*1000, usage[9]] for (ts, usage) in seq ]})       
-            write_rlt.append({'name':user, 'data':[ [ts*1000, usage[9]] for (ts, usage) in seq ]})       
+            mem_rlt.append  ({'name':user, 'data':[ [ts*1000, usage[InMemCache.RSS_IDX]] for (ts, usage) in seq ]})       
+            read_rlt.append ({'name':user, 'data':[ [ts*1000, usage[12]] for (ts, usage) in seq ]})       
+            write_rlt.append({'name':user, 'data':[ [ts*1000, usage[13]] for (ts, usage) in seq ]})       
 
         logger.debug("\tnode={}:cpu_rlt={}".format(self.nodes[node], cpu_rlt))
         return self.nodes[node], cpu_rlt, mem_rlt, read_rlt, write_rlt

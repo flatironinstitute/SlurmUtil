@@ -82,7 +82,7 @@ class SLURMMonitor(object):
            self.config["settings"]["low_util_node"] = {"cpu":1, "gpu":10, "mem":30, "alloc_time_min":60}
         if "summary_column" not in self.config["settings"]:
            self.config["settings"]["summary_column"] = dict(zip(SUMMARY_TABLE_COL, [True]*len(SUMMARY_TABLE_COL)))
-           self.config["settings"]["summary_column"]['avg_gpu_util'] = False
+           self.config["settings"]["summary_column"]['avg_gpu_util'] = False  #disable avg_gpu_util
         if "summary_low_util" not in self.config["settings"]:
            self.config["settings"]["summary_low_util"]  = {"cpu_util":1, "avg_cpu_util":1, "rss":1, "gpu_util":10, "avg_gpu_util":10, "type":"inform"} 
         if "summary_high_util" not in self.config["settings"]:
@@ -724,13 +724,12 @@ class SLURMMonitor(object):
     # generate jobs info {job_id, long_label, disabled}
     def getAllocJobsWithLabel (self):
         jobs    = []
-        for jid, jobinfo in self.currJobs.items():
+        for jid, jobinfo in self.currJobs.items():  # running jobs
             if jobinfo['tres_alloc_str']:  # alloc resource
                long_label = '{}({}) alloc {}'.format (jid, jobinfo['user'], jobinfo['tres_alloc_str'])
                disabled   = ""
-            #else:                          # wait resource
-            #   long_label = '{}({}) {} waiting for {}'.format(jid, jobinfo['user'], jobinfo['job_state'], jobinfo['tres_req_str'])
-            #   disabled   = "disabled"
+            else:
+               print("getAllocJobsWithLabel should not come here {}".format(jobinfo))
             jobs.append({"job_id":jid, "long_label":long_label, "disabled":disabled})
         return jobs
 
@@ -781,52 +780,66 @@ class SLURMMonitor(object):
             gpus[gpu_name] = {'label':gpu_label, 'state': gpu_state, 'job': jid}       
         return gpus
 
-    def getHeatmapData (self, gpudata):
+    def getHeatmapData (self, gpudata, avg_minute=0):
         node2job= self.node2jobs            
-        jobs    = self.getAllocJobsWithLabel ()  #jobs list  [{job_id, long_label, disabled}, ...]
-        users   = self.getAllocUsersWithLabel()  #users list [{user, jobs, long_label}, ...]
         workers = []  #dataset1 in heatmap
         for hostname, hostinfo in sorted(self.data.items()):
-            try:
+            #try:
                pyslurmNode  = self.pyslurmNode[hostname]
-               node_cores   = pyslurmNode['cpus']
                node_mem_M   = pyslurmNode['real_memory']
-               node_gpus    = MyTool.getNodeGresGPUCount     (pyslurmNode['gres'])
-               if len(hostinfo) > USER_INFO_IDX: #has user proc information
-                  node_cpu_util   = sum ([hostinfo[idx][4] for idx in range(USER_INFO_IDX, len(hostinfo))]) 
-               else:
-                  node_cpu_util  = 0
-               gpus         = {}   #{'gpu0':{'label':,'state':}}
                alloc_jobs   = node2job.get(hostname, [])
-               job_accounts = [self.currJobs[jid].get('account', None)        for jid in alloc_jobs]
-               job_cores    = [self.currJobs[jid]['cpus_allocated'][hostname] for jid in alloc_jobs]  #
-               node_mem_util= (node_mem_M-pyslurmNode['free_mem']) / node_mem_M  #ATTN: from slurm, not monitor
-
-               if SLURMMonitor.nodeAllocated(hostinfo):                  #in use
-                  state        = 1
-                  job_users    = [self.currJobs[jid].get('user',    None)        for jid in alloc_jobs]
-                  # get node label
-                  if not node_gpus:  #no GPU node
-                     lst       = list(zip(alloc_jobs, job_users, ['{} cpu'.format(jc) for jc in job_cores]))
-                     nodeLabel = '{} ({} cpu, {}GB): cpu_util={:.1%}, mem_util={:.1%}, jobs={}'.format(hostname, node_cores, int(node_mem_M/1024), node_cpu_util/node_cores, node_mem_util, lst)
-                  else:              # GPU node
-                     job_gpus  = self.getNodeJobGPULabelList (hostname, alloc_jobs)
-                     lst       = list(zip(alloc_jobs, job_users, ['{} cpu'.format(jc) for jc in job_cores], job_gpus))
-                     nodeLabel = '{} ({} cpu, {} gpu, {}GB): cpu_util={:.1%}, used_gpu={}, mem_util={:.1%}, jobs={}'.format(hostname, node_cores, node_gpus, int(node_mem_M/1024), node_cpu_util/node_cores, MyTool.getNodeGresUsedGPUCount (pyslurmNode['gres_used']), node_mem_util, lst)
-                     gpus = self.getNodeGPULabel (gpudata, hostname, state, hostinfo[0], node_gpus, alloc_jobs) 
-               else:      # node not in use
-                  state        = 0 if 'IDLE' in hostinfo[0] else -1
-                  if not node_gpus:
-                     nodeLabel = '{} ({} cpu, {}GB): state={}'.format        (hostname, node_cores, int(node_mem_M/1024), hostinfo[0])
+               if avg_minute==0:
+                  if len(hostinfo) > USER_INFO_IDX: #has user proc information
+                     node_cpu_util  = sum ([hostinfo[idx][4] for idx in range(USER_INFO_IDX, len(hostinfo))]) 
                   else:
-                     nodeLabel = '{} ({} cpu, {} gpu, {}GB): state={}'.format(hostname, node_cores, node_gpus, int(node_mem_M/1024), hostinfo[0])
-                     gpus = self.getNodeGPULabel (gpudata, hostname, state, hostinfo[0], node_gpus, []) 
-               workers.append({'name':hostname, 'stat':state, 'core':node_cores, 'util':node_cpu_util/node_cores, 'mem_util':node_mem_util, 'jobs':alloc_jobs, 'acct':job_accounts, 'labl':nodeLabel, 'gpus':gpus, 'gpuCount':node_gpus})
-            except Exception as exp:
-               print("ERROR getHeatmapData: {0}".format(exp))
+                     node_cpu_util  = 0
+               else:
+                  node_cpu_util = self.inMemCache.queryNodeAvg(hostname, avg_minute)
+               node_mem_util= (node_mem_M-pyslurmNode['free_mem']) / node_mem_M  if pyslurmNode['free_mem'] else 0 #ATTN: from slurm, not monitor, if no free_mem, in general, node is DOWN so return 0. TODO: Not saving memory information in cache. The sum of proc's RSS does not reflect the real value.
+
+               workers.append(self.getNodeLabelRecord(hostname, hostinfo, alloc_jobs, node_cpu_util, node_mem_util, gpudata))
+              #{'name':hostname, 'stat':state, 'core':node_cores, 'util':node_cpu_util/node_cores, 'mem_util':node_mem_util, 'jobs':alloc_jobs, 'acct':job_accounts, 'labl':nodeLabel, 'gpus':gpuLabel, 'gpuCount':node_gpus})
+
+            #except Exception as exp:
+            #   print("ERROR getHeatmapData: {0}".format(exp))
                                
+        jobs    = self.getAllocJobsWithLabel ()  #jobs list  [{job_id, long_label, disabled}, ...]
+        users   = self.getAllocUsersWithLabel()  #users list [{user, jobs, long_label}, ...]
         return workers,jobs,users
                    
+    # return a dict that with most fields setting up
+    def getNodeLabelRecord (self, hostname, hostinfo, alloc_jobs, node_cpu_util, node_mem_util, gpudata):
+        pyslurmNode  = self.pyslurmNode[hostname]
+        node_cores   = pyslurmNode['cpus']
+        node_gpus    = MyTool.getNodeGresGPUCount     (pyslurmNode['gres'])
+        node_mem_M   = pyslurmNode['real_memory']
+        job_accounts = [self.currJobs[jid].get('account', None)        for jid in alloc_jobs]
+        job_cores    = [self.currJobs[jid]['cpus_allocated'][hostname] for jid in alloc_jobs]  #
+        gpus         = {}   #{'gpu0':{'label':,'state':}}
+        if SLURMMonitor.nodeAllocated(hostinfo):                  #node is in use
+           state        = 1
+           job_users    = [self.currJobs[jid].get('user',    None)        for jid in alloc_jobs]
+           # get node label
+           if not node_gpus:  #no GPU node
+              lst       = list(zip(alloc_jobs, job_users, ['{} cpu'.format(jc) for jc in job_cores]))
+              nodeLabel = '{} ({} cpu, {}GB): cpu_util={:.1%}, mem_util={:.1%}, jobs={}'.format(hostname, node_cores, int(node_mem_M/1024), node_cpu_util/node_cores, node_mem_util, lst)
+           else:              # GPU node
+              job_gpus  = self.getNodeJobGPULabelList (hostname, alloc_jobs)
+              lst       = list(zip(alloc_jobs, job_users, ['{} cpu'.format(jc) for jc in job_cores], job_gpus))
+              nodeLabel = '{} ({} cpu, {} gpu, {}GB): cpu_util={:.1%}, used_gpu={}, mem_util={:.1%}, jobs={}'.format(hostname, node_cores, node_gpus, int(node_mem_M/1024), node_cpu_util/node_cores, MyTool.getNodeGresUsedGPUCount (pyslurmNode['gres_used']), node_mem_util, lst)
+              gpus = self.getNodeGPULabel (gpudata, hostname, state, hostinfo[0], node_gpus, alloc_jobs) 
+        else:      # node not in use
+           state        = 0 if 'IDLE' in hostinfo[0] else -1
+           if not node_gpus:
+              nodeLabel = '{} ({} cpu, {}GB): state={}'.format        (hostname, node_cores, int(node_mem_M/1024), hostinfo[0])
+           else:
+              nodeLabel = '{} ({} cpu, {} gpu, {}GB): state={}'.format(hostname, node_cores, node_gpus, int(node_mem_M/1024), hostinfo[0])
+              gpus = self.getNodeGPULabel (gpudata, hostname, state, hostinfo[0], node_gpus, []) 
+        rlt = {'name':hostname, 'stat':state, 'core':node_cores, 'util':node_cpu_util/node_cores, 'mem_util':node_mem_util, 'jobs':alloc_jobs, 'acct':job_accounts, 'labl':nodeLabel, 'gpus':gpus, 'gpuCount':node_gpus}
+
+        #return nodeLabel, gpus, state
+        return rlt
+
     def getGPUNodes (self):
         #TODO: need to change if no-GPU node add other gres
         gpu_nodes   = [n_name for n_name, node in self.pyslurmNode.items() if node['gres']]
@@ -856,10 +869,11 @@ class SLURMMonitor(object):
     def utilHeatmap(self, **args):
         if type(self.data) == str: return self.getWaitMsg() # error of some sort.
 
+        avg_min              = self.config["settings"]["heatmap_avg"]
         #gpudata              = BrightRestClient().getLatestAllGPU()
         gpu_nodes,max_gpu_cnt= self.getGPUNodes()
-        gpu_ts, gpudata      = BrightRestClient().getAllGPUAvg (gpu_nodes, minutes=5, max_gpu_cnt=max_gpu_cnt)
-        workers,jobs,users   = self.getHeatmapData (gpudata)
+        gpu_ts, gpudata      = BrightRestClient().getAllGPUAvg (gpu_nodes, minutes=avg_min["gpu"], max_gpu_cnt=max_gpu_cnt)
+        workers,jobs,users   = self.getHeatmapData (gpudata, avg_min["cpu"])
         
         htmltemp = os.path.join(wai, 'heatmap.html')
         h        = open(htmltemp).read()%{'update_time': MyTool.getTsString(self.updateTS),
@@ -867,7 +881,8 @@ class SLURMMonitor(object):
                                           'data2'      : jobs, 
                                           'users'      : users, 
                                           'gpu_update_time' : MyTool.getTsString(gpu_ts),
-                                          'gpu'        : gpudata}
+                                          'gpu'        : gpudata,
+                                          'gpu_avg_minute': avg_min["gpu"]}
  
         return h 
 
@@ -2424,7 +2439,7 @@ class SLURMMonitor(object):
         
         for key, value in settings.items():
             try:
-               value = float(value)
+               value = int(value)
             except ValueError as ex:
                value = True  if value == "true"  else value
                value = False if value == "false" else value

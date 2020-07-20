@@ -144,6 +144,7 @@ function createSelectList (parent_id, data, tag, value_fld, func_onchg){
 };
 
 function prepareNodeData_1 (nodeData, grpCnt, labels, gpu_obj) {
+        console.log("prepareNodeData_1 ", nodeData)
         var name2idx = new Object()
         for (var i=0; i<nodeData.length; i++) {
           var obj = nodeData[i]
