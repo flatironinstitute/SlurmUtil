@@ -90,7 +90,7 @@ class SLURMMonitor(object):
         if "heatmap_avg" not in self.config["settings"]:
            self.config["settings"]["heatmap_avg"]       = {"cpu":0,"gpu":5}  
         if "heatmap_weight" not in self.config["settings"]:
-           self.config["settings"]["heatmap_weight"]    = {"cpu":50,"gpu":50}  
+           self.config["settings"]["heatmap_weight"]    = {"cpu":50,"mem":50}  
 
     # add processes info of jid, modify self.jobNode2ProcRecord
     # TODO: it is in fact userNodeHistory
@@ -780,7 +780,7 @@ class SLURMMonitor(object):
             gpus[gpu_name] = {'label':gpu_label, 'state': gpu_state, 'job': jid}       
         return gpus
 
-    def getHeatmapData (self, gpudata, avg_minute=0):
+    def getHeatmapData (self, gpudata, weight, avg_minute=0):
         node2job= self.node2jobs            
         workers = []  #dataset1 in heatmap
         for hostname, hostinfo in sorted(self.data.items()):
@@ -796,8 +796,9 @@ class SLURMMonitor(object):
                else:
                   node_cpu_util = self.inMemCache.queryNodeAvg(hostname, avg_minute)
                node_mem_util= (node_mem_M-pyslurmNode['free_mem']) / node_mem_M  if pyslurmNode['free_mem'] else 0 #ATTN: from slurm, not monitor, if no free_mem, in general, node is DOWN so return 0. TODO: Not saving memory information in cache. The sum of proc's RSS does not reflect the real value.
-
-               workers.append(self.getNodeLabelRecord(hostname, hostinfo, alloc_jobs, node_cpu_util, node_mem_util, gpudata))
+               node_record  = self.getNodeLabelRecord(hostname, hostinfo, alloc_jobs, node_cpu_util, node_mem_util, gpudata)
+               node_record['comb_util'] = (weight['cpu']*node_record['util'] + weight['mem']*node_record['mem_util'])/(weight['cpu'] + weight['mem'])
+               workers.append(node_record)
               #{'name':hostname, 'stat':state, 'core':node_cores, 'util':node_cpu_util/node_cores, 'mem_util':node_mem_util, 'jobs':alloc_jobs, 'acct':job_accounts, 'labl':nodeLabel, 'gpus':gpuLabel, 'gpuCount':node_gpus})
 
             #except Exception as exp:
@@ -836,6 +837,7 @@ class SLURMMonitor(object):
               nodeLabel = '{} ({} cpu, {} gpu, {}GB): state={}'.format(hostname, node_cores, node_gpus, int(node_mem_M/1024), hostinfo[0])
               gpus = self.getNodeGPULabel (gpudata, hostname, state, hostinfo[0], node_gpus, []) 
         rlt = {'name':hostname, 'stat':state, 'core':node_cores, 'util':node_cpu_util/node_cores, 'mem_util':node_mem_util, 'jobs':alloc_jobs, 'acct':job_accounts, 'labl':nodeLabel, 'gpus':gpus, 'gpuCount':node_gpus}
+        #TODO: add comb_util
 
         #return nodeLabel, gpus, state
         return rlt
@@ -869,11 +871,12 @@ class SLURMMonitor(object):
     def utilHeatmap(self, **args):
         if type(self.data) == str: return self.getWaitMsg() # error of some sort.
 
-        avg_min              = self.config["settings"]["heatmap_avg"]
+        avg_minute          = self.config["settings"]["heatmap_avg"]
+        weight               = self.config["settings"]["heatmap_weight"]
         #gpudata              = BrightRestClient().getLatestAllGPU()
         gpu_nodes,max_gpu_cnt= self.getGPUNodes()
-        gpu_ts, gpudata      = BrightRestClient().getAllGPUAvg (gpu_nodes, minutes=avg_min["gpu"], max_gpu_cnt=max_gpu_cnt)
-        workers,jobs,users   = self.getHeatmapData (gpudata, avg_min["cpu"])
+        gpu_ts, gpudata      = BrightRestClient().getAllGPUAvg (gpu_nodes, minutes=avg_minute["gpu"], max_gpu_cnt=max_gpu_cnt)
+        workers,jobs,users   = self.getHeatmapData (gpudata, weight, avg_minute["cpu"])
         
         htmltemp = os.path.join(wai, 'heatmap.html')
         h        = open(htmltemp).read()%{'update_time': MyTool.getTsString(self.updateTS),
@@ -882,7 +885,7 @@ class SLURMMonitor(object):
                                           'users'      : users, 
                                           'gpu_update_time' : MyTool.getTsString(gpu_ts),
                                           'gpu'        : gpudata,
-                                          'gpu_avg_minute': avg_min["gpu"]}
+                                          'gpu_avg_minute': avg_minute["gpu"]}
  
         return h 
 

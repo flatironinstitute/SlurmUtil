@@ -144,7 +144,7 @@ function createSelectList (parent_id, data, tag, value_fld, func_onchg){
 };
 
 function prepareNodeData_1 (nodeData, grpCnt, labels, gpu_obj) {
-        console.log("prepareNodeData_1 ", nodeData)
+        console.log("prepareNodeData_1 ", nodeData, gpu_obj)
         var name2idx = new Object()
         for (var i=0; i<nodeData.length; i++) {
           var obj = nodeData[i]
@@ -166,11 +166,14 @@ function prepareNodeData_1 (nodeData, grpCnt, labels, gpu_obj) {
           grpCnt[obj.gID] ++;
         }
 
+        console.log(name2idx)
         // gpu data
         for (let [gpuID, gpuNodes] of Object.entries(gpu_obj)) {
             if (gpuID == "time") continue;
             for ( let [node, util] of Object.entries(gpuNodes) ) {
-                nodeData[name2idx[node]][gpuID] = util
+                if (name2idx[node] != undefined)
+                   //console.log(gpuID, gpuNodes, node, name2idx[node], nodeData[name2idx[node]])
+                   nodeData[name2idx[node]][gpuID] = util
             }
         }
 

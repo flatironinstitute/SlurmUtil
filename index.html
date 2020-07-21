@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<meta charset='UTF-8'>
+<title>Pending Jobs</title>
+<link rel="stylesheet" href="/static/css/style.css">
+
+<script type="text/javascript" src="static/scripts/jquery.min.js"></script>
+<script type="text/javascript" src="static/scripts/d3.v5.min.js"></script>
+<script type="text/javascript" src="static/scripts/myFunc.js"></script>
+<script type="text/javascript" src="static/scripts/myTable.js"></script>
+<script type="text/javascript" src="static/scripts/myList.js"></script>
+<script type="text/javascript">
+
+$(document).ready(function(){{
+   //add menu
+    $("#tabmenu").load("/getHeader?page=index")
+    const displayName = {{'node':'Node', 'status':'Status', 'delay':'Delay', 'job':'Job',  'user':'User', 'alloc_cpus':'Alloc CPUs', 'proc_count':'Proc', 'cpu_util':'CPU Util', 'avg_cpu_util':'Avg CPU Util', 'rss':'RSS', 'vms':'VMS', 'io':'I/O Bps', 'fds':'Num Fds', 'alloc_gpus':'Alloc GPUs', 'gpu_util':'GPU Util', 'avg_gpu_util':'Avg GPU Util', 'run_time':'Run Time'}}
+    const displayType = {{'node':'Node', 'delay':'Float', 'job':'JobAndStep', 'user':'User', 'alloc_cpus':'Int', 'proc_count':'Int', 'cpu_util':'Float', 'avg_cpu_util':'Float', 'rss':'Byte','vms':'Byte','io':'BigInt', 'fds':'Int', 'alloc_gpus':'Int', 'gpu_util':'Float', 'avg_gpu_util':'Float', 'run_time':'Int'}}     //default is string
+    const summaryType = {{'delay':'avg', 'alloc_cpus':'total', 'proc_count':'total', 'cpu_util':'avg', 'avg_cpu_util':'avg', 'rss':'avg','vms':'avg','io':'avg','fds':'total', 'alloc_gpus':'total', 'gpu_util':'avg', 'avg_gpu_util':'avg', 'run_time':'avg'}}  //default is count 
+
+    var data        = {table_data}
+    var display_fld = {column}
+    var alarm_lst   = {alarms}  //0: low_util, inform; 1: high_util, alarm
+    const display_title = Object.keys(displayName)
+                            .filter(function(key) {{return display_fld.includes(key);}})
+                            .reduce(function(obj, key) {{
+                                obj[key] = displayName[key];
+                                return obj;
+                            }}, {{}});
+    createSummaryTable (data, display_title, 'summary_table',  'summary', displayType, summaryType, alarm_lst);
+}});
+</script>
+</head>
+
+<body>
+<div class="tab" id="tabmenu"></div>
+<div id="summary">
+   <h3>Cluster Nodes & Jobs <small>(<a href="./clusterHistory?days=7">7 days History Graph</a>)</small></h3>
+   <i>Update time: {update_time}</i>
+   <p>(Refreshed every 10 minutes automatically)</p>
+</div>
+</body>
+
+</html>
