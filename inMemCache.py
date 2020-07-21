@@ -12,7 +12,7 @@ import urllib.request
 
 from collections import defaultdict
 from datetime    import datetime, timezone, timedelta
-from bisect      import bisect_right
+from bisect      import bisect_right, bisect_left
 from statistics  import mean 
 
 import MyTool
@@ -164,23 +164,25 @@ class InMemCache:
     # get node's average resource util
     def queryNodeAvg (self, node, minutes=5):
         cpu_rlt, mem_rlt = 0, 0
-        start_ts         = time.time() - minutes*60
-        if node not in self.nodes:
+        start_ts         = self.nodes[node]['last_ts'] - minutes*60
+        if node not in self.nodes or not self.nodes[node]:
            logger.warning("queryNodeAvg: Node {} is not in cache".format(node, list(self.nodes.keys())))
            return 0
-        if start_ts < self.nodes[node]['first_ts']-30:  # allow 30 mintues relax 
-           logger.warning("queryNodeAvg: Node {} period {}- is not in cache ({}-{})".format(node, start_ts, self.nodes[node]['first_ts'], self.nodes[node]['last_ts']))
-           return 0
-        #else start_ts >= self.nodes[node]['first_ts']-30
+        if start_ts > self.nodes[node]['first_ts']+minutes*60*0.2:  # 20% relax on period inclusion 
+           logger.warning("queryNodeAvg: Node {} requested period {}- is not completely in cache ({}-{})".format(node, start_ts, self.nodes[node]['first_ts'], self.nodes[node]['last_ts']))
+           #return 0      # still return some value
 
         for uid, user_usage in self.node_user[node].items():
             #logger.debug("\t{}:{}".format(node, self.node_user[node][uid]))
             user = MyTool.getUser (uid)
-            idx  = bisect_right(user_usage, (start_ts,))
+            idx  = bisect_left(user_usage, (start_ts,))
             seq  = user_usage[idx:]
-            cpu_rlt += mean([usage[InMemCache.CPU_IDX] for (ts, usage) in seq])      #usage is evenly distributed, thus just mean, TODO: have problem when node is down and not sending data 
+            
+            try:
+               cpu_rlt += mean([usage[InMemCache.CPU_IDX] for (ts, usage) in seq])      #usage is evenly distributed, thus just mean, TODO: have problem when node is down and not sending data 
             #mem_rlt += mean([usage[InMemCache.RSS_IDX] for (ts, usage) in seq])      #usage is evenly distributed, thus just mean 
-
+            except BaseException as e:
+               print("ERROR {} uid={} usage={} start={} idx={} ".format(e, uid, user_usage, start_ts, idx))
         logger.debug("\tnode={}:cpu_rlt={}, mem_rlt={}".format(self.nodes[node], cpu_rlt, mem_rlt))
         return cpu_rlt 
 
@@ -190,8 +192,8 @@ class InMemCache:
         if node not in self.nodes:
            logger.debug("Node {} is not in cache".format(node, list(self.nodes.keys())))
            return None, [], [], [], []
-        if start_ts and start_ts < self.nodes[node]['first_ts']-300:  # five minutes gap is allowed
-           logger.debug("Node {}: period {}-{} is not in cache ({}-{})".format(node, start_ts, end_ts, self.nodes[node]['first_ts'], self.nodes[node]['last_ts']))
+        if start_ts and start_ts > self.nodes[node]['first_ts']+300:  # five minutes gap is allowed
+           logger.debug("Node {}: period {}-{} is not completely in cache ({}-{})".format(node, start_ts, end_ts, self.nodes[node]['first_ts'], self.nodes[node]['last_ts']))
            return None, [], [], [], []
         # else start_ts==None or start_ts >= self.nodes[node]['first_ts']-300
 
@@ -200,7 +202,7 @@ class InMemCache:
             user = MyTool.getUser (uid)
             seq  = user_usage
             if start_ts and start_ts >= self.nodes[node]['first_ts']-300:
-               idx = bisect_right(seq, (start_ts,))
+               idx = bisect_left(seq, (start_ts,))
                seq = user_usage[idx:]
             if end_ts and end_ts >= self.nodes[node]['last_ts']-300:
                idx = bisect_right(seq, (end_ts,))
