@@ -363,17 +363,86 @@ class SlurmCmdQuery:
 
 class PyslurmQuery():
     @staticmethod
-    def getCurrJob (jid):
-        jobs = pyslurm.job().get()
-        if jid in jobs:
-           return jobs[jid]
-        else:
-           return None
+    def getAllNodes ():
+        return pyslurm.node().get()
 
     @staticmethod
-    def getUserCurrJobs (user_id):
-        jobs = pyslurm.job().get()
+    def getUserCurrJobs (user_id, jobs=None):
+        if not jobs:
+           jobs = pyslurm.job().get()
         return [job for job in jobs.values() if job['user_id']==user_id]
+
+    @staticmethod
+    def getCurrJob (jid, job_dict=None):
+        if not job_dict:
+           job_dict = pyslurm.job().get()
+        if jid not in job_dict:
+           return None
+        return job_dict[jid]
+
+    @staticmethod
+    def getNode (node_name, node_dict=None):
+        if not node_dict:
+           node_dict = pyslurm.node().get()
+        if node_name not in node_dict:
+           return None
+        return node_dict[node_name]
+        
+    @staticmethod
+    def getNodeAllocJobs (node_name, node=None, node_dict=None, job_dict=None):
+        if not node:
+           node = getNode(node_name, node_dict)
+        if ('ALLOC' not in node['state']) and ('MIXED' not in node['state']):
+           # no allocated jobs
+           return []
+        if not job_dict:
+           job_dict = pyslurm.job().get()
+           return [job for job in job_dict.values() if node_name in job['cpus_allocated']]
+           
+    @staticmethod
+    def getNodeAllocGPU (node_name, node_dict=None):
+        if not node_dict:
+           node_dict = pyslurm.node().get()
+        if node_name not in node_dict or 'gres' not in node_dict[node_name]:
+           return None
+        return MyTool.getNodeGresGPUCount(node_dict[node_name]['gres'])
+
+    @staticmethod
+    def getJobAllocGPU (job, node_dict=None):
+        if not node_dict:
+           node_dict = pyslurm.node().get()
+        if not job['cpus_allocated']:
+           return None
+        node_list      = [node_dict[node] for node in job['cpus_allocated']]
+        gpus_allocated = MyTool.getGPUAlloc_layout(node_list, job['gres_detail'])
+        return gpus_allocated
+
+    @staticmethod
+    def getJobAllocGPUonNode (job, node):
+        gpus_allocated = MyTool.getGPUAlloc_layout([node], job['gres_detail'])
+        if gpus_allocated:
+           return gpus_allocated[node['name']]
+        else:
+           return []
+
+    @staticmethod
+    def getUserAllocGPU (uid, node_dict=None):
+        if not node_dict:
+           node_dict = pyslurm.node().get()
+        rlt      = {}
+        rlt_jobs = []
+        jobs     = PyslurmQuery.getUserCurrJobs(uid)
+        if jobs:
+           for job in jobs:
+               job_gpus = PyslurmQuery.getJobAllocGPU(job, node_dict)
+               if job_gpus:   # job has gpu
+                  rlt_jobs.append(job)
+                  for node, gpu_ids in job_gpus.items():
+                      if node in rlt:
+                         rlt[node].extend (gpu_ids)
+                      else:
+                         rlt[node] = gpu_ids
+        return rlt, rlt_jobs
 
 def test1():
     client = SlurmCmdQuery()

@@ -8,6 +8,7 @@ import _pickle as cPickle
 import os.path
 
 from datetime import datetime, timezone, timedelta
+from logging.handlers import RotatingFileHandler
 
 THREE_DAYS_SEC     = 3*24*3600
 ONEDAY_SECS       = 24*3600
@@ -380,9 +381,11 @@ def convert2K (s):
 
 def getFileLogger (name, level=logging.WARNING, file_name=None):
     if not file_name:
-       file_name = '{}_{}.log'.format(name, getTsString(time.time(), '_', timespec='hours'))
+       #file_name = '{}_{}.log'.format(name, getTsString(time.time(), '_', timespec='hours'))
+       file_name = '{}.log'.format(name)
     f_format  = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    f_handler = logging.FileHandler(file_name)
+    #f_handler = logging.FileHandler(file_name)
+    f_handler = RotatingFileHandler(file_name, maxBytes=1<<20, backupCount=5)
     f_handler.setLevel(level)
     f_handler.setFormatter(f_format)
 
@@ -427,6 +430,8 @@ def getNodeGresGPUCount (gres_list):
     gpu_total = sum([ 1 for g in gres_list if 'gpu:' in g])
     return gpu_total
 
+#['gpu:v100s-32gb:4(IDX:0-3)', 'mic:0']
+#['gpu:v100s-32gb:0', 'mic:0'], no gpu used
 def getNodeGresUsedGPUCount (gres_used_list):
     if not gres_used_list:
        return 0
@@ -441,9 +446,10 @@ def getNodeGresUsedGPUCount (gres_used_list):
        gpu_used += int(m.group(2))
        idx_str   = m.group(3)
        #idx_list = str2intList (idx_str)
+       #print ("getNodeGresUsedGPUCount {} cate={},gpu_used={},idx_str={}".format(gres_used_list, cate, gpu_used, idx_str))
     return gpu_used
 
-#node 'gres': ['gpu:k40c:1', 'gpu:k40c:1'], 'gres_used': ['gpu:k40c:2(IDX:0-1)', 'mic:0']
+#node['gres']: ['gpu:k40c:1', 'gpu:k40c:1'], 'gres_used': ['gpu:k40c:2(IDX:0-1)', 'mic:0']
 #     'tres_fmt_str': 'cpu=28,mem=375G,billing=28,gres/gpu=2'
 #return gpus, alloc_gpus, alloc_gpus_idx
 def getGPUCount (gres_list, gres_used_list=[]):
@@ -454,7 +460,7 @@ def getGPUCount (gres_list, gres_used_list=[]):
     gpu_used  = getNodeGresUsedGPUCount (gres_used_list)
     return gpu_total, gpu_used
 
-#gpu:v100-16gb(IDX:0-1) or gpu(IDX:0-3) or gpu(IDX:0,3)
+#gpu:v100-16gb(IDX:0-1) or gpu(IDX:0-3) or gpu(IDX:0,3), in job['gres_detail']
 def parse_gpu_detail(gpu_str):
     m = re.match('gpu.*\(IDX:(.+)\)', gpu_str)
     if not m or not m.group(1):
@@ -471,12 +477,14 @@ def parse_gpu_detail(gpu_str):
 
 #return gpu allocate index on node_iter, {node: [0],}
 def getGPUAlloc_layout (node_iter, gpu_detail_iter):
+    #assert (len(node_iter) == len(gpu_detail_iter))
+    #print("getGPUAlloc_layout {}\n\t{}".format(node_iter, gpu_detail_iter))
     result  = collections.defaultdict(list)
     idx     = 0
     for node in node_iter:
         gpu_total, gpu_used = getGPUCount(node['gres'])
         if gpu_total:  #gpu node
-           if idx > len(gpu_detail_iter):
+           if idx >= len(gpu_detail_iter):
               break
            result[node['name']]=parse_gpu_detail(gpu_detail_iter[idx])
            idx += 1
@@ -556,6 +564,38 @@ def sumOfListWithUnit (lst):
        postfix = ''
     return str(str(total) + postfix)
 
+#seq is a list [[time_msec, value], ....]
+#startTS and stopTS is ts
+def getTimeSeqAvg (seq, startTS, stopTS):
+        #print("getTimeSeqAvg {}-{}, seq={}".format(startTS, stopTS, seq))
+        if not seq:         return 0
+        elif len(seq) == 1: return seq[0][1]
+        #skip the data before startTS
+        idx= 0
+        while (idx < len(seq)) and (seq[idx][0] < startTS*1000):  idx+= 1    
+        if idx == len(seq):   # return last value
+           return seq[idx-1][1]
+
+        #seq[idx].time > startTS > seq[idx-1].time
+        #calculate total during [startTS, seq[idx].time
+        if idx == 0: #no value before seq[0].time
+           total   = 0
+           startTS = seq[0][0]/1000
+        else:
+           total   = seq[idx-1][1] * (seq[idx][0]/1000-startTS)   
+        #print("getTimeSeqAvg {}:{} total={}".format(idx, seq[idx], total))
+        # sum over until stopTS
+        idx += 1
+        while idx < len(seq):
+           if seq[idx][0] > stopTS*1000:
+              total += seq[idx-1][1] * (stopTS - seq[idx-1][0]/1000)
+              #print("getTimeSeqAvg {}:{} total={}".format(idx, seq[idx], total))
+              break
+           total += seq[idx-1][1] * ((seq[idx][0] - seq[idx-1][0])/1000)
+           #print("getTimeSeqAvg {}:{} total={}".format(idx, seq[idx], total))
+           idx   += 1
+        return total / (stopTS - startTS)
+
 def test1():
     level = logging.DEBUG
     logger=getFileLogger('test', level)
@@ -571,8 +611,14 @@ def test2(argv):
         c = convert2list(s)
         print (repr(c))
 
+def test3():
+    seq = [[1000, 10], [3000, 40], [5000, 4], [10000, 9]]
+    startTS =1
+    stopTS  =11
+    print(getTimeSeqAvg(seq, startTS, stopTS))
+
 def main(argv):
-    test1()
+    test3()
 
 if __name__=="__main__":
    main(sys.argv[1:])
