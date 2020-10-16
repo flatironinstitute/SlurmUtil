@@ -26,10 +26,20 @@ def getUid (user):
        return p.pw_uid
     return None
 
-def getUser (uid):
+def getUser (uid, returnName=True):
     p = getUserStruct(int(uid))
     if p:
        return p.pw_name
+    if returnName:
+       return "User_{}".format(uid)
+    return None
+
+def getUserFullName(uid, returnName=True):
+    p = getUserStruct(int(uid))
+    if p:
+       return p.pw_gecos.split(',')[0]
+    if returnName:
+       return "User {}".format(uid)
     return None
 
 def getUserStruct (uid=None, uname=None):
@@ -379,15 +389,18 @@ def convert2K (s):
     else:
        return int(s) / 1024
 
-def getFileLogger (name, level=logging.WARNING, file_name=None):
-    if not file_name:
-       #file_name = '{}_{}.log'.format(name, getTsString(time.time(), '_', timespec='hours'))
-       file_name = '{}.log'.format(name)
-    f_format  = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    #f_handler = logging.FileHandler(file_name)
-    f_handler = RotatingFileHandler(file_name, maxBytes=1<<20, backupCount=5)
-    f_handler.setLevel(level)
-    f_handler.setFormatter(f_format)
+#Rotate file logger
+def getFileLogger (name, level=logging.WARNING, file_name=None, rotate=True):
+    if name not in logging.root.manager.loggerDict:
+       if not file_name:
+          file_name = '{}_{}.log'.format(name, getTsString(time.time(), '_', timespec='hours'))
+       f_format  = logging.Formatter('%(asctime)s %(levelname)s %(module)s::%(funcName)s - %(message)s')
+       if rotate:
+          f_handler = RotatingFileHandler(file_name, maxBytes=1<<20, backupCount=5)
+       else:
+          f_handler = logging.FileHandler(file_name)
+       f_handler.setLevel(level)
+       f_handler.setFormatter(f_format)
 
     logger    = logging.getLogger(name)
     logger.addHandler(f_handler)

@@ -1,14 +1,14 @@
 import json,logging,os,sys
-import MyTool
+from logging.handlers import HTTPHandler
 import cherrypy
+import MyTool
 
 APP_DIR           = os.path.dirname(os.path.realpath(sys.argv[0]))
 APP_NAME          = os.path.basename(sys.argv[0]).split('.')[0]
 APP_CONFIG        = {}
-logger            = MyTool.getFileLogger(APP_NAME, logging.INFO) 
-
 SUMMARY_TABLE_COL = ['node', 'status', 'delay', 'node_mem_M', 'job', 'user', 'alloc_cpus', 'run_time', 'proc_count', 'cpu_util', 'avg_cpu_util', 'rss', 'vms', 'io', 'fds', 'alloc_gpus', 'gpu_util', 'avg_gpu_util']
 
+logger            = MyTool.getFileLogger(APP_NAME, logging.INFO) 
 
 def fillDefSettings (conf):
     if "settings" not in conf:
@@ -48,7 +48,14 @@ def readConfigFile (configFile):
       logger.error("Configuration file {} does not exist!".format(configFile))
    logger.info("APP_CONFIG={}".format(APP_CONFIG))
 
+def addHttpLog (url):
+    http_handler =  HTTPHandler(url, "/log")
+    http_handler.setLevel(logging.ERROR)
+    logger.addHandler (http_handler)
+    #h=logging.handlers.HTTPHandler("scclin011:8128", "/log", method='GET', secure=False, credentials=None, context=None)
+
 readConfigFile('config/config.json')        #default config file
+addHttpLog    ("localhost:8128")
 
 def getUserSettings (user):
     filename = os.path.join(APP_DIR, 'config/{}_settings.json'.format(user))
@@ -67,11 +74,19 @@ def getSettings():
        return cherrypy.session["settings"];
     else:
        return APP_CONFIG["settings"]
-def setUserSettings (user):
+def savUserSettings (user, settings):
     filename = os.path.join(APP_DIR, 'config/{}_settings.json'.format(user))
-    if os.path.isfile(filename):
-       with open(filename) as setting_file:
-            return json.load(setting_file)
+    with open(filename, "w") as setting_file:
+        json.dumps(setting_file)
+def savConfig(cfg):
+    filename = os.path.join(APP_DIR, 'config/config.json')
+    with open(filename, "w") as setting_file:
+        json.dumps(APP_CONFIG)
+def setSetting (key,settings):
+    if 'user' in cherrypy.session:
+       cherry.session['settings'][key] = settings
+       savUserSettings (cherry.session['user'],cherry.session['settings'])
     else:
-       return APP_CONFIG["settings"]
+       APP_CONFIG["settings"][key]= settings
+
 
