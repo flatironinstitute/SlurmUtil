@@ -47,8 +47,6 @@ class SLURMMonitorUI(object):
         self.startTime       = time.time()
         self.data            = 'No data received yet. Wait a minute and come back.'
         self.pyslurmNode     = None
-        self.inMemCache      = inMemCache.InMemCache()
-        self.inMemLog        = inMemCache.InMemLog()
 
     def getDFBetween(self, df, field, start, stop):
         if start:
@@ -1534,7 +1532,7 @@ class SLURMMonitorUI(object):
 
     def jobGraph_cache(self, jobid):
         jobid       = int(jobid)
-        job, cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes= self.inMemCache.queryJob(jobid)
+        job, cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes= self.monData.inMemCache.queryJob(jobid)
 
         # highcharts 
         if job:  #job is in cache
@@ -1820,7 +1818,7 @@ class SLURMMonitorUI(object):
         SE_ins     = SlurmEntities.SlurmEntities()
         qos_relax  = SE_ins.relaxQoS()   # {uid:suggestion}
         qos_relax  = [ {'user':MyTool.getUser(uid), 'msg':s} for uid,s in qos_relax.items()]
-        other      = self.inMemLog.getAllLogs () #[{'source':'', 'ts':'','msg':''}]
+        other      = self.monData.inMemLog.getAllLogs () #[{'source':'', 'ts':'','msg':''}]
         
         htmlTemp   = os.path.join(config.APP_DIR, 'bulletinboard.html')
         htmlStr    = open(htmlTemp).read().format(low_util    =json.dumps(msgs),       
@@ -1858,12 +1856,7 @@ class SLURMMonitorUI(object):
         logger.info("---new settings{}".format(new_settings))
         config.setSetting(setting_key, new_settings)
 
-    @cherrypy.expose
-    def log(self, **args):
-       self.inMemLog.append(args)
-
 if __name__=="__main__":
-   print("LJKDFFFFFFFFF")
    cherrypy.config.update({#'log.access_file':    '/tmp/slurm_util/smcpgraph-html-sun.log',
                            'log.screen':         True,
                            'tools.sessions.on':              True,

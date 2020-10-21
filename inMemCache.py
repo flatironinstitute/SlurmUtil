@@ -6,23 +6,22 @@ import logging
 import os.path
 import pdb
 import sys
-import threading
-import time
+import threading, time
 import urllib.request
 
-from collections import defaultdict
+from collections import defaultdict, deque
 from datetime    import datetime, timezone, timedelta
 from bisect      import bisect_right, bisect_left
 from statistics  import mean 
 
 import MyTool
 import querySlurm
+import config
 
-logger   = MyTool.getFileLogger('inMemCache', logging.DEBUG)  # use module name
+logger   = config.logger
 
 #keep a in-mem cache that can be queried about running jobs and other jobs in the past 3(?) days
 class InMemCache:
-    ONE_HOUR      = 3600
     TIME_WINDOW   = 3 * 24 * 3600             # 3 days' time window
     USER_INFO_IDX = 3
     CPU_IDX       = 7
@@ -35,7 +34,7 @@ class InMemCache:
         self.jobs          = defaultdict(lambda:{'submit_time':0, 'start_time':0, 'preempt_time':0, 'suspend_time':0, 'resize_time':0, 'nodes':[], 'seq':[]})   # jid: {'first_ts':, 'last_ts':, 'seq':[(ts, status)]}
         self.start         = time.time()
 
-    # return users' usage on the node in a dict
+    # return users and job usage on the node in a dict
     # nodeInfo format: ['IDLE+POWER', 91.20261883735657, 1574352819.760845]
     # ['MIXED', 93.20821714401245, 1574353973.507513, ['cbertrand', 1544, 1, 5, 0.00847564757921933, 774889472, 3722960896, [[39264, 0.0, 1574090530.73, 0.0, 0.0, 1859584, 116178944, ['/bin/bash', '/cm/local/apps/slurm/var/spool/job421611/slurm_script'], 0]
     def getUsageOnNode (self, nodeName, nodeInfo, jobData):
@@ -126,11 +125,10 @@ class InMemCache:
             if jobData[jid]['resize_time']:
                self.jobs[jid]['resize_time']  = jobData[jid]['resize_time']
             
-       
         #remove data of not running jobs from self.job_node
         doneJob   = [jid for jid in jobData              if jid not in activeJob and jid in self.jobs]
         if doneJob:
-           logger.info('remove done jobs {} from self.jobs'.format(doneJob))
+           logger.debug('remove done jobs {} from self.jobs'.format(doneJob))
            for jid in doneJob:
                if jid not in self.jobs:
                   logger.warning("Job {}({}-{}) is not in self.jobs. {}".format(jid, jobData[jid]['start_time'], jobData[jid]['end_time'], jobData[jid]))
@@ -188,13 +186,13 @@ class InMemCache:
 
     # query worker's history, must be shorter than 3 days:
     def queryNode (self, node, start_ts=None, end_ts=None):
-        cpu_rlt, mem_rlt, read_rlt, write_rlt = [], [], [], []
+        cpu_rlt, mem_rlt, io_rlt= [], [], []
         if node not in self.nodes:
-           logger.debug("Node {} is not in cache".format(node, list(self.nodes.keys())))
-           return None, [], [], [], []
+           logger.info("queryNode: Node {} is not in cache".format(node, list(self.nodes.keys())))
+           return None, [], [], []
         if start_ts and start_ts > self.nodes[node]['first_ts']+300:  # five minutes gap is allowed
-           logger.debug("Node {}: period {}-{} is not completely in cache ({}-{})".format(node, start_ts, end_ts, self.nodes[node]['first_ts'], self.nodes[node]['last_ts']))
-           return None, [], [], [], []
+           logger.info("queryNode: Node {} period {}-{} is not completely in cache ({}-{})".format(node, start_ts, end_ts, self.nodes[node]['first_ts'], self.nodes[node]['last_ts']))
+           return None, [], [], []
         # else start_ts==None or start_ts >= self.nodes[node]['first_ts']-300
 
         for uid, user_usage in self.node_user[node].items():
@@ -207,13 +205,12 @@ class InMemCache:
             if end_ts and end_ts >= self.nodes[node]['last_ts']-300:
                idx = bisect_right(seq, (end_ts,))
                seq = user_usage[:idx-1]
-            cpu_rlt.append  ({'name':user, 'data':[ [ts*1000, usage[InMemCache.CPU_IDX]] for (ts, usage) in seq ]})       
-            mem_rlt.append  ({'name':user, 'data':[ [ts*1000, usage[InMemCache.RSS_IDX]] for (ts, usage) in seq ]})       
-            read_rlt.append ({'name':user, 'data':[ [ts*1000, usage[12]] for (ts, usage) in seq ]})       
-            write_rlt.append({'name':user, 'data':[ [ts*1000, usage[13]] for (ts, usage) in seq ]})       
+            cpu_rlt.append ({'name':user, 'data':[ [ts*1000, usage[InMemCache.CPU_IDX]] for (ts, usage) in seq ]})       
+            mem_rlt.append ({'name':user, 'data':[ [ts*1000, usage[InMemCache.RSS_IDX]] for (ts, usage) in seq ]})       
+            io_rlt.append  ({'name':user, 'data':[ [ts*1000, usage[11]] for (ts, usage) in seq ]})       
 
         logger.debug("\tnode={}:cpu_rlt={}".format(self.nodes[node], cpu_rlt))
-        return self.nodes[node], cpu_rlt, mem_rlt, read_rlt, write_rlt
+        return self.nodes[node], cpu_rlt, mem_rlt, io_rlt
 
     # query user's history, must be shorter than 3 days:
     def queryUser (self, user, start_time):
@@ -228,6 +225,17 @@ class InMemCache:
 
         return cpu_rlt, mem_rlt, io_rlt
 
+class InMemLog:
+    #var o_title    = {{'source':'Source', 'ts':'Update Time', 'msg':'Message'}}
+ 
+    MAX_COUNT     = 1024
+    def __init__(self, max_len=MAX_COUNT):
+        self.log           = deque(maxlen=max_len)               # logRecord
+    def append(self, logRecord):
+        print("---logRecord={}".format(logRecord))
+        self.log.append({'source':'{}.{}'.format(logRecord.get('module','unknown'),logRecord.get('funcName','unknown')), 'ts':logRecord.get('created',time.time()), 'msg':logRecord.get('msg','unknown')})
+    def getAllLogs(self):
+        return list(self.log)
 
 def getAll_uid2jid (jobData):
     uid2jid = defaultdict(lambda: defaultdict(list)) 

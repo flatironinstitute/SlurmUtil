@@ -8,7 +8,6 @@ APP_NAME          = os.path.basename(sys.argv[0]).split('.')[0]
 APP_CONFIG        = {}
 SUMMARY_TABLE_COL = ['node', 'status', 'delay', 'node_mem_M', 'job', 'user', 'alloc_cpus', 'run_time', 'proc_count', 'cpu_util', 'avg_cpu_util', 'rss', 'vms', 'io', 'fds', 'alloc_gpus', 'gpu_util', 'avg_gpu_util']
 
-logger            = MyTool.getFileLogger(APP_NAME, logging.INFO) 
 
 def fillDefSettings (conf):
     if "settings" not in conf:
@@ -54,18 +53,22 @@ def readConfigFile (configFile):
       for key, val in cfg.items():
           APP_CONFIG[key] = val    #overwrite the old value if there is any
       fillDefSettings (APP_CONFIG)
-      logLevel = eval(APP_CONFIG['log'].get('level', 'logging.DEBUG'))
+      if APP_NAME in APP_CONFIG['log']:
+         logLevel = eval(APP_CONFIG['log'][APP_NAME])
+      else:
+         logLevel = eval(APP_CONFIG['log'].get('level', 'logging.DEBUG'))
       logger.setLevel (logLevel)
    else:
       logger.error("Configuration file {} does not exist!".format(configFile))
    logger.info("APP_CONFIG={}".format(APP_CONFIG))
 
 def addHttpLog (url):
-    http_handler =  HTTPHandler(url, "/log")
+    http_handler =  HTTPHandler(url, "/data/log", method='POST')
     http_handler.setLevel(logging.ERROR)
     logger.addHandler (http_handler)
     #h=logging.handlers.HTTPHandler("scclin011:8126", "/log", method='GET', secure=False, credentials=None, context=None)
 
+logger        = MyTool.getFileLogger(APP_NAME, logging.INFO) 
 readConfigFile('config/config.json')        #default config file
 addHttpLog    ('localhost:{}'.format(APP_CONFIG["port"]))
 

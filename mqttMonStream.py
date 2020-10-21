@@ -5,13 +5,15 @@ import json, logging, os, pwd, sys, threading, time, zlib
 import paho.mqtt.client as mqtt
 import pyslurm
 import pdb
+import config
 import MyTool
 
 from collections import defaultdict as DDict
 from IndexedDataFile import IndexedHostData
 from mqtMon2Influx import Node2PidsCache
 
-logger   = MyTool.getFileLogger('mqttMonStream', logging.DEBUG)  # use module name
+logger   = config.logger        #use app name, report to localhost:8126/data/log
+#MyTool.getFileLogger('mqttMonStream', logging.DEBUG)  # use module name
 
 # Maps a host name to a tuple (time, prePid2info), where time is the time
 # stamp of the last update, and prePid2info maps a pid to a dictionary of
@@ -173,7 +175,6 @@ class FileWebUpdater(threading.Thread):
     def sendUpdate (self, ts, slurmJobs, hn2data, slurmNodes):
         for url in self.urls:
            zps = zlib.compress(cPickle.dumps((ts, slurmJobs, hn2data, slurmNodes), -1))
-           #print ("url=", url, ",", ts, ",", len(jobData))
            try:
                logger.debug("sendUpdate to {}".format(url))
                if not self.test_mode:
@@ -181,7 +182,6 @@ class FileWebUpdater(threading.Thread):
                else:
                   resp = 0
                logger.debug("{}:{}: sendUpdate to {} with return code {}".format(threading.currentThread().ident, MyTool.getTsString(ts), url, resp))
-               #print ( resp.code, resp.read(), file=sys.stderr)
            except Exception as e:
                logger.error( 'Failed to update slurm data {}: {}'.format(url, e))
 
@@ -206,18 +206,11 @@ if __name__=="__main__":
    parser = argparse.ArgumentParser (description='Start a deamon to save mqtt and pyslurm information in file and report to user interface.')
    parser.add_argument('-c', '--configFile',  help='The name of the config file.')
    args   = parser.parse_args()
-
    configFile   = args.configFile
-   if not configFile:
-      configFile = './config.json'
-   if os.path.isfile(configFile):
-      with open(configFile) as config_file:
-           config = json.load(config_file)
-      logLevel = eval(config['log'].get('level', 'logging.DEBUG'))
-      logger.setLevel (logLevel)
-      main(config['ui']['urls'], config['fileStorage']['dir'], config['fileStorage']['writeFile'], config['test'])
-   else:
-      print("Configuration file {} does not exist!".format(config_file))
+   if configFile:
+      config.readConfigFile(configFile)
+   cfg   = config.APP_CONFIG
+   main(cfg['ui']['urls'], cfg['fileStorage']['dir'], cfg['fileStorage']['writeFile'], cfg['test'])
 
  
 
