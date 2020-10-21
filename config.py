@@ -34,6 +34,18 @@ def fillDefSettings (conf):
        settings["part_avail"]        = {"node":10,"cpu":10,"gpu":10}
     return settings
 
+def getUser ():
+    if 'user' in cherrypy.session:
+       return cherrypy.session["user"];
+    else:
+       return None
+def getUserSettings (user):
+    filename = os.path.join(APP_DIR, 'config/{}_settings.json'.format(user))
+    if os.path.isfile(filename):
+       with open(filename) as setting_file:
+            return json.load(setting_file)
+    else:
+       return APP_CONFIG["settings"]
 def readConfigFile (configFile):
    configFile = os.path.join(APP_DIR, configFile)
    if os.path.isfile(configFile):
@@ -52,18 +64,11 @@ def addHttpLog (url):
     http_handler =  HTTPHandler(url, "/log")
     http_handler.setLevel(logging.ERROR)
     logger.addHandler (http_handler)
-    #h=logging.handlers.HTTPHandler("scclin011:8128", "/log", method='GET', secure=False, credentials=None, context=None)
+    #h=logging.handlers.HTTPHandler("scclin011:8126", "/log", method='GET', secure=False, credentials=None, context=None)
 
 readConfigFile('config/config.json')        #default config file
-addHttpLog    ("localhost:8128")
+addHttpLog    ('localhost:{}'.format(APP_CONFIG["port"]))
 
-def getUserSettings (user):
-    filename = os.path.join(APP_DIR, 'config/{}_settings.json'.format(user))
-    if os.path.isfile(filename):
-       with open(filename) as setting_file:
-            return json.load(setting_file)
-    else:
-       return APP_CONFIG["settings"]
 def getSetting(attr):
     if 'user' in cherrypy.session:
        return cherrypy.session["settings"][attr];
@@ -77,15 +82,15 @@ def getSettings():
 def savUserSettings (user, settings):
     filename = os.path.join(APP_DIR, 'config/{}_settings.json'.format(user))
     with open(filename, "w") as setting_file:
-        json.dumps(setting_file)
+        json.dump(settings, setting_file)
 def savConfig(cfg):
     filename = os.path.join(APP_DIR, 'config/config.json')
     with open(filename, "w") as setting_file:
         json.dumps(APP_CONFIG)
 def setSetting (key,settings):
     if 'user' in cherrypy.session:
-       cherry.session['settings'][key] = settings
-       savUserSettings (cherry.session['user'],cherry.session['settings'])
+       cherrypy.session['settings'][key] = settings
+       savUserSettings (cherrypy.session['user'],cherrypy.session['settings'])
     else:
        APP_CONFIG["settings"][key]= settings
 

@@ -2,8 +2,8 @@ import cherrypy
 import os,sys
 import config, queryLDAP
 from cherrypy.lib import auth_digest
-from SlurmMinitorUI   import SLURMMinitorUI
-from SlurmMinitorData import SLURMMinitorData
+from SlurmMonitorUI   import SLURMMonitorUI
+from SlurmMonitorData import SLURMMonitorData
 
 class HelloWorld(object):
     @cherrypy.expose
@@ -40,7 +40,7 @@ class HelloWorld1(object):
         return "Hello world1! {}".format(cherrypy.session.get('user','No user'))
 
 def validate_password(realm, username, passwd):
-    print("validate_password {}".format(username))
+    print("---validate_password {}".format(username))
     cherrypy.session['user']=username
     if queryLDAP.ldap_validate(username, passwd):
        # if user's setting file exist, get it, otherwise set to default one
@@ -53,9 +53,11 @@ def validate_password(realm, username, passwd):
 def error_page_500(status, message, traceback, version):
     return "Error %s - Well, I'm very sorry but the page your requested is not implemented!" % status
 
-#global config
-cherrypy.config.update({#'environment': 'production',
-                        'log.access_file':                '/tmp/slurm_util/testLDAP.log',
+
+if __name__ == '__main__':
+   #global config
+   cherrypy.config.update({#'environment': 'production',
+                        'log.access_file':                '/tmp/slurm_util/smcp_graph.log',
                         'log.screen':                     True,
 #                        'error_page.500':                error_page_500,
                         'tools.sessions.on':              True,
@@ -64,7 +66,7 @@ cherrypy.config.update({#'environment': 'production',
 #                        'tools.sessions.timeout':         1440,
                         'server.socket_host':             '0.0.0.0',
                         'server.socket_port':             config.APP_CONFIG['port']})
-conf = {
+   conf = {
     '/static': {
         'tools.staticdir.on': True,
         'tools.staticdir.dir': os.path.join(config.APP_DIR, 'public'),
@@ -79,23 +81,21 @@ conf = {
         'tools.staticfile.on': True,
         'tools.staticfile.filename': os.path.join(config.APP_DIR, 'public/images/sf.ico'),
     },
-}
-conf1 = {
+   }
+   conf1 = {
     '/static': {
         'tools.staticdir.on': True,
         'tools.staticdir.dir': os.path.join(config.APP_DIR, 'public'),
-    },
-    '/favicon.ico': {
-        'tools.staticfile.on': True,
-        'tools.staticfile.filename': os.path.join(config.APP_DIR, 'public/images/sf.ico'),
-    },
-}
+    }
+   }
 
-if __name__ == '__main__':
-    cherrypy.tree.mount(HelloWorld(),   '/', conf)
-    cherrypy.tree.mount(HelloWorld1(), '/1', conf1)
+   print("config={}".format(config.APP_CONFIG))
+   sm_data = SLURMMonitorData()
+   cherrypy.tree.mount(SLURMMonitorUI(sm_data), '/',     conf)
+   cherrypy.tree.mount(sm_data,                 '/data', conf1)
+   #cherrypy.tree.mount(HelloWorld(),   '/', conf)
+   #cherrypy.tree.mount(HelloWorld1(), '/1', conf1)
 
-    cherrypy.engine.start()
-    cherrypy.engine.block()
-    #cherrypy.quickstart(HelloWorld(), '/', conf)
-    #cherrypy.quickstart(WebMonitor.SLURMMonitor(), '/', conf)
+   #cherrypy.engine.signals.subscribe()
+   cherrypy.engine.start()
+   cherrypy.engine.block()
