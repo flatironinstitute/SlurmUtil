@@ -17,6 +17,7 @@ USER_PROC_IDX      = 7
 ONE_HOUR_SECS      = 3600
 ONE_DAY_SECS       = 86400
 logger             = config.logger
+DELAY_SECS         = 60
 
 @cherrypy.expose
 class SLURMMonitorData(object):
@@ -342,7 +343,7 @@ class SLURMMonitorData(object):
                       #total_node_mem  += MyTool.convert2K(node_tres['mem'])
                    else:
                       logger.error('ERROR: Node {} does not have mem {} in tres_fmt_str {}'.format(node, d, s))
-                else:
+                elif ts - job['start_time'] > DELAY_SECS : #allow 60 seconds delay
                    if jid not in self.jobNode2ProcRecord:
                       logger.error('ERROR: Job {} (start at {} on {}) is not in self.jobNode2ProcRecord'.format(jid, job['start_time'], job['nodes'])) 
                    else:

@@ -5,47 +5,11 @@ from cherrypy.lib import auth_digest
 from SlurmMonitorUI   import SLURMMonitorUI
 from SlurmMonitorData import SLURMMonitorData
 
-class HelloWorld(object):
-    @cherrypy.expose
-    def index(self):
-        if 'count' in cherrypy.session:
-           cherrypy.session['count'] += 1  
-        else:
-           cherrypy.session['count'] = 1
-        return "Hello world!"
-
-    @cherrypy.expose
-    def test(self):
-        if 'count' in cherrypy.session:
-           cherrypy.session['count'] += 1  
-        else:
-           cherrypy.session['count'] = 1
-        return '{} test {}'.format(cherrypy.session['user'], cherrypy.session['count'])
-
-    @cherrypy.expose
-    def test1(self):
-        if 'count' in cherrypy.session:
-           cherrypy.session['count'] += 1  
-        else:
-           cherrypy.session['count'] = 1
-        return '{} test1 {}'.format(cherrypy.session['user'], cherrypy.session['count'])
-
-class HelloWorld1(object):
-    @cherrypy.expose
-    def index(self):
-        if 'count' in cherrypy.session:
-           cherrypy.session['count'] += 1  
-        else:
-           cherrypy.session['count'] = 1
-        return "Hello world1! {}".format(cherrypy.session.get('user','No user'))
-
 def validate_password(realm, username, passwd):
-    print("---validate_password {}".format(username))
     cherrypy.session['user']=username
     if queryLDAP.ldap_validate(username, passwd):
        # if user's setting file exist, get it, otherwise set to default one
        cherrypy.session['settings'] = config.getUserSettings(username)
-       print("{} settings {}".format(username, cherrypy.session['settings']))
        return True
     else:
        return False
@@ -93,8 +57,6 @@ if __name__ == '__main__':
    sm_data = SLURMMonitorData()
    cherrypy.tree.mount(SLURMMonitorUI(sm_data), '/',     conf)
    cherrypy.tree.mount(sm_data,                 '/data', conf1)
-   #cherrypy.tree.mount(HelloWorld(),   '/', conf)
-   #cherrypy.tree.mount(HelloWorld1(), '/1', conf1)
 
    #cherrypy.engine.signals.subscribe()
    cherrypy.engine.start()

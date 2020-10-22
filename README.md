@@ -76,6 +76,7 @@ pip install cherrypy
 pip install paho-mqtt
 pip install influxdb
 pip install fbprophet
+pip install seaborn
 ```
 The installation of fbprophet includes pystan, pandas, matplotlib, ...
 May need to pip uninstall numpy; pip install numpy; to solve error of import pandas 

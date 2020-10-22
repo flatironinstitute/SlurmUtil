@@ -1,13 +1,12 @@
 <!doc type HTML>
 <html>
     <head>
-
         <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
         <script src="https://code.highcharts.com/highcharts.js"></script>
-
     </head>
-
+    <link rel="stylesheet" href="/static/css/style.css">
     <style>
+
 #result {
     text-align: right;
     color: gray;
@@ -17,24 +16,32 @@
 #table-sparkline {
     margin: 0 auto;
     border-collapse: collapse;
+    background-color: white;
 }
 
-a:link {                                                                                                                                                                     
+.tymor a:link {
     color: black;
-    text-decoration: none;                                                                                                                                                   
+    text-decoration: none;
 }    
 
-th {
+.tymor th {
     font-weight: bold;
     text-align: left;
 }
-td, th {
+.tymor tr {
+    background-color: white;
+}
+
+.tymor td, th {
     padding: 5px;
+    border-top:    none;
+    border-left:   none;
+    border-right:  none;
     border-bottom: 1px solid silver;
     height: 20px;
 }
 
-thead th {
+.tymor thead th {
     border-top: 2px solid gray;
     border-bottom: 2px solid gray;
 }
@@ -47,11 +54,16 @@ thead th {
 }
     </style>
     <body>
+        <div class="tab" id="tabmenu"></div>
 	<div id="result"></div>
-	<table id="table-sparkline">%(tablespark)s
+	<table id="table-sparkline" class="tymor">%(tablespark)s
 	</table>
 
     <script type="text/javascript">
+    //   $(function(){
+          $("#tabmenu").load("/getHeader?page=tymor2")
+    //   });
+
 /**
  * Create a constructor for sparklines that takes some sensible defaults and merges in the individual
  * chart options. This function is also available from the jQuery plugin as $(element).highcharts('SparkLine').
@@ -224,7 +236,7 @@ function doChunk() {
 
 	tooltip: {
                 formatter:  function(x) {
-		    console.log("x="+x);
+		    //console.log("x="+x);
 		    return function(){
 		    var row_index = Math.floor(x/4);
 		    var cells=document.getElementsByClassName("categories");

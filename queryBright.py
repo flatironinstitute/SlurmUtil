@@ -62,13 +62,13 @@ class BrightRestClient:
            q_str    = '{}/dump?entity={}&measurable={}&start=-{}m&epoch=1'.format(self.base_url,entities,measures,minutes)
                               #epoch: time stamp as unix epoch
         r     = requests.get(q_str, verify=False, cert=self.cert)
-        print("getAllGPU_raw return {}".format(r.json()))
+        #print("getAllGPU_raw return {}".format(r.json()))
         # divide raw data by node and gpu
         d     = defaultdict(lambda:defaultdict(list)) 
         for item in r.json()['data']:
             gpu_id   = item['measurable'].split(':')[1]  # remove gpu_utilization: gpu0, gpu1...
             d[gpu_id][item['entity']].append(item)
-        print("getAllGPU_raw len={}, took {}".format(len(r.json()['data']), time.time() - start))
+        #print("getAllGPU_raw len={}, took {}".format(len(r.json()['data']), time.time() - start))
         return ts, d
 
     def getRawAvg (seq, startTS, stopTS):

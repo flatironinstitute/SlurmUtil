@@ -1,12 +1,12 @@
-
-import glob, pwd, sys
-import os, re
+import glob, os, re, sys, time
 import pandas
-import MyTool
+import config, MyTool
 
 from datetime import datetime, date
-from random import randint
-from math import log
+from random   import randint
+from math     import log
+
+logger = config.logger
 
 FileSystems = {
     # Label displayed in web page, path to directory with summary data, suffix for appropriate summary data file
@@ -89,7 +89,7 @@ def gendata_fs_history(fs, start='', stop=''):
 
 def gendata_all(fs, start='', stop='', topN=5):
     if fs not in FileSystems: 
-       print("WARNING gendata_all: Unknown file system: {}".format(fs))
+       logger.warning("WARNING gendata_all: Unknown file system: {}".format(fs))
        return [], []
     dDict   = gendata_fs_history (fs, start, stop)
     if not dDict:
@@ -106,13 +106,13 @@ def gendata_all(fs, start='', stop='', topN=5):
     uid2seq1 = []  #{ uid: [(ts, value), ...], ...}
     for uid in sumDf1.head(n=topN).index.values:
         uidDf         = dfg.get_group(uid).reset_index()
-        uname         = MyTool.getUser(uid)
+        uname         = MyTool.getUser(uid, True)
         uid2seq1.append ({'name': uname, 'data': uidDf.loc[:,['ts','fc']].values.tolist()})
         
     uid2seq2 = []  #{ uid: [(ts, value), ...], ...}
     for uid in sumDf2.head(n=topN).index.values:
         uidDf         = dfg.get_group(uid).reset_index()
-        uname         = MyTool.getUser(uid)
+        uname         = MyTool.getUser(uid, True)
         uid2seq2.append ({'name': uname, 'data': uidDf.loc[:,['ts','bc']].values.tolist()})
         
     return uid2seq1, uid2seq2
@@ -134,7 +134,7 @@ def gendata_fs(yyyymmdd, fs, anon=False):
             break
     else: 
         me = len(ff)-1
-        print('gendata WARNING: Date {}:{} not found. Use most recent {} instead.'.format(fs, yyyymmdd, ff[me]))
+        logger.warning('gendata WARNING: Date {}:{} not found. Use most recent {} instead.'.format(fs, yyyymmdd, ff[me]))
         yyyymmdd = getDateFromFilename(dataDir, rge, ff[me])
 
     u2s = {}
@@ -163,10 +163,7 @@ def gendata_fs(yyyymmdd, fs, anon=False):
     r=[]
     for uid, v in u2s.items():
         if uid < 1000: continue
-        try:
-            uname = pwd.getpwuid(uid).pw_name
-        except:
-            uname = 'User_%d'%uid
+        uname = MyTool.getUser(uid, True)
 
         if anon: uname = anonimize(uname)
 
@@ -185,9 +182,17 @@ def test1(user):
     print("Test user {}'s history".format(user))
     print (gendata_user(user))
    
+def test2():
+    print("Test all's past 3 days history")
+    stop         = int(time.time())
+    start        = stop - 7*24*60*60
+    fcSer, bcSer = gendata_all('home', start, stop, 5)
+    print("fcSer={} \n\n bcSer={}".format(fcSer, bcSer))
+
 if '__main__' == __name__:
     #print (gendata(*sys.argv[1:]))
     #print (gendata_all(*sys.argv[1:], 2))
     #print (gendata_user(*sys.argv[1:]))
-    test1 (sys.argv[1])
+    #test1 (sys.argv[1])
+    test2 ()
 

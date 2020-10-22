@@ -5,7 +5,7 @@
        "db":   "slurmdb_1"
    },
    "ui": {
-       "urls": ["http://localhost:8126/updateSlurmData", "http://localhost:8126/data/updateSlurmData"]
+       "urls": ["http://localhost:8126/data/updateSlurmData"]
    },
    "fileStorage": {
        "dir":       "/mnt/ceph/users/yliu/mqtMonStreamRecord",
@@ -13,7 +13,8 @@
    },
    "log": {
        "level": "logging.INFO",
-       "mqttMonStream": "logging.DEBUG"
+       "mqttMonStream": "logging.DEBUG",
+       "mqttMon2Influx": "logging.DEBUG"
    },
    "email": {
        "flag": false

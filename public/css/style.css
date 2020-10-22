@@ -49,9 +49,6 @@ em.alarm, .slurminfo td.alarm, .slurminfo tr.alt td.alarm {
     background-color: #F65700;
 }
 
-em.inform, .slurminfo td.inform, .slurminfo tr.alt td.inform {
-    background-color: #21B2EA;
-}
 
 .slurminfo th {
     font-size: 1.1em;
@@ -369,4 +366,17 @@ th.sort:after{
 }
 th.sort_des:after{
    content: " 🔽 ";
+}
+p.home{
+   position: fixed;
+   right:    3em;
+}
+p.home:before{
+   //content:   "\2302\ ";
+   content:   "\1F3E0\ ";
+   color:     blue;
+   font-size: larger;
+}
+em.inform, .slurminfo td.inform, .slurminfo tr.alt td.inform, tr.inform {
+    background-color: #21B2EA;
 }

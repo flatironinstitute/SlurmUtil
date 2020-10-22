@@ -6,12 +6,15 @@ import logging
 import pyslurm
 import re, sys, time
 
-import MyTool
+import MyTool, config
 
 from collections import defaultdict
 from datetime import datetime
 from operator import attrgetter, itemgetter
 from querySlurm import SlurmCmdQuery
+
+logger   = config.logger
+#MyTool.getFileLogger('SlurmEntities', logging.DEBUG)  # use module name
 
 PEND_EXP={
     'QOSMaxCpuPerUserLimit': 'Will exceed QoS User CPU  limit ({max_cpu_user}). User {user} already alloc {curr_cpu_user}  CPUs in {partition}.', # QOS MaxTRESPerUser exceeded (CPU) 
@@ -199,9 +202,11 @@ class SlurmEntities:
          # get gpu on the parition
          p['total_gpus']  = MyTool.getTresDict(p['tres_fmt_str']).get('gres/gpu',0)
          if p['total_gpus']:
+            #logger.debug ("extendPartition {} total_gpus={}".format(p, p["total_gpus"]))
             part_gpus        = [self.getNodeGPUCount(self.node_dict[node]) for node in avail_nodes]  #only gpu in avail_nodes can be used
             avail_total_gpu  = sum([cnt[0] for cnt in part_gpus])
             used_gpu_cnt     = sum([cnt[1] for cnt in part_gpus])
+            logger.debug ("extendPartition avail_gpus={} used_gpus={}".format(avail_total_gpu, used_gpu_cnt))
             p['avail_gpus_cnt']  = avail_total_gpu - used_gpu_cnt
          else:
             p['avail_gpus_cnt']  = 0
@@ -354,12 +359,8 @@ class SlurmEntities:
       return len(avail_nodes), avail_cpus_cnt, avail_nodes, features, conflict_res
       
   # return list of partitions with fields, add attributes to partition_dict
-  def getPartitions(self, fields=['name', 'flag_shared', 'total_nodes', 'total_cpus', 'avail_nodes_cnt', 'avail_cpus_cnt', 'running_jobs', 'pending_jobs', 'total_gpus', 'avail_gpus']):
-    retList      = []
-    for name in sorted(self.partition_dict.keys()):
-        p = self.partition_dict[name]
-        retList.append(MyTool.sub_dict(p, fields))
-    return retList
+  def getPartitions(self):
+    return [self.partition_dict[name] for name in sorted(self.partition_dict.keys())]
 
   #TODO: consider OverPartQOS
   #return nodeLimit, cpuLimit, gresLimit
@@ -634,7 +635,7 @@ class SlurmEntities:
     higherJobs   = []
     rlt          = {}
     for jid in pendingJids:
-        print('---relaxQoS Job {}'.format(jid))
+        #print('---relaxQoS Job {}'.format(jid))
         job = self.job_dict[jid]
         uid = job['user'] if 'user' in job else job['user_id']
         if 'QOS' in job['state_reason'] and uid not in rlt.keys():  # if pending for QOS reason

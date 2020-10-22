@@ -170,8 +170,6 @@ class SlurmDBQuery:
 
     def getNodes (self):
         nodes = pyslurm.node().get()
-        #{'worker0001': {u'features': u'ib', u'weight': 1, u'energy': {u'current_watts': 0, u'consumed_energy': 0, u'base_watts': 0, u'previous_consumed_energy': 0, u'base_consumed_energy': 0}, u'cpus': 44, u'cpu_spec_list': [], u'owner': None, u'gres_drain': u'N/A', u'real_memory': 384000L, u'tmp_disk': 0, u'slurmd_start_time': 1544199176, u'features_active': u'ib', u'reason_time': None, u'mcs_label': None, u'sockets': 2, u'alloc_mem': 0L, u'state': u'REBOOT*', u'version': None, u'node_hostname': u'worker0001', u'partitions': [], u'power_mgmt': {u'cap_watts': None}, u'core_spec_cnt': 0, u'err_cpus': 0, u'reason': None, u'alloc_cpus': 0, u'threads': 1, u'boot_time': 1544198661, u'cores': 22, u'reason_uid': 0, u'node_addr': u'worker0001', u'arch': u'x86_64', u'name': u'worker0001', u'boards': 1, u'gres': [], u'free_mem': None, u'tres_fmt_str': u'cpu=44,mem=375G', u'gres_used': [u'gpu:0', u'mic:0'], u'mem_spec_limit': 0L, u'os': u'Linux', u'cpu_load': 2}, ...}
-
         return nodes
 
     #return jobs that run on node during [start, stop]
@@ -365,6 +363,13 @@ class PyslurmQuery():
     @staticmethod
     def getAllNodes ():
         return pyslurm.node().get()
+
+    @staticmethod
+    def getGPUNodes (pyslurmNodes):
+        #TODO: need to change max_gpu_cnt if no-GPU node add other gres
+        gpu_nodes   = [n_name for n_name, node in pyslurmNodes.items() if 'gpu' in node['features']]
+        max_gpu_cnt = max([len(pyslurmNodes[n]['gres']) for n in gpu_nodes])
+        return gpu_nodes, max_gpu_cnt
 
     @staticmethod
     def getUserCurrJobs (user_id, jobs=None):

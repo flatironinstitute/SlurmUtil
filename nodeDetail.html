@@ -48,6 +48,7 @@ $(document).ready(function(){{
 <div id="user" class="page-wrap">
 <h3>{node_name} : <font id='node_state'></font>  
    (<a href='nodeGraph?node={node_name}'>Usage Graph</a><font id='gpu_link'></font>)
+    <a href="./"><p class="home">Home</p></a>
 </h3>
 <h3 id="node_summary"></h3>
    <b>Jump to <a href='#sacct_history'>sacct report</a></b>
@@ -60,7 +61,7 @@ $(document).ready(function(){{
    <h3 id="summary"></h3>
 </div>
 <div id="div_sacct_report" class="page-wrap">
-   <h3>Jobs of Last 3 Days on Node</h3>
+   <h3 id="sacct_history">Jobs of Last 3 Days on Node</h3>
 </div>
 </body>
 

@@ -1,26 +1,19 @@
 #!/usr/bin/env python
 
-import argparse
-import json
-import logging
-import os.path
-import pdb
-import sys
-import threading
-import time
-import _pickle as cPickle
+import argparse, json, os.path, pdb, threading, time 
 
 from collections import defaultdict as DDict
-from datetime import datetime, timezone, timedelta
-from operator import itemgetter
+from datetime    import datetime, timezone, timedelta
+from operator    import itemgetter
 
 import influxdb
 import paho.mqtt.client as mqtt
 import pyslurm
 
-import EmailSender, MyTool, querySlurm
+import config, EmailSender, MyTool, querySlurm
 
-logger   = MyTool.getFileLogger('mqttMon2Influx', logging.DEBUG)  # use module name
+logger   = config.logger
+#MyTool.getFileLogger('mqttMon2Influx', logging.DEBUG)  # use module name
 
 # Maps a host name to a tuple (time, pid2info), where time is the time
 # stamp of the last update, and pid2info maps a pid to a dictionary of
@@ -45,9 +38,9 @@ class InfluxWriter (threading.Thread):
         try:
            logger.info  ("writeInflux {} pts".format(len(points)))
            if self.test_mode:
-              print("writeInflux {}\n".format(len(points)))
+              logger.info("writeInflux {}\n".format(len(points)))
               for idx in range(min(len(points),10)):
-                  print("{}".format(points[idx]))
+                  logger.info("{}".format(points[idx]))
               return True
            else:
               #ret = self.influx_client.write_points (points,  retention_policy=ret_policy, time_precision=t_precision, batch_size=BATCH_SIZE)
@@ -133,7 +126,7 @@ class MQTTReader (threading.Thread):
 
     def on_connect(self, client, userdata, flags, rc):
         #self.mqtt_client.subscribe("cluster/hostprocesses/worker1000")
-        #print ("on_connect with code %d." %(rc) )
+        #logger.info("on_connect with code %d." %(rc) )
         self.mqtt_client.subscribe("cluster/hostinfo/#")
         self.mqtt_client.subscribe("cluster/hostperf/#")
         self.mqtt_client.subscribe("cluster/hostprocesses/#")
@@ -610,7 +603,7 @@ def main(influxServer, influxDB, testMode=False):
        time.sleep (600)  # check every 10 minutes
 
 if __name__=="__main__":
-   #Usage: python mqtMon2Influx.py [influx_server]
+   #Usage: python mqtMon2Influx.py
    parser = argparse.ArgumentParser (description='Start a deamon to save mqtt and pyslurm information to InfluxDB.')
    #parser.add_argument('influxServer', help='The hostname of an InfluxDB server.')
    #parser.add_argument('-l', '--logfile',  help='The name of the logfile.')
@@ -620,20 +613,13 @@ if __name__=="__main__":
    print(args)
 
    configFile   = args.configFile
-   if not configFile:
-      configFile = './config.json'
-   if os.path.isfile(configFile):
-      with open(configFile) as config_file:
-           config = json.load(config_file)
-      print(config)
-      influxServer = config['influxdb']['host']
-      influxDB     = config['influxdb']['db']
-      logLevel     = eval(config['log'].get('level', 'logging.DEBUG'))
-      test         = config['test']
-      logger.setLevel (logLevel)
-      print("Start ... influxServer={}:{}, test={}".format(influxServer, influxDB, test))
-      main(influxServer, influxDB, test)
-   else:
-      print("Configuration file {} does not exist!".format(config_file))
+   if configFile:
+      config.readConfigFile(configFile)
+   cfg          = config.APP_CONFIG
+   influxServer = cfg['influxdb']['host']
+   influxDB     = cfg['influxdb']['db']
+   test         = cfg['test']
+   print("Start ... influxServer={}:{}, test={}".format(influxServer, influxDB, test))
+   main(influxServer, influxDB, test)
 
 

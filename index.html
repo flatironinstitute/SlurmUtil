@@ -3,7 +3,7 @@
 
 <head>
 <meta charset='UTF-8'>
-<title>Pending Jobs</title>
+<title>Tabular Summary</title>
 <link rel="stylesheet" href="/static/css/style.css">
 
 <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
@@ -12,6 +12,11 @@
 <script type="text/javascript" src="static/scripts/myTable.js"></script>
 <script type="text/javascript" src="static/scripts/myList.js"></script>
 <script type="text/javascript">
+const INTERVAL_REFRESH_SEC=600
+function timedRefresh(timeoutPeriod) {{
+   setTimeout("location.reload(true);",timeoutPeriod);  // no need to use setInterval
+}}
+window.onload = timedRefresh(INTERVAL_REFRESH_SEC * 1000);
 
 $(document).ready(function(){{
    //add menu

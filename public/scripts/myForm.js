@@ -6,7 +6,6 @@ function prepareDictData (data_dict, fields_dict)
     fields = Object.keys(fields_dict)
     f = fields.filter(function (k) {return data_dict.hasOwnProperty(k)})  //keep the order in fields
                // is different from the same named function in myList
-    console.log("---", f)
     return f.map(function (k) { return [fields_dict[k], data_dict[k], k] })
 }
 

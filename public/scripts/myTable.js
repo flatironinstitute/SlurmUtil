@@ -245,6 +245,7 @@ function getTypedValueHtml (d_value, d_type)
    return d_value;
 }
 
+//for summary table
 function getAlarmClass (d, key, alarm_list) {
    var classes = alarm_list.flatMap(function(alarm) {
                     if (key in alarm && (d[key] != undefined)) { 
@@ -260,29 +261,6 @@ function getAlarmClass (d, key, alarm_list) {
                     }
                     return []
                   })
-/*
-                       if (alarm.type == "alarm") {
-                          if (key.startsWith("rss")) {
-                             if (('node_mem_M' in d) && (d[key]/1024/1024/d.node_mem_M*100>alarm[key])) {
-                                return alarm.type;
-                             }
-                          } else if (key.includes("cpu") && ('alloc_cpus' in d) && (d[key]*100/d.alloc_cpus>alarm[key])) {
-                                return alarm.type;
-                          } else if (key.includes("gpu") && ('alloc_gpus' in d) && (d[key]*100/d.alloc_gpus>alarm[key]))
-                                return alarm.type;
-                       } else if (alarm.type == "inform") {
-                          if (key.startsWith("rss")) {
-                             if (('node_mem_M' in d) && (d[key]/1024/1024/d.node_mem_M*100<alarm[key]))
-                                return alarm.type;
-                          } else if (key.includes("cpu") && ('alloc_cpus' in d) && (d[key]*100/d.alloc_cpus<alarm[key])) {
-                                return alarm.type;
-                          } else if (key.includes("gpu") && ('alloc_gpus' in d) && (d[key]*100/d.alloc_gpus<alarm[key]))
-                                return alarm.type;
-                       }  // else return []
-                    }        
-                    return []
-                 }) 
-*/
    return classes
 }
 
@@ -304,7 +282,7 @@ function getTRHtml (d, titles_dict, type_dict) {
 var Summary_ALARM    =null      // a list 
 var Summary_TYPE_DICT=null      // a dict
 function createSummaryTable (data, titles_dict, table_id, parent_id, type_dict, summary_type, alarm_lst) {
-   console.log("createTable data=", data, ",titles=", titles_dict, ",type=", type_dict, ",alarm=", alarm_lst)
+   console.log("createSummaryTable data=", data, ",titles=", titles_dict, ",type=", type_dict, ",alarm=", alarm_lst)
    Summary_ALARM     = alarm_lst
    Summary_TYPE_DICT = type_dict   
    data.forEach (function(d) { d.html = getTRHtml (d, titles_dict, type_dict) });
@@ -604,11 +582,12 @@ function createTableHeader (table, titles_dict, rows) {
 }
 
 //data is a list of dict
-function createTable (data, titles_dict, table_id, parent_id, pre_data_func=prepareData, type_dict) {
-        console.log("createTable data=", data, ",pre_data_fun=", pre_data_func, ",type_dict=", type_dict)
+function createTable (data, titles_dict, table_id, parent_id, pre_data_func, type_dict) {
+        console.log("createTable table_id=", table_id, " data=", data, " titles_dict=", titles_dict, ",type_dict=", type_dict)
         var table         = d3.select('#'+parent_id).append('table').property('id', table_id);
 
-        pre_data_func (data)   //data is modified on site
+        if (pre_data_func != undefined)
+           pre_data_func (data)   //data is modified on site
         var rows = table.append('tbody').selectAll('tr')
                                .data(data).enter()
                                .append('tr')
@@ -618,6 +597,9 @@ function createTable (data, titles_dict, table_id, parent_id, pre_data_func=prep
                                   if ( d.data_group) return d.data_group_idx;})
                                .attr('data-group-cnt', function(d) {
                                   if ( d.data_group) return d.data_group_cnt;})
+                               .attr('class', function(d) {
+                                  if ( d.display_class) return d.display_class;})
+               
         rows.selectAll('td')
             .data(function (d) {
                 return Object.keys(titles_dict).map(function (k) {
@@ -648,9 +630,8 @@ function prepareData_pending (data) {
    var group
 
    data.forEach (function (d) {
-      //group = d.user+d.partition+d.state_reason;   // will collapse onto same group in the pending table
-                                                   // identical user ID, partition name, account, and QOS -> identical user ID, parition name
       group = d.user+d.partition+d.qos;   // will collapse onto same group in the pending table
+                                          // identical user ID, partition name, account, and QOS -> identical user ID, parition name
       if ( group != savGName) {
          // group changed, deal with saved ones
          savGroup.forEach(function (d) {

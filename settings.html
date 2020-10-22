@@ -16,7 +16,7 @@ $(document).ready(function(){{
    //add menu
     $("#tabmenu").load("/getHeader?page=settings")
 
-    var settings={config}.settings
+    var settings={settings}
     console.log(settings)
     var low_util_job =settings.low_util_job
     var low_util_node=settings.low_util_node
@@ -25,6 +25,7 @@ $(document).ready(function(){{
     var summary_high =settings.summary_high_util
     var heatmap_avg  =settings.heatmap_avg
     var heatmap_weight  =settings.heatmap_weight
+    var part_avail   =settings.part_avail
     var luj_label   ={{"cpu":"% CPU, ", "gpu":"% GPU, ", "mem":"% Mem, ", "run_time_hour":"Hours of Run Time, ", "alloc_cpus":"Min CPUs, ", "email":"Daily Reminder"}}
     var luj_type    ={{"cpu":"number",  "gpu":"number",  "mem":"number",  "run_time_hour":"number",              "alloc_cpus":"number",     "email":"checkbox"}}
     var nuj_label   ={{"cpu":"% CPU, ", "gpu":"% GPU, ", "mem":"% Mem, ", "alloc_time_min":"Min of Alloc Time"}}
@@ -40,14 +41,17 @@ $(document).ready(function(){{
     const ha_type     ={{"cpu":"number", "gpu":"number"}}
     const hw_label    ={{"cpu":" % CPU Util, ", "mem":" % Memory Util"}}
     const hw_type     ={{"cpu":"number", "mem":"number"}}
+    const pa_label    ={{"node":" % Avail Nodes, ", "cpu":" % Avail CPUs, ", "gpu":" % Avail GPUs"}}
+    const pa_type     ={{"node":"number", "cpu":"number", "gpu":"number"}}
     // first para is setting_key
     createFormInput ("low_util_job",     low_util_job,  luj_label, luj_type, "#low_util_job")
     createFormInput ("low_util_node",    low_util_node, nuj_label, nuj_type, "#low_util_node")
     createFormInput ("summary_column",   summary_table, sc_label,  sc_type,  "#summary_column")
-    createFormInput ("summary_low_util", summary_low,  slu_label, slu_type, "#summary_low_util")
-    createFormInput ("summary_high_util",summary_high, slu_label, slu_type, "#summary_high_util")
-    createFormInput ("heatmap_avg",      heatmap_avg,  ha_label, ha_type, "#heatmap_avg")
-    createFormInput ("heatmap_weight",   heatmap_weight, hw_label, hw_type, "#heatmap_weight")
+    createFormInput ("summary_low_util", summary_low,   slu_label, slu_type, "#summary_low_util")
+    createFormInput ("summary_high_util",summary_high,  slu_label, slu_type, "#summary_high_util")
+    createFormInput ("heatmap_avg",      heatmap_avg,   ha_label,  ha_type, "#heatmap_avg")
+    createFormInput ("heatmap_weight",   heatmap_weight,hw_label,  hw_type, "#heatmap_weight")
+    createFormInput ("part_avail",       part_avail,    pa_label,  pa_type, "#part_avail")
     $("form").submit(function (event) {{
                                  var values = $(this).serialize()
                                  console.log("event=", event, "inputs=", values);
@@ -89,6 +93,12 @@ $(document).ready(function(){{
   </form>
   <form id="heatmap_weight" action="./settings" method="post">
     <label class="title_short">Combined Util Weight: </label>
+  </form>
+</fieldset> </div>
+<div> <fieldset>
+  <legend>Pending Jobs Settings</legend>
+  <form id="part_avail" action="./settings" method="post">
+    <label class="title">Partition High Avail Display  <em class="inform">&nbsp &nbsp</em>: </label>
   </form>
 </fieldset> </div>
 </body>

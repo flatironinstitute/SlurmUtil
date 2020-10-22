@@ -59,7 +59,7 @@ if pidfilestale ${cm}_web_mqt.pid
 then
     while [[ 1 ]]
     do
-	python ${ScriptDir}/smcpgraph-html-sun.py ${WebPort} &
+	python ${ScriptDir}/sm_app.py &
 	pid=$!
 	echo ${pid} > ${cm}_web_mqt.pid
 	wait ${pid}
@@ -91,7 +91,7 @@ if pidfilestale ${cm}_monitor_mqt_influx.pid
 then
     while [[ 1 ]] 
     do
-	python ${ScriptDir}/mqtMon2Influx.py 2>&1 &
+	python ${ScriptDir}/mqttMon2Influx.py 2>&1 &
 	pid=$!
 	echo ${pid} > ${cm}_monitor_mqt_influx.pid
 	wait ${pid}

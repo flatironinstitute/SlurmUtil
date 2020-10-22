@@ -9,9 +9,10 @@ import influxdb
 from collections import defaultdict
 import MyTool
 import pdb
+import config
 
-with open('./config.json') as config_file:
-     APP_CONF = json.load(config_file)
+logger   = config.logger
+APP_CONF = config.APP_CONFIG
 
 class InfluxQueryClient:
     Interval = 61
@@ -193,9 +194,12 @@ class InfluxQueryClient:
         query   = "select * from autogen.cpu_jid_mon where jid='{}'".format(jid)  #jid is str type
         query   = self.extendQuery (query, start_time, stop_time, nodelist)
         results = self.query(query)
-        points  = list(results.get_points()) # lists of dictionaries
-        if fields:
-           points = list(map(lambda x:MyTool.sub_dict(x, fields,0), points))
+        if results:
+           points  = list(results.get_points()) # lists of dictionaries
+           if fields:
+              points = list(map(lambda x:MyTool.sub_dict(x, fields,0), points))
+        else:
+           points  = []
         return points
 
     #return the query result list of dictionaries
@@ -234,27 +238,28 @@ class InfluxQueryClient:
         query   = "select * from autogen.cpu_uid_mon where hostname = '{}'".format(node)
         query   = self.extendQuery (query, start_time, stop_time)
         results = self.query(query)
-        points  = list(results.get_points())
-        uid2seq = {}
-        for point in points: #points are sorted by point['time']
-            ts      = point['time']
-            uid     = point['uid']
-            if uid not in uid2seq: uid2seq[uid] = {}
-            if 'mem_rss_K' in point:
-               mem_rss_K = MyTool.getDictNumValue(point, 'mem_rss_K')
-            else:
-               mem_rss_K = int(MyTool.getDictNumValue(point, 'mem_rss') / 1024)
-            uid2seq[uid][ts] = [ MyTool.getDictNumValue(point, 'cpu_system_util') + MyTool.getDictNumValue(point, 'cpu_user_util'), 
+        if results:
+           points  = list(results.get_points())
+           uid2seq = {}
+           for point in points: #points are sorted by point['time']
+              ts      = point['time']
+              uid     = point['uid']
+              if uid not in uid2seq: uid2seq[uid] = {}
+              if 'mem_rss_K' in point:
+                 mem_rss_K = MyTool.getDictNumValue(point, 'mem_rss_K')
+              else:
+                 mem_rss_K = int(MyTool.getDictNumValue(point, 'mem_rss') / 1024)
+              uid2seq[uid][ts] = [ MyTool.getDictNumValue(point, 'cpu_system_util') + MyTool.getDictNumValue(point, 'cpu_user_util'), 
                                  MyTool.getDictNumValue(point, 'io_read_rate'),
                                  MyTool.getDictNumValue(point, 'io_write_rate'), 
                                  mem_rss_K]
 
-        if len(points)>0:
-           start_time = points[0]['time']
-           stop_time  = points[len(points)-1]['time']
-           return uid2seq, start_time, stop_time
-        else:
-           return None, start_time, stop_time
+           if len(points)>0:
+              start_time = points[0]['time']
+              stop_time  = points[len(points)-1]['time']
+              return uid2seq, start_time, stop_time
+
+        return None, start_time, stop_time
 
 
     # return list [[ts, run_time] ... ]
@@ -491,7 +496,7 @@ class InfluxQueryClient:
            print("ERROR: influxdb query exception {}, query={}, epoch={}".format(query, e, query, epoch))
            return None
 
-        print("INFO: influxdb query {} take time {}, return {} key and {} records".format(query, time.time()-t1, query_rlt.keys(), len(list(query_rlt.get_points()))))
+        logger.info("INFO: influxdb query {} take time {}, return {} key and {} records".format(query, time.time()-t1, query_rlt.keys(), len(list(query_rlt.get_points()))))
         return query_rlt
 
     def queryJobNodeProcess ():

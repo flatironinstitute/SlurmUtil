@@ -10,7 +10,7 @@ import MyTool
 
 from collections import defaultdict as DDict
 from IndexedDataFile import IndexedHostData
-from mqtMon2Influx import Node2PidsCache
+from mqttMon2Influx import Node2PidsCache
 
 logger   = config.logger        #use app name, report to localhost:8126/data/log
 #MyTool.getFileLogger('mqttMonStream', logging.DEBUG)  # use module name

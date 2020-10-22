@@ -125,9 +125,9 @@ def display_node_GPU(node_name):
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description='Collect GPU utilization data')
     parser.add_argument('-u', '--user', metavar='USER',        nargs="+", help='user name')
-    parser.add_argument('-j', '--jid',  metavar='N', type=int, nargs="+", help='job id')
-    parser.add_argument('-n', '--node', metavar='workerN',     nargs="+", help='node')
-    parser.add_argument('-t', '--hour', metavar='N', type=int, default=24, help='hours (default=24), used with node option')
+    parser.add_argument('-j', '--jid',  metavar='JOBID', type=int, nargs="+", help='job id')
+    parser.add_argument('-n', '--node', metavar='workerNode',     nargs="+", help='node')
+    #parser.add_argument('-t', '--hour', metavar='N', type=int, default=24, help='hours (default=24), used with node option')
     args = parser.parse_args()
     #print(args)
  
