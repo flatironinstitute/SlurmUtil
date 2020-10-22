@@ -359,7 +359,6 @@ function createSummaryTbody (tbody, allData, sortCol, titles_dict, type_dict, su
                       .html(function(d) {
                                return d.html});
    //console.log(rows)
-   //console.log("create td", Date.now())
 /*
    rows.selectAll('td')
        .data(function (d) {

@@ -343,7 +343,7 @@ class SLURMMonitorData(object):
                       #total_node_mem  += MyTool.convert2K(node_tres['mem'])
                    else:
                       logger.error('ERROR: Node {} does not have mem {} in tres_fmt_str {}'.format(node, d, s))
-                elif ts - job['start_time'] > DELAY_SECS : #allow 60 seconds delay
+                elif ts - job['start_time'] > DELAY_SECS*3 : #allow 60*3 seconds delay
                    if jid not in self.jobNode2ProcRecord:
                       logger.error('ERROR: Job {} (start at {} on {}) is not in self.jobNode2ProcRecord'.format(jid, job['start_time'], job['nodes'])) 
                    else:

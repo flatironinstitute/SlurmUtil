@@ -567,7 +567,7 @@ class SLURMMonitorUI(object):
            return 0
         #gpudata[gpuname][nodename]
         if nodename in job['gpus_allocated']:
-           return sum([gpudata['gpu{}'.format(idx)][nodename] for idx in job['gpus_allocated'][nodename]])
+           return sum([gpudata['gpu{}'.format(idx)].get(nodename,0) for idx in job['gpus_allocated'][nodename]])
         else:
            return 0
 
@@ -725,13 +725,14 @@ class SLURMMonitorUI(object):
            gpu_ts_d, gpu_jid2data  = BrightRestClient().getAllGPUAvg_jobs(gpu_detail, minutes)
            #logger.info('---index gpudata_d={}'.format(gpu_jid2data))
         data      = self.getSummaryTableData_1 (gpudata, gpu_jid2data)
-        update_ts = self.monData.updateTS
         alarms    = self.getSummaryUtilAlarm()
+        user      = config.getUser()
         htmltemp  = os.path.join(config.APP_DIR, 'index.html')
         h         = open(htmltemp).read().format(table_data =json.dumps(data), 
-                                                 update_time=MyTool.getTsString(update_ts),
+                                                 update_time=MyTool.getTsString(self.monData.updateTS),
                                                  column     =column,
-                                                 alarms     =json.dumps(alarms))
+                                                 alarms     =json.dumps(alarms),
+                                                 user       =json.dumps(user))
         return h
 
     def getJobAllocGPU (job, node_dict):
