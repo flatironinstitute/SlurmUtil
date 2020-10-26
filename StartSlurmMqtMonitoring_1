@@ -50,6 +50,7 @@ mkdir -p ${logDir}  || { echo "Failed to create support directory." ; exit 1 ; }
 
 pData="/mnt/ceph/users/yliu/tmp/mqtMonTest"
 pData="/mnt/home/yliu/projects/slurm/utils/mqtMonStreamRecord"
+pData="./mqtMonStreamRecord"
 mkdir -p  $(dirname ${pData}) || { echo "Failed to create support directory." ; exit 1 ; }
 
 # if changed, be sure to change mqt_urls as well.
