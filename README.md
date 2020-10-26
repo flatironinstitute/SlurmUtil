@@ -1,18 +1,18 @@
 # Slurm Utilites: monitoring tools and web interfaces
 
-This project is to monitor a slurm cluster and to provide a user interfaces to display the monitoring data.
+This project is to monitor a slurm cluster and to provide a set of user interfaces to display the monitoring data.
 
 ## Monitoring
 ### Pre-requirement
 On each node of the slurm cluster, a cluster_host_mon.py is running and reporting the monitored data (running processes' user, slurm_job_id, cpu, memory, io ...) to a MQTT server.
 ### Monitor Data
-We use Phao Python Client to subscribe to the MQTT server (mon5.flatironinstitute.org) and receive monitored data from it. The incoming data will be 
+We use Phao Python Client to subscribe to the MQTT server (mon5.flatironinstitute.org) and receive data from it. The incoming data will be 
 1) parsed and indexed; 
-2) saved to files at ${pData}/${hostname}_sm.p (data file) and ${hostname}_sm.px (index file); 
+2) saved to data file (${hostname}_sm.p) and index file (${hostname}_sm.px); 
 3) saved to InfluxDB (slurmdb1)
 3) updated to web interface (http://${webserver}:8126/updateSlurmData) to refresh the displayed data
 
-We also use pyslurm to retrieve data from slurm server periodically and save data to InfluxDB.
+We also use PySlurm to retrieve data from slurm server periodically and save the data to InfluxDB.
 
 ## Web Interface
 Web server is programmed using CherryPy. You can see an example of it at http://mon6:8126/
@@ -41,19 +41,15 @@ http://scclin011:8126/jobGraph?jobid=93585
 
 ## Getting Started
 
-These instructions will get you a copy of the project up and running on your local machine.  See deployment for notes on how to deploy the project on a live system.
-
-
 ### Prerequisites and Environment setup
+Use module to add needed packages and libraries.
+```
 module add slurm gcc/10.1.0 python3
-
 [yliu@scclin011 utils]$ module list
 Currently Loaded Modulefiles:
  1) slurm/18.08.8   2) gcc/10.1.0   3) python3/3.7.3  
-
 ```
-slurm configuration file at /etc/slurm/slurm.conf
-```
+Slurm is installed and slurm configuration file is at /etc/slurm/slurm.conf
 
 ####install pyslurm
 #####download pyslurm, untar,
