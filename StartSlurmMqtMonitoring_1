@@ -1,0 +1,88 @@
+#!/bin/bash
+
+pidfilestale () {
+    pidfile=$1
+    [[ -s ${pidfile} ]] || return 0
+    fdate=$(stat -c %Y ${pidfile})
+    pdate=$(date --date="$(ps -h --format lstart $(cat ${pidfile}) || echo Jan 1 1970 UTC)" +%s)
+    delta=$(( pdate - fdate ))
+    [[ -10 -lt delta ]] &&  [[ delta -lt 10 ]] && return 1
+    return 0
+}
+
+ScriptDir=$(readlink -f $(dirname $0))
+
+[[ -s /etc/slurm/slurm.conf ]] || { echo "No slurm.conf file." ; exit 1 ; }
+
+cm=$(grep ControlMachine /etc/slurm/slurm.conf)
+cm=${cm/ControlMachine=/}
+
+[[ -z ${cm+_} ]] && { echo "slurm.conf file lacks ControlMachine entry." ; exit 1 ; }
+
+# We use these mappings to ensure the same database is used when we failover the control machine.
+declare -A CMAliases=( [bcm1]=bcm [bcm2]=bcm [ironbcm1]=ironbcm [ironbcm2]=ironbcm )
+
+[[ ${CMAliases[${cm}]+_} ]] && cm=${CMAliases[${cm}]}
+
+#echo "cm=$cm"
+#if [[ $cm == "bcm" || $cm == "ironbcm" ]]
+#then
+    #    . ~carriero/slurmMe
+    # "borrowed" from module
+    CmSlurmRoot=/cm/shared/apps/slurm/current
+    export PATH=${CmSlurmRoot}/bin:$PATH
+    export PATH=${CmSlurmRoot}/sbin:$PATH
+    export LD_LIBRARY_PATH=${CmSlurmRoot}/lib64:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=${CmSlurmRoot}/lib64/slurm:$LD_LIBRARY_PATH
+    #echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+    PLHACK="LD_PRELOAD=${CmSlurmRoot}/lib64/slurm/libslurmfull.so"
+
+    # activate python virutal environment
+    . ~yliu/projects/slurm/utils/env_slurm18_python37/bin/activate
+    # This allows us to use the same data archive for bcm1 and bcm2
+#else
+#    export PATH=/mnt/xfs1/bioinfoCentos7/software/installs/python/2.7.9/bin:$PATH
+#fi
+echo "Using: $(which python)"
+
+logDir="/tmp/slurm_util"
+mkdir -p ${logDir}  || { echo "Failed to create support directory." ; exit 1 ; }
+
+pData="/mnt/ceph/users/yliu/tmp/mqtMonTest"
+pData="/mnt/home/yliu/projects/slurm/utils/mqtMonStreamRecord"
+mkdir -p  $(dirname ${pData}) || { echo "Failed to create support directory." ; exit 1 ; }
+
+# if changed, be sure to change mqt_urls as well.
+WebPort=8126
+
+if pidfilestale ${cm}_web_mqt.pid 
+then
+    while [[ 1 ]]
+    do
+	python ${ScriptDir}/sm_app.py &
+	pid=$!
+	echo ${pid} > ${cm}_web_mqt.pid
+	wait ${pid}
+	echo "Monitor returned: $(date). Restarting in 60 seconds."
+	sleep 60
+    done  > "smcpsun_${cm}_mqt_$(date +%Y%m%d_%T).log" 2>&1 &
+else
+    echo "web server is already running ($(cat ${cm}_web_mqt.pid))."
+fi
+
+if pidfilestale ${cm}_monitor_mqt.pid
+then
+    while [[ 1 ]] 
+    do
+#	python -m cProfile -o profile.log ${ScriptDir}/mqtMonStream.py ${pData} mqt_urls 2>&1 &
+	python ${ScriptDir}/mqttMonStream.py 2>&1 &
+	pid=$!
+	echo ${pid} > ${cm}_monitor_mqt.pid
+	wait ${pid}
+	echo "Monitor returned: $(date). Restarting in 60 seconds."
+	sleep 60
+    done  > "mms_${cm}_$(date +%Y%m%d_%T).log" 2>&1 &
+else
+    echo "monitor is already running ($(cat ${cm}_monitor_mqt.pid))."
+fi
+

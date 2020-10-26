@@ -51,11 +51,11 @@ Currently Loaded Modulefiles:
 ```
 Slurm is installed and slurm configuration file is at /etc/slurm/slurm.conf
 
-####install pyslurm
-#####download pyslurm, untar,
+### Install pyslurm
+#### Download pyslurm, untar,
 https://pypi.org/project/pyslurm/18.8.1.1/#history
 cd <pyslurm_source_dir>
-#####modify setup.py to set slurm directories
+####modify setup.py to set slurm directories
 SLURM_DIR = ""
 SLURM_LIB = ""
 SLURM_INC = ""
@@ -152,8 +152,9 @@ Influxdb running on localhost
 
 A step by step series of examples that tell you have to get a development env running.
 
-```
 Clone the repository to your local machine
+```
+git clone https://github.com/flatironinstitute/SlurmUtil.git
 ```
 
 Install Influxdb
