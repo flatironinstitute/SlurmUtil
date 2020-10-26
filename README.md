@@ -1,19 +1,21 @@
 # Slurm Utilites: monitoring tools and web interfaces
 
-This project is to keep monitoring tools and web interfaces for slurm jobs.
+This project is to monitor a slurm cluster and to provide a user interfaces to display the monitoring data.
 
 ## Monitoring
-Monitoring is achieved by subscribing to MQTT server (mon5.flatironinstitute.org) using Eclipse Phao python client. 
-
-The incoming messages will be 
+### Pre-requirement
+On each node of the slurm cluster, a cluster_host_mon.py is running and reporting the monitored data (running processes' user, slurm_job_id, cpu, memory, io ...) to a MQTT server.
+### Monitor Data
+We use Phao Python Client to subscribe to the MQTT server (mon5.flatironinstitute.org) and receive monitored data from it. The incoming data will be 
 1) parsed and indexed; 
-2) saved to local files at ${pData}/${hostname}_sm.p (data file) and ${hostname}_sm.px (index file); 
-3) updated to web interface (http://${webserver}:8126/updateSlurmData) to refresh the data
+2) saved to files at ${pData}/${hostname}_sm.p (data file) and ${hostname}_sm.px (index file); 
+3) saved to InfluxDB (slurmdb1)
+3) updated to web interface (http://${webserver}:8126/updateSlurmData) to refresh the displayed data
 
-Considering performance, we save incoming messages in InfluxDB (measurement slurmdb) and retrieve information from the measurement.
+We also use pyslurm to retrieve data from slurm server periodically and save data to InfluxDB.
 
 ## Web Interface
-Web server is hosted by CherryPy at http://${webserver}:8126/. You can see an example of it at http://scclin011:8126/
+Web server is programmed using CherryPy. You can see an example of it at http://mon6:8126/
 
 You can see different user interfaces at
 1) http://${webserver}:8126/,
@@ -197,4 +199,7 @@ cd /mnt/home/yliu/projects/slurm/utils
 . ./StartSlurmMqtMonitoring
 ```
 
+
+install fbprophet
+pip --use-feature=2020-resolver install python-dev-tools
 
