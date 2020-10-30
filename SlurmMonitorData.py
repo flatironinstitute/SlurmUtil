@@ -1,4 +1,4 @@
-import cherrypy, _pickle as cPickle, datetime, json, os
+import cherrypy, copy, _pickle as cPickle, datetime, json, os
 import logging, re, sys, time, zlib
 from collections import defaultdict 
 from functools import reduce
@@ -59,6 +59,7 @@ class SLURMMonitorData(object):
                savProcs[pid]['cpu_util_curr']= p[1]                    #bytes per sec
                savProcs[pid]['jid']          = p[9]                    
            else:
+             logger.warning("{}: no proc for job {} on node {}".format(ts, jobid, node))
              savProcs = defaultdict(lambda: defaultdict(int))
            self.jobNode2ProcRecord[jobid][node] = (ts, savProcs)  # modify self.jobNode2ProcRecord
            #remove done job
@@ -200,6 +201,13 @@ class SLURMMonitorData(object):
                jid       = gpu2jid[i]
                jobInfo   = self.currJobs[jid]
                gpu_alloc = [ 'gpu{}'.format(gpu_idx) for gpu_idx in jobInfo['gpus_allocated'].get(node_name,[])]
+               if node_name not in gpudata[gpu_name]:
+                  logger.error("gpudata not including {} -{}".format(node_name, gpudata[gpu_name]))
+               if node_name not in jobInfo['cpus_allocated']:
+                  logger.error("jobInfo not including {} -{}".format(node_name, jobInfo['cpus_allocated']))
+               tmp = gpudata[gpu_name][node_name]
+               tmp = jobInfo['cpus_allocated'][node_name]
+
                gpu_label = '{}_{}: gpu_util={:.1%}, job=({},{},{} cpu, {})'.format(node_name, gpu_name, gpudata[gpu_name][node_name], jid, MyTool.getUser(jobInfo['user_id']), jobInfo['cpus_allocated'][node_name], gpu_alloc)
             else:
                gpu_label = '{}_{}: state={}'.format(node_name, gpu_name, state_str)
@@ -476,24 +484,27 @@ class SLURMMonitorData(object):
                continue
   
             #set the value of self.data
-            self.data[node] = nInfo      #nInfo: status, delta, ts, procsByUser
-            if len(nInfo) > USER_INFO_IDX and nInfo[USER_INFO_IDX]:
-               for procsByUser in nInfo[USER_INFO_IDX:]:   #worker may has multiple users
-                                                           #user_name, uid, hn2uid2allocated.get(hostname, {}).get(uid, -1), len(pp), totIUA, totRSS, totVMS, procs, totIO, totCPU])
-                  #update the latest cpu_time for each proc
-                  if len(procsByUser) > USER_PROC_IDX and procsByUser[USER_PROC_IDX]:
-                     #09/09/2019, add jid to proc
-                     jids     = set([proc[9] for proc in procsByUser[USER_PROC_IDX]])
-                     jid2proc = defaultdict(list)
-                     for proc in procsByUser[USER_PROC_IDX]:  
-                         jid2proc[proc[9]].append(proc)
-                     for jid in jids:
-                         self.updateJobNode2ProcRecord (nInfo[2], jid, node, jid2proc[jid])  #nInfo[2] is ts
-            #TODO: total jids != self.node2jids[node]
-            elif 'ALLOCATED' in nInfo[0] or 'MIXED' in nInfo[0]: # no proc information reported
-               logger.info("{}({}), no proc information".format(node, nInfo[0]))
-               for jid in self.node2jids[node]: 
-                   self.updateJobNode2ProcRecord (nInfo[2], jid, node, [])  #nInfo[2] is ts
+            self.data[node] = nInfo                      #nInfo: status, delta, ts, procsByUser
+            if 'ALLOCATED' in nInfo[0] or 'MIXED' in nInfo[0]: # no proc information reported
+               jid2proc        = defaultdict(list)          #jid: [proc]
+               if len(nInfo) > USER_INFO_IDX and nInfo[USER_INFO_IDX]:
+                  for procsByUser in nInfo[USER_INFO_IDX:]: #worker may has multiple users, [user_name, uid, hn2uid2allocated.get(hostname, {}).get(uid, -1), len(pp), totIUA, totRSS, totVMS, procs, totIO, totCPU])
+                     if len(procsByUser) > USER_PROC_IDX and procsByUser[USER_PROC_IDX]:
+                        #09/09/2019, add jid to proc
+                        for proc in procsByUser[USER_PROC_IDX]:  
+                            jid2proc[proc[9]].append(proc)    #proc[9] is jid
+               else:
+                  logger.info("{}({}), no proc information for allocated node with jobs {}".format(node, nInfo[0], self.node2jids[node]))
+               #update the latest cpu_time for each proc
+               for jid in self.node2jids[node]:
+                  self.updateJobNode2ProcRecord (nInfo[2], jid, node, jid2proc[jid])  #nInfo[2] is ts
+               
+                        #jids     = set([proc[9] for proc in procsByUser[USER_PROC_IDX]])
+                        #for jid in jids:
+                        #    self.updateJobNode2ProcRecord (nInfo[2], jid, node, jid2proc[jid])  #nInfo[2] is ts
+            elif len(nInfo) > USER_INFO_IDX and nInfo[USER_INFO_IDX]:
+               logger.error("Proc reported for node {} in state {}".format(node, nInfo[0]))
+
                 
         self.addJobsAttr      (self.updateTS, self.currJobs)          #add attribute job_avg_util, job_mem_util, job_io_bps
         self.inMemCache.append(self.data, self.updateTS, self.pyslurmJobs)
@@ -713,6 +724,30 @@ class SLURMMonitorData(object):
         time_lst = [ d['cpu_time'] for d in self.jobNode2ProcRecord[jid][node][1].values() ]
 
         return sum(time_lst)
+
+    # return cpuUtil, rss, vms, iobps, len(job_proc), fds
+    def getJobUsageOnNode (self, jid, job, n_name, node):
+        uid = job['user_id']
+        if len(node) > USER_INFO_IDX:
+           #09/09/2019 add jid
+           #calculate each job's
+           user_proc = [userInfo for userInfo in node[USER_INFO_IDX:] if userInfo[1]==uid ]
+           if len(user_proc) != 1:
+              logger.warning("User {} has {} record on {}. Ignore".format(uid, len(user_proc), n_name))
+              return None, None, None, None, None, None
+
+           job_proc = [proc for proc in user_proc[0][7] if proc[9]==jid]
+           # summary data in job_proc
+           # [pid, CPURate, 'create_time', 'user_time', 'system_time', 'rss', vms, cmdline, IOBps, jid]
+           cpuUtil  = sum([proc[1]         for proc in job_proc])
+           rss      = sum([proc[5]         for proc in job_proc])
+           vms      = sum([proc[6]         for proc in job_proc])
+           iobps    = sum([proc[8]         for proc in job_proc])
+           fds      = sum([proc[10]        for proc in job_proc])
+           return cpuUtil, rss, vms, iobps, len(job_proc), fds
+        else:
+           logger.warning("Job {} has no proc record on node {}.".format(jid, n_name))
+           return 0, 0, 0, 0, 0, 0
 
     @cherrypy.expose
     def index(self):

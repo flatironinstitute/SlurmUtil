@@ -51,33 +51,71 @@ Currently Loaded Modulefiles:
 ```
 Slurm is installed and slurm configuration file is at /etc/slurm/slurm.conf
 
-### Install pyslurm
-#### Download pyslurm, untar,
-https://pypi.org/project/pyslurm/18.8.1.1/#history
-cd <pyslurm_source_dir>
-####modify setup.py to set slurm directories
+### Download and modify pyslurm source
+Download pyslurm and untar the zip file. Check https://pypi.org/project/pyslurm/18.8.1.1/#history for requirement.
+
+cd <pyslurm_source_dir> and modify setup.py to set slurm directories by modifying:
+```
 SLURM_DIR = ""
 SLURM_LIB = ""
 SLURM_INC = ""
+```
+Modify pyslurm source:
+In pyslurm/pyslurm.pyx, changed line 1901 to:
+```
+        self._ShowFlags = slurm.SHOW_DETAIL | slurm.SHOW_DETAIL2 | slurm.SHOW_ALL
+```
+Other changes:
+```
+2320a2321,2326
+>             gres_detail = []
+>             for x in range(min(self._record.num_nodes, self._record.gres_detail_cnt)):
+>                 gres_detail.append(slurm.stringOrNone(self._record.gres_detail_str[x],''))
+>                                    
+>             Job_dict[u'gres_detail'] = gres_detail
+> 
+5365a5372
+>                 JOBS_info[u'state_str'] = slurm.slurm_job_state_string(job.state)
+modify pyslurm to add state_reason_desc 02/27/2020
+2274                 Job_dict[u'state_reason_desc'] = self._record.state_desc.decode("UTF-8").replace(" ", "_")
+2199                 Job_dict[u'pack_job_id_set'] = slurm.stringOrNone(self._record.pack_job_id_set, '')
+```
+We will build and install pyslurm in python virtual environment later.
 
-Set up a python virutal environment:
+### Set up a python virutal environment:
+
 ```
 cd <dir>
 python3 -m venv env_slurm18_python37
 source ./env_slurm18_python37/bin/activate
+```
+
+#### Install pyslurm
+
+```
 pip install Cython
-cd <pyslurm_dir>
+cd <pyslurm_source_dir>
 python setup.py build install
+```
+
+#### Install fbprophet
+```
+pip install -I pystan=2.18 --no-cache
+pip install plotly
+pip install fbprophet --no-cache
+```
+The installation of fbprophet need to pip install -I pystan==2.18 first.
+The installation of fbprophet may need to pip uninstall numpy; pip install numpy; to solve error of import pandas 
 
 #install other packages
+```
 pip install cherrypy
+pip install holidays
 pip install paho-mqtt
 pip install influxdb
-pip install fbprophet
+pip install pandas
 pip install seaborn
 ```
-The installation of fbprophet includes pystan, pandas, matplotlib, ...
-May need to pip uninstall numpy; pip install numpy; to solve error of import pandas 
 
 Python virtual environment with packages:
 ```
@@ -116,22 +154,6 @@ wheel                         0.32.3
 zc.lockfile                   1.4       
 ```
 
-modify pyslurm installation:
-In pyslurm/pyslurm.pyx, changed line 1901 to:
-        self._ShowFlags = slurm.SHOW_DETAIL | slurm.SHOW_DETAIL2 | slurm.SHOW_ALL
-2320a2321,2326
->             gres_detail = []
->             for x in range(min(self._record.num_nodes, self._record.gres_detail_cnt)):
->                 gres_detail.append(slurm.stringOrNone(self._record.gres_detail_str[x],''))
->                                    
->             Job_dict[u'gres_detail'] = gres_detail
-> 
-5365a5372
->                 JOBS_info[u'state_str'] = slurm.slurm_job_state_string(job.state)
-modify pyslurm to add state_reason_desc 02/27/2020
-2274                 Job_dict[u'state_reason_desc'] = self._record.state_desc.decode("UTF-8").replace(" ", "_")
-2199                 Job_dict[u'pack_job_id_set'] = slurm.stringOrNone(self._record.pack_job_id_set, '')
-
 
 
 rebuild pyslurm
@@ -156,6 +178,7 @@ Clone the repository to your local machine
 ```
 git clone https://github.com/flatironinstitute/SlurmUtil.git
 ```
+(git pull to retrieve the update)
 
 Install Influxdb
 
@@ -196,7 +219,14 @@ cd /mnt/home/yliu/projects/slurm/utils
 . ./StartSlurmMqtMonitoring
 ```
 
-
+# set up cron job
+Run daily.sh every day to update data.
+```
+crontab -e
+00 04 * * * . /mnt/home/yliu/projects/slurm/utils/daily.sh
+```
 install fbprophet
+pip install pandas
+pip install fbprophet
 pip --use-feature=2020-resolver install python-dev-tools
 

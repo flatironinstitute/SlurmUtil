@@ -3,7 +3,7 @@
 import time
 t1=time.time()
 import os, requests, sys
-import MyTool
+import MyTool, config
 
 from collections import defaultdict
 from statistics  import mean   #fmean faster than mean, but not until 3.8
@@ -11,6 +11,7 @@ from statistics  import mean   #fmean faster than mean, but not until 3.8
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+logger  = config.logger
 class BrightRestClient:
     def __init__(self):
         #? use session
@@ -112,6 +113,7 @@ class BrightRestClient:
 
         rlt   = defaultdict(dict)
         for gpu, gpu_nodes in d.items():
+            logger.info("gpu_nodes.key={}".format(gpu_nodes.keys()))
             for node, seq in gpu_nodes.items():
                 # calculate average
                 rlt[gpu][node]  = BrightRestClient.getRawAvg(seq, ts-minutes*60, ts)

@@ -316,18 +316,18 @@ def str2dict (dict_str):
         d[k]     = v
     return d
 
-def getDFBetween(df, field, start, stop):
+def getDFBetween(df, field, start=None, stop=None):
     if start:
-        if (type(start) != int):
+        if type(start) != int:
            start = time.mktime(time.strptime(start, '%Y-%m-%d'))
         df    = df[df[field] >= start]
     if stop:
-        if (type(stop) != int):
+        if type(stop) != int:
            stop  = time.mktime(time.strptime(stop,  '%Y-%m-%d'))
         df    = df[df[field] <= stop]
     if not df.empty:
-        start = df.iloc[0][field]
-        stop  = df.iloc[-1][field]
+        start = df.iloc[0][field]      # first item
+        stop  = df.iloc[-1][field]     # last item
 
     return start, stop, df
 

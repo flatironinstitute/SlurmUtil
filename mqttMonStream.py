@@ -13,6 +13,7 @@ from IndexedDataFile import IndexedHostData
 from mqttMon2Influx import Node2PidsCache
 
 logger   = config.logger        #use app name, report to localhost:8126/data/log
+
 #MyTool.getFileLogger('mqttMonStream', logging.DEBUG)  # use module name
 
 # Maps a host name to a tuple (time, prePid2info), where time is the time
@@ -210,6 +211,9 @@ if __name__=="__main__":
    if configFile:
       config.readConfigFile(configFile)
    cfg   = config.APP_CONFIG
+   f_dir = cfg["fileStorage"]["dir"]
+   if f_dir and not os.path.isdir(f_dir):
+      os.mkdir(f_dir)
    main(cfg['ui']['urls'], cfg['fileStorage']['dir'], cfg['fileStorage']['writeFile'], cfg['test'])
 
  

@@ -273,12 +273,12 @@ class InfluxQueryClient:
             nodeDataDict[point['time']] = point['run_time']
         return nodeDataDict
     
-    def getSavedNodeHistory (self, filename='nodeHistory', days=3):
+    def getSavedNodeHistory (self, filename='nodeHistory', days=7):
         with open('./{}_{}.pickle'.format(filename, days), 'rb') as f:
              rltSet = pickle.load(f)
         return rltSet
         
-    def savNodeHistory      (self, filename='nodeHistory', days=3):
+    def savNodeHistory      (self, filename='nodeHistory', days=7):
         st,et  = MyTool.getStartStopTS (days=days)
         rltSet = self.getNodeHistory(st, et) 
         with open('./{}_{}.pickle'.format(filename, days), 'wb') as f:
@@ -324,16 +324,16 @@ class InfluxQueryClient:
 
         return ts2AllocNodeCnt, ts2MixNodeCnt, ts2IdleNodeCnt, ts2DownNodeCnt, ts2AllocCPUCnt, ts2MixCPUCnt, ts2IdleCPUCnt, ts2DownCPUCnt 
 
-    def getSavedJobRequestHistory (self, filename='jobRequestHistory', days=3):
-        with open('./{}_{}.pickle'.format(filename, days), 'rb') as f:
+    def getSavedJobRequestHistory (self, filename='jobRequestHistory', days=7):
+        with open('./data/{}_{}.pickle'.format(filename, days), 'rb') as f:
              rltSet = pickle.load(f)
        
         return rltSet 
 
-    def savJobRequestHistory      (self, filename='jobRequestHistory', days=3):
+    def savJobRequestHistory      (self, filename='jobRequestHistory', days=7):
         st,et  = MyTool.getStartStopTS (days=days)
         rltSet = self.getJobRequestHistory(st, et) 
-        with open('./{}_{}.pickle'.format(filename, days), 'wb') as f:
+        with open('./data/{}_{}.pickle'.format(filename, days), 'wb') as f:
              pickle.dump(rltSet, f)
   
     def getJobRequestHistory(self, st, et):
@@ -505,14 +505,8 @@ class InfluxQueryClient:
 def test():
     pass
  
-def daily():
-    app   = InfluxQueryClient()
-    app.savNodeHistory      (days=7)  # run in daily.sh
-    app.savJobRequestHistory(days=7)
-
 def main():
     t1=time.time()
-    daily()
     #start, stop = MyTool.getStartStopTS(days=3) 
     #app   = InfluxQueryClient()
     #start, stop, rlt   = app.getNodeJobProcData('worker1006',469406)

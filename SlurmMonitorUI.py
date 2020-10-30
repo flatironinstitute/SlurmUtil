@@ -7,7 +7,8 @@ from functools import reduce
 import fs2hc
 import pyslurm
 from queryInflux     import InfluxQueryClient
-from querySlurm      import SlurmCmdQuery, SlurmDBQuery, PyslurmQuery
+from querySlurm      import SlurmCmdQuery, PyslurmQuery
+from querySlurmDB    import SlurmDBQuery
 from queryTextFile   import TextfileQueryClient
 from queryBright     import BrightRestClient
 from IndexedDataFile import IndexedHostData
@@ -250,7 +251,7 @@ class SLURMMonitorUI(object):
     def accountReport_hourly(self, start='', stop=''):
         #sumDf index ['id_tres','acct', 'time_start'], 
         
-        start, stop, sumDf = self.querySlurmClient.getAccountUsage_hourly(start, stop)
+        start, stop, sumDf = SlurmDBQuery.getAccountUsage_hourly(start, stop)
 
         sumDfg      = sumDf.groupby('id_tres')
         tresSer     = {} # {1: [{'data': [[ms,value],...], 'name': uid},...], 2:...} 
@@ -293,21 +294,8 @@ class SLURMMonitorUI(object):
 
         return h
 
-    def getClusterUsageHourTable(self, start, stop):
-        #read from csv, TODO: deleted=0 for all data now
-        df               = pandas.read_csv("slurm_cluster_usage_hour_table.csv", names=['creation_time','mod_time','deleted','id_tres','time_start','count','alloc_secs','down_secs','pdown_secs','idle_secs','resv_secs','over_secs'], usecols=['id_tres','time_start','count','alloc_secs','down_secs','pdown_secs','idle_secs','resv_secs','over_secs'])
-        start, stop, df  = self.getDFBetween(df, 'time_start', start, stop)
-        df['total_secs'] = df['alloc_secs']+df['down_secs']+df['pdown_secs']+df['idle_secs']+df['resv_secs']
-        df               = df[df['count'] * 3600 == df['total_secs']]
-
-        #df               = df[df['alloc_secs']>0]
-
-        return start, stop, df
-
     @cherrypy.expose
     def clusterForecast_hourly(self, start='', stop='', chg_prior=0.5, period=720):
-        start, stop, df = self.getClusterUsageHourTable (start, stop)
-
         htmlTemp = os.path.join(config.APP_DIR, 'image.html')
         h = open(htmlTemp).read()
 
@@ -315,15 +303,13 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def accountForecast_hourly(self, start='', stop='', chg_prior=0.5, period=720):
-        start, stop, df = self.getClusterUsageHourTable (start, stop)
-
         htmlTemp = os.path.join(config.APP_DIR, 'acctImage.html')
         h = open(htmlTemp).read()
 
         return h
 
     @cherrypy.expose
-    def clusterHistory(self, start='', stop='', days=3):
+    def clusterHistory(self, start='', stop='', days=7):
         start, stop  = MyTool.getStartStopTS (start, stop)
 
         #influxClient = InfluxQueryClient.getClientInstance()
@@ -438,17 +424,16 @@ class SLURMMonitorUI(object):
     @cherrypy.expose
     def clusterReport_hourly(self, start='', stop='', action=''):
 
-        start, stop, df = self.getClusterUsageHourTable (start, stop)
-        
-        df['tdown_secs'] = df['down_secs']+df['pdown_secs']
-        df['ts_ms']      = df['time_start'] * 1000
+        start, stop, df = SlurmDBQuery.getClusterUsage_hourly(start, stop)
+        df['ts_ms']     = df['time_start'] * 1000
 
         #convert to highchart format, cpu, mem, energy (all 0, ignore)
         #get indexed of all cpu data, retrieve useful data
-        dfg    = df.groupby  ('id_tres')
-        cpuDf  = dfg.get_group(1)
-        memDf  = dfg.get_group(2)
-        eneDf  = dfg.get_group(3)
+        #TODO: hard coded
+        dfg        = df.groupby  ('id_tres')
+        cpuDf      = dfg.get_group(1)
+        memDf      = dfg.get_group(2)
+        eneDf      = dfg.get_group(3)
 
         cpu_alloc  = cpuDf[['ts_ms', 'alloc_secs']].values.tolist()
         cpu_down   = cpuDf[['ts_ms', 'tdown_secs']].values.tolist()
@@ -496,28 +481,6 @@ class SLURMMonitorUI(object):
     def getAllJobData(self):
         return '({},{})'.format(self.monData.updateTS, self.monData.allJobs)
 
-    def getJobUsageOnNode (self, jid, job, node):
-        job_uid = job['user_id']
-        if len(node) > USER_INFO_IDX:
-           #09/09/2019 add jid
-           #calculate each job's
-           user_proc = [userInfo for userInfo in node[USER_INFO_IDX:] if userInfo[1]==job_uid ]
-           if len(user_proc) != 1: 
-              logger.error("User {} has {} record on {}. Ignore".format(job_uid, len(user_proc), node))
-              return None, None, None, None, None, None
-
-           job_proc = [proc for proc in user_proc[0][7] if proc[9]==jid]
-           # summary data in job_proc
-           # [pid, CPURate, 'create_time', 'user_time', 'system_time', 'rss', vms, cmdline, IOBps, jid]
-           cpuUtil  = sum([proc[1]         for proc in job_proc])
-           rss      = sum([proc[5]         for proc in job_proc])
-           vms      = sum([proc[6]         for proc in job_proc])
-           iobps    = sum([proc[8]         for proc in job_proc])
-           fds      = sum([proc[10]        for proc in job_proc])
-           return cpuUtil, rss, vms, iobps, len(job_proc), fds
-        else:
-           return 0, 0, 0, 0, 0, 0
-
     def getSummaryTableData_1(self, gpudata, gpu_jid2data=None):
         lst_lst = self.getSummaryTableData (self.monData.data, self.monData.currJobs, self.monData.node2jids, self.monData.pyslurmNodes, gpudata, gpu_jid2data)
         # in self.currJobs, if gpus_allocated, then get the value
@@ -527,6 +490,10 @@ class SLURMMonitorUI(object):
     def getSummaryTableData(self, hostData, jobData, node2jobs, pyslurmNode, gpudata=None, gpu_jid2data=None):
         result    = []
         for node, nodeInfo in sorted(hostData.items()):
+            if node not in pyslurmNode:
+               logger.error("getSummaryTableData node {} not in pyslurmNode".format(node))
+               continue
+
             node_mem_M = pyslurmNode[node]['real_memory']
             if len(nodeInfo) < USER_INFO_IDX:
                logger.error("getSummaryTableData nodeInfo wrong format {}:{}".format(node, nodeInfo)) 
@@ -544,7 +511,7 @@ class SLURMMonitorUI(object):
                   if job_runTime < 0:
                      logger.warning("job {} rumTime <0 {}-{}".format(jid, ts, jobData[jid]['start_time']))
                   # check job proc information
-                  job_cpuUtil, job_rss, job_vms, job_iobyteps, job_procCnt, job_fds = self.getJobUsageOnNode(jid, jobData[jid], nodeInfo)
+                  job_cpuUtil, job_rss, job_vms, job_iobyteps, job_procCnt, job_fds = self.monData.getJobUsageOnNode(jid, jobData[jid], node, nodeInfo)
                   if job_procCnt and (job_runTime>0):     # has proc information
                      job_avg_cpu = self.monData.getJobNodeTotalCPUTime(jid, node) / job_runTime if jobData[jid]['start_time'] > 0 else 0 
                      job_info    = [node, status, delay, node_mem_M, jid, job_user, job_coreCnt, job_runTime, job_procCnt, job_cpuUtil, job_avg_cpu, job_rss, job_vms, job_iobyteps, job_fds]
@@ -659,6 +626,7 @@ class SLURMMonitorUI(object):
 
         avg_minute, weight   = self.getHeatMapSetting()
         gpu_nodes,max_gpu_cnt= PyslurmQuery.getGPUNodes(self.monData.pyslurmNodes)
+        logger.info ("gpu_nodes={}".format(gpu_nodes))
         gpu_ts, gpudata      = BrightRestClient().getAllGPUAvg (gpu_nodes, minutes=avg_minute["gpu"], max_gpu_cnt=max_gpu_cnt)
         workers,jobs,users   = self.getHeatmapData (gpudata, weight, avg_minute["cpu"])
         
