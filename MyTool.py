@@ -14,7 +14,7 @@ THREE_DAYS_SEC     = 3*24*3600
 ONEDAY_SECS       = 24*3600
 
 LOCAL_TZ   = timezone(timedelta(hours=-4))
-ORG_GROUPS = list(map((lambda x: grp.getgrnam(x)), ['genedata','cca','ccb','ccm', 'ccq', 'scc']))
+ORG_GROUPS = list(map((lambda x: grp.getgrnam(x)), ['genedata','cca','ccb','ccm','ccn','ccq', 'scc']))
     
 def getAllUsers():
     lst = pwd.getpwall()
