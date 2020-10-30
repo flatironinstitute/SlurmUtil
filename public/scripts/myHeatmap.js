@@ -2,13 +2,15 @@
 const     color_cnt   = 10
           colors      = ["#0d0dff", "#0d97ff", "#0dffff", "#0dff87","0dff0d","87ff0d", "ffff0d", "#ff870d","#ff5b5b", "red"], 
           
-          accounts    = ['cca', 'ccb', 'ccm', 'ccq', 'etc', 'other'],
-          redColor    = ["#fff5f5","#ffd0d0","#ffb6b6","#ff9c9c","#ff8282","#ff6868","#ff4e4e","#ff2727","#f30000","#cf0000"], 
-          purpleColor = ["#f5edfc","#e8d0ff","#dbb6ff","#cf9cff","#c282ff","#b568ff","#a84eff","#9527ff","#7a00f3","#6200cf"], 
-          greenColor  = ["#eaffea","#d0ffd0","#b6ffb6","#9cff9c","#82ff82","#68ff68","#4eff4e","#27ff27","#00f300","#00cf00"],
+          accounts    = ['cca', 'ccb', 'ccm', 'ccn', 'ccq', 'etc'],
+          //redColor    = ["#fff5f5","#ffd0d0","#ffb6b6","#ff9c9c","#ff8282","#ff6868","#ff4e4e","#ff2727","#f30000","#cf0000"], 
+          redColor    = ["#fff5f5","#ffd0d0","#ffb6b6","#ff9c9c","#ff8282","#ff6868","#ff4e4e","#ff2727","#f30000","#800000"], 
+          purpleColor = ["#f5edfc","#e8d0ff","#dbb6ff","#cf9cff","#c282ff","#b568ff","#a84eff","#9527ff","#7a00f3","#531a88"], 
+          greenColor  = ["#eaffea","#d0ffd0","#b6ffb6","#9cff9c","#82ff82","#68ff68","#4eff4e","#27ff27","#00f300","#008f11"],
           orangeColor = ["#fff5ea","#ffe8d0","#ffdbb6","#ffcf9c","#ffbb75","#ffa84e","#ff9527","#f37a00","#cf6800","#ab5600"],
           blueColor   = ["#eaf5ff","#d0e8ff","#b6dbff","#9ccfff","#82c2ff","#68b5ff","#4ea8ff","#2795ff","#007af3","#0068cf"],
-          acctColors  = {'cca': redColor, 'ccb': greenColor, 'ccm': orangeColor, 'ccn': blueColor, 'ccq': purpleColor, 'etc': blueColor, 'other': blueColor}
+          tealColor   = ["#e0ffff","#c2ffff","#94FFFF","#66FFFF","#0BFFFF","#00DCDC","#00AEAE","#008080","#175873","#05445E"],
+          acctColors  = {'cca': redColor, 'ccb': greenColor, 'ccm': orangeColor, 'ccn': tealColor, 'ccq': purpleColor, 'etc': blueColor}
 
 var colorScale = d3.scale.quantize()
               .domain([0, colors.length - 1, 1])
