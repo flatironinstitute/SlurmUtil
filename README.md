@@ -51,21 +51,18 @@ Set the settings to control the display of interfaces.
 11) http://${webserver}:8126/forecast,
 Forecast the cluster usage in the future.
 
-Throught the links embeded in the above user inferfaces, you can also see the detailed informaiton and resource usage of a specific worker node, job, user, partition and so on. Some examples are:
-http://scclin011:8126/jobDetails?jobid=93585
-http://scclin011:8126/jobGraph?jobid=93585
+Throught the links embeded in the above user inferfaces, you can also see the detailed informaiton and resource usage of a specific worker node, job, user, partition and so on. 
 
-## Getting Started
 
-### Shortcut for test run on a Simons Foundation machine
+## Shortcut for test run on a Simons Foundation machine
 You can have a test run using the existed python enironment and influxdb server.
 
-#### Download the repository from github
+### Download the repository from github
 ```
 git clone https://github.com/flatironinstitute/SlurmUtil.git
 ```
 
-#### Start the web server on your node
+### Start the web server on your node
 Check the configuration file at SlurmUtil/config/config.json. 
 
 ```
@@ -74,17 +71,18 @@ cd SlurmUtil
 ./StartSlurmMqtMonitoring_1
 ```  
 
+## Getting Started
 ### Prerequisites and Environment setup
+Slurm should be installed and slurm configuration file can be accessed at /etc/slurm/slurm.conf.
+
 Use module to add needed packages and libraries.
 ```
 module add slurm gcc/10.1.0 python3
-[yliu@scclin011 utils]$ module list
 Currently Loaded Modulefiles:
  1) slurm/18.08.8   2) gcc/10.1.0   3) python3/3.7.3  
 ```
-Slurm is installed and slurm configuration file is at /etc/slurm/slurm.conf
 
-### Download and modify pyslurm source
+### Download, modify and compile pyslurm
 Download pyslurm and untar the zip file. Check https://pypi.org/project/pyslurm/18.8.1.1/#history for requirement.
 
 cd <pyslurm_source_dir> and modify setup.py to set slurm directories by modifying:
