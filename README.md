@@ -15,27 +15,43 @@ We use Phao Python Client to subscribe to the MQTT server (mon5.flatironinstitut
 We also use PySlurm to retrieve data from slurm server periodically and save the data to InfluxDB.
 
 ## Web Interface
-Web server is programmed using CherryPy. You can see an example of it at http://mon6:8126/
+Web server is built using CherryPy. You can see an example of it at http://mon7:8126/
 
-You can see different user interfaces at
+The set of user interfaces includes:
 1) http://${webserver}:8126/,
 A tabular summary of the slurm worker nodes, jobs and users.
 
-2) http://${webserver}:8126/sunburst,
-A sunburst graph of the slurm partitions, users, jobs and worker nodes.
+2) http://${webserver}:8126/utilHeatmap,
+A heatmap graph of worker nodes' and gpus' utilization.
 
-3) http://${webserver}:8126/usageGraph,
-A chart showing the file usage of slurm users.
+3) http://${webserver}:8126/pending,
+A table of pending jobs and related information.
 
-4) http://${webserver}:8126/tymor,
-A tabular summary of slurm jobs
+4) http://${webserver}:8126/sunburst,
+A sunburst graph of the slurm accounts, users, jobs and worker nodes.
 
-4) http://${webserver}:8126/tymor2,
-A tabular summary of slurm jobs
+5) http://${webserver}:8126/usageGraph,
+A chart of the file and byte usage of users.
 
-You can also see the detailed informaiton and resource usage of a specific worker node or a running job. Some examples are:
-http://scclin011:8126/nodeDetails?node=worker1001
-http://scclin011:8126/nodeGraph?node=worker1001
+6) http://${webserver}:8126/tymor,
+A tabular summary of slurm jobs' load statistics.
+
+7) http://${webserver}:8126/bulletinboard,
+A set of tables including running jobs and allocated nodes with low resource utilization, errors reported from different components of the system, and etc.
+
+8) http://${webserver}:8126/report,
+Generate reports of the cluster resource usage.
+
+9) http://${webserver}:8126/search,
+Search the slurm entities' information.
+
+10) http://${webserver}:8126/settings,
+Set the settings to control the display of interfaces.
+
+11) http://${webserver}:8126/forecast,
+Forecast the cluster usage in the future.
+
+Throught the links embeded in the above user inferfaces, you can also see the detailed informaiton and resource usage of a specific worker node, job, user, partition and so on. Some examples are:
 http://scclin011:8126/jobDetails?jobid=93585
 http://scclin011:8126/jobGraph?jobid=93585
 
