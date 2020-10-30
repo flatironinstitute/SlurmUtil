@@ -109,8 +109,9 @@ class SLURMMonitorUI(object):
         for p in partLst:
             p['running_jobs'] = ' '.join(str(e) for e in p['running_jobs'])
             p['pending_jobs'] = ' '.join(str(e) for e in p['pending_jobs'])
-            if p['avail_nodes_cnt']*100/p['total_nodes'] > partS['node'] or p['avail_cpus_cnt']*100/p['total_cpus'] > partS['cpu'] or (p['total_gpus'] and p['avail_gpus_cnt']*100/p['total_gpus'] > partS['gpu']):
-               p['display_class'] = 'inform'
+            if p['total_nodes'] and p['total_cpus'] and p['total_gpus']:
+               if p['avail_nodes_cnt']*100/p['total_nodes'] > partS['node'] or p['avail_cpus_cnt']*100/p['total_cpus'] > partS['cpu'] or (p['total_gpus'] and p['avail_gpus_cnt']*100/p['total_gpus'] > partS['gpu']):
+                  p['display_class'] = 'inform'
         
         htmlTemp   = os.path.join(config.APP_DIR, 'pending.html')
         htmlStr    = open(htmlTemp).read().format(update_time       =MyTool.getTsString(ins.ts_job_dict),
