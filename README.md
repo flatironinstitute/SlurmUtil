@@ -57,6 +57,23 @@ http://scclin011:8126/jobGraph?jobid=93585
 
 ## Getting Started
 
+### Shortcut for test run on a Simons Foundation machine
+You can have a test run using the existed python enironment and influxdb server.
+
+#### Download the repository from github
+```
+git clone https://github.com/flatironinstitute/SlurmUtil.git
+```
+
+#### Start the web server on your node
+Check the configuration file at SlurmUtil/config/config.json. 
+
+```
+module add slurm gcc/10.1.0 python3
+cd SlurmUtil
+./StartSlurmMqtMonitoring_1
+```  
+
 ### Prerequisites and Environment setup
 Use module to add needed packages and libraries.
 ```
