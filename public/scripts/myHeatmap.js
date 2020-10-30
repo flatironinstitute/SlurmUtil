@@ -8,7 +8,7 @@ const     color_cnt   = 10
           greenColor  = ["#eaffea","#d0ffd0","#b6ffb6","#9cff9c","#82ff82","#68ff68","#4eff4e","#27ff27","#00f300","#00cf00"],
           orangeColor = ["#fff5ea","#ffe8d0","#ffdbb6","#ffcf9c","#ffbb75","#ffa84e","#ff9527","#f37a00","#cf6800","#ab5600"],
           blueColor   = ["#eaf5ff","#d0e8ff","#b6dbff","#9ccfff","#82c2ff","#68b5ff","#4ea8ff","#2795ff","#007af3","#0068cf"],
-          acctColors  = {'cca': redColor, 'ccb': greenColor, 'ccm': orangeColor, 'ccq': purpleColor, 'etc': blueColor, 'other': blueColor}
+          acctColors  = {'cca': redColor, 'ccb': greenColor, 'ccm': orangeColor, 'ccn': blueColor, 'ccq': purpleColor, 'etc': blueColor, 'other': blueColor}
 
 var colorScale = d3.scale.quantize()
               .domain([0, colors.length - 1, 1])
@@ -119,7 +119,7 @@ function createHeatMap(svg, data, acctColor, grpCnt, cntLine, gridSize, colorAtt
               .style("fill",  "gray");
           cards.transition().duration(1000)
               .style("fill", function(d) { var currColorS = getColorScale(d, acctColor)
-                                           //console.log ('currColorS=', currColorS, 'd=', d);
+                                           console.log ('currColorS=', currColorS, 'd=', d);
                                            if (d["stat"]==0) return "gray";
                                            else if (d["stat"]==-1) return "black";
                                            else return currColorS(d[colorAttr]); });
@@ -258,12 +258,13 @@ function getColorScale(d, useAccountColor) {
        else if ( d["acct"].length == 1 )
           currColorS  = colorScales["etc"]
        else {
+          //console.log("d[acct]", d["acct"])
           var i=1;
           for (i=1;i<d["acct"].length;i++) {
               if (d["acct"][0]!=d["acct"][i])
                  break;
           }
-          if (i==d["acct"].length)
+          if (i==d["acct"].length && d["acct"][0] in colorScales)
               currColorS  = colorScales[d["acct"][0]]
           else
               currColorS  = colorScales["etc"]

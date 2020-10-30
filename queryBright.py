@@ -62,6 +62,7 @@ class BrightRestClient:
            # intervals=0 (default, = raw data), that is  
            q_str    = '{}/dump?entity={}&measurable={}&start=-{}m&epoch=1'.format(self.base_url,entities,measures,minutes)
                               #epoch: time stamp as unix epoch
+        logger.info("query_str={}".format(q_str))
         r     = requests.get(q_str, verify=False, cert=self.cert)
         #print("getAllGPU_raw return {}".format(r.json()))
         # divide raw data by node and gpu
@@ -113,7 +114,6 @@ class BrightRestClient:
 
         rlt   = defaultdict(dict)
         for gpu, gpu_nodes in d.items():
-            logger.info("gpu_nodes.key={}".format(gpu_nodes.keys()))
             for node, seq in gpu_nodes.items():
                 # calculate average
                 rlt[gpu][node]  = BrightRestClient.getRawAvg(seq, ts-minutes*60, ts)

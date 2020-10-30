@@ -205,10 +205,8 @@ class SLURMMonitorData(object):
                   logger.error("gpudata not including {} -{}".format(node_name, gpudata[gpu_name]))
                if node_name not in jobInfo['cpus_allocated']:
                   logger.error("jobInfo not including {} -{}".format(node_name, jobInfo['cpus_allocated']))
-               tmp = gpudata[gpu_name][node_name]
-               tmp = jobInfo['cpus_allocated'][node_name]
-
-               gpu_label = '{}_{}: gpu_util={:.1%}, job=({},{},{} cpu, {})'.format(node_name, gpu_name, gpudata[gpu_name][node_name], jid, MyTool.getUser(jobInfo['user_id']), jobInfo['cpus_allocated'][node_name], gpu_alloc)
+               # sometimes, queryBright cannot get some gpu's data, in that case, use 0 
+               gpu_label = '{}_{}: gpu_util={:.1%}, job=({},{},{} cpu, {})'.format(node_name, gpu_name, gpudata[gpu_name].get(node_name,0), jid, MyTool.getUser(jobInfo['user_id']), jobInfo['cpus_allocated'][node_name], gpu_alloc)
             else:
                gpu_label = '{}_{}: state={}'.format(node_name, gpu_name, state_str)
             gpus[gpu_name] = {'label':gpu_label, 'state': gpu_state, 'job': jid}       
