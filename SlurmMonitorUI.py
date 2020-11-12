@@ -687,6 +687,7 @@ class SLURMMonitorUI(object):
         gpu_jid2data= None
         if 'gpu_util' in column: 
            gpu_nodes,max_gpu_cnt   = self.monData.getCurrJobGPUNodes()   
+           logger.info("max_gpu_cnt={},gpu_nodes={}".format(max_gpu_cnt, gpu_nodes))
            gpu_ts, gpudata         = BrightRestClient().getAllGPUAvg (gpu_nodes, minutes=5, max_gpu_cnt=max_gpu_cnt)
         if 'avg_gpu_util' in column:
            min_start_ts, gpu_detail= self.monData.getCurrJobGPUDetail()   #gpu_detail include job's start_time

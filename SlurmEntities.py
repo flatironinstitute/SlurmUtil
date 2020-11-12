@@ -56,7 +56,9 @@ class SlurmEntities:
     self.ts_job_dict    = py_job.lastUpdate()
     #self.res_future     = [res for res in pyslurm.reservation().get().values() if res['start_time']>time.time()]  # reservation in the future
     self.res_future     = []
-    for name,res in pyslurm.reservation().get().items():
+    r                   = pyslurm.reservation()   # slurm20: pyslurm.reservation().get() core dump
+    if r.ids():
+      for name,res in pyslurm.reservation().get().items():
         if res['start_time']>time.time():  # reservation in the future
            res['job_id']    = name          # just for simplicity
            self.res_future.append (res)

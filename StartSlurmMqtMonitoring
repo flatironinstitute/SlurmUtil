@@ -18,6 +18,7 @@ cm=$(grep ControlMachine /etc/slurm/slurm.conf)
 cm=${cm/ControlMachine=/}
 [[ -z ${cm+_} ]] && { echo "slurm.conf file lacks ControlMachine entry." ; exit 1 ; }
 
+echo "*"
 # We use these mappings to ensure the same database is used when we failover the control machine.
 #declare -A CMAliases=( [bcm1]=bcm [bcm2]=bcm [ironbcm1]=ironbcm [ironbcm2]=ironbcm )
 #[[ ${CMAliases[${cm}]+_} ]] && cm=${CMAliases[${cm}]}
@@ -31,7 +32,7 @@ cm=${cm/ControlMachine=/}
     PLHACK="LD_PRELOAD=${CmSlurmRoot}/lib64/slurm/libslurmfull.so"
 
     # activate python virutal environment
-    . /mnt/home/yliu/projects/slurm/utils/env_slurm18_python37/bin/activate
+    . /mnt/home/yliu/projects/slurm/utils/env_slurm20_python37/bin/activate
 echo "Using: $(which python)"
 
 logDir="./log"

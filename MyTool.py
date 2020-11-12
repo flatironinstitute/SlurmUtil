@@ -436,11 +436,19 @@ def getTresGPUCount (tres_str):
        return 0
     return int(m.group(1))
     
+#slurm 20 'gres': ['gpu:v100-16gb:2(S:0-1)'],  ['gpu:v100s-32gb:4']
+def getNodeGresStringGPUCount (gres_str):
+    m = re.search('gpu:(.+?):(\d+).*', gres_str)  #.+? match not greepy
+    if not m or not m.group(0):
+       return 0
+    return int(m.group(2))
+
 #node 'gres': ['gpu:k40c:1', 'gpu:k40c:1'], 'gres_used': ['gpu:k40c:2(IDX:0-1)', 'mic:0']
+#slurm 20: ['gpu:v100-16gb:2(S:0-1)']
 def getNodeGresGPUCount (gres_list):
     if not gres_list:
        return 0
-    gpu_total = sum([ 1 for g in gres_list if 'gpu:' in g])
+    gpu_total = sum([getNodeGresStringGPUCount(g) for g in gres_list if 'gpu:' in g])
     return gpu_total
 
 #['gpu:v100s-32gb:4(IDX:0-3)', 'mic:0']

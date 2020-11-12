@@ -35,12 +35,12 @@ if __name__ == '__main__':
         'tools.staticdir.on': True,
         'tools.staticdir.dir': os.path.join(config.APP_DIR, 'public'),
     },
-   '/': {
-       'tools.auth_basic.on': True,
-       'tools.auth_basic.realm': 'localhost',
-       'tools.auth_basic.checkpassword': validate_password,
-       'tools.auth_basic.accept_charset': 'UTF-8',
-    },
+#   '/': {
+#       'tools.auth_basic.on': True,
+#       'tools.auth_basic.realm': 'localhost',
+#       'tools.auth_basic.checkpassword': validate_password,
+#       'tools.auth_basic.accept_charset': 'UTF-8',
+#    },
     '/favicon.ico': {
         'tools.staticfile.on': True,
         'tools.staticfile.filename': os.path.join(config.APP_DIR, 'public/images/sf.ico'),

@@ -3,21 +3,19 @@
 This project is to monitor a slurm cluster and to provide a set of user interfaces to display the monitoring data.
 
 ## Monitoring
-### Pre-requirement
-On each node of the slurm cluster, a cluster_host_mon.py is running and reporting the monitored data (running processes' user, slurm_job_id, cpu, memory, io ...) to a MQTT server.
-### Monitor Data
-We use Phao Python Client to subscribe to the MQTT server (mon5.flatironinstitute.org) and receive data from it. The incoming data will be 
+On each node of the slurm cluster, a deamon cluster_host_mon.py is running and reporting the monitored data (running processes' user, slurm_job_id, cpu, memory, io ...) to a MQTT server (for example, mon5.flatironinstitute.org).
+
+A InfluxDB server (for example, worker1090.flatironinstitute.org) is set up to save data.
+
+In the monitoring server, we use Phao Python Client to subscribe to the MQTT server and receive data from it. We also use PySlurm to retrieve data from slurm server periodically. Theese incoming data will be 
 1) parsed and indexed; 
 2) saved to data file (${hostname}_sm.p) and index file (${hostname}_sm.px); 
-3) saved to InfluxDB (slurmdb1)
-3) updated to web interface (http://${webserver}:8126/updateSlurmData) to refresh the displayed data
-
-We also use PySlurm to retrieve data from slurm server periodically and save the data to InfluxDB.
+3) saved to a measurement (for example, slurmdb_1) in InfluxDB
+3) sent to the web interface (http://${webserver}:8126/updateSlurmData) to refresh the displayed data
 
 ## Web Interface
-Web server is built using CherryPy. You can see an example of it at http://mon7:8126/
+Web server is built using CherryPy. You can see an example of it at http://mon7:8126/. The set of user interfaces includes:
 
-The set of user interfaces includes:
 1) http://${webserver}:8126/,
 A tabular summary of the slurm worker nodes, jobs and users.
 
@@ -51,10 +49,9 @@ Set the settings to control the display of interfaces.
 11) http://${webserver}:8126/forecast,
 Forecast the cluster usage in the future.
 
-Throught the links embeded in the above user inferfaces, you can also see the detailed informaiton and resource usage of a specific worker node, job, user, partition and so on. 
+Through the links embeded in these user inferfaces, you can also see the detailed informaiton and resource usage of a specific worker node, job, user, partition and so on. 
 
-
-## Shortcut for test run on a Simons Foundation machine
+## Shortcut for a test run on a Simons Foundation machine
 You can have a test run using the existed python enironment and influxdb server.
 
 ### Download the repository from github
@@ -63,7 +60,13 @@ git clone https://github.com/flatironinstitute/SlurmUtil.git
 ```
 
 ### Start the web server on your node
-Check the configuration file at SlurmUtil/config/config.json. 
+Check the configuration file at SlurmUtil/config/config.json. Make sure "writeFile" is set to false. 
+```
+   "fileStorage": {
+       "dir":       "/mnt/ceph/users/yliu/mqtMonStreamRecord",
+       "writeFile": false
+   },
+```
 
 ```
 module add slurm gcc/10.1.0 python3
@@ -75,24 +78,39 @@ cd SlurmUtil
 ### Prerequisites and Environment setup
 Slurm should be installed and slurm configuration file can be accessed at /etc/slurm/slurm.conf.
 
-Use module to add needed packages and libraries.
+MQTT should be installed and the monitoring deamon (cluster_host_mon.py) should be installed on the nodes and report data to MQTT server. 
+
+You can module to add needed packages and libraries in SF environment.
 ```
 module add slurm gcc/10.1.0 python3
 Currently Loaded Modulefiles:
- 1) slurm/18.08.8   2) gcc/10.1.0   3) python3/3.7.3  
+ 1) slurm/20.02.5   2) gcc/10.1.0   3) python3/3.7.3  
 ```
 
-### Download, modify and compile pyslurm
-Download pyslurm and untar the zip file. Check https://pypi.org/project/pyslurm/18.8.1.1/#history for requirement.
+####Install InfluxDB
+For CentOS,
+```
+wget https://dl.influxdata.com/influxdb/releases/influxdb-1.8.1.x86_64.rpm
+sudo yum install influxdb-1.8.1.x86_64.rpm
+service influxdb start
+```
+By default, InfluxDB uses the following network ports:
+    TCP port 8086 is used for client-server communication over InfluxDB’s HTTP API
+    TCP port 8088 is used for the RPC service for backup and restore
+All port mappings can be modified through the configuration file, which is located at /etc/influxdb/influxdb.conf for default installations.
 
-cd <pyslurm_source_dir> and modify setup.py to set slurm directories by modifying:
+### Set up a python virutal environment:
 ```
-SLURM_DIR = ""
-SLURM_LIB = ""
-SLURM_INC = ""
+cd <dir>
+python3 -m venv env_slurm20_python37
+source ./env_slurm20_python37/bin/activate
 ```
+
+#### Install pyslurm
+Download pyslurm source from https://pypi.org/project/pyslurm/#history. Untar the downloaded zip file into <pyslurm_source_dir>.
+
 Modify pyslurm source:
-In pyslurm/pyslurm.pyx, changed line 1901 to:
+In pyslurm/pyslurm.pyx, changed line 1624 to:
 ```
         self._ShowFlags = slurm.SHOW_DETAIL | slurm.SHOW_DETAIL2 | slurm.SHOW_ALL
 ```
@@ -111,40 +129,34 @@ modify pyslurm to add state_reason_desc 02/27/2020
 2274                 Job_dict[u'state_reason_desc'] = self._record.state_desc.decode("UTF-8").replace(" ", "_")
 2199                 Job_dict[u'pack_job_id_set'] = slurm.stringOrNone(self._record.pack_job_id_set, '')
 ```
-We will build and install pyslurm in python virtual environment later.
 
-### Set up a python virutal environment:
-
-```
-cd <dir>
-python3 -m venv env_slurm18_python37
-source ./env_slurm18_python37/bin/activate
-```
-
-#### Install pyslurm
-
+Build and Install pyslurm:
 ```
 pip install Cython
 cd <pyslurm_source_dir>
-python setup.py build install
+python setup.py build --slurm=/cm/shared/apps/slurm/curr
+python setup.py install
 ```
+Note: need to  
+module rm python3
+source env_slurm20_python37/bin/activate
+python setup.py install
 
 #### Install fbprophet
 ```
-pip install -I pystan=2.18 --no-cache
+pip install -I pystan==2.18 --no-cache
 pip install plotly
 pip install fbprophet --no-cache
 ```
-The installation of fbprophet need to pip install -I pystan==2.18 first.
+Note: The installation of fbprophet need to pip install -I pystan==2.18 first.
 The installation of fbprophet may need to pip uninstall numpy; pip install numpy; to solve error of import pandas 
 
 #install other packages
 ```
 pip install cherrypy
-pip install holidays
 pip install paho-mqtt
 pip install influxdb
-pip install pandas
+pip install python-ldap
 pip install seaborn
 ```
 
@@ -186,12 +198,14 @@ zc.lockfile                   1.4
 ```
 
 
-
-rebuild pyslurm
+## Others:
+### Rebuild pyslurm
+```
 python setup.py build
 python setup.py install
 . env_slurm18/bin/activate
 pip install -e ../pyslurm
+```
 
 ```
 MQTT server running on mon5.flatironinstitute.org
@@ -210,14 +224,6 @@ Clone the repository to your local machine
 git clone https://github.com/flatironinstitute/SlurmUtil.git
 ```
 (git pull to retrieve the update)
-
-Install Influxdb
-
-```
-wget https://dl.influxdata.com/influxdb/releases/influxdb-1.5.3.x86_64.rpm
-sudo yum install influxdb-1.5.3.x86_64.rpm
-service influxdb start
-```
 
 ## Execute
 
@@ -254,7 +260,7 @@ cd /mnt/home/yliu/projects/slurm/utils
 Run daily.sh every day to update data.
 ```
 crontab -e
-00 04 * * * . /mnt/home/yliu/projects/slurm/utils/daily.sh
+00 07 * * * . /mnt/home/yliu/projects/slurm/utils/daily.sh >  /mnt/home/yliu/projects/slurm/utils/daily_$(date +%Y-%m-%d).log 2>&1
 ```
 install fbprophet
 pip install pandas

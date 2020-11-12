@@ -6,6 +6,7 @@ from functools import reduce
 import pandas
 
 from EmailSender     import JobNoticeSender
+from querySlurm      import PyslurmQuery
 
 import config
 import MyTool
@@ -275,15 +276,7 @@ class SLURMMonitorData(object):
         return rlt
 
     def getCurrJobGPUNodes (self):
-        return self.getJobGPUNodes(self.currJobs)
-
-    def getJobGPUNodes (self, jobs):
-        gpu_nodes   = reduce(lambda rlt, curr: rlt.union(curr), [set(job['gpus_allocated'].keys()) for job in jobs.values() if 'gpus_allocated' in job and job['gpus_allocated']], set())
-        if gpu_nodes:
-           max_gpu_cnt = max([len(self.pyslurmNodes[n]['gres'])  for n in gpu_nodes])
-        else:
-           max_gpu_cnt = 0
-        return gpu_nodes, max_gpu_cnt
+        return PyslurmQuery.getJobGPUNodes(self.currJobs, self.pyslurmNodes)
 
     def getCurrJobGPUDetail (self):
         return self.getJobGPUDetail(self.currJobs)

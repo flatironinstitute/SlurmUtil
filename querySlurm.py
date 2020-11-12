@@ -6,6 +6,8 @@ import os,re,subprocess
 import pyslurm
 import MyTool
 from datetime import date, timedelta
+from functools import reduce
+
 
 CSV_DIR          = "/mnt/home/yliu/projects/slurm/utils/data/"
 
@@ -186,7 +188,16 @@ class PyslurmQuery():
     def getGPUNodes (pyslurmNodes):
         #TODO: need to change max_gpu_cnt if no-GPU node add other gres
         gpu_nodes   = [n_name for n_name, node in pyslurmNodes.items() if 'gpu' in node['features']]
-        max_gpu_cnt = max([len(pyslurmNodes[n]['gres']) for n in gpu_nodes])
+        max_gpu_cnt = max([MyTool.getNodeGresGPUCount(pyslurmNodes[n]['gres']) for n in gpu_nodes])
+        return gpu_nodes, max_gpu_cnt
+
+    @staticmethod
+    def getJobGPUNodes (jobs, pyslurmNodes):
+        gpu_nodes   = reduce(lambda rlt, curr: rlt.union(curr), [set(job['gpus_allocated'].keys()) for job in jobs.values() if 'gpus_allocated' in job and job['gpus_allocated']], set())
+        if gpu_nodes:
+           max_gpu_cnt = max([MyTool.getNodeGresGPUCount(pyslurmNodes[n]['gres']) for n in gpu_nodes])
+        else:
+           max_gpu_cnt = 0
         return gpu_nodes, max_gpu_cnt
 
     @staticmethod
