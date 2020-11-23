@@ -31,7 +31,7 @@ cm=${cm/ControlMachine=/}
     PLHACK="LD_PRELOAD=${CmSlurmRoot}/lib64/slurm/libslurmfull.so"
 
     # activate python virutal environment
-    . /mnt/home/yliu/projects/slurm/utils/env_slurm18_python37/bin/activate
+    . /mnt/home/yliu/projects/slurm/utils/env_slurm20_python37/bin/activate
 echo "Using: $(which python)"
 
 logDir="./log"
