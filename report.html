@@ -35,7 +35,15 @@ $(document).ready(function(){{
         <button> Report </button></form>
   <form action="./userReport_hourly"> 
         Top <input name="top" id="top" size=2 value=5> 
-        Slurm Users Allocation Usage from   <input name="start" id="start" value="2017-10-05" type="date"> to <input name="stop" id="stop" value="" type="date">
+        Slurm Users Usage of <select id='acct' name='acct'>
+                                <option value="all">All</option>
+                                <option value="cca">CCA</option>
+                                <option value="ccb">CCB</option>
+                                <option value="ccm">CCM</option>
+                                <option value="ccn">CCN</option>
+                                <option value="ccq">CCQ</option>
+                                <option value="scc">SCC</option>
+                             </select> Account from <input name="start" id="start" value="2017-10-05" type="date"> to <input name="stop" id="stop" value="" type="date">
         <button> Report </button></form>
 </div>
 
@@ -82,9 +90,12 @@ $(document).ready(function(){{
         Node <input name="node" id="node" size=10>'s resource usage from <input name="start" id="start" type="date"> to <input name="stop" id="stop" value="" type="date"> <button> History</button></form>
 </div>
 <script>
-  today = new Date() 
-  console.log(today)
-  startDate = new Date(today.setMonth(today.getMonth()-6))
+  yesterday = new Date() 
+  yesterday.setDate(yesterday.getDate()-1)
+  $("input[name='stop'").val(yesterday.toISOString().split('T')[0])
+
+  startDate = new Date() 
+  startDate.setMonth(startDate.getMonth()-3)
   $("input[name='start'").val(startDate.toISOString().split('T')[0])
 </script>
 </body>

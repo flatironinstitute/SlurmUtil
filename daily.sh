@@ -7,4 +7,4 @@ cd /mnt/home/yliu/projects/slurm/utils/
 ./mysqldump.sh
 #generate csv and default forecast image files, default influx history
 python daily.py
-/cm/shared/apps/slurm/18.08.8/bin/sacctmgr list user -P -s >& /mnt/home/yliu/projects/slurm/utils/data/sacctmgr_assoc.csv
+/cm/shared/apps/slurm/current/bin/sacctmgr list user -P -s >& /mnt/home/yliu/projects/slurm/utils/data/sacctmgr_assoc.csv

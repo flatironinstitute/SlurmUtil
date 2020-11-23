@@ -405,7 +405,8 @@ class PyslurmReader (threading.Thread):
           node_dict= pyslurm.node().get()
           part_dict= pyslurm.partition().get()
           qos_dict = pyslurm.qos().get()
-          res_dict = pyslurm.reservation().get()
+          #res_dict = pyslurm.reservation().get()
+          res_dict = {}  #TODO: pyslurm reservation coredump ERROR
           #js_dict  = pyslurm.jobstep().get()
 
           #convert to points
@@ -430,7 +431,7 @@ class PyslurmReader (threading.Thread):
                  self.slurmQOS2point(ts, qname, qos, points)
               self.sav_qos_dict = qos_dict
 
-          if json.dumps(res_dict) != json.dumps(self.sav_res_dict):
+          if res_dict and (json.dumps(res_dict) != json.dumps(self.sav_res_dict)):
               for rname, res in res_dict.items():
                  self.slurmReservation2point(ts, rname, res, points)
               self.sav_res_dict = res_dict

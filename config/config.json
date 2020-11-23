@@ -2,7 +2,7 @@
    "port":  8126,
    "influxdb": {
        "host": "worker1090",
-       "db":   "slurmdb_1"
+       "db":   "slurmdb_2"
    },
    "ui": {
        "urls": ["http://localhost:8126/data/updateSlurmData"]

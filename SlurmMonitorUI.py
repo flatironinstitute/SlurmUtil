@@ -278,9 +278,11 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def userReport_hourly(self, start='', stop='', top=5):
+    def userReport_hourly(self, start='', stop='', top=5, acct='all'):
         # get top 5 user for each resource
-        tresSer  = self.querySlurmClient.getUserReport_hourly(start, stop, top)
+        if acct=='all':
+           acct = None
+        tresSer  = self.querySlurmClient.getUserReport_hourly(start, stop, int(top), acct)
         
         cpuLst   = tresSer[1]
         start    = min(cpuLst, key=(lambda item: (item['data'][0][0])))['data'][0][0]  /1000

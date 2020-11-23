@@ -92,6 +92,7 @@ For CentOS,
 ```
 wget https://dl.influxdata.com/influxdb/releases/influxdb-1.8.1.x86_64.rpm
 sudo yum install influxdb-1.8.1.x86_64.rpm
+
 service influxdb start
 ```
 By default, InfluxDB uses the following network ports:
