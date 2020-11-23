@@ -16,7 +16,8 @@ class BrightRestClient:
     def __init__(self):
         #? use session
         self.base_url  = "https://ironbcm:8081/rest/v1/monitoring/"
-        self.cert      = ('/mnt/home/yliu/projects/bright/prometheus.cm/cert.pem', '/mnt/home/yliu/projects/bright/prometheus.cm/cert.key')
+        #self.cert      = ('/mnt/home/yliu/projects/bright/prometheus.cm/cert.pem', '/mnt/home/yliu/projects/bright/prometheus.cm/cert.key')
+        self.cert      = ('./prometheus.cm/cert.pem', './prometheus.cm/cert.key')
   
     #r = requests.get('https://ironbcm:8081/rest/v1/monitoring/latest?measurable=gpu_utilization:gpu0', verify=False, cert=('/mnt/home/yliu/projects/bright/prometheus.cm/cert.pem', '/mnt/home/yliu/projects/bright/prometheus.cm/cert.key'))
     def getLatestGPU (self, gpuId='gpu0'): #TODO: use dump instead of latest to get latest value
