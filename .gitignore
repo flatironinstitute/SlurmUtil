@@ -1,0 +1,16 @@
+
+# Logs
+*.log
+*.log.*
+
+# Runtime data
+# pids
+*.pid
+*.pid.lock
+data/
+
+# Apple 
+*.DS_Store
+
+# Cache
+__pycache__/
