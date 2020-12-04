@@ -2,6 +2,7 @@
 # Logs
 *.log
 *.log.*
+!tmp/slurm_util/smcp_graph.log
 
 # Runtime data
 # pids
