@@ -23,5 +23,8 @@
    "email": {
        "flag": false
    },
+   "mqtt": {
+       "host":      "mon5.flatironinstitute.org"
+   },
    "test":  false
 }

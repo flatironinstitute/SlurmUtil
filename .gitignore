@@ -1,0 +1,17 @@
+
+# Logs
+*.log
+*.log.*
+!tmp/slurm_util/smcp_graph.log
+
+# Runtime data
+# pids
+*.pid
+*.pid.lock
+data/
+
+# Apple 
+*.DS_Store
+
+# Cache
+__pycache__/
