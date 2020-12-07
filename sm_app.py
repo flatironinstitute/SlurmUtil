@@ -21,10 +21,7 @@ def error_page_500(status, message, traceback, version):
 if __name__ == '__main__':
    #global config
    cherrypy.config.update({#'environment': 'production',
-<<<<<<< HEAD
 #                        'log.access_file':                '/tmp/slurm_util/smcp_graph.log',
-=======
->>>>>>> 4dbda7473e9593bcc73d94fc796a15dd4b0128dc
                         'log.access_file':                '',
                         'log.screen':                     True,
 #                        'error_page.500':                error_page_500,
