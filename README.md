@@ -78,9 +78,11 @@ cd SlurmUtil
 ### Prerequisites and Environment setup
 Slurm should be installed and slurm configuration file can be accessed at /etc/slurm/slurm.conf.
 
-MQTT should be installed and the monitoring deamon (cluster_host_mon.py) should be installed on the nodes and report data to MQTT server. 
+Bright should be installed and you should have certificates to access Bright api. The Bright configuration is in config/config.json under key "bright".
 
-You can module to add needed packages and libraries in SF environment.
+MQTT should be installed and the monitoring deamon (cluster_host_mon.py) should be installed on the nodes and report data to MQTT server. The access information is in config/config.json under key "mqtt".
+
+You can use module to add needed packages and libraries in SF environment.
 ```
 module add slurm gcc/10.1.0 python3
 Currently Loaded Modulefiles:
