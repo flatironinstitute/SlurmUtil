@@ -3,31 +3,26 @@
 import time
 t1=time.time()
 import os, requests, sys
-import MyTool, config
-
+import urllib3
 from collections import defaultdict
 from statistics  import mean   #fmean faster than mean, but not until 3.8
 
-import urllib3
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+import MyTool, config
 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logger  = config.logger
+url     = config.APP_CONFIG["bright"]["url"]
+cert_dir= config.APP_CONFIG["bright"]["cert_dir"]
+
 class BrightRestClient:
     def __init__(self):
         #? use session
-        self.base_url  = "https://ironbcm:8081/rest/v1/monitoring/"
+        self.base_url  = url
         #self.cert      = ('/mnt/home/yliu/projects/bright/prometheus.cm/cert.pem', '/mnt/home/yliu/projects/bright/prometheus.cm/cert.key')
         self.cert      = ('./prometheus.cm/cert.pem', './prometheus.cm/cert.key')
   
+    #latest compared with dump, dump, then average, is easier to get consistent result
     #r = requests.get('https://ironbcm:8081/rest/v1/monitoring/latest?measurable=gpu_utilization:gpu0', verify=False, cert=('/mnt/home/yliu/projects/bright/prometheus.cm/cert.pem', '/mnt/home/yliu/projects/bright/prometheus.cm/cert.key'))
-    def getLatestGPU (self, gpuId='gpu0'): #TODO: use dump instead of latest to get latest value
-        r = requests.get('https://ironbcm:8081/rest/v1/monitoring/latest?measurable=gpu_utilization:{}'.format(gpuId), verify=False, cert=self.cert)
-        j = r.json() #j['data'][0]={'age': 144.381, 'entity': 'workergpu00', 'measurable': 'gpu_utilization', 'raw': 0.0, 'time': 1580872073796, 'value': '0.0%'}
-        if j['data']:
-           d   = dict([(item['entity'], item['raw']) for item in j['data']])
-           return d
-        else:
-           return None
 
     def getNodeLatestGPU (self, node, gpuId='gpu0'):
         r = requests.get('https://ironbcm:8081/rest/v1/monitoring/latest?entity={}&measurable=gpu_utilization:{}'.format(node,gpuId), verify=False, cert=self.cert)
@@ -146,19 +141,6 @@ class BrightRestClient:
     def getNodeGPU (self, node, start_ts, gpu_list=[0,1,2,3]):
         return self.getGPU([node], start_ts, gpu_list)
 
-    #reture {'time': , 'gpu0':{'workergpu00':0.34 ... }, }
-    def getLatestAllGPU (self):
-        idx = 0
-        rlt = {'time': int(time.time())}
-        while True:
-           gpuId = 'gpu{}'.format(idx)
-           d = self.getLatestGPU(gpuId)
-           if d:
-              rlt[gpuId]=d
-              idx += 1
-           else:
-              return rlt
-           
     def getGPU (self, node_list, start_ts, gpu_list=[], max_gpu_id=3):
         nodes     = ','.join(node_list)
         if not gpu_list:
@@ -174,8 +156,6 @@ class BrightRestClient:
 
 def test1():
     client = BrightRestClient()
-    rlt    = client.getLatestAllGPU()
-    print(rlt)
 
 def test2(node, hours=1):
     client = BrightRestClient()

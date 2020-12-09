@@ -1,17 +1,34 @@
-
-# Logs
 *.log
 *.log.*
-!tmp/slurm_util/smcp_graph.log
-
-# Runtime data
-# pids
+*.note
+config/*_settings.json
+tmp*
+test*
+*.swo
+*.swp
+*.pyc
+offsetHistory*
+sav*
+*.sav
+*.rlt
+*.out
+*.sw*
+*.tmp
+*.dat
 *.pid
-*.pid.lock
-data/
-
-# Apple 
-*.DS_Store
-
-# Cache
-__pycache__/
+*.pdf
+public/scripts/old
+public/scripts/jquery-treetable-master*
+public/scripts/tablesorter-master*
+public/images/*.png
+mqtMonStreamRecord
+.gitignore
+.nfs*
+slurp*
+mqtMonTestFilesMod*
+monitor_env*
+mon7
+mysqldump-to-csv/*
+old/*
+data/*
+env_*

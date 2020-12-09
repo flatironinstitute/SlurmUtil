@@ -16,8 +16,15 @@
        "mqttMonStream": "logging.DEBUG",
        "mqttMon2Influx": "logging.DEBUG"
    },
+   "bright": {
+       "url":      "https://ironbcm:8081/rest/v1/monitoring/",
+       "cert_dir": "./prometheus.cm/"
+   },
    "email": {
        "flag": false
+   },
+   "mqtt": {
+       "host":      "mon5.flatironinstitute.org"
    },
    "test":  false
 }
