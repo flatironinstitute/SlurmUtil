@@ -279,6 +279,10 @@ p {
   }
 }
 
+.section__inner--fullwidth {
+  max-width: 90vw;
+}
+
 .section__inner--footer {
   display: flex;
   justify-content: space-between;

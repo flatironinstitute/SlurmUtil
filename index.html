@@ -48,14 +48,18 @@
     <div class="layout">
       <nav class="nav" id="navmenu"></nav>
       <div class="crumb__container" id="crumbmenu"></div>
-      <div id="summary">
-        <h3>
-          Cluster Nodes & Jobs (<small><a href="./clusterHistory?days=7">Cluster History</a></small
-          ><small id="user"></small>)
-        </h3>
-        <i>Update time: {update_time}</i>
-        <p>(Refreshed every 10 minutes automatically)</p>
-      </div>
+      <section class="section">
+        <div class="section__inner section__inner--full">
+          <div id="summary">
+            <h3>
+              Cluster Nodes & Jobs (<small><a href="./clusterHistory?days=7">Cluster History</a></small
+              ><small id="user"></small>)
+            </h3>
+            <i>Update time: {update_time}</i>
+            <p>(Refreshed every 10 minutes automatically)</p>
+          </div>
+        </div>
+      </section>
     </div>
   </body>
 </html>

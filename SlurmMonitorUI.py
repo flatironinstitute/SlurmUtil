@@ -680,8 +680,7 @@ class SLURMMonitorUI(object):
     @cherrypy.expose
     def getBreadcrumbs(self, path=None):
         crumbs='<div class="crumb__inner"><div class="crumb__content"><div class="crumbs">'
-
-        splitPath = path.split('/')
+        splitPath=path.split('/')
 
         for i in range (len(splitPath)):
             crumbs += '<a href="/" class="crumb">' + i + '</a>'
