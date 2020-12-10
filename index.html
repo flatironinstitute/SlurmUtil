@@ -1,9 +1,16 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Tabular Summary</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
+      rel="stylesheet"
+    />
+
     <link rel="stylesheet" href="/static/css/style2.css" />
+    <title>Tabular Summary</title>
 
     <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
     <script type="text/javascript" src="static/scripts/d3.v5.min.js"></script>
@@ -20,7 +27,8 @@
       $(document).ready(function(){{
          //add menu
           $("#navmenu").load("/getHeader?page=index");
-          $("#crumbmenu").load("/getBreadcrumbs?path=" + window.location.pathname);
+          $("#crumbmenu").load("/getBreadcrumbs?path=index");
+
           const displayName = {{'node':'Node', 'status':'Status', 'delay':'Delay', 'job':'Job',  'user':'User', 'alloc_cpus':'Alloc CPUs', 'proc_count':'Proc', 'cpu_util':'CPU Util', 'avg_cpu_util':'Avg CPU Util', 'rss':'RSS', 'vms':'VMS', 'io':'I/O Bps', 'fds':'Num Fds', 'alloc_gpus':'Alloc GPUs', 'gpu_util':'GPU Util', 'avg_gpu_util':'Avg GPU Util', 'run_time':'Run Time'}}
           const displayType = {{'node':'Node', 'delay':'Float', 'job':'JobAndStep', 'user':'User', 'alloc_cpus':'Int', 'proc_count':'Int', 'cpu_util':'Float', 'avg_cpu_util':'Float', 'rss':'Byte','vms':'Byte','io':'BigInt', 'fds':'Int', 'alloc_gpus':'Int', 'gpu_util':'Float', 'avg_gpu_util':'Float', 'run_time':'Int'}}     //default is string
           const summaryType = {{'delay':'avg', 'alloc_cpus':'total', 'proc_count':'total', 'cpu_util':'avg', 'avg_cpu_util':'avg', 'rss':'avg','vms':'avg','io':'avg','fds':'total', 'alloc_gpus':'total', 'gpu_util':'avg', 'avg_gpu_util':'avg', 'run_time':'avg'}}  //default is count
@@ -49,7 +57,7 @@
       <nav class="nav" id="navmenu"></nav>
       <div class="crumb__container" id="crumbmenu"></div>
       <section class="section">
-        <div class="section__inner section__inner--full">
+        <div class="section__inner section__inner--fullwidth">
           <div id="summary">
             <h3>
               Cluster Nodes & Jobs (<small><a href="./clusterHistory?days=7">Cluster History</a></small
@@ -60,6 +68,19 @@
           </div>
         </div>
       </section>
+      <section class="section section--footer">
+        <div class="section__inner section__inner--footer">
+          <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
+          <p class="hero__text hero__text--small" id="signature"></p>
+        </div>
+      </section>
     </div>
   </body>
+  <script>
+    const now = new Date();
+    const year = now.getFullYear();
+    const signature = `Flatiron Institute, ${year}`;
+    const sig = document.querySelector(`#signature`);
+    sig.innerHTML = signature;
+  </script>
 </html>

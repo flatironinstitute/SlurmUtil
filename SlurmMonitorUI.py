@@ -660,8 +660,8 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def getHeader(self, page=None):
-        pages =["index", "utilHeatmap", "pending", "sunburst",       "usageGraph", "tymor2", "bulletinboard", "report",   "forecast", "settings"]
-        titles=["Tabular Summary", "Host Util.",  "Pending Jobs", "Sunburst Graph", "File Usage","Tymor", "Bulletin Board", "Report", "Forecast", "Settings"]
+        pages =["index", "utilHeatmap", "pending", "sunburst", "usageGraph", "tymor2", "bulletinboard", "report",   "forecast", "settings"]
+        titles=["Summary", "Host Util.",  "Pending Jobs", "Sunburst Graph", "File Usage","Tymor", "Bulletin Board", "Report", "Forecast", "Settings"]
         result='<ul class="nav__inner">'
 
         for i in range (len(pages)):
