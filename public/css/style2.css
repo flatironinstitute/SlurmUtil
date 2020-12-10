@@ -371,3 +371,66 @@ p {
   position: relative;
   box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.1), 0 0 6px rgba(0, 0, 0, 0.18);
 }
+
+.slurminfo {
+  background: #fff;
+  box-shadow: 0 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.slurminfo > thead {
+  border-bottom: 2px solid var(--off-black);
+}
+
+.slurminfo > td .slurminfo > th {
+  padding: 8px 4px;
+  line-height: 1.7;
+}
+
+.slurminfo th {
+  position: sticky;
+}
+
+td.right {
+  text-align: right;
+}
+
+.slurminfo tr:nth-child(even) {
+  color: #000000;
+  background-color: #d7dceb;
+}
+
+.slurminfo tr.summary {
+  color: #000000;
+  background-color: #b7dceb;
+}
+.slurminfo tr.detail {
+  font-size: 0.95em;
+}
+.slurminfo tr.detail td {
+  padding-left: 1.2em;
+}
+.slurminfo th.sort {
+  background-color: blue;
+  font-size: 1.2em;
+}
+.slurminfo th.sort_des {
+  background-color: blue;
+  font-size: 1.2em;
+}
+
+.glyphicon {
+  float: right;
+}
+
+.glyphicon-triangle-top {
+  color: white;
+}
+.glyphicon-triangle-bottom {
+  color: white;
+}
+
+em.alarm,
+.slurminfo td.alarm,
+.slurminfo tr.alt td.alarm {
+  background-color: #c73407;
+}

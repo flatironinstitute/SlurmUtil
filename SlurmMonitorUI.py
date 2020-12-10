@@ -27,7 +27,7 @@ logger  = config.logger
 SACCT_WINDOW_DAYS  = 3 # number of days of records to return from sacct.
 USER_INFO_IDX      = 3
 USER_PROC_IDX      = 7
-WAIT_MSG           = 'No data received yet. Wait a minute and come back. '
+WAIT_MSG           = 'No data received yet. Please wait a minute and come back. '
 EMPTYDATA_MSG      = 'There is no data retrieved according to the constraints.'
 EMPTYPROCDATA_MSG  = 'There is no process data present in the retrieved data.'
 ONE_HOUR_SECS      = 3600
@@ -46,7 +46,7 @@ class SLURMMonitorUI(object):
         self.querySlurmClient= SlurmDBQuery()
         self.jobNoticeSender = JobNoticeSender()
         self.startTime       = time.time()
-        self.data            = 'No data received yet. Wait a minute and come back.'
+        self.data            = 'No data received yet. Please wait a minute and come back.'
         self.pyslurmNode     = None
 
     def getDFBetween(self, df, field, start, stop):
