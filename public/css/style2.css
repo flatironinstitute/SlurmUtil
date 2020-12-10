@@ -59,7 +59,7 @@ p {
 
 .hero {
   text-align: center;
-  background-image: url(/static/images/background-pattern.png), linear-gradient(141deg, #3690ff 0%, #8383ff 100%);
+  background-image: url(./background-pattern.png), linear-gradient(141deg, #3690ff 0%, #8383ff 100%);
   background-size: 70px, auto;
   clip-path: polygon(0 0, 100% 0%, 100% calc(100% - 100px), 0 100%);
   perspective: 500px;
@@ -141,7 +141,7 @@ p {
   height: auto;
   min-height: 100%;
   z-index: 1;
-  background-image: url(/static/images/background-pattern.png), linear-gradient(141deg, #3690ff 0%, #8383ff 100%);
+  background-image: url(./background-pattern.png), linear-gradient(141deg, #3690ff 0%, #8383ff 100%);
   background-size: 70px, auto;
 }
 
@@ -249,7 +249,7 @@ p {
 }
 
 .nav__link--search {
-  content: url(/static/images/search.svg);
+  content: url(./search.svg);
   height: 1.6rem;
   color: var(--off-black);
 }
@@ -263,7 +263,7 @@ p {
 }
 
 .section--footer {
-  background-image: url(/static/images/background-pattern.png), linear-gradient(141deg, #3690ff 0%, #8383ff 100%);
+  background-image: url(./background-pattern.png), linear-gradient(141deg, #3690ff 0%, #8383ff 100%);
   background-size: 70px, auto;
 }
 
