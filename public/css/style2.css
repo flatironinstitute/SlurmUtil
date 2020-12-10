@@ -26,6 +26,7 @@ body {
   background: white;
   font-size: 1.6rem;
   color: var(--off-black);
+  margin: 0;
 }
 
 .layout__container {
