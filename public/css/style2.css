@@ -29,6 +29,10 @@ body {
   margin: 0;
 }
 
+.layout {
+  min-height: calc(100vh - 80px);
+}
+
 .layout__container {
   min-height: calc(100vh - 40px);
   display: grid;
