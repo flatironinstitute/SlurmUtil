@@ -55,11 +55,24 @@
 
   <body>
     <div class="layout">
+      <div class="crumb__container">
+        <div class="crumb__inner">
+          <div class="crumb__content">
+            <div class="crumb__logo">
+              <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
+            </div>
+            <div class="crumbs" id="crumbmenu">
+              <!-- <a href="/" class="crumb hero__title--crumb">Home</a>
+              <a href="/" class="crumb">Things</a>
+              <a href="/" class="crumb">Worker1234</a> -->
+            </div>
+          </div>
+        </div>
+      </div>
       <nav class="nav" id="navmenu"></nav>
-      <div class="crumb__container" id="crumbmenu"></div>
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
-          <div id="summary">
+          <div class="section__div" id="summary">
             <h3>
               Cluster Nodes & Jobs (<small><a href="./clusterHistory?days=7">Cluster History</a></small
               ><small id="user"></small>)
