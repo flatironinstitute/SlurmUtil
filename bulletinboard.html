@@ -26,10 +26,6 @@
 
 
       $(document).ready(function(){{
-         //add menu
-         const thisPath = window.location.pathname;
-         $("#crumbmenu").load("/getBreadcrumbs?path=" + thisPath)
-         $("#navmenu").load("/getHeader?page=bulletinboard")
           var j_title    = {{'id':'Job', 'msg':'Message'}}
           var o_title    = {{'source':'Source', 'ts':'Time', 'msg':'Message'}}
           var type       = {{'id':'JobAndStep', 'ts':'Time'}}
@@ -60,31 +56,31 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
-            <div class="page-wrap">
+            <div class="block">
               <h2>Bulletin Board</h2>
               <p>(Refreshed every 10 minutes automatically)</p>
             </div>
-            <div class="page-wrap">
-              <h3 class="table_title">Running Jobs with Low Resource Utilization:</h3>
-              <div id="low_util">
+            <div class="block">
+              <h3 class="table__title">Running Jobs with Low Resource Utilization:</h3>
+              <div class="table__subtitle" id="low_util">
                 <i>Update time: {low_util_ts}</i>
               </div>
             </div>
-            <div class="page-wrap">
+            <div class="block">
               <h3 class="table_title">Alloc Nodes with Low Resource Utilization:</h3>
-              <div id="low_node">
+              <div class="table__subtitle" id="low_node">
                 <i>Update time: {low_util_ts}</i>
               </div>
             </div>
-            <div class="page-wrap">
-              <h3 class="table_title">QoS Relaxation for Pending Jobs to Run:</h3>
-              <div id="qos_relax">
+            <div class="block">
+              <h3 class="table__title">QoS Relaxation for Pending Jobs to Run:</h3>
+              <div class="table__subtitle" id="qos_relax">
                 <i>Update time: {qos_relax_ts}</i>
               </div>
             </div>
-            <div class="page-wrap">
-              <h3 class="table_title">Other:</h3>
-              <div id="other">
+            <div class="block">
+              <h3 class="table__title">Other:</h3>
+              <div class="table__subtitle" id="other">
                 <i>Update time: </i>
               </div>
             </div>
@@ -98,5 +94,10 @@
         <p class="hero__text hero__text--small" id="signature"></p>
       </div>
     </footer>
+    <script>
+      const thisPath = window.location.pathname;
+      $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+      $('#navmenu').load('/getHeader?page=bulletinboard');
+    </script>
   </body>
 </html>

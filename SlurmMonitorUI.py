@@ -679,7 +679,7 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def getBreadcrumbs(self, path=None):
-        crumbs='<a href="/" class="crumb hero__title--crumb">Home<a>'
+        crumbs='<a href="/" class="crumb hero__title--crumb">Home</a>'
         # TODO: Add function to parse worker and job route
 
         # splitPath=path.split('/')
