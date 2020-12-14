@@ -1,11 +1,16 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Bulletin Board</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
+      rel="stylesheet"
+      />
     <link rel="stylesheet" href="/static/css/normalize.css" />
     <link rel="stylesheet" href="/static/css/style2.css" />
-
+    <title>Tabular Summary</title>
     <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
     <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
     <script type="text/javascript" src="static/scripts/myFunc.js"></script>
@@ -19,7 +24,7 @@
       window.onload = timedRefresh(INTERVAL_REFRESH * 1000);
 
 
-      $(document).ready(function(){{
+      $(document).ready(() => {
          //add menu
           $("#tabmenu").load("/getHeader?page=bulletinboard");
           $("#crumbmenu").load("/getBreadcrumbs?path=index");
@@ -33,49 +38,47 @@
           createTable  ({qos_relax},  {{'user':'User', 'msg':'Message'}}, 'qos_relax_table', 'qos_relax', undefined, {{'user':'UserName'}})
           createTable  ({other},      o_title,  'other_table',     'other',     undefined, type)
           collapseTitle ()
-      }})
+      });
     </script>
   </head>
-
   <body>
     <div class="layout">
-      <div class="crumb__container">
-        <div class="crumb__inner">
-          <div class="crumb__content">
-            <div class="crumb__logo">
-              <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
-            </div>
-            <div class="crumbs" id="crumbmenu"></div>
+    <div class="crumb__container">
+      <div class="crumb__inner">
+        <div class="crumb__content">
+          <div class="crumb__logo">
+            <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
           </div>
+          <div class="crumbs" id="crumbmenu"></div>
         </div>
       </div>
       <nav class="nav" id="navmenu"></nav>
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="summary">
-            <div class="page-wrap">
+            <div class="block">
               <h2>Bulletin Board</h2>
               <p>(Refreshed every 10 minutes automatically)</p>
             </div>
-            <div class="page-wrap">
+            <div class="block">
               <h3 class="table_title">Running Jobs with Low Resource Utilization:</h3>
               <div id="low_util">
                 <i>Update time: {low_util_ts}</i>
               </div>
             </div>
-            <div class="page-wrap">
+            <div class="block">
               <h3 class="table_title">Alloc Nodes with Low Resource Utilization:</h3>
               <div id="low_node">
                 <i>Update time: {low_util_ts}</i>
               </div>
             </div>
-            <div class="page-wrap">
+            <div class="block">
               <h3 class="table_title">QoS Relaxation for Pending Jobs to Run:</h3>
               <div id="qos_relax">
                 <i>Update time: {qos_relax_ts}</i>
               </div>
             </div>
-            <div class="page-wrap">
+            <div class="block">
               <h3 class="table_title">Other:</h3>
               <div id="other">
                 <i>Update time: </i>
