@@ -1,220 +1,221 @@
 <html>
-<!DOCTYPE html>
+  <!DOCTYPE html>
 
-<head>
-<title>Sunburst Graph</title>
-<link rel="stylesheet" href="/static/css/style.css">
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <head>
+    <title>Sunburst Graph</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
 
-<meta charset="utf-8">
-<style>
-  path {
-  stroke: #fff;
-  fill-rule: evenodd;
-  }
-
-  text {
-  font-family: Arial, sans-serif;
-  font-size: 8px;
-  }
-
-  div.tooltip {
-    position: absolute;
-    text-align: center;
-    width: 200px;
-    height: 100px;
-    padding: 2px;
-    font: 12px sans-serif;
-    background: lightsteelblue;
-    border: 0px;
-    border-radius: 8px;
-    pointer-events: none;
-}
-</style>
-
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-<script>
-$(function(){
-   $("#tabmenu").load("/getHeader?page=sunburst")
-});
-</script>
-</head>
-
-<body>
-<div class="tab" id="tabmenu"></div>
-
-<div id="optionsSelect">Select a Graph Option 1:
-  <select id="optionsList">
-    <option value="load_data">Load Graph</option>
-    <option value="vms_data">VMS Graph</option>
-    <option value="rss_data">RSS Graph</option>
-    <option value="state_data">State Graph</option>
-  </select>
-  <br/>
-  <i>Update time: %(update_time)s</i>
-</div>
-
-<script src="https://d3js.org/d3.v3.min.js"></script>
-<script type="text/javascript">
-  var users=%(users)s
-  var load_data=%(data1)s
-  var vms_data=%(data3)s
-  var rss_data=%(data4)s
-  var state_data=%(data2)s
-  console.log("users=", users) 
-  console.log("load_data=", load_data) 
-
-  var margin = {top: 60, right: 30, bottom: 60, left: 30};
-
-  var width = 1200 - margin.left - margin.right,
-      height = 800 - margin.top - margin.bottom,
-      radius = Math.min(width, height) / 2;
-
-  //var formatNumber = d3.format(",d");
-  var formatNumber = d3.format(".4n");
-
-  var x = d3.scale.linear()
-      .range([0, 2 * Math.PI]);
-
-  var y = d3.scale.linear()
-      .range([0, radius]);
-
-  var color = d3.scale.category20c().domain(users);
-  var fixedColor = {'cca':'#ce3232', 'ccb':'#81ad4a', 'ccm':'#f37a00', 'ccn':'#008080','ccq':'#855b8e', 'gen':'#537eba', 'ib':'#3f51b5', 'root':'1f77b4'}
-
-  function createVisualization(data) {
-      //console.log(data)
-      d3.select("body svg").remove();
-      var svg = d3.select("body").append("svg")
-	  .attr("width", width + margin.left + margin.right)
-	  .attr("height", height + margin.top + margin.bottom)
-	  .append("g")
-	  .attr("transform", "translate(" + (width / 2 + margin.left) + "," + (height / 2 + margin.top) + ")");
-
-      var partition = d3.layout.partition()
-	  .value(function(d) {
-	      return d.value;
-	  });
-
-      var arc = d3.svg.arc()
-	  .startAngle(function(d)  { return Math.max(0, Math.min(2 * Math.PI, x(d.x))); })
-	  .endAngle(function(d)    { return Math.max(0, Math.min(2 * Math.PI, x(d.x + d.dx))); })
-	  .innerRadius(function(d) { return Math.max(0, y(d.y)); })
-	  .outerRadius(function(d) { return Math.max(0, y(d.y + d.dy)); });
-
-      var g = svg.selectAll("g")
-      //.data(partition.nodes(getData()))
-	  .data(partition.nodes(data))
-	  .enter().append("g");
-
-      var path = g.append("path")
-	  .attr("d", arc)
-	  .style("fill", function(d) {var x= fixedColor[d.name]; if (x === undefined) return color((d.children ? d : d.parent).name); else return x})
-	  .on("click", click)
-	  .on("mouseover",function(d, i) {
-	      var totalSize = path.node().__data__.value;
-	      sysname=data.sysname
-	      tooltip.text(d.name + " " + sysname+ ": " + formatNumber(d.value))
-		  .style("opacity", 0.9)
-		  .style("left", (d3.event.pageX) + 20 + "px")
-		  .style("top", (d3.event.pageY) - 20 + "px");
-	  })
-	  .on("mouseout", function(d) {
-	      tooltip.style("opacity", 0);
-	  });
-
-      var text = g.append("svg:a").attr("xlink:href", function(d) {return d.url})
-	  .append("svg:text")
-	  .attr("transform", function(d) { return "translate(" + arc.centroid(d) + ")rotate(" + computeTextRotation(d) + ")"; })
-	  .attr('text-anchor',"middle") //function (d) { return computeTextRotation(d) > 180 ? "end" : "start"; })
-	  .attr("dx", "0") // margin 6
-	  .attr("dy", ".35em") // vertical-align
-	  .style('visibility',function(d) { return d.dx < 0.005 ? 'hidden' : 'visible'})
-	  .text(function(d) { return d.name; })
-
-      // tooltip
-      var tooltip = d3.select("body").append("div")
-	  .attr("class", "tooltip")
-	  .style("opacity", 0);
-
-      function getAngle(d) {
-	  // Offset the angle by 90 deg since the '0' degree axis for arc is Y axis, while
-	  // for text it is the X axis.
-	  var thetaDeg = (180 / Math.PI * (arc.startAngle()(d) + arc.endAngle()(d)) / 2 - 90);
-	  // If we are rotating the text by more than 90 deg, then "flip" it.
-	  // This is why "text-anchor", "middle" is important, otherwise, this "flip" would
-	  // a little harder.
-	  return (thetaDeg > 90) ? thetaDeg - 180 : thetaDeg;
+    <meta charset="utf-8" />
+    <style>
+      path {
+        stroke: #fff;
+        fill-rule: evenodd;
       }
 
-      function RemoveLastDirectoryPartOf(the_url){
-	  var the_arr = the_url.split('/');
-	  the_arr.pop();
-	  return( the_arr.join('/') );
+      text {
+        font-family: Arial, sans-serif;
+        font-size: 8px;
       }
 
-      function click(d) {
-	  // fade out all text elements
-          console.log("click " + d.name + " " + d.depth);
-          topDepth = d.depth;
-          topDx    = d.dx;
-
-	  text.transition().attr("opacity", 0);
-	  path.transition()
-	      .duration(750)
-	      .attrTween("d", arcTween(d))
-	      .each("end", function(e, i) {
-		  // check if the animated element's data e lies within the visible angle span given in d
-		  if (e.x >= d.x && e.x < (d.x + d.dx)) {
-		      // get a selection of the associated text element
-                      //console.log(e.name + " " + e)
-		      var arcText = d3.select(this.parentNode).select("text");
-		      // fade in the text element and recalculate positions
-		      arcText.transition().duration(750)
-			  .attr("opacity", 1)
-			  .attr("transform", function(d) { return "translate(" + arc.centroid(d) + ")rotate(" + computeTextRotation(d) + ")"; })
-                          .style('visibility', function(d) {return d.dx/topDx < 0.005 ? 'hidden' : 'visible'})
-			  .attr('text-anchor', "middle")//function (d) { return computeTextRotation(d) > 180 ? "end" : "start"; })
-		  }
-	      });
-	  if(d3.event.shiftKey){
-	      var url = window.location.href;
-              var base_url = RemoveLastDirectoryPartOf(url);
-	      if (window.confirm('Click "ok" to be redirected to the job graph'))
-	      {
-		  window.location.href=base_url+"/jobDetails?jid="+d.name;
-	      };
-	  }
-      };
-      d3.select(self.frameElement).style("height", height + "px");
-
-
-      // Interpolate the scales!
-      function arcTween(d) {
-	  var xd = d3.interpolate(x.domain(), [d.x, d.x + d.dx]),
-	      yd = d3.interpolate(y.domain(), [d.y, 1]),
-	      yr = d3.interpolate(y.range(), [d.y ? 20 : 0, radius]);
-	  return function(d, i) {
-	      return i
-		  ? function(t) { return arc(d); }
-	      : function(t) { x.domain(xd(t)); y.domain(yd(t)).range(yr(t)); return arc(d); };
-	  };
+      div.tooltip {
+        position: absolute;
+        text-align: center;
+        width: 200px;
+        height: 100px;
+        padding: 2px;
+        font: 12px sans-serif;
+        background: lightsteelblue;
+        border: 0px;
+        border-radius: 8px;
+        pointer-events: none;
       }
+    </style>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script>
+      $(function () {
+        $('#tabmenu').load('/getHeader?page=sunburst');
+      });
+    </script>
+  </head>
+
+  <body>
+    <div class="tab" id="tabmenu"></div>
+
+    <div id="optionsSelect">
+      Select a Graph Option 1:
+      <select id="optionsList">
+        <option value="load_data">Load Graph</option>
+        <option value="vms_data">VMS Graph</option>
+        <option value="rss_data">RSS Graph</option>
+        <option value="state_data">State Graph</option>
+      </select>
+      <br />
+      <i>Update time: %(update_time)s</i>
+    </div>
+
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+    <script type="text/javascript">
+       var users=%(users)s
+       var load_data=%(data1)s
+       var vms_data=%(data3)s
+       var rss_data=%(data4)s
+       var state_data=%(data2)s
+       console.log("users=", users)
+       console.log("load_data=", load_data)
+
+       var margin = {top: 60, right: 30, bottom: 60, left: 30};
+
+       var width = 1200 - margin.left - margin.right,
+           height = 800 - margin.top - margin.bottom,
+           radius = Math.min(width, height) / 2;
+
+       //var formatNumber = d3.format(",d");
+       var formatNumber = d3.format(".4n");
+
+       var x = d3.scale.linear()
+           .range([0, 2 * Math.PI]);
+
+       var y = d3.scale.linear()
+           .range([0, radius]);
+
+       var color = d3.scale.category20c().domain(users);
+       var fixedColor = {'cca':'#ce3232', 'ccb':'#81ad4a', 'ccm':'#f37a00', 'ccn':'#008080','ccq':'#855b8e', 'gen':'#537eba', 'ib':'#3f51b5', 'root':'1f77b4'}
+
+       function createVisualization(data) {
+           //console.log(data)
+           d3.select("body svg").remove();
+           var svg = d3.select("body").append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", "translate(" + (width / 2 + margin.left) + "," + (height / 2 + margin.top) + ")");
+
+           var partition = d3.layout.partition()
+        .value(function(d) {
+            return d.value;
+        });
+
+           var arc = d3.svg.arc()
+        .startAngle(function(d)  { return Math.max(0, Math.min(2 * Math.PI, x(d.x))); })
+        .endAngle(function(d)    { return Math.max(0, Math.min(2 * Math.PI, x(d.x + d.dx))); })
+        .innerRadius(function(d) { return Math.max(0, y(d.y)); })
+        .outerRadius(function(d) { return Math.max(0, y(d.y + d.dy)); });
+
+           var g = svg.selectAll("g")
+           //.data(partition.nodes(getData()))
+        .data(partition.nodes(data))
+        .enter().append("g");
+
+           var path = g.append("path")
+        .attr("d", arc)
+        .style("fill", function(d) {var x= fixedColor[d.name]; if (x === undefined) return color((d.children ? d : d.parent).name); else return x})
+        .on("click", click)
+        .on("mouseover",function(d, i) {
+            var totalSize = path.node().__data__.value;
+            sysname=data.sysname
+            tooltip.text(d.name + " " + sysname+ ": " + formatNumber(d.value))
+      	  .style("opacity", 0.9)
+      	  .style("left", (d3.event.pageX) + 20 + "px")
+      	  .style("top", (d3.event.pageY) - 20 + "px");
+        })
+        .on("mouseout", function(d) {
+            tooltip.style("opacity", 0);
+        });
+
+           var text = g.append("svg:a").attr("xlink:href", function(d) {return d.url})
+        .append("svg:text")
+        .attr("transform", function(d) { return "translate(" + arc.centroid(d) + ")rotate(" + computeTextRotation(d) + ")"; })
+        .attr('text-anchor',"middle") //function (d) { return computeTextRotation(d) > 180 ? "end" : "start"; })
+        .attr("dx", "0") // margin 6
+        .attr("dy", ".35em") // vertical-align
+        .style('visibility',function(d) { return d.dx < 0.005 ? 'hidden' : 'visible'})
+        .text(function(d) { return d.name; })
+
+           // tooltip
+           var tooltip = d3.select("body").append("div")
+        .attr("class", "tooltip")
+        .style("opacity", 0);
+
+           function getAngle(d) {
+        // Offset the angle by 90 deg since the '0' degree axis for arc is Y axis, while
+        // for text it is the X axis.
+        var thetaDeg = (180 / Math.PI * (arc.startAngle()(d) + arc.endAngle()(d)) / 2 - 90);
+        // If we are rotating the text by more than 90 deg, then "flip" it.
+        // This is why "text-anchor", "middle" is important, otherwise, this "flip" would
+        // a little harder.
+        return (thetaDeg > 90) ? thetaDeg - 180 : thetaDeg;
+           }
+
+           function RemoveLastDirectoryPartOf(the_url){
+        var the_arr = the_url.split('/');
+        the_arr.pop();
+        return( the_arr.join('/') );
+           }
+
+           function click(d) {
+        // fade out all text elements
+               console.log("click " + d.name + " " + d.depth);
+               topDepth = d.depth;
+               topDx    = d.dx;
+
+        text.transition().attr("opacity", 0);
+        path.transition()
+            .duration(750)
+            .attrTween("d", arcTween(d))
+            .each("end", function(e, i) {
+      	  // check if the animated element's data e lies within the visible angle span given in d
+      	  if (e.x >= d.x && e.x < (d.x + d.dx)) {
+      	      // get a selection of the associated text element
+                           //console.log(e.name + " " + e)
+      	      var arcText = d3.select(this.parentNode).select("text");
+      	      // fade in the text element and recalculate positions
+      	      arcText.transition().duration(750)
+      		  .attr("opacity", 1)
+      		  .attr("transform", function(d) { return "translate(" + arc.centroid(d) + ")rotate(" + computeTextRotation(d) + ")"; })
+                               .style('visibility', function(d) {return d.dx/topDx < 0.005 ? 'hidden' : 'visible'})
+      		  .attr('text-anchor', "middle")//function (d) { return computeTextRotation(d) > 180 ? "end" : "start"; })
+      	  }
+            });
+        if(d3.event.shiftKey){
+            var url = window.location.href;
+                   var base_url = RemoveLastDirectoryPartOf(url);
+            if (window.confirm('Click "ok" to be redirected to the job graph'))
+            {
+      	  window.location.href=base_url+"/jobDetails?jid="+d.name;
+            };
+        }
+           };
+           d3.select(self.frameElement).style("height", height + "px");
 
 
-      function computeTextRotation(d) {
-	  var ang = (x(d.x + d.dx / 2) - Math.PI / 2) / Math.PI * 180;
-	  return (ang > 90) ? 180 + ang : ang;
-      }
-      //}
-  }
+           // Interpolate the scales!
+           function arcTween(d) {
+        var xd = d3.interpolate(x.domain(), [d.x, d.x + d.dx]),
+            yd = d3.interpolate(y.domain(), [d.y, 1]),
+            yr = d3.interpolate(y.range(), [d.y ? 20 : 0, radius]);
+        return function(d, i) {
+            return i
+      	  ? function(t) { return arc(d); }
+            : function(t) { x.domain(xd(t)); y.domain(yd(t)).range(yr(t)); return arc(d); };
+        };
+           }
 
-  createVisualization(load_data);
-  d3.select('#optionsList')
-    .on('change', function() {
-	var newData = eval(d3.select(this).property('value'));
-	createVisualization(newData);
-    });
-</script>
-</body>
+
+           function computeTextRotation(d) {
+        var ang = (x(d.x + d.dx / 2) - Math.PI / 2) / Math.PI * 180;
+        return (ang > 90) ? 180 + ang : ang;
+           }
+           //}
+       }
+
+       createVisualization(load_data);
+       d3.select('#optionsList')
+         .on('change', function() {
+      var newData = eval(d3.select(this).property('value'));
+      createVisualization(newData);
+         });
+    </script>
+  </body>
 </html>
