@@ -2,11 +2,21 @@
   <!DOCTYPE html>
 
   <head>
-    <title>Sunburst Graph</title>
-    <link rel="stylesheet" href="/static/css/style.css" />
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
+      rel="stylesheet"
+    />
 
-    <meta charset="utf-8" />
+    <link rel="stylesheet" href="/static/css/normalize.css" />
+    <link rel="stylesheet" href="/static/css/style2.css" />
+
+    <!-- TODO: Swap out bootstrap css -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
+    <title>Sunburst Graph</title>
+
     <style>
       path {
         stroke: #fff;
@@ -33,29 +43,53 @@
     </style>
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-    <script>
-      $(function () {
-        $('#tabmenu').load('/getHeader?page=sunburst');
-      });
-    </script>
   </head>
 
   <body>
-    <div class="tab" id="tabmenu"></div>
-
-    <div id="optionsSelect">
-      Select a Graph Option 1:
-      <select id="optionsList">
-        <option value="load_data">Load Graph</option>
-        <option value="vms_data">VMS Graph</option>
-        <option value="rss_data">RSS Graph</option>
-        <option value="state_data">State Graph</option>
-      </select>
-      <br />
-      <i>Update time: %(update_time)s</i>
+    <div class="layout">
+      <div class="crumb__container">
+        <div class="crumb__inner">
+          <div class="crumb__content">
+            <div class="crumb__logo">
+              <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
+            </div>
+            <div class="crumbs" id="crumbmenu"></div>
+          </div>
+        </div>
+      </div>
+      <nav class="nav" id="navmenu"></nav>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <div id="optionsSelect">
+              Select a Graph Option 1:
+              <select id="optionsList">
+                <option value="load_data">Load Graph</option>
+                <option value="vms_data">VMS Graph</option>
+                <option value="rss_data">RSS Graph</option>
+                <option value="state_data">State Graph</option>
+              </select>
+              <br />
+              <i>Update time: %(update_time)s</i>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
-
+    <footer class="section section--footer">
+      <div class="section__inner section__inner--footer">
+        <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
+        <p class="hero__text hero__text--small" id="signature"></p>
+      </div>
+    </footer>
     <script src="https://d3js.org/d3.v3.min.js"></script>
+    <script>
+      $(function () {
+        $('#navmenu').load('/getHeader?page=sunburst');
+        const thisPath = window.location.pathname;
+        $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+      });
+    </script>
     <script type="text/javascript">
        var users=%(users)s
        var load_data=%(data1)s

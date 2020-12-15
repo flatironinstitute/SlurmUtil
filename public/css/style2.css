@@ -27,7 +27,13 @@
   --off-black: #1c1c1c;
   --dz-black: #231f20;
   --whiteish: rgba(255, 255, 255, 0.98);
-  --border-gray: #e1e1e1;
+  /* New colors */
+  --border-gray: #e5e8ed;
+  --background-gray: #f4f5f9;
+  --primary-blue: #006aff;
+  --background-dark-blue: rgb(1, 14, 40);
+  --button-teal: rgb(0, 215, 210);
+  --dark-blue-text: rgb(3, 27, 78);
 }
 html {
   box-sizing: border-box;
