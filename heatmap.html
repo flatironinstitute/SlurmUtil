@@ -63,36 +63,38 @@
         </div>
       </section>
       <section class="section">
-        <div id="select_div">
-          Select an option to see the allocated worker nodes:
-          <select id="select_job_user">
-            <option value="job">Job</option>
-            <option value="user">User</option>
-          </select>
-          <span id="select_list_div"></span>
-        </div>
-        <div id="legend">
-          <input type="checkbox" id="colorCheckbox" name="colorCheckBox" checked />
-          <label for="color"> Color to differentiate account </label>
-          <p><svg id="legend_svg"></svg></p>
-        </div>
-
-        <div><svg id="node_svg"></svg></div>
-        <div>
-          <h3>GPU Average Utilization of Last %(gpu_avg_minute)s Minutes</h3>
-          <i>Update time: %(gpu_update_time)s</i>
-          <i id="gpu_update"></i>
-          <p>
-            <i
-              >"Click" to see the co-allocated worker nodes for the same job. "Double Click" to see the worker node
-              details.</i
-            >
-          </p>
-          <hr />
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <div id="select_div">
+              Select an option to see the allocated worker nodes:
+              <select id="select_job_user">
+                <option value="job">Job</option>
+                <option value="user">User</option>
+              </select>
+              <span id="select_list_div"></span>
+            </div>
+            <div id="legend">
+              <input type="checkbox" id="colorCheckbox" name="colorCheckBox" checked />
+              <label for="color"> Color to differentiate account </label>
+              <p><svg id="legend_svg"></svg></p>
+            </div>
+            <div class="viz-wrapper"><svg id="node_svg"></svg></div>
+          </div>
         </div>
       </section>
       <section class="section">
-        <div><svg id="gpu_svg"></svg></div>
+         <div class="section__inner section__inner--fullwidth">
+            <div class="section__div">
+               <h3>GPU Average Utilization of Last %(gpu_avg_minute)s Minutes</h3>
+               <i>Update time: %(gpu_update_time)s</i>
+               <i id="gpu_update"></i>
+               <p>Click to see the co-allocated worker nodes for the same job. Double click to see the worker node details.
+               </p>
+             </div>
+             <div class="viz-wrapper"><svg id="gpu_svg"></svg></div>
+            </div>
+         </div>
+        <div>
       </section>
     </div>
     <footer class="section section--footer">

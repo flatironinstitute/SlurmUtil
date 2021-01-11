@@ -116,6 +116,10 @@ body {
 }
 .flex__left {
   justify-content: flex-start;
+  align-items: baseline;
+}
+.flex__left:first-child {
+  margin-left: 20px;
 }
 .flex__right {
   justify-content: flex-end;
