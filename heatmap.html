@@ -25,7 +25,7 @@
     <script src="http://rawgithub.com/indrimuska/jquery-editable-select/master/dist/jquery-editable-select.min.js"></script>
     <script>
       $(function () {
-        $('#navmenu').load('/getHeader?page=index');
+        $('#navmenu').load('/getHeader?page=utilHeatmap');
         $('#crumbmenu').load('/getBreadcrumbs?path=index');
       });
     </script>
@@ -74,8 +74,10 @@
               <span id="select_list_div"></span>
             </div>
             <div id="legend">
-              <input type="checkbox" id="colorCheckbox" name="colorCheckBox" checked />
-              <label for="colorCheckbox"> Color to differentiate account </label>
+               <div class="flex flex__left">
+                  <input type="checkbox" id="colorCheckbox" name="colorCheckBox" checked />
+                  <label for="colorCheckbox"> Color to differentiate account </label>
+               </div>
               <p><svg id="legend_svg"></svg></p>
             </div>
             <div class="viz-wrapper"><svg id="node_svg"></svg></div>
