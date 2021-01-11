@@ -496,10 +496,6 @@ class SLURMMonitorData(object):
             elif len(nInfo) > USER_INFO_IDX and nInfo[USER_INFO_IDX]:
                logger.error("Proc reported for node {} in state {}".format(node, nInfo[0]))
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 246d52ed0a0ed9ff0dd3f8f63c564de76277abaa
         self.addJobsAttr      (self.updateTS, self.currJobs)          #add attribute job_avg_util, job_mem_util, job_io_bps
         self.inMemCache.append(self.data, self.updateTS, self.pyslurmJobs)
 
