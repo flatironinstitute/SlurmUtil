@@ -95,10 +95,12 @@ def convert2list(s, numberWidth=4):
     return re.split(',\W*', lststr)
 
 #return string represention of ts in seconds
+#'%b %d %H:%M:%S' 'Jan 08 23:11:31'
 def getTS_strftime (ts, fmt='%Y/%m/%d'):
     d = datetime.fromtimestamp(ts)
     return d.strftime(fmt)
   
+#2021-01-08 23:03:56
 def getTsString (ts, sep=' ', timespec='seconds'):
     d = datetime.fromtimestamp(ts)
     return d.isoformat(sep, timespec)
@@ -530,37 +532,44 @@ def getTresDict (tres_str, mapKey=False):
 
 #input is Bps
 def getDisplayBps (n):
-   return '{}Bps'.format(getDisplayI(n))
+   return '{}Bps'.format(getDisplayF(n))
 #input is B
 def getDisplayB (n):
    if n < 1024:
-      return '{} B'.format(n)
+      return '{}B'.format(n)
    n /= 1024
    return getDisplayKB(n)
 #input is nKB
 def getDisplayKB (n):
     return '{}B'.format(getDisplayK(n))
 
-def getDisplayI (n):
+def getDisplayF (n):
    if n < 1024:
-      return '{} '.format(n)
+      return '{:.2f}'.format(n)
    n /= 1024
    return getDisplayK(n)
 
+def getDisplayI (n):
+   if n < 1024:
+      return '{}'.format(n)
+   n /= 1024
+   return getDisplayK(n)
+
+#get display of nK
 def getDisplayK (n):
    if n < 1024:
       if isinstance(n, int):
-         return '{} K'.format(n)
+         return '{}K'.format(n)
       else:
-         return '{:.2f} K'.format(n)
+         return '{:.2f}K'.format(n)
    n /= 1024
    if n < 1024: 
-      return '{:.2f} M'.format(n)
+      return '{:.2f}M'.format(n)
    n /= 1024
    if n < 1024: 
-      return '{:.2f} G'.format(n)
+      return '{:.2f}G'.format(n)
    n = n / 1024
-   return '{:.2f} T'.format(n)
+   return '{:.2f}T'.format(n)
 
 #sum of ['123', '123K', '123M']
 def sumOfListWithUnit (lst):
@@ -590,31 +599,31 @@ def sumOfListWithUnit (lst):
 def getTimeSeqAvg (seq, startTS, stopTS):
         #print("getTimeSeqAvg {}-{}, seq={}".format(startTS, stopTS, seq))
         if not seq:         return 0
-        elif len(seq) == 1: return seq[0][1]
         #skip the data before startTS
         idx= 0
-        while (idx < len(seq)) and (seq[idx][0] < startTS*1000):  idx+= 1    
-        if idx == len(seq):   # return last value
-           return seq[idx-1][1]
+        while (idx < len(seq)) and (seq[idx][0] < startTS):  idx+= 1    
+        if idx == len(seq): return 0
 
         #seq[idx].time > startTS > seq[idx-1].time
         #calculate total during [startTS, seq[idx].time
         if idx == 0: #no value before seq[0].time
            total   = 0
-           startTS = seq[0][0]/1000
+           startTS = seq[0][0]
         else:
-           total   = seq[idx-1][1] * (seq[idx][0]/1000-startTS)   
+           total   = seq[idx-1][1] * (seq[idx][0]-startTS)   
         #print("getTimeSeqAvg {}:{} total={}".format(idx, seq[idx], total))
         # sum over until stopTS
-        idx += 1
+        savIdx = idx
+        idx   += 1
         while idx < len(seq):
-           if seq[idx][0] > stopTS*1000:
-              total += seq[idx-1][1] * (stopTS - seq[idx-1][0]/1000)
+           if seq[idx][0] > stopTS:
+              total += seq[idx-1][1] * (stopTS - seq[idx-1][0])
               #print("getTimeSeqAvg {}:{} total={}".format(idx, seq[idx], total))
               break
-           total += seq[idx-1][1] * ((seq[idx][0] - seq[idx-1][0])/1000)
+           total += seq[idx-1][1] * ((seq[idx][0] - seq[idx-1][0]))
            #print("getTimeSeqAvg {}:{} total={}".format(idx, seq[idx], total))
            idx   += 1
+        #print("---total={},avg={},seq={}".format(total, total / (stopTS - startTS), seq[savIdx:]))
         return total / (stopTS - startTS)
 
 def test1():

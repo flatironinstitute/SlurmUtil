@@ -64,7 +64,7 @@ class InMemCache:
                          jobRlt[jid] = [ts, nodeName, uid, jid, nodeInfo[0], sum(jobData[jid]['cpus_allocated'].values()), len(job_procs), j_cpuUtil, j_cpuTime, j_rss, j_vms, j_ioBps, j_read, j_write]
                       else:
                          logger.warning("Job {} is not in jobData when getUsageOnNode {}".format(jid, nodeName))
-               lst = [ts, nodeName, uid, jids, nodeInfo[0], coreNum, proNum, cpuUtil, cpuTime, rss, vms, io]
+               lst = [ts, nodeName, uid, jids, nodeInfo[0], coreNum, proNum, cpuUtil, cpuTime, int(rss/1024), int(vms/1024), io]
                result[uid] = lst
 
         #logger.debug("getUsageOnNode {} got userRlt={}\njobRlt={}\n".format(nodeName, result, jobRlt))
@@ -189,10 +189,11 @@ class InMemCache:
     # query worker's history, must be shorter than 3 days:
     def queryNode (self, node, start_ts=None, end_ts=None):
         cpu_rlt, mem_rlt, io_rlt= [], [], []
+
         if node not in self.nodes:
            logger.info("queryNode: Node {} is not in cache".format(node, list(self.nodes.keys())))
            return None, [], [], []
-        if start_ts and start_ts > self.nodes[node]['first_ts']+300:  # five minutes gap is allowed
+        if start_ts and start_ts < self.nodes[node]['first_ts']-300:  # five minutes gap is allowed
            logger.info("queryNode: Node {} period {}-{} is not completely in cache ({}-{})".format(node, start_ts, end_ts, self.nodes[node]['first_ts'], self.nodes[node]['last_ts']))
            return None, [], [], []
         # else start_ts==None or start_ts >= self.nodes[node]['first_ts']-300

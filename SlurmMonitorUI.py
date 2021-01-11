@@ -906,7 +906,12 @@ class SLURMMonitorUI(object):
     @cherrypy.expose
     def nodeGraph(self, node,start='', stop=''):
         start, stop = MyTool.getStartStopTS (start, stop)
+<<<<<<< HEAD
 
+=======
+        logger.info("start={},stop={}".format(MyTool.getTsString(start), MyTool.getTsString(stop)))
+        
+>>>>>>> eaff9314ca70ed8f144cd3a6ad88d2a21d096d51
         msg = self.nodeGraph_cache(node, start, stop)
         note  = 'cache'
         if not msg:
@@ -972,9 +977,9 @@ class SLURMMonitorUI(object):
         for uid, d in uid2seq.items():
             uname = MyTool.getUser(uid)
             cpu_series.append  ({'name': uname, 'data':[[ts, d[ts][0]] for ts in d.keys()]})
-            mem_series.append  ({'name': uname, 'data':[[ts, d[ts][3]] for ts in d.keys()]})
-            io_series_r.append ({'name': uname, 'data':[[ts, d[ts][1]] for ts in d.keys()]})
-            io_series_w.append ({'name': uname, 'data':[[ts, d[ts][2]] for ts in d.keys()]})
+            mem_series.append  ({'name': uname, 'data':[[ts, d[ts][1]] for ts in d.keys()]})
+            io_series_r.append ({'name': uname, 'data':[[ts, d[ts][2]] for ts in d.keys()]})
+            io_series_w.append ({'name': uname, 'data':[[ts, d[ts][3]] for ts in d.keys()]})
 
         return start, stop, cpu_series, mem_series, io_series_r, io_series_w
 
@@ -1731,7 +1736,7 @@ class SLURMMonitorUI(object):
         io_all_nodes  = []  ##[{'data': [[1531147508000, value]...], 'name':'workerXXX'}, ...]
         for hostname, hostdict in node2seq.items():
             mem_node={'name': hostname}
-            mem_node['data']= [[ts, hostdict[ts][2]] for ts in hostdict.keys()]
+            mem_node['data']= [[ts, hostdict[ts][1]] for ts in hostdict.keys()]
             mem_all_nodes.append (mem_node)
 
             cpu_node={'name': hostname}
@@ -1739,7 +1744,7 @@ class SLURMMonitorUI(object):
             cpu_all_nodes.append (cpu_node)
 
             io_node={'name': hostname}
-            io_node['data']= [[ts, hostdict[ts][1]] for ts in hostdict.keys()]
+            io_node['data']= [[ts, hostdict[ts][2]+hostdict[ts][3]] for ts in hostdict.keys()]
             io_all_nodes.append (io_node)
         ann_series = []
 
