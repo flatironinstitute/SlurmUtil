@@ -201,10 +201,10 @@ function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit=
 }
 
 function pointFormat_func() {
-   return '<br/>' + Highcharts.dateFormat('%b %e %H:%M:%S', new Date(this.x)) + ', ' + this.y.toLocaleString();
+   return '<br/>' + Highcharts.dateFormat('%b %e %H:%M:%S', new Date(this.x)) + ', ' + getDisplayN(this.y);
 }
 function pointFormat_func_KB() {
-   return '<br/>' + Highcharts.dateFormat('%b %e %H:%M:%S', new Date(this.x)) + ', ' + this.y.toLocaleString() + ' KB';
+   return '<br/>' + Highcharts.dateFormat('%b %e %H:%M:%S', new Date(this.x)) + ', ' + getDisplayK(this.y) + 'B';
 }
 
 function timeSeriesScatterPlot_KB(series, chartTag, title, yCap, aSeries, pf_func=pointFormat_func_KB) {

@@ -28,7 +28,7 @@ def display_user_GPU(user_name):
     print("{} User {} has {} running jobs,\talloc {} GPUs on {} GPU nodes.".format(MyTool.getTsString(ts), user_name, len(user_job_lst), u_gpu_cnt, len(u_node)))
     #get gpu data
     if u_node:   #GPU nodes allocated
-       gpu_data  = BrightRestClient().getGPU (u_node, min([job['start_time'] for job in user_job_lst if job_gpu_d[job['job_id']]]), list(g_union))
+       gpu_data  = BrightRestClient().getGPU (u_node, min([job['start_time'] for job in user_job_lst if job_gpu_d[job['job_id']]]), list(g_union),msec=False)
     else:
        gpu_data  = {}
     print("\t{:10}{:20}{:>16}{:>20}{:>25}".format("Jid", "Job run time", "Node.GPU", "Job avg util", "Avg util (5,10,30min)"))
@@ -48,10 +48,10 @@ def display_user_GPU(user_name):
                g_avg2 = MyTool.getTimeSeqAvg(g_data, ts-10*60,          ts)
                g_avg3 = MyTool.getTimeSeqAvg(g_data, ts-30*60,          ts)
                if j_first_ln:
-                  print("\t{:<10}{:20}{:>16}{:>20.2f}{:>10.2f},{:>6.2f},{:>6.2f}".format(jid, j_run_time, g_name, g_avg, g_avg1, g_avg2, g_avg3))
+                  print("\t{:<10}{:20}{:>16}{:>20.2f}{:>10.2f},{:>6.2f},{:>6.2f}".format(jid, j_run_time, g_name, g_avg*100, g_avg1*100, g_avg2*100, g_avg3*100))
                   j_first_ln = False
                else:
-                  print("\t{:<10}{:20}{:>16}{:>20.2f}{:>10.2f},{:>6.2f},{:>6.2f}".format('', '', g_name, g_avg, g_avg1, g_avg2, g_avg3))
+                  print("\t{:<10}{:20}{:>16}{:>20.2f}{:>10.2f},{:>6.2f},{:>6.2f}".format('', '', g_name, g_avg*100, g_avg1*100, g_avg2*100, g_avg3*100))
         
 def display_job_GPU(jid):
     ts   = int(time.time())
@@ -65,20 +65,20 @@ def display_job_GPU(jid):
        print ("{} Job {} does not allocate any GPU.".format(MyTool.getTsString(ts), jid))
        return
 
-    print("{} Job {} run for {},\talloc {} GPUs on {} GPU nodes.".format(MyTool.getTsString(ts), jid, datetime.timedelta(seconds=ts - job['start_time']), sum([len(g_lst) for g_lst in j_gpu.values()]), sum([1 for g_lst in j_gpu.values() if g_lst]))) 
+    print("{} Job {} of {} run for {},\talloc {} GPUs on {} GPU nodes.".format(MyTool.getTsString(ts), jid, MyTool.getUser(job['user_id']), datetime.timedelta(seconds=ts - job['start_time']), sum([len(g_lst) for g_lst in j_gpu.values()]), sum([1 for g_lst in j_gpu.values() if g_lst]))) 
     gpu_union     = reduce(lambda rlt, curr: rlt.union(set(curr)), j_gpu.values(), set())
     #print(gpu_union)
-    gpu_data      = BrightRestClient().getGPU (list(j_gpu.keys()), job['start_time'], list(gpu_union))
+    gpu_data      = BrightRestClient().getGPU (list(j_gpu.keys()), job['start_time'], list(gpu_union),msec=False)
     #print(gpu_data.keys()) 
     print("\t{:12}{:>6}{:>20}{:>25}".format("Node", "GPU", "Job avg util", "Avg util (5,10,30min)"))
     for node_name,gpu_list in j_gpu.items():
         for gid in gpu_list:
             g_data   = gpu_data['{}.gpu{}'.format(node_name,gid)]
             g_avg    = MyTool.getTimeSeqAvg(g_data, job['start_time'], ts)
-            g_avg1   = MyTool.getTimeSeqAvg(g_data, ts-5*60,  ts)
-            g_avg2   = MyTool.getTimeSeqAvg(g_data, ts-10*60,  ts)
-            g_avg3   = MyTool.getTimeSeqAvg(g_data, ts-30*60,  ts)
-            print("\t{:12}{:6}{:>20.2f}{:>10.2f},{:>6.2f},{:>6.2f}".format(node_name, gid, g_avg, g_avg1, g_avg2, g_avg3))
+            g_avg1   = MyTool.getTimeSeqAvg(g_data, ts-5*60,           ts)
+            g_avg2   = MyTool.getTimeSeqAvg(g_data, ts-10*60,          ts)
+            g_avg3   = MyTool.getTimeSeqAvg(g_data, ts-30*60,          ts)
+            print("\t{:12}{:6}{:>20.2f}{:>10.2f},{:>6.2f},{:>6.2f}".format(node_name, gid, g_avg*100, g_avg1*100, g_avg2*100, g_avg3*100))
     return
 
 def display_node_GPU(node_name):
@@ -99,7 +99,7 @@ def display_node_GPU(node_name):
     if jid2gpu:
        job_gpu     = reduce(operator.add, jid2gpu.values())
        start_ts    = min([job['start_time'] for job in jobs if job['gres_detail']])
-       gpu_data    = BrightRestClient().getNodeGPU (node_name, start_ts, job_gpu)
+       gpu_data    = BrightRestClient().getNodeGPU (node_name, start_ts, job_gpu, msec=False)
     else:
        gpu_data    = {}
 
