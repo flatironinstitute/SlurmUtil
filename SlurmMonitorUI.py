@@ -906,12 +906,8 @@ class SLURMMonitorUI(object):
     @cherrypy.expose
     def nodeGraph(self, node,start='', stop=''):
         start, stop = MyTool.getStartStopTS (start, stop)
-<<<<<<< HEAD
-
-=======
         logger.info("start={},stop={}".format(MyTool.getTsString(start), MyTool.getTsString(stop)))
-        
->>>>>>> eaff9314ca70ed8f144cd3a6ad88d2a21d096d51
+
         msg = self.nodeGraph_cache(node, start, stop)
         note  = 'cache'
         if not msg:
