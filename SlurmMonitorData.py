@@ -424,7 +424,7 @@ class SLURMMonitorData(object):
             #if job run long enough
             if (job['job_avg_util'] < job_cpu_avg_util) and (job['job_mem_util']>job_mem_util or job['job_io_bps'] > job_io_bps):
                result[job['job_id']] = job
-        logger.info('getUnbalancedJobs {}'.format(result.keys()))
+        logger.debug('getUnbalancedJobs {}'.format(result.keys()))
         return json.dumps([ts, result])
 
     @cherrypy.expose
@@ -496,7 +496,10 @@ class SLURMMonitorData(object):
             elif len(nInfo) > USER_INFO_IDX and nInfo[USER_INFO_IDX]:
                logger.error("Proc reported for node {} in state {}".format(node, nInfo[0]))
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 246d52ed0a0ed9ff0dd3f8f63c564de76277abaa
         self.addJobsAttr      (self.updateTS, self.currJobs)          #add attribute job_avg_util, job_mem_util, job_io_bps
         self.inMemCache.append(self.data, self.updateTS, self.pyslurmJobs)
 

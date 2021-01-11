@@ -110,6 +110,7 @@ class InMemCache:
 
         # deal with job data
         activeJob  = [jid for jid, job in jobData.items() if job['job_state'] in ['PENDING', 'RUNNING', 'PREEMPTED', 'SUSPENDED', 'RESIZING']]
+        logger.debug("active jobs {}".format(activeJob))
         for jid in activeJob:
             self.jobs[jid]['seq'].append((jobTS, jobData[jid]['job_state'], jobData[jid].get('job_inst_util',-1), jobData[jid].get('job_io_bps',-1), jobData[jid].get('job_mem_util',-1)))
             if not self.jobs[jid]['submit_time']:
@@ -120,10 +121,11 @@ class InMemCache:
                self.jobs[jid]['nodes']  = list(jobData[jid]['cpus_allocated'].keys())
             if jobData[jid]['suspend_time']:
                self.jobs[jid]['suspend_time'] = jobData[jid]['suspend_time']
-            if jobData[jid]['preempt_time']:
-               self.jobs[jid]['preempt_time'] = jobData[jid]['preempt_time']
+            #if jobData[jid]['preempt_time']:
+            #   self.jobs[jid]['preempt_time'] = jobData[jid]['preempt_time']
             if jobData[jid]['resize_time']:
                self.jobs[jid]['resize_time']  = jobData[jid]['resize_time']
+            logger.debug("active jid {} done".format(jid))
             
         #remove data of not running jobs from self.job_node
         doneJob   = [jid for jid in jobData              if jid not in activeJob and jid in self.jobs]
@@ -230,11 +232,16 @@ class InMemLog:
  
     MAX_COUNT     = 1024
     def __init__(self, max_len=MAX_COUNT):
-        self.log           = deque(maxlen=max_len)               # logRecord
+        self.log           = deque(maxlen=max_len)               # logRecord {'source':, 'funcName':, 'ts':, 'msg:'}
     def append(self, logRecord):
         print("---logRecord={}".format(logRecord))
         self.log.append({'source':'{}.{}'.format(logRecord.get('module','unknown'),logRecord.get('funcName','unknown')), 'ts':logRecord.get('created',time.time()), 'msg':logRecord.get('msg','unknown')})
-    def getAllLogs(self):
+    #revTS if want in the reverse order of timestamp
+    def getAllLogs(self, reverse=True):
+        if reverse:
+           dq = self.log.copy()
+           dq.reverse()
+           return list(dq)
         return list(self.log)
 
 def getAll_uid2jid (jobData):
