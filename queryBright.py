@@ -138,10 +138,10 @@ class BrightRestClient:
         return q_str
 
     #{'node': node, 'time': int(time.time()), 'data': [{'gpu0':[], ...}}]}
-    def getNodeGPU (self, node, start_ts, gpu_list=[0,1,2,3]):
-        return self.getGPU([node], start_ts, gpu_list)
+    def getNodeGPU (self, node, start_ts, gpu_list=[0,1,2,3], msec=True):
+        return self.getGPU([node], start_ts, gpu_list, msec=msec)
 
-    def getGPU (self, node_list, start_ts, gpu_list=[], max_gpu_id=3):
+    def getGPU (self, node_list, start_ts, gpu_list=[], max_gpu_id=3, msec=True):
         nodes     = ','.join(node_list)
         if not gpu_list:
            gpu_list = list(range(0, max_gpu_id+1))
@@ -151,7 +151,11 @@ class BrightRestClient:
         d         = r.json()['data']   #[{'entity': 'workergpu16', 'measurable': 'gpu_utilization:gpu0', 'raw': 0.3096027944984667, 'time': 1584396000000, 'value': '31.0%'}, 
         rlt       = defaultdict(list)                 #{'workergpu16.gpu0':[[ts,val],]
         for item in d:
-            rlt['{}.{}'.format(item['entity'],item['measurable'].split(':')[1])].append([item['time'], item['raw']])
+            if msec:
+               rlt['{}.{}'.format(item['entity'],item['measurable'].split(':')[1])].append([item['time'], item['raw']])
+            else:
+               rlt['{}.{}'.format(item['entity'],item['measurable'].split(':')[1])].append([int(item['time']/1000), item['raw']])
+
         return dict(rlt)
 
 def test1():

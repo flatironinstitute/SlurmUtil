@@ -93,7 +93,7 @@ def display_node_GPU(node_name):
 
     jobs = PyslurmQuery.getNodeAllocJobs (node_name, node)
     gpu_total, gpu_used = MyTool.getGPUCount(node['gres'], node['gres_used'])
-    print("{} Node {} up {},\t{} GPUs ({} used), {} allocated jobs.".format(MyTool.getTsString(ts), node_name, datetime.timedelta(seconds=ts - node['boot_time']), gpu_total, gpu_used, len(jobs) if jobs else 0)) 
+    print("{}: Node {} up {},\t{} GPUs ({} used), {} allocated jobs.".format(MyTool.getTsString(ts), node_name, datetime.timedelta(seconds=ts - node['boot_time']), gpu_total, gpu_used, len(jobs) if jobs else 0)) 
     
     jid2gpu = dict(map(lambda job: (job['job_id'], PyslurmQuery.getJobAllocGPUonNode(job, node)), jobs))
     if jid2gpu:
