@@ -162,6 +162,7 @@ select {
   border-radius: 4px;
   box-shadow: none;
   box-sizing: border-box;
+  margin: 0 6px;
 }
 /* Removes awkward default styles on some inputs for iOS */
 input[type='email'],
