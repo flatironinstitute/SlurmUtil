@@ -110,6 +110,16 @@ body {
   padding: 2rem;
   margin: 0 auto 2rem auto;
 }
+.flex {
+  display: flex;
+  flex-direction: row;
+}
+.flex__left {
+  justify-content: flex-start;
+}
+.flex__right {
+  justify-content: flex-end;
+}
 
 /* Typography
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
