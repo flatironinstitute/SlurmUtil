@@ -1,6 +1,5 @@
+<!DOCTYPE html>
 <html>
-  <!DOCTYPE html>
-
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,84 +11,20 @@
 
     <link rel="stylesheet" href="/static/css/normalize.css" />
     <link rel="stylesheet" href="/static/css/style2.css" />
+    <title>Sunburst Graph</title>
 
     <!-- TODO: Swap out bootstrap css -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
-    <title>Sunburst Graph</title>
-
-    <style>
-      path {
-        stroke: #fff;
-        fill-rule: evenodd;
-      }
-
-      text {
-        font-family: Arial, sans-serif;
-        font-size: 8px;
-      }
-
-      div.tooltip {
-        position: absolute;
-        text-align: center;
-        width: 200px;
-        height: 100px;
-        padding: 2px;
-        font: 12px sans-serif;
-        background: lightsteelblue;
-        border: 0px;
-        border-radius: 8px;
-        pointer-events: none;
-      }
-    </style>
-
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-  </head>
 
-  <body>
-    <div class="layout">
-      <div class="crumb__container">
-        <div class="crumb__inner">
-          <div class="crumb__content">
-            <div class="crumb__logo">
-              <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
-            </div>
-            <div class="crumbs" id="crumbmenu"></div>
-          </div>
-        </div>
-      </div>
-      <nav class="nav" id="navmenu"></nav>
-      <section class="section">
-        <div class="section__inner section__inner--fullwidth">
-          <div class="section__div">
-            <div id="optionsSelect">
-              Select a Graph Option 1:
-              <select id="optionsList">
-                <option value="load_data">Load Graph</option>
-                <option value="vms_data">VMS Graph</option>
-                <option value="rss_data">RSS Graph</option>
-                <option value="state_data">State Graph</option>
-              </select>
-              <br />
-              <i>Update time: %(update_time)s</i>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
-    <footer class="section section--footer">
-      <div class="section__inner section__inner--footer">
-        <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
-        <p class="hero__text hero__text--small" id="signature"></p>
-      </div>
-    </footer>
-    <script src="https://d3js.org/d3.v3.min.js"></script>
-    <script>
-      $(function () {
+    <script type="text/javascript">
+      $(document).ready(function () {
         $('#navmenu').load('/getHeader?page=sunburst');
         const thisPath = window.location.pathname;
         $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
       });
     </script>
+    <script src="https://d3js.org/d3.v3.min.js"></script>
     <script type="text/javascript">
        var users=%(users)s
        var load_data=%(data1)s
@@ -119,8 +54,8 @@
 
        function createVisualization(data) {
            //console.log(data)
-           d3.select("body svg").remove();
-           var svg = d3.select("body").append("svg")
+           d3.select("#sunburstDiv").remove();
+           var svg = d3.select("#sunburstDiv").append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
         .append("g")
@@ -150,9 +85,9 @@
             var totalSize = path.node().__data__.value;
             sysname=data.sysname
             tooltip.text(d.name + " " + sysname+ ": " + formatNumber(d.value))
-      	  .style("opacity", 0.9)
-      	  .style("left", (d3.event.pageX) + 20 + "px")
-      	  .style("top", (d3.event.pageY) - 20 + "px");
+          .style("opacity", 0.9)
+          .style("left", (d3.event.pageX) + 20 + "px")
+          .style("top", (d3.event.pageY) - 20 + "px");
         })
         .on("mouseout", function(d) {
             tooltip.style("opacity", 0);
@@ -199,25 +134,25 @@
             .duration(750)
             .attrTween("d", arcTween(d))
             .each("end", function(e, i) {
-      	  // check if the animated element's data e lies within the visible angle span given in d
-      	  if (e.x >= d.x && e.x < (d.x + d.dx)) {
-      	      // get a selection of the associated text element
+          // check if the animated element's data e lies within the visible angle span given in d
+          if (e.x >= d.x && e.x < (d.x + d.dx)) {
+              // get a selection of the associated text element
                            //console.log(e.name + " " + e)
-      	      var arcText = d3.select(this.parentNode).select("text");
-      	      // fade in the text element and recalculate positions
-      	      arcText.transition().duration(750)
-      		  .attr("opacity", 1)
-      		  .attr("transform", function(d) { return "translate(" + arc.centroid(d) + ")rotate(" + computeTextRotation(d) + ")"; })
+              var arcText = d3.select(this.parentNode).select("text");
+              // fade in the text element and recalculate positions
+              arcText.transition().duration(750)
+            .attr("opacity", 1)
+            .attr("transform", function(d) { return "translate(" + arc.centroid(d) + ")rotate(" + computeTextRotation(d) + ")"; })
                                .style('visibility', function(d) {return d.dx/topDx < 0.005 ? 'hidden' : 'visible'})
-      		  .attr('text-anchor', "middle")//function (d) { return computeTextRotation(d) > 180 ? "end" : "start"; })
-      	  }
+            .attr('text-anchor', "middle")//function (d) { return computeTextRotation(d) > 180 ? "end" : "start"; })
+          }
             });
         if(d3.event.shiftKey){
             var url = window.location.href;
                    var base_url = RemoveLastDirectoryPartOf(url);
             if (window.confirm('Click "ok" to be redirected to the job graph'))
             {
-      	  window.location.href=base_url+"/jobDetails?jid="+d.name;
+          window.location.href=base_url+"/jobDetails?jid="+d.name;
             };
         }
            };
@@ -231,7 +166,7 @@
             yr = d3.interpolate(y.range(), [d.y ? 20 : 0, radius]);
         return function(d, i) {
             return i
-      	  ? function(t) { return arc(d); }
+          ? function(t) { return arc(d); }
             : function(t) { x.domain(xd(t)); y.domain(yd(t)).range(yr(t)); return arc(d); };
         };
            }
@@ -251,5 +186,76 @@
       createVisualization(newData);
          });
     </script>
+
+    <style>
+      path {
+        stroke: #fff;
+        fill-rule: evenodd;
+      }
+
+      text {
+        font-family: Arial, sans-serif;
+        font-size: 8px;
+      }
+
+      div.tooltip {
+        position: absolute;
+        text-align: center;
+        width: 200px;
+        height: 100px;
+        padding: 2px;
+        font: 12px sans-serif;
+        background: lightsteelblue;
+        border: 0px;
+        border-radius: 8px;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="layout">
+      <div class="crumb__container">
+        <div class="crumb__inner">
+          <div class="crumb__content">
+            <div class="crumb__logo">
+              <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
+            </div>
+            <div class="crumbs" id="crumbmenu"></div>
+          </div>
+        </div>
+      </div>
+      <nav class="nav" id="navmenu"></nav>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <div class="flex flex__left" id="optionsSelect">
+              <h3>Needs a Title</h3>
+              <label for="optionsList">Select a Graph Option 1:</label>
+              <select id="optionsList">
+                <option value="load_data">Load Graph</option>
+                <option value="vms_data">VMS Graph</option>
+                <option value="rss_data">RSS Graph</option>
+                <option value="state_data">State Graph</option>
+              </select>
+            </div>
+            <i>Update time: %(update_time)s</i>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <div id="sunburstDiv"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+    <footer class="section section--footer">
+      <div class="section__inner section__inner--footer">
+        <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
+        <p class="hero__text hero__text--small" id="signature"></p>
+      </div>
+    </footer>
   </body>
 </html>
