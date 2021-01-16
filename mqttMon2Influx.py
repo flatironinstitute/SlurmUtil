@@ -305,7 +305,9 @@ class MQTTReader (threading.Thread):
         return point
 
     def createUidMonPoint(self, node, uid, curr_ts, new_procs, cont_procs, pre_ts, pre_cont_procs):
-        return self.createMonPoint ('cpu_uid_mon', node, 'uid', uid, curr_ts, new_procs, cont_procs, pre_ts, pre_cont_procs)
+        point = self.createMonPoint ('cpu_uid_mon', node, 'uid', uid, curr_ts, new_procs, cont_procs, pre_ts, pre_cont_procs)
+        #point['fields']['jid'] = jid
+        return point
 
     def createJidMonPoint(self, node, jid, curr_ts, new_procs, cont_procs, pre_ts, pre_cont_procs):
         return self.createMonPoint ('cpu_jid_mon', node, 'jid', jid, curr_ts, new_procs, cont_procs, pre_ts, pre_cont_procs)

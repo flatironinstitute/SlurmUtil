@@ -28,8 +28,6 @@ class SlurmStatus:
         return cls.STATUS_LIST[idInt]
 
 class SlurmCmdQuery:
-    #DF_ASSOC   = pandas.read_csv ("sacctmgr_assoc.csv", sep='|')
-    #DICT_QOS   = DF_ASSOC.set_index("User").to_dict()['QOS']   # {User:QOS}
     TS_ASSOC   = 0
     DICT_ASSOC = {}
 
@@ -146,9 +144,7 @@ class SlurmCmdQuery:
     def updateAssoc ():
         file_nm = CSV_DIR + "sacctmgr_assoc.csv"
         file_ts = os.path.getmtime(file_nm)
-        if file_ts > SlurmCmdQuery.TS_ASSOC:
-           #SlurmCmdQuery.DF_ASSOC   = pandas.read_csv ("sacctmgr_assoc.csv", sep='|')
-           #SlurmCmdQuery.DICT_QOS   = SlurmCmdQuery.DF_ASSOC.set_index("User").to_dict()['QOS']   # {User:QOS}
+        if file_ts > SlurmCmdQuery.TS_ASSOC:      # if file is newer
            with open(file_nm) as fp: 
                 lines = fp.read().splitlines()
            fields = lines[0].split('|')
@@ -205,6 +201,12 @@ class PyslurmQuery():
         if not jobs:
            jobs = pyslurm.job().get()
         return [job for job in jobs.values() if job['user_id']==user_id]
+
+    @staticmethod
+    def getUserRunningJobs (user_id, jobs=None):
+        if not jobs:
+           jobs = pyslurm.job().get()
+        return [job for job in jobs.values() if (job['user_id']==user_id) and (job['job_state']=='RUNNING')]
 
     @staticmethod
     def getCurrJob (jid, job_dict=None):

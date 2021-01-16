@@ -521,7 +521,8 @@ class SLURMMonitorUI(object):
                   else:
                      job_info    = [node, status, delay, node_mem_M, jid, job_user, job_coreCnt, job_runTime, 0,           0,           0,           0,       0,       0,            0]
                   # check job gpu information
-                  job_gpuCnt  = len(jobData[jid]['gpus_allocated'][node]) if node in jobData[jid]['gpus_allocated'] else 0
+                  #logger.info("jobData{}={}".format(jid, jobData[jid]))
+                  job_gpuCnt  = len(jobData[jid]['gpus_allocated'][node]) if node in jobData[jid].get('gpus_allocated',{}) else 0
                   if job_gpuCnt:
                      job_gpuUtil    = self.getJobGPUUtil_node(jobData[jid], node, gpudata) if gpudata else 0
                      job_avgGPUUtil = gpu_jid2data[node][jid]                              if gpu_jid2data and node in gpu_jid2data else 0
@@ -690,7 +691,8 @@ class SLURMMonitorUI(object):
         if 'gpu_util' in column: 
            gpu_nodes,max_gpu_cnt   = self.monData.getCurrJobGPUNodes()   
            logger.info("max_gpu_cnt={},gpu_nodes={}".format(max_gpu_cnt, gpu_nodes))
-           gpu_ts, gpudata         = BrightRestClient().getAllGPUAvg (gpu_nodes, minutes=5, max_gpu_cnt=max_gpu_cnt)
+           if max_gpu_cnt:
+              gpu_ts, gpudata      = BrightRestClient().getAllGPUAvg (gpu_nodes, minutes=5, max_gpu_cnt=max_gpu_cnt)
         if 'avg_gpu_util' in column:
            min_start_ts, gpu_detail= self.monData.getCurrJobGPUDetail()   #gpu_detail include job's start_time
            minutes                 = int(int(time.time()) - min_start_ts)/60  

@@ -63,11 +63,11 @@ class BrightRestClient:
         #print("getAllGPU_raw return {}".format(r.json()))
         # divide raw data by node and gpu
         d     = defaultdict(lambda:defaultdict(list)) 
-        for item in r.json()['data']:
+        for item in r.json().get('data',[]):
             gpu_id   = item['measurable'].split(':')[1]  # remove gpu_utilization: gpu0, gpu1...
             d[gpu_id][item['entity']].append(item)
         #print("getAllGPU_raw len={}, took {}".format(len(r.json()['data']), time.time() - start))
-        return ts, d
+        return ts, dict(d)
 
     def getRawAvg (seq, startTS, stopTS):
         if not seq:      
