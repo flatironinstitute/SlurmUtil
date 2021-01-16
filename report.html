@@ -40,7 +40,10 @@ $(document).ready(function(){{
         Cluster Account Hourly Allocation from <input name="start" id="start" value="2017-09-25" type="date"> to <input name="stop" id="stop" value="" type="date">
         <button> Report </button></form>
   <form action="./userReport_hourly"> 
-        Top <input name="top" id="top" size=2 value=5> 
+        <select id='cluster' name='cluster'> 
+                   <option value='slurm'>Slurm</option>
+                   <option value='slurm_cluster'>Slurm Cluster</option></select>
+        Cluster Top <input name="top" id="top" size=2 value=5> 
         Slurm Users Usage of <select id='acct' name='acct'>
                                 <option value="all">All</option>
                                 <option value="cca">CCA</option>

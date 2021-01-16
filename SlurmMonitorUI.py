@@ -268,29 +268,29 @@ class SLURMMonitorUI(object):
         h = open(htmlTemp).read()%{
                                    'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
-                                   'series1': tresSer[4], 'title1': 'Cluster {}: Account Node Hourly Usage'.format(cluster), 'xlabel1': 'Avg Node',   'aseries1':[],
-                                   'series2': tresSer[1], 'title2': 'Cluster {}: Account CPU Hourly Usage'.format(cluster),  'xlabel2': 'Avg CPU',    'aseries2':[], 
-                                   'series3': tresSer[2], 'title3': 'Cluster {}: AAccount Mem Hourly Usage'.format(cluster), 'xlabel3': 'Avg MEM MB', 'aseries3':[]}
+                                   'series1': tresSer[1], 'title1': 'Cluster {}: Account CPU Hourly Usage'.format(cluster),  'xlabel1': 'Avg CPU',    'aseries1':[], 
+                                   'series2': tresSer[2], 'title2': 'Cluster {}: AAccount Mem Hourly Usage'.format(cluster), 'xlabel2': 'Avg MEM MB', 'aseries2':[],
+                                   'series3': tresSer[4], 'title3': 'Cluster {}: Account Node Hourly Usage'.format(cluster), 'xlabel3': 'Avg Node',   'aseries3':[]}
 
         return h
 
     @cherrypy.expose
-    def userReport_hourly(self, start='', stop='', top=5, acct='all'):
+    def userReport_hourly(self, cluster, start='', stop='', top=5, acct='all'):
         # get top 5 user for each resource
         if acct=='all':
            acct = None
-        tresSer  = self.querySlurmClient.getUserReport_hourly(start, stop, int(top), acct)
+        start, stop, tresSer  = SlurmDBQuery.getUserReport_hourly(cluster, start, stop, int(top), acct)
         
-        cpuLst   = tresSer[1]
-        start    = min(cpuLst, key=(lambda item: (item['data'][0][0])))['data'][0][0]  /1000
-        stop     = max(cpuLst, key=(lambda item: (item['data'][-1][0])))['data'][-1][0]/1000
+        #cpuLst   = tresSer[1]
+        #start    = min(cpuLst, key=(lambda item: (item['data'][0][0])))['data'][0][0]  /1000
+        #stop     = max(cpuLst, key=(lambda item: (item['data'][-1][0])))['data'][-1][0]/1000
         htmlTemp = os.path.join(config.APP_DIR, 'scatterHC.html')
         h = open(htmlTemp).read()%{
                                    'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
-                                   'series1': tresSer[1], 'title1': 'User CPU usage hourly report', 'xlabel1': 'CPU core secs', 'aseries1':[], 
-                                   'series2': tresSer[2], 'title2': 'User Mem usage hourly report', 'xlabel2': 'MEM MB secs',   'aseries2':[],
-                                   'series3': tresSer[4], 'title3': 'User Node usage hourly report','xlabel3': 'Node secs', 'aseries3':[]}
+                                   'series1': tresSer[1], 'title1': 'Cluster {}: Top User CPU Hourly Usage'.format(cluster), 'xlabel1': 'CPU', 'aseries1':[], 
+                                   'series2': tresSer[2], 'title2': 'Cluster {}: Top User Mem Hourly Usage'.format(cluster), 'xlabel2': 'MEM MB',   'aseries2':[],
+                                   'series3': tresSer[4], 'title3': 'Cluster {}: Top User Node Hourly Usage'.format(cluster),'xlabel3': 'Node', 'aseries3':[]}
 
         return h
 
@@ -463,8 +463,8 @@ class SLURMMonitorUI(object):
         h = open(htmlTemp).read()%{
                                    'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
-                                   'series1': json.dumps(cpu_series), 'title1': "Cluster {} CPU usage hourly report".format(cluster), 'xlabel1': 'CPU core secs', 'aseries1':cpu_ann, 
-                                   'series2': mem_series, 'title2': 'Cluster Mem usage hourly report', 'xlabel2': 'MEM MB secs',   'aseries2':mem_ann}
+                                   'series1': json.dumps(cpu_series), 'title1': "Cluster {}: CPU Hourly Usage".format(cluster), 'xlabel1': 'CPU core secs', 'aseries1':cpu_ann, 
+                                   'series2': mem_series, 'title2': 'Cluster {}: Mem Hourly Usage'.format(cluster), 'xlabel2': 'MEM MB secs',   'aseries2':mem_ann}
 
         return h
 

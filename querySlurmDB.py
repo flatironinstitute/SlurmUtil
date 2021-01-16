@@ -70,34 +70,38 @@ class SlurmDBQuery:
 
         return st, stp, sumDf
 
-    def getUserReport_hourly(self, start='', stop='', top=5, account=None):
+    def getUserReport_hourly(cluster, start='', stop='', top=5, account=None):
         # get top 5 user for each resource
-        df     = pandas.read_csv(CSV_DIR + "slurm_cluster_assoc_usage_day_table.csv", usecols=['id','id_tres', 'alloc_secs', 'time_start'], dtype={'time_start':int})
-        st, stp, df     = MyTool.getDFBetween (df, 'time_start', start, stop)     #constrain by time
-        sumDf  = df.groupby(['id_tres','id']).sum()                               #sum over user
-        userDf = pandas.read_csv(CSV_DIR + "slurm_cluster_assoc_table.csv",            usecols=['id_assoc','user','acct'], index_col=0)
-        sumDf  = sumDf.join(userDf, on='id')
+        fname       = "{}/{}_{}".format(CSV_DIR, cluster, "assoc_usage_day_table.csv")
+        df          = pandas.read_csv(fname,  usecols=['id','id_tres', 'alloc_secs', 'time_start'], dtype={'time_start':int})
+        st, stp, df = MyTool.getDFBetween (df, 'time_start', start, stop)     #constrain by time
+        sumDf       = df.groupby(['id_tres','id']).sum()                               #sum over user
+        fname1      = "{}/{}_{}".format(CSV_DIR, cluster, "assoc_table.csv")
+        userDf      = pandas.read_csv(fname1, usecols=['id_assoc','user','acct'], index_col=0)
+        sumDf       = sumDf.join(userDf, on='id')
         if account:
-           sumDf = sumDf[sumDf['acct']==account]
-        cpuIdx = sumDf.loc[(1,)].nlargest(top, 'alloc_secs').index
-        memIdx = sumDf.loc[(2,)].nlargest(top, 'alloc_secs').index
-        nodeIdx= sumDf.loc[(4,)].nlargest(top, 'alloc_secs').index
+           sumDf    = sumDf[sumDf['acct']==account]
+        cpuIdx      = sumDf.loc[(1,)].nlargest(top, 'alloc_secs').index
+        memIdx      = sumDf.loc[(2,)].nlargest(top, 'alloc_secs').index
+        nodeIdx     = sumDf.loc[(4,)].nlargest(top, 'alloc_secs').index
         #topIdx = cpuIdx.union(memIdx).union(nodeIdx)
 
-        df     = pandas.read_csv(CSV_DIR + "slurm_cluster_assoc_usage_hour_table.csv", usecols=['id','id_tres','time_start','alloc_secs'])
-        st, stp, df     = MyTool.getDFBetween (df, 'time_start', start, stop)
+        fname2      = "{}/{}_{}".format(CSV_DIR, cluster, "assoc_usage_hour_table.csv")
+        df          = pandas.read_csv(fname2, usecols=['id','id_tres','time_start','alloc_secs'])
+        st, stp, df = MyTool.getDFBetween (df, 'time_start', start, stop)
         # get top users data only
-        dfg    = df.groupby(['id_tres','id'])
-        tresSer= {1:[],     2:[],     4:[]} # {1: [{'data': [[ms,value],...], 'name': uid},...], 2:...} 
-        idxSer = {1:cpuIdx, 2:memIdx, 4:nodeIdx}
+        dfg         = df.groupby(['id_tres','id'])
+        tresSer     = {1:[],     2:[],     4:[]} # {1: [{'data': [[ms,value],...], 'name': uid},...], 2:...} 
+        idxSer      = {1:cpuIdx, 2:memIdx, 4:nodeIdx}
         for tres in [1,2,4]:
             for uid in idxSer[tres]:
-                topDf          = dfg.get_group((tres,uid))
-                topDf['ts_ms'] = topDf['time_start'] * 1000
-                topLst         = topDf[['ts_ms','alloc_secs']].values.tolist()
+                topDf                = dfg.get_group((tres,uid))
+                topDf['ts_ms']       = topDf['time_start'] * 1000
+                topDf['alloc_ratio'] = topDf['alloc_secs'] / 3600
+                topLst               = topDf[['ts_ms','alloc_ratio']].values.tolist()
                 tresSer[tres].append({'data': topLst, 'name': userDf.loc[uid,'user']+"("+userDf.loc[uid,'acct']+")"})
 
-        return tresSer
+        return st,stp,tresSer
     
     # return time_col, value_cols
     def getTimeIndexValue (self, df, time_col, value_cols):
