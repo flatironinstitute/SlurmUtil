@@ -249,10 +249,10 @@ class SLURMMonitorUI(object):
         return htmlStr
 
     @cherrypy.expose
-    def accountReport_hourly(self, start='', stop=''):
+    def accountReport_hourly(self, cluster, start='', stop=''):
         #sumDf index ['id_tres','acct', 'time_start'], 
         
-        start, stop, sumDf = SlurmDBQuery.getAccountUsage_hourly(start, stop)
+        start, stop, sumDf = SlurmDBQuery.getAccountUsage_hourly(cluster,start, stop)
 
         sumDfg      = sumDf.groupby('id_tres')
         tresSer     = {} # {1: [{'data': [[ms,value],...], 'name': uid},...], 2:...} 
@@ -261,19 +261,16 @@ class SLURMMonitorUI(object):
             acctIdx       = sumDfg.get_group(tres).index.get_level_values('acct').unique()
             for acct in acctIdx:
                 sumDf.loc[(tres,acct,), ]
-                tresSer[tres].append({'name': acct, 'data':sumDf.loc[(tres,acct,), ['ts', 'alloc_secs']].values.tolist()}) 
+                tresSer[tres].append({'name': acct, 'data':sumDf.loc[(tres,acct,), ['ts_ms', 'alloc_ratio']].values.tolist()}) 
                 
         #generate data
-        cpuLst   = tresSer[1]
-        #start    = min(cpuLst, key=(lambda item: (item['data'][0][0])))['data'][0][0]  /1000
-        #stop     = max(cpuLst, key=(lambda item: (item['data'][-1][0])))['data'][-1][0]/1000
         htmlTemp = os.path.join(config.APP_DIR, 'scatterHC.html')
         h = open(htmlTemp).read()%{
                                    'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
-                                   'series1': tresSer[1], 'title1': 'Account CPU usage hourly report',  'xlabel1': 'CPU core secs', 'aseries1':[], 
-                                   'series2': tresSer[4], 'title2': 'Account Node usage hourly report', 'xlabel2': 'Node secs',     'aseries2':[],
-                                   'series3': tresSer[2], 'title3': 'Account Mem usage hourly report',  'xlabel3': 'MEM MB secs',   'aseries3':[]}
+                                   'series1': tresSer[4], 'title1': 'Cluster {}: Account Node Hourly Usage'.format(cluster), 'xlabel1': 'Avg Node',   'aseries1':[],
+                                   'series2': tresSer[1], 'title2': 'Cluster {}: Account CPU Hourly Usage'.format(cluster),  'xlabel2': 'Avg CPU',    'aseries2':[], 
+                                   'series3': tresSer[2], 'title3': 'Cluster {}: AAccount Mem Hourly Usage'.format(cluster), 'xlabel3': 'Avg MEM MB', 'aseries3':[]}
 
         return h
 
@@ -426,8 +423,11 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def clusterReport_hourly(self, start='', stop='', action='', cluster=''):
-        start, stop, cpuDf, memDf  = SlurmDBQuery.getClusterUsage_hourly(cluster, start, stop)
+        start, stop, dfg= SlurmDBQuery.getClusterUsage_hourly(cluster, start, stop)
 
+        cpuDf      = dfg.get_group(1)
+        memDf      = dfg.get_group(2)
+        #nodeDf     = dfg.get_group(4)  not available
         #convert to highchart format, cpu, mem, energy (all 0, ignore)
         #get indexed of all cpu data, retrieve useful data
         cpu_alloc  = cpuDf[['ts_ms', 'alloc_secs']].values.tolist()
@@ -440,7 +440,7 @@ class SLURMMonitorUI(object):
                       {'data': cpu_resv,  'name': 'Reserve secs'},
                       {'data': cpu_idle,  'name': 'Idle secs'},
                       {'data': cpu_down,  'name': 'Down secs'},
-                      {'data': cpu_over,  'name': 'Over secs'},
+                      {'data': cpu_over,  'name': 'Over secs', 'visible': False},
                      ]  ##[{'data': [[1531147508000(ms), value]...], 'name':'userXXX'}, ...] 
 
         mem_alloc  = memDf.loc[:,['ts_ms', 'alloc_secs']].values.tolist()
@@ -463,14 +463,8 @@ class SLURMMonitorUI(object):
         h = open(htmlTemp).read()%{
                                    'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
-                                   'series1': cpu_series, 'title1': "Cluster {} CPU usage hourly report".format(cluster), 'xlabel1': 'CPU core secs', 'aseries1':cpu_ann, 
+                                   'series1': json.dumps(cpu_series), 'title1': "Cluster {} CPU usage hourly report".format(cluster), 'xlabel1': 'CPU core secs', 'aseries1':cpu_ann, 
                                    'series2': mem_series, 'title2': 'Cluster Mem usage hourly report', 'xlabel2': 'MEM MB secs',   'aseries2':mem_ann}
-        #htmlTemp = os.path.join(config.APP_DIR, 'clusterHC.html')
-        #h = open(htmlTemp).read()%{
-        #                           'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
-        #                           'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
-        #                           'series1': cpu_series, 'title1': "Cluster {} CPU usage hourly report".format(cluster), 'xlabel1': 'CPU core secs', 'aseries1':cpu_ann, 
-        #                           'series2': mem_series, 'title2': 'Cluster Mem usage hourly report', 'xlabel2': 'MEM MB secs',   'aseries2':mem_ann}
 
         return h
 

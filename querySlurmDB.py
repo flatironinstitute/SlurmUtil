@@ -36,33 +36,37 @@ class SlurmDBQuery:
         start, stop, df  = MyTool.getDFBetween(df, 'time_start', start, stop)
         df['total_secs'] = df['alloc_secs']+df['down_secs']+df['pdown_secs']+df['idle_secs']+df['resv_secs']
         df['tdown_secs'] = df['down_secs'] +df['pdown_secs']
-        df               = df[df['count'] * 3600 == df['total_secs']]
-
+        df               = df[df['count'] * 3600 == df['total_secs']]      # count =? count of cores
+        df['ts_ms']      = df['time_start'] * 1000
         dfg              = df.groupby  ('id_tres')
-        cpuDf            = dfg.get_group(1)
-        memDf            = dfg.get_group(2)
-        eneDf            = dfg.get_group(3)
+ 
+        #cpuDf            = dfg.get_group(1)
+        #memDf            = dfg.get_group(2)
+        #eneDf            = dfg.get_group(3)
 
-        cpuDf['ts_ms']   = cpuDf['time_start'] * 1000
-        memDf['ts_ms']   = memDf['time_start'] * 1000
+        #cpuDf['ts_ms']   = cpuDf['time_start'] * 1000
+        #memDf['ts_ms']   = memDf['time_start'] * 1000
 
-        return start, stop, cpuDf, memDf 
+        return start, stop, dfg
 
     # daily.sh update the data daily 
-    def getAccountUsage_hourly (start='', stop=''):
+    def getAccountUsage_hourly (cluster, start='', stop=''):
         #cluster usage
-        df         = pandas.read_csv(CSV_DIR + "slurm_cluster_assoc_usage_hour_table.csv", usecols=['id','id_tres','time_start','alloc_secs'])
+        fname      = "{}/{}_{}".format(CSV_DIR, cluster, "assoc_usage_hour_table.csv")
+        df         = pandas.read_csv(fname, usecols=['id','id_tres','time_start','alloc_secs'])
         st, stp, df= MyTool.getDFBetween (df, 'time_start', start, stop)
 
         # get account's data, id_assoc (user) - account
-        userDf     = pandas.read_csv(CSV_DIR + "slurm_cluster_assoc_table.csv", usecols=['id_assoc','acct'], index_col=0)
+        fname1     = "{}/{}_{}".format(CSV_DIR, cluster, "assoc_table.csv")
+        userDf     = pandas.read_csv(fname1, usecols=['id_assoc','acct'], index_col=0)
         # add acct to df
         df['acct'] = df['id'].map(userDf['acct'])
         df.drop('id', axis=1, inplace=True)
 
         # sum over the same id_tres, acct, time_start
-        sumDf       = df.groupby(['id_tres','acct', 'time_start']).sum()
-        sumDf['ts'] = sumDf.index.get_level_values('time_start') * 1000
+        sumDf          = df.groupby(['id_tres','acct', 'time_start']).sum()
+        sumDf['ts_ms'] = sumDf.index.get_level_values('time_start') * 1000
+        sumDf['alloc_ratio'] = sumDf['alloc_secs']/3600     #1 sec on node1 and 1 sec on node2 =? 2/3600 node  
 
         return st, stp, sumDf
 
