@@ -4,9 +4,10 @@ import time
 t1=time.time()
 import os,re,subprocess
 import pandas
-import MyTool
+import config,MyTool
 from datetime import datetime, date, timedelta
 
+logger=config.logger
 SLURM_STATE_DICT = {0:'PENDING', 1:'RUNNING', 3:'COMPLETED', 4:'CANCELED', 5:'FAILED', 6:'TIMEOUT', 7:'NODE_FAIL', 8:'PREEMPTED', 11:'OUT_OF_MEM', 8192:'RESIZING'}
 CSV_DIR          = "/mnt/home/yliu/projects/slurm/utils/data/"
 
@@ -28,16 +29,24 @@ class SlurmDBQuery:
 
         return self.job_df
         
-    def getClusterUsage_hourly(start, stop):
+    def getClusterUsage_hourly(cluster, start, stop):
         #read from csv, TODO: deleted=0 for all data now
-        df               = pandas.read_csv(CSV_DIR + "slurm_cluster_usage_hour_table.csv", usecols=['id_tres','time_start','count','alloc_secs','down_secs','pdown_secs','idle_secs','resv_secs','over_secs'])
-        start, stop, df  = self.getDFBetween(df, 'time_start', start, stop)
+        fname            = "{}/{}_{}".format(CSV_DIR, cluster, "usage_hour_table.csv")
+        df               = pandas.read_csv(fname, usecols=['id_tres','time_start','count','alloc_secs','down_secs','pdown_secs','idle_secs','resv_secs','over_secs'])
+        start, stop, df  = MyTool.getDFBetween(df, 'time_start', start, stop)
         df['total_secs'] = df['alloc_secs']+df['down_secs']+df['pdown_secs']+df['idle_secs']+df['resv_secs']
+        df['tdown_secs'] = df['down_secs'] +df['pdown_secs']
         df               = df[df['count'] * 3600 == df['total_secs']]
-        df['tdown_secs'] = df['down_secs']+df['pdown_secs']
-        #df               = df[df['alloc_secs']>0]
 
-        return start, stop, df
+        dfg              = df.groupby  ('id_tres')
+        cpuDf            = dfg.get_group(1)
+        memDf            = dfg.get_group(2)
+        eneDf            = dfg.get_group(3)
+
+        cpuDf['ts_ms']   = cpuDf['time_start'] * 1000
+        memDf['ts_ms']   = memDf['time_start'] * 1000
+
+        return start, stop, cpuDf, memDf 
 
     # daily.sh update the data daily 
     def getAccountUsage_hourly (start='', stop=''):

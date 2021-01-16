@@ -28,7 +28,10 @@ $(document).ready(function(){{
 <div id="hourly" class="border">
 <legend> Cluster and User Usage Report </legend>
   <form action="./clusterReport_hourly"> 
-        Slurm Cluster Hourly Usage from <input name="start" id="start" value="2017-09-18" type="date"> to <input name="stop" id="stop" value="" type="date"> &nbsp
+        Cluster <select id='cluster' name='cluster'> 
+                   <option value='slurm'>Slurm</option>
+                   <option value='slurm_cluster'>Slurm Cluster</option></select>
+        Hourly Usage from <input name="start" id="start" value="2017-09-18" type="date"> to <input name="stop" id="stop" value="" type="date"> &nbsp
         <button> Report </button></form>
   <form action="./accountReport_hourly"> 
         Slurm Account Allocation Hourly Usage from <input name="start" id="start" value="2017-09-25" type="date"> to <input name="stop" id="stop" value="" type="date">
