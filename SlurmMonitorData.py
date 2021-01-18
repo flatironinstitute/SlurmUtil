@@ -316,6 +316,7 @@ class SLURMMonitorData(object):
             job['node_rss_util']     = {}
             job['node_io_bps_curr']  = {}
             job['node_cpu_util_curr']= {}
+            job['user']              = MyTool.getUser(job['user_id'])
 
             for node in job['cpus_allocated']:
                 node_cpu_time, node_rss, node_mem, node_io_bps_curr, node_cpu_util_curr = 0,0,0,0,0
@@ -348,7 +349,6 @@ class SLURMMonitorData(object):
                    else:
                       logger.error('ERROR: Node {} of Job {} (start at {} on {}) is not in self.jobNode2ProcRecord'.format(node, jid, job['start_time'], job['nodes'])) 
                
-            job['user']         = MyTool.getUser(job['user_id'])
             job['job_io_bps']   = total_io_bps
             job['job_inst_util']= total_cpu_util_curr
             if total_cpu_time: # has process informatoin
@@ -492,7 +492,7 @@ class SLURMMonitorData(object):
                   self.updateJobNode2ProcRecord (nInfo[2], jid, node, jid2proc[jid])  #nInfo[2] is ts
                #update the latest cpu_time for each proc
             elif len(nInfo) > USER_INFO_IDX and nInfo[USER_INFO_IDX]:
-               u_lst = [procByUser[0] for procsByUser in nInfo[USER_INFO_IDX:]]
+               u_lst = [procsByUser[0] for procsByUser in nInfo[USER_INFO_IDX:]]
                logger.error("Proc of user {} reported for node {} in state {}".format(node, u_lst, nInfo[0]))
 
         self.addJobsAttr      (self.updateTS, self.currJobs)          #add attribute job_avg_util, job_mem_util, job_io_bps

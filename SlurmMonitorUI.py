@@ -1,4 +1,4 @@
-import cherrypy, _pickle as cPickle, csv, datetime, json, os
+import cherrypy, _pickle as cPickle, datetime, json, os
 import pandas, logging, pwd, re, subprocess as SUB, sys, time, zlib
 from collections import defaultdict, OrderedDict
 import operator
@@ -62,18 +62,6 @@ class SLURMMonitorUI(object):
 
         return start, stop, df
 
-    def getCDF_X (self, df, percentile):
-        cdf   = df.cumsum()
-        maxV  = cdf['count'].iloc[-1]
-        cdf['count'] = (cdf['count'] / maxV) * 100
-        tmpDf = cdf[cdf['count'] < (percentile+0.5)]
-        if tmpDf.empty:
-           x  = 1;
-        else:
-           x  = tmpDf.iloc[-1].name
-
-        return x, cdf
-
     @cherrypy.expose
     def qosDetail(self, qos='gpu'):
         qos           = pyslurm.qos().get()[qos]
@@ -121,22 +109,6 @@ class SLURMMonitorUI(object):
                                                   partitions_input  =json.dumps(partLst))
         return htmlStr
        
-    @cherrypy.expose
-    def topJobReport(self, start='', stop='', state=3):
-#job_db_inx,mod_time,deleted,account,admin_comment,array_task_str,array_max_tasks,array_task_pending,cpus_req,derived_ec,derived_es,exit_code,job_name,id_assoc,id_array_job,id_array_task,id_block,id_job,id_qos,id_resv,id_wckey,id_user,id_group,kill_requid,mem_req,nodelist,nodes_alloc,node_inx,partition,priority,state,timelimit,time_submit,time_eligible,time_start,time_end,time_suspended,gres_req,gres_alloc,gres_used,wckey,track_steps,tres_alloc,tres_req
-        df    = pandas.read_csv("slurm_cluster_job_table.csv",usecols=['account', 'cpus_req','job_name', 'id_assoc', 'id_job','id_qos', 'id_user', 'nodelist', 'nodes_alloc', 'state', 'time_submit', 'time_start', 'time_end', 'gres_req', 'tres_req'],index_col=4)
-        start, stop, df    = self.getDFBetween (df, 'time_submit', start, stop)
-        df    = df[df['time_start']>0]
-        df    = df[df['time_end']  >df['time_start']]
-
-        df['time_exe']       = df['time_end']-df['time_start']
-        df['time_exe_total'] = df['time_exe'] * df['cpus_req']
-
-        sortDf=df.sort_values('time_exe_total', ascending=False)
-
-        # CDF data for time_exe_total
-        return repr(sortDf.head(10))
-
     @cherrypy.expose
     def cdfTimeReport(self, cluster, upper=90, start='', stop='', state=3):
         start,stop,cdfData = SlurmDBQuery.getJobTime(cluster, start, stop, upper)
@@ -408,7 +380,7 @@ class SLURMMonitorUI(object):
 
     def getSummaryTableData_1(self, gpudata, gpu_jid2data=None):
         lst_lst = self.getSummaryTableData (self.monData.data, self.monData.currJobs, self.monData.node2jids, self.monData.pyslurmNodes, gpudata, gpu_jid2data)
-        # in self.currJobs, if gpus_allocated, then get the value
+        # in self.monData.currJobs, if gpus_allocated, then get the value
         # gpudata[gpu_name][node_name]   
         return [dict(zip(config.SUMMARY_TABLE_COL, lst)) for lst in lst_lst]
             
@@ -812,7 +784,7 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def nodeGraph(self, node,start='', stop=''):
-        start, stop = MyTool.getStartStopTS (start, stop)
+        start, stop = MyTool.getStartStopTS (start, stop, formatStr='%Y-%m-%d')
         logger.info("start={},stop={}".format(MyTool.getTsString(start), MyTool.getTsString(stop)))
         
         msg = self.nodeGraph_cache(node, start, stop)
@@ -825,8 +797,8 @@ class SLURMMonitorUI(object):
            logger.info('Node {}: no data during {}-{} returned from influx'.format(node, start, stop))
            msg = self.nodeGraph_file(node, start, stop)
            note  = 'file'
-        if not msg:
-           return 'Node {}: no data during {}-{} in cache, influx and saved file'.format(node, start, stop)
+        if (not msg) or (len(msg)<5):
+           return 'Node {}: no data during {}-{} in cache, influx and saved file. Note: {}'.format(node, start, stop, msg)
 
         #ann_series = self.queryTxtClient.getNodeUpTS([node])[node]
         for idx in range(2,len(msg)):
@@ -855,19 +827,14 @@ class SLURMMonitorUI(object):
                                    'iseries_rw': msg[4]}
         return h
   
-    @cherrypy.expose
-    def nodeGraph_cache(self, node, start=None, stop=None):
+    def nodeGraph_cache(self, node, start, stop):
         nodeInfo, cpu_all_nodes, mem_all_nodes, io_all_nodes = self.monData.inMemCache.queryNode(node, start, stop)
         if nodeInfo:
            return nodeInfo['first_ts'], nodeInfo['last_ts'], cpu_all_nodes, mem_all_nodes, io_all_nodes
         else:
            return None
 
-    @cherrypy.expose
-    def nodeGraph_influx(self, node, start='', stop=''):
-        if not start and not stop:
-           start, stop = MyTool.getStartStopTS (start, stop)
-
+    def nodeGraph_influx(self, node, start, stop):
         # highcharts
         #influxClient = InfluxQueryClient()
         influxClient = InfluxQueryClient(self.config['influxdb']['host'])
@@ -886,9 +853,12 @@ class SLURMMonitorUI(object):
 
         return start, stop, cpu_series, mem_series, io_series_r, io_series_w
 
-    def nodeGraph_file(self, node, start='', stop=''):
-        hostData = IndexedHostData(self.config["fileStorage"]["dir"])
+    def nodeGraph_file(self, node, start, stop):
+        hostData                             = IndexedHostData(self.config["fileStorage"]["dir"])
         cpu_all_seq, mem_all_seq, io_all_seq = hostData.queryDataHosts([node], start, stop)
+        if (not cpu_all_seq) and (not mem_all_seq) and (not mem_all_seq):
+           return ["No data in file for node {} during {}-{}".format(node, MyTool.getTsString(start), MyTool.getTsString(stop))]
+
         return start, stop, cpu_all_seq, mem_all_seq, io_all_seq
 
     @cherrypy.expose
@@ -1371,8 +1341,8 @@ class SLURMMonitorUI(object):
            logger.info('Job {}: no data returned from influx'.format(jobid))
            msg = self.jobGraph_file(jobid)
            note='file'
-        if not msg:
-           return 'Job {}: no data in cache, influx and saved file'.format(jobid)
+        if (not msg) or (len(msg)<5):
+           return 'Job {}: no data in cache, influx and saved file. Note: {}'.format(jobid, msg)
         for idx in range(2,len(msg)):
             for seq in msg[idx]:
                 dict_ms = [ [ts*1000, value] for ts,value in seq['data']]
@@ -1400,15 +1370,25 @@ class SLURMMonitorUI(object):
         return h
 
     def jobGraph_file(self, jobid):
-        hostData = IndexedHostData(self.config["fileStorage"]["dir"])
-        jobid    = int(jobid)
-        if jobid not in self.monData.currJobs:
-           jobid1, uid, nodelist, start, stop = SlurmCmdQuery().getSlurmJobInfo(jobid)       
+        if jobid in self.monData.currJobs:
+           job = self.monData.currJobs[jobid]
+           if 'user' not in job:
+              job['user'] = MyTool.getUser(job['user_id'])
         else:
-           job      = self.monData.currJobs[jobid]
-           nodelist, start, stop, uid = list(job['cpus_allocated']), int(job['start_time']), int(time.time()), job['user_id']
-        cpu_all_seq, mem_all_seq, io_all_seq = hostData.queryDataHosts(nodelist, start, stop, uid)
-        return start, stop, cpu_all_seq, mem_all_seq, io_all_seq
+           job = PyslurmQuery.getSlurmDBJob (jobid, req_fields=['start_time', 'end_time', 'user', 'nodes'])
+        logger.info("job={}".format(job))
+        if not job:
+           return ["No data in file for job {}:{}".format(jobid, job)]
+
+        start    = job['start_time']
+        stop     = job['end_time'] if job['end_time'] else int(time.time())
+        nodelist = MyTool.nl2flat(job['nodes']) 
+        hostData = IndexedHostData(self.config["fileStorage"]["dir"])
+        cpu_all_seq, mem_all_seq, io_all_seq = hostData.queryDataHosts(nodelist, job['start_time'], stop, job['user'])
+        if (not cpu_all_seq) and (not mem_all_seq) and (not mem_all_seq):
+           return ["No data in file for job {}:{}".format(jobid, job)]
+        else:
+           return start, stop, cpu_all_seq, mem_all_seq, io_all_seq
 
     def jobGraph_influx(self, jobid):
         jobid                 = int(jobid)
