@@ -2,33 +2,46 @@
 
 import time
 t1=time.time()
-import os,re,subprocess
+import math,os,re,subprocess
 import pandas
 import config,MyTool
 from datetime import datetime, date, timedelta
 
-logger=config.logger
+logger           = config.logger
 SLURM_STATE_DICT = {0:'PENDING', 1:'RUNNING', 3:'COMPLETED', 4:'CANCELED', 5:'FAILED', 6:'TIMEOUT', 7:'NODE_FAIL', 8:'PREEMPTED', 11:'OUT_OF_MEM', 8192:'RESIZING'}
 CSV_DIR          = "/mnt/home/yliu/projects/slurm/utils/data/"
+LOG_BUCKET       = {10.0:10000000000} 
+for i in range(1,10):
+    for j in range(0,10):
+        f        = (i*10+j)/10       
+        LOG_BUCKET[f]=round(math.pow(10,f))
 
 class SlurmDBQuery:
     def __init__(self):
-        self.job_df    = None
-        self.job_df_ts = 0
+        self.jobTable      = {}       #{cluster:{ts:, df:}}
   
     def updateDB (self):
-        subprocess.call('../mysqldump.sh')
+        subprocess.call('./mysqldump.sh')
 
-    def getJobTable (self):
+    #index is id_job, seems that saving jobTable does not save much time
+    def getJobTable (self, cluster, fld_lst=['cpus_req','state', 'time_submit', 'time_eligible', 'time_start', 'time_end']):
         #read file time, if updated from last time, reset the value
-        f_name = CSV_DIR + "slurm_cluster_job_table.csv"
+        f_name = "{}/{}_{}".format(CSV_DIR, cluster, "job_table.csv")
         m_time = os.stat(f_name).st_mtime
-        if m_time > self.job_df_ts:
-           self.job_df    = pandas.read_csv(f_name,usecols=['cpus_req','id_job','state', 'time_submit', 'time_eligible', 'time_start', 'time_end'])
-           self.job_df_ts = m_time
+        if (cluster not in self.jobTable) or (m_time > self.jobTable[cluster]['ts']):
+           self.jobTable[cluster]       = {'ts': m_time}
+           self.jobTable[cluster]['df'] = pandas.read_csv(f_name,usecols=['account', 'cpus_req', 'id_job', 'id_qos','id_user', 'nodes_alloc', 'state', 'time_submit', 'time_eligible', 'time_start', 'time_end', 'tres_alloc'], index_col=2)
 
-        return self.job_df
+        return self.jobTable[cluster]['df'][fld_lst]
         
+    def readJobTable (cluster, start, stop, fld_lst, index_col=None):
+        #read file time, if updated from last time, reset the value
+        f_name        = "{}/{}_{}".format(CSV_DIR, cluster, "job_table.csv")
+        df            = pandas.read_csv(f_name, usecols=fld_lst, index_col=index_col)
+        start,stop,df = MyTool.getDFBetween (df, 'time_submit', start, stop)
+
+        return start, stop, df
+
     def getClusterUsage_hourly(cluster, start, stop):
         #read from csv, TODO: deleted=0 for all data now
         fname            = "{}/{}_{}".format(CSV_DIR, cluster, "usage_hour_table.csv")
@@ -113,12 +126,11 @@ class SlurmDBQuery:
         return df_time
 
     # get job queue length for the cluster in the format of time, jobQueueLength, requestedCPUs
-    def getClusterJobQueue (self, start='', stop='', qTime=0):
+    def getClusterJobQueue (self, cluster, start='', stop='', qTime=0):
         #job_db_inx,mod_time,deleted,account,admin_comment,array_task_str,array_max_tasks,array_task_pending,cpus_req,derived_ec,derived_es,exit_code,job_name,id_assoc,id_array_job,id_array_task,id_block,id_job,id_qos,id_resv,id_wckey,id_user,id_group,pack_job_id,pack_job_offset,kill_requid,mcs_label,mem_req,nodelist,nodes_alloc,node_inx,partition,priority,state,timelimit,time_submit,time_eligible,time_start,time_end,time_suspended,gres_req,gres_alloc,gres_used,wckey,work_dir,track_steps,tres_alloc,tres_req
         # index is id_job
 
-        #df            = pandas.read_csv("slurm_cluster_job_table.csv",usecols=['account', 'cpus_req','id_job','id_qos', 'id_user', 'nodes_alloc', 'state', 'time_submit', 'time_eligible', 'time_start', 'time_end', 'tres_alloc'])
-        df            = self.getJobTable()
+        df            = self.getJobTable(cluster)
         start,stop,df = MyTool.getDFBetween (df, 'time_submit', start, stop)
 
         # Normally, a job enter the queue at time_eligible and leave the queue at time_start
@@ -137,11 +149,8 @@ class SlurmDBQuery:
 
         # counting
         df_t1           = self.getTimeIndexValue(df,                     'time_eligible', ['inc_count', 'inc_count2'])
-        #print ('getClusterJobQueue df_t1={}'.format(df_t1))
         df_t2           = self.getTimeIndexValue(df[df['time_start']>0], 'time_start',    ['dec_count', 'dec_count2'])
-        #print ('getClusterJobQueue df_t2={}'.format(df_t2))
         df_t3           = self.getTimeIndexValue(df[(df['time_start']==0) & (df['time_end']>0)], 'time_end',    ['dec_count', 'dec_count2'])
-        #print ('getClusterJobQueue df_t3={}'.format(df_t3))
         df_time         = df_t1.add(df_t2, fill_value=0).add(df_t3, fill_value=0)
         df_time         = df_time.sort_index().cumsum()
         #print ('getClusterJobQueue df={}'.format(df_time))
@@ -258,6 +267,81 @@ class SlurmDBQuery:
             cpuAllocDf        = cpuAllocDf.rename(columns={'alloc_secs': 'y'})
             cpuAllocDf.to_csv(output_file.format(acct), index=False)
     
+    def getCDF_X (df, percentile):
+        cdf          = df.cumsum()
+        maxV         = cdf['count'].iloc[-1]
+        cdf['count'] = (cdf['count'] / maxV) * 100
+        tmpDf        = cdf[cdf['count'] < (percentile+0.5)]
+        if tmpDf.empty:
+           x  = 1;
+        else:
+           x  = tmpDf.iloc[-1].name
+
+        return x, cdf
+
+    #return jobs' count by cpus_req, cpus_alloc and nodes_alloc
+    def getJobCount (cluster, start, stop, upper=90):
+        start,stop,df    = SlurmDBQuery.readJobTable  (cluster, start, stop, ['account', 'cpus_req','id_job','id_qos', 'id_user', 'nodes_alloc', 'state', 'time_submit', 'tres_alloc'], index_col=2)
+        #remove nodes_alloc=0
+        df               = df[df['nodes_alloc']>0]
+        df               = df[df['account'].notnull()]
+        df['count']      = 1
+        df['cpus_alloc'] = df['tres_alloc'].map(MyTool.extract1)
+
+        result           = {}     #{'cpus_req':{'max_x':, 'total':, 'cca':}
+        # get the CDF data of cpus_req
+        for col in ['cpus_req', 'cpus_alloc', 'nodes_alloc']:
+            sumDf        = df[[col, 'count']].groupby(col).sum()
+            xMax,cdf     = SlurmDBQuery.getCDF_X (sumDf, upper)
+            result[col]  = {'upper_x':xMax, 'count':cdf.reset_index(), 'account':{}}
+            # differiate among accounts
+            acctDf       = df[['account', col, 'count']].groupby(['account', col]).sum()
+            idx0         = acctDf.index.get_level_values(0).unique()
+            for v in idx0.values:
+                result[col]['account'][v] = acctDf.loc[v].reset_index()
+
+        return start, stop, result
+
+    def logBucket(x):
+        if x < 5:
+           return 5
+        if x <= 10:
+           return x
+        if x > 10900000000:       # >10^10.04, out of bucket range
+           return x
+        b = round(math.log10(x)*10)/10
+        return LOG_BUCKET[b]
+
+    #return jobs' count by cpus_req, cpus_alloc and nodes_alloc
+    def getJobTime (cluster, start, stop, upper=90):
+        start,stop,df    = SlurmDBQuery.readJobTable  (cluster, start, stop, ['account', 'cpus_req','id_job','state', 'time_submit', 'time_start', 'time_end', 'tres_alloc'], index_col=2)
+        df               = df[df['account'].notnull()]
+        #df    = df[df['state'] == state]     # only count completed jobs (state=3)
+        df               = df[df['time_start']>0]      
+        df               = df[df['time_end']  >df['time_start']]
+        df['count']      = 1
+        df['time_run']   = df['time_end']-df['time_start']
+        #df                   = df[df['time_exe']>5]
+        df['cpus_alloc'] = df['tres_alloc'].map(MyTool.extract1)
+        df['time_cpu']   = df['time_run'] * df['cpus_alloc']
+        df['time_run_log'] = df['time_run'].map(SlurmDBQuery.logBucket)
+        df['time_cpu_log'] = df['time_cpu'].map(SlurmDBQuery.logBucket)
+
+        result           = {}     #{'cpus_req':{'max_x':, 'total':, 'cca':}
+        # get the CDF data of cpus_req
+        for col in ['time_run_log', 'time_cpu_log']:
+            sumDf        = df[[col, 'count']].groupby(col).sum()
+            xMax,cdf     = SlurmDBQuery.getCDF_X (sumDf, upper)
+            result[col]  = {'upper_x':xMax, 'count':cdf.reset_index(), 'account':{}}
+            # differiate among accounts
+            acctDf       = df[['account', col, 'count']].groupby(['account', col]).sum()
+            idx0         = acctDf.index.get_level_values(0).unique()
+            for v in idx0.values:
+                result[col]['account'][v] = acctDf.loc[v].reset_index()
+
+        return start, stop, result
+
+
 def test2():
     client = SlurmDBQuery()
     info = client.getClusterJobQueue()

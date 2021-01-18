@@ -26,25 +26,25 @@ $(document).ready(function(){{
 <div class="tab" id="tabmenu"></div>
 
 <div id="hourly" class="border">
-<legend> Cluster and User Usage Report </legend>
+<legend> Cluster, Accounts and Users Hourly Usage Report </legend>
   <form action="./clusterReport_hourly"> 
         <select id='cluster' name='cluster'> 
                    <option value='slurm'>Slurm</option>
                    <option value='slurm_cluster'>Slurm Cluster</option></select>
-        Cluster Hourly Usage from <input name="start" id="start" value="2017-09-18" type="date"> to <input name="stop" id="stop" value="" type="date"> &nbsp
+        Cluster Usage from <input name="start" id="start" value="2017-09-18" type="date"> to <input name="stop" id="stop" value="" type="date"> &nbsp
         <button> Report </button></form>
   <form action="./accountReport_hourly"> 
         <select id='cluster' name='cluster'> 
                    <option value='slurm'>Slurm</option>
                    <option value='slurm_cluster'>Slurm Cluster</option></select>
-        Cluster Account Hourly Allocation from <input name="start" id="start" value="2017-09-25" type="date"> to <input name="stop" id="stop" value="" type="date">
+        Cluster Account Allocation from <input name="start" id="start" value="2017-09-25" type="date"> to <input name="stop" id="stop" value="" type="date">
         <button> Report </button></form>
   <form action="./userReport_hourly"> 
         <select id='cluster' name='cluster'> 
                    <option value='slurm'>Slurm</option>
                    <option value='slurm_cluster'>Slurm Cluster</option></select>
         Cluster Top <input name="top" id="top" size=2 value=5> 
-        Slurm Users Usage of <select id='acct' name='acct'>
+        Users Alloction of <select id='acct' name='acct'>
                                 <option value="all">All</option>
                                 <option value="cca">CCA</option>
                                 <option value="ccb">CCB</option>
@@ -72,22 +72,29 @@ $(document).ready(function(){{
 </div>
 
 <div id="secondly" class="border">
-<legend> Pending Queue Report </legend>
+<legend> Pending Queue and CDF Report </legend>
   <form action="./queueLengthReport"> 
-        Slurm Cluster Queue Length from <input name="start" id="start" value="2017-09-18" type="date"> to <input name="stop" id="stop" value="" type="date"> with job wait time bigger than <input name="queueTime" id="queueTime" size=2 value=1> seconds &nbsp
+        <select id='cluster' name='cluster'> 
+                   <option value='slurm'>Slurm</option>
+                   <option value='slurm_cluster'>Slurm Cluster</option></select>
+        Cluster Job Queue Length from <input name="start" id="start" value="2017-09-18" type="date"> to <input name="stop" id="stop" value="" type="date">,
+        counting jobs with a wait time bigger than <input name="queueTime" id="queueTime" size=2 value=1> seconds &nbsp
         <button> Report </button></form>
-</div>
-
-<div id="CDF" class="border">
-<legend> CDF Report </legend>
     <form action="./cdfReport"> 
-        CDF (up to <input name="upper" id="upper" size=3 value=90>th percentile)
+        <select id='cluster' name='cluster'> 
+                   <option value='slurm'>Slurm</option>
+                   <option value='slurm_cluster'>Slurm Cluster</option></select>
+        Cluster CDF 
+        <!--(up to <input name="upper" id="upper" size=3 value=90>th percentile)-->
         of request/allocated CPUs/Nodes of ALLOCATED jobs 
         from <input name="start" id="start" value="2017-10-05" type="date"> to <input name="stop" id="stop" value="" type="date">
         <button> Report </button></form>
     <form action="./cdfTimeReport"> 
-        CDF (up to <input name="upper" id="upper" size=3 value=90>th percentile)
-        of the execution time of RUNNING jobs with execution time longer than 5 seconds
+        <select id='cluster' name='cluster'> 
+                   <option value='slurm'>Slurm</option>
+                   <option value='slurm_cluster'>Slurm Cluster</option></select>
+        Cluster CDF 
+        of exec. time of jobs with execution time longer than 5 seconds
         from <input name="start" id="start" value="2017-10-05" type="date"> to <input name="stop" id="stop" value="" type="date">
         <button> Report </button></form>
 </div>

@@ -138,113 +138,46 @@ class SLURMMonitorUI(object):
         return repr(sortDf.head(10))
 
     @cherrypy.expose
-    def cdfTimeReport(self, upper, start='', stop='', state=3):
-        def bucket1(x):
-            return bucket(x,1)
-        def bucket10(x):
-            return bucket(x,10)
-        def bucket(x, d):
-            if x < 5*d:
-               return 5*d
-            elif x < 20*d:
-               #return (int((x+1*d)/(2*d))) * 2*d
-               return (int(x/d)) *d
-            elif x < 50*d:
-               return (int((x+d)/(2*d))) * 2*d
-            elif x < 100*d:
-               return (int((x+2.5*d)/(5*d))) * 5*d
-            elif x < 200*d:
-               return (int((x+5*d)/(10*d)))  * 10*d
-            elif x < 500*d:
-               return (int((x+10*d)/(20*d))) * 20*d
-            elif x < 1000*d:
-               return (int((x+25*d)/(50*d))) * 50*d
-            elif x < 2000*d:
-               return (int((x+50*d)/(100*d)))* 100*d
-            elif x < 4000*d:
-               return (int((x+100*d)/(200*d))) * 200*d
-            elif x < 20000*d:
-               return (int((x+250*d)/(500*d))) * 250*d
-            else:
-               return (int((x+500*d)/(1000*d))) * 1000*d
-               
-        upper = float(upper)
-        df    = pandas.read_csv("slurm_cluster_job_table.csv",usecols=['account', 'cpus_req','id_job','state', 'time_submit', 'time_start', 'time_end'],index_col=2)
-        df    = df[df['account'].notnull()]
-        start, stop, df    = self.getDFBetween (df, 'time_submit', start, stop)
-        #df    = df[df['state'] == state]     # only count completed jobs (state=3)
-        df    = df[df['time_start']>0]
-        df    = df[df['time_end']  >df['time_start']]
+    def cdfTimeReport(self, cluster, upper=90, start='', stop='', state=3):
+        start,stop,cdfData = SlurmDBQuery.getJobTime(cluster, start, stop, upper)
 
-        df['count']          = 1
-        df['time_exe']       = df['time_end']-df['time_start']
-        df                   = df[df['time_exe']>5]
-        df['time_exe_total'] = df['time_exe'] * df['cpus_req']
-        #df['time_exe']      = (df['time_exe']+5)//10 * 10
-        df['time_exe']       = df['time_exe'].map(bucket1)
-        df['time_exe_total'] = df['time_exe_total'].map(bucket10)
-
-        # CDF data for time_exe
-        sumDf      = df[['time_exe', 'count']].groupby('time_exe').sum()
-        xMax,cdf   = self.getCDF_X (sumDf, upper)
-        series     = [{'type': 'spline', 'name': 'CDF', 'yAxis':1, 'zIndex': 10, 'data': cdf.reset_index().values.tolist()}] 
-
-        sumDf      = df[['account', 'time_exe', 'count']].groupby(['account', 'time_exe']).sum()
-        idx0       = sumDf.index.get_level_values(0).unique()
-        for v in idx0.values:
-            series.append({'type': 'column', 'name': v, 'data': sumDf.loc[v].reset_index().values.tolist()})
-
-        # CDF data for time_exe_total
-        sumDf      = df[['time_exe_total', 'count']].groupby('time_exe_total').sum()
-        xMax2,cdf  = self.getCDF_X (sumDf, upper)
-        dArr2      = sumDf['count'].reset_index().values
+        series     = []
+        for fld in ['time_run_log', 'time_cpu_log']:
+            s  = [{'type': 'spline', 'name': 'CDF', 'yAxis':1, 'zIndex': 10, 'data': cdfData[fld]['count'].values.tolist()}] 
+            for acct,d in cdfData[fld]['account'].items():
+                s.append({'type': 'column', 'name': acct, 'data': d.values.tolist()})
+            series.append (s)
 
         htmlTemp   = os.path.join(config.APP_DIR, 'CDFHC.html')
-        parameters = {'series': series, 'title': 'Execution Time of Jobs', 
-                      'start': time.strftime('%Y-%m-%d', time.localtime(start)), 'stop': time.strftime('%Y-%m-%d', time.localtime(stop)),
-                      'xMax':int(xMax), 'xLabel': 'Execution Time', 'yLabel': 'Count',
-                      'series2': dArr2.tolist(), 'title2': 'Execution Time * Required Cores of Jobs', 
-                      'xMax2':int(xMax2), 'xLabel2': 'Execution Time', 'yLabel2': 'Count'}
+        t1         = 'Cluster {}: CDF of Job Run Time'.format(cluster)
+        t2         = 'Cluster {}: CDF of Job CPU Time'.format(cluster)
+        parameters = {'start': time.strftime('%Y-%m-%d', time.localtime(start)), 
+                      'stop':  time.strftime('%Y-%m-%d', time.localtime(stop)),
+                      'series': series[0], 'title': t1, 'xMax': int(cdfData['time_run_log']['upper_x']+10),'xLabel': 'Run Time',  'yLabel': 'Count',
+                      'series2':series[1], 'title2':t2, 'xMax2':int(cdfData['time_cpu_log']['upper_x'])+10,'xLabel2':'CPU Time',  'yLabel2':'Count'}
         htmlStr    = open(htmlTemp).read().format(**parameters)
         return htmlStr
 
     @cherrypy.expose
-    def cdfReport(self, upper, start='', stop=''):
-        upper         = float(upper)
-        df            = pandas.read_csv("slurm_cluster_job_table.csv",usecols=['account', 'cpus_req','id_job','id_qos', 'id_user', 'nodes_alloc', 'state', 'time_submit', 'tres_alloc'],index_col=2)
-        start,stop,df = self.getDFBetween (df, 'time_submit', start, stop)
-        #remove nodes_alloc=0
-        df            = df[df['nodes_alloc']>0]
+    def cdfReport(self, cluster, upper=90, start='', stop=''):
+        start,stop,cdfData = SlurmDBQuery.getJobCount (cluster, start, stop, upper)
 
-        df['count']      = 1
-        df['cpus_alloc'] = df['tres_alloc'].map(MyTool.extract1)
-
-        # get the CDF data of cpus_req
-        sumDf       = df[['cpus_req', 'count']].groupby('cpus_req').sum()
-        xMax,cdf    = self.getCDF_X (sumDf, upper)
-        series     = [{'type': 'spline', 'name': 'CDF', 'yAxis':1, 'zIndex': 10, 'data': cdf.reset_index().values.tolist()}] 
-
-        sumDf      = df[['account', 'cpus_req', 'count']].groupby(['account', 'cpus_req']).sum()
-        idx0       = sumDf.index.get_level_values(0).unique()
-        for v in idx0.values:
-            series.append({'type': 'column', 'name': v, 'data': sumDf.loc[v].reset_index().values.tolist()})
-
-        # get the CDF data of cpus_alloc 
-        sumDf       = df[['cpus_alloc', 'count']].groupby('cpus_alloc').sum()
-        xMax2,cdf       = self.getCDF_X (sumDf, upper)
-        dArr2       = sumDf['count'].reset_index().values
-        
-        # get the CDF data of nodes_alloc 
-        sumDf       = df[['nodes_alloc', 'count']].groupby('nodes_alloc').sum()
-        xMax3,cdf       = self.getCDF_X (sumDf, upper)
-        dArr3       = sumDf['count'].reset_index().values
-
+        series     = []
+        for fld in ['cpus_req', 'cpus_alloc', 'nodes_alloc']:
+            s = [{'type': 'spline', 'name': 'CDF', 'yAxis':1, 'zIndex': 10, 'data': cdfData[fld]['count'].values.tolist()}] 
+            for acct,d in cdfData[fld]['account'].items():
+                s.append({'type': 'column', 'name': acct, 'data': d.values.tolist()})
+            series.append (s)
+            
         htmlTemp   = os.path.join(config.APP_DIR, 'CDFHC_3.html')
+        t1         = 'Cluster {}: CDF of Job Requested CPUs'.format(cluster)
+        t2         = 'Cluster {}: CDF of Job Allocated CPUs'.format(cluster)
+        t3         = 'Cluster {}: CDF of Job Allocated Nodes'.format(cluster)
         parameters = {'start': time.strftime('%Y-%m-%d', time.localtime(start)), 
                       'stop':  time.strftime('%Y-%m-%d', time.localtime(stop)),
-                      'series': series, 'title': 'Number of Requested CPUs', 'xMax': int(xMax), 'xLabel': 'Number of CPUs', 'yLabel': 'Count',
-                      'series2':dArr2.tolist(),'title2':'Number of Allocated CPUs', 'xMax2':int(xMax2),'xLabel2':'Number of CPUs', 'yLabel2':'Count',
-                      'series3':dArr3.tolist(),'title3':'Number of Allocated Nodes','xMax3':int(xMax3),'xLabel3':'Number of Nodes','yLabel3':'Count'}
+                      'series': series[0], 'title': t1, 'xMax': int(cdfData['cpus_req']['upper_x']+10),  'xLabel': 'Number of CPUs',  'yLabel': 'Count',
+                      'series2':series[1], 'title2':t2, 'xMax2':int(cdfData['cpus_alloc']['upper_x'])+10,'xLabel2':'Number of CPUs',  'yLabel2':'Count',
+                      'series3':series[2], 'title3':t3, 'xMax3':int(cdfData['nodes_alloc']['upper_x']+10),'xLabel3':'Number of Nodes','yLabel3':'Count'}
         htmlStr    = open(htmlTemp).read().format(**parameters)
         return htmlStr
 
@@ -400,10 +333,8 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def queueLengthReport(self, start='', stop='', queueTime=0):
-    #def clusterJobQueueReport(self, start='', stop=''):
-
-        start, stop, df = self.querySlurmClient.getClusterJobQueue (start, stop, int(queueTime))
+    def queueLengthReport(self, cluster, start='', stop='', queueTime=0):
+        start, stop, df = self.querySlurmClient.getClusterJobQueue (cluster, start, stop, int(queueTime))
         
         #df = index | time | value 
         #convert to highchart format, cpu, mem, energy (all 0, ignore)
@@ -417,7 +348,6 @@ class SLURMMonitorUI(object):
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
                                    'series1': series1, 'title1': 'Cluster Job Queue Length', 'xlabel1': 'Queue Length', 'aseries1':[], 
                                    'series2': series2, 'title2': 'Requested CPUs of Queued Job', 'xlabel2': 'CPUs', 'aseries2':[]} 
-
 
         return h
 

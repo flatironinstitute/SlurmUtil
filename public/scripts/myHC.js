@@ -10,9 +10,10 @@ function addHideButton(chart) {
                                     .add();
 }
 
-function graphSeries_stackColumn_CDF(dataSeries, chartTag, title, xType, xMax, xLabel, yLabel) {
-             console.log(dataSeries)
-	     $('#'+chartTag).highcharts({
+// two y Axis, stackcolumn and cdf
+function graphSeries_stackColumn_CDF(dataSeries, chartTag, title, xType, xMax, xLabel, yLabel, pf_func=undefined) {
+    //console.log(dataSeries)
+    $('#'+chartTag).highcharts({
 		 chart: {
 		     panKey:   'shift',
 		     panning:  true,
@@ -52,20 +53,23 @@ function graphSeries_stackColumn_CDF(dataSeries, chartTag, title, xType, xMax, x
 		 },
                  plotOptions: {
                     column: {
-                         pointWidth: 10,
+                         pointWidth: 10, 
+                         tooltip: {
+                             pointFormatter: pf_func
+                         },
                          stacking:   'normal'
                     }
                  },
 		 series: dataSeries
-	     });
+    });
 }
 Highcharts.setOptions({
              global: {
 		 useUTC: false
              }
 });
-function graphSeries(dataSeries, chartTag, title, xType, xMax, xLabel, yLabel) {
-    console.log('graphSeries data=', dataSeries)
+function graphSeries(dataSeries, chartTag, title, xType, xMax, xLabel, yLabel, pf_func=pointFormat_func) {
+    //console.log('graphSeries data=', dataSeries)
 
 	     $('#'+chartTag).highcharts({
 		 chart: {
@@ -143,7 +147,7 @@ function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit=
                       text: v.toString().concat(aUnit) }
     }
 
-    console.log(series)
+    //console.log(series)
     if ( aSeries.length > 0 ) {
                 cus_labels = aSeries.map(function(x) {return crtLabel(x[1], x[2], x[0])})
                 console.log(cus_labels)
@@ -200,6 +204,13 @@ function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit=
     });
 }
 
+function pf_logBucket() {
+   //for x, let l=log(x) it counts 10^(l-0.05) - 10^(l+0.05
+   lx    = Math.log10(this.x)
+   lower = Math.pow(10, lx-0.05)
+   upper = Math.pow(10, lx+0.05)
+   return '<br/>' + this.series.name +':<b>[' + Math.ceil(lower) + '-' + Math.floor(upper) + '] '+ getDisplayN(this.y) + '</b>';
+}
 function pointFormat_func() {
    return '<br/>' + Highcharts.dateFormat('%b %e %H:%M:%S', new Date(this.x)) + ', ' + getDisplayN(this.y);
 }
@@ -223,7 +234,6 @@ function crtLabel (vx, vy, txt) {
                      y    : vy},
             text: txt }
 }
-
 function timeSeriesPlot(series, chartType, chartTag, title, yCap, aSeries, pf_func=pointFormat_func) {
    console.log('timeSeriesPlot series=', chartType, series)
    if ( aSeries.length > 0 ) {

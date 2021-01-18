@@ -298,15 +298,18 @@ def pstdev(data):
     return pvar**0.5
 
 # extract 56 from "1=56,2=1024000,4=2"
+# used for map function when only one parameter is used, otherwise use getTresDict
 def extract1 (s):
     if not s:
        print("extrac1 has a empty value")
        return 0
-    lst = s.split(',')[0].split('=')
-    if len(lst) > 1:
-       return int(lst[1])
-    else:
-       return 0
+    d = getTresDict(s)
+    return d['1']
+    #lst = s.split(',')[0].split('=')
+    #if len(lst) > 1:
+    #   return int(lst[1])
+    #else:
+    #   return 0
 
 #a=1,b=2 to {a:1, b:2}
 def str2dict (dict_str):
