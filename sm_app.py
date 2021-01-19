@@ -17,7 +17,6 @@ def validate_password(realm, username, passwd):
 def error_page_500(status, message, traceback, version):
     return "Error %s - Well, I'm very sorry but the page your requested is not implemented!" % status
 
-
 if __name__ == '__main__':
    #global config
    cherrypy.config.update({#'environment': 'production',

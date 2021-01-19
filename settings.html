@@ -1,106 +1,237 @@
 <!DOCTYPE html>
 <html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Settings</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
 
-<head>
-<meta charset='UTF-8'>
-<title>Settings</title>
-<link rel="stylesheet" href="/static/css/style.css">
+    <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
+    <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+    <script type="text/javascript" src="static/scripts/myFunc.js"></script>
+    <script type="text/javascript" src="static/scripts/myForm.js"></script>
+    <script type="text/javascript">
+      $(document).ready(function() {
+        {
+          var settings = {
+            settings
+          };
+          let low_util_job = settings.low_util_job;
+          let low_util_node = settings.low_util_node;
+          let summary_table = settings.summary_column;
+          let summary_low = settings.summary_low_util;
+          let summary_high = settings.summary_high_util;
+          let heatmap_avg = settings.heatmap_avg;
+          let heatmap_weight = settings.heatmap_weight;
+          let part_avail = settings.part_avail;
+          let luj_label = {
+            {
+              "cpu": "% CPU, ",
+              "gpu": "% GPU, ",
+              "mem": "% Mem, ",
+              "run_time_hour": "Hours of Run Time, ",
+              "alloc_cpus": "Min CPUs, ",
+              "email": "Daily Reminder"
+            }
+          }
+          let luj_type = {
+            {
+              "cpu": "number",
+              "gpu": "number",
+              "mem": "number",
+              "run_time_hour": "number",
+              "alloc_cpus": "number",
+              "email": "checkbox"
+            }
+          }
+          let nuj_label = {
+            {
+              "cpu": "% CPU, ",
+              "gpu": "% GPU, ",
+              "mem": "% Mem, ",
+              "alloc_time_min": "Min of Alloc Time"
+            }
+          }
+          let nuj_type = {
+            {
+              "cpu": "number",
+              "gpu": "number",
+              "mem": "number",
+              "alloc_time_min": "number"
+            }
+          }
+          const sc_label = {
+            {
+              'node': 'Node, ',
+              'status': 'Node Status, ',
+              'delay': 'Report Delay, ',
+              'job': 'Job, ',
+              'user': 'User, ',
+              'alloc_cpus': 'Alloc CPUs, ',
+              'proc_count': 'Proc Count, ',
+              'cpu_util': 'CPU Util, ',
+              'avg_cpu_util': 'Avg CPU Util over Job Runtime, ',
+              'rss': 'RSS, ',
+              'vms': 'VMS, ',
+              'io': 'I/O, ',
+              'fds': 'Num Fds, ',
+              'alloc_gpus': 'Alloc GPUs, ',
+              'gpu_util': 'GPU Util (5 min avg), ',
+              'avg_gpu_util': 'Avg GPU Util over Job Runtime (slow down loading page), ',
+              'run_time': 'Job Runtime'
+            }
+          }
+          console.log(sc_label)
+          const sc_type = Object.keys(summary_table).reduce(function(rltObj, key) {
+            {
+              rltObj[key] = "checkbox";
+              return rltObj
+            }
+          }, {
+            {}
+          })
+          d3.select("form").selectAll("input").data(Object.values(settings.low_util_job))
+            .attr("value", function(d) {
+              {
+                console.log(this.name);
+                return d
+              }
+            })
+          const slu_label = {
+            {
+              "cpu_util": "% CPU Util, ",
+              "avg_cpu_util": "% Avg CPU Util, ",
+              "rss": "% RSS/Mem Ratio, ",
+              "gpu_util": "% GPU Util, ",
+              "avg_gpu_util": "% Avg GPU Util"
+            }
+          }
+          const slu_type = {
+            {
+              "cpu_util": "number",
+              "avg_cpu_util": "number",
+              "rss": "number",
+              "gpu_util": "number",
+              "avg_gpu_util": "number"
+            }
+          }
+          const ha_label = {
+            {
+              "cpu": " Minutes for CPU Avg, ",
+              "gpu": " Minutes for GPU Avg"
+            }
+          }
+          const ha_type = {
+            {
+              "cpu": "number",
+              "gpu": "number"
+            }
+          }
+          const hw_label = {
+            {
+              "cpu": " % CPU Util, ",
+              "mem": " % Memory Util"
+            }
+          }
+          const hw_type = {
+            {
+              "cpu": "number",
+              "mem": "number"
+            }
+          }
+          const pa_label = {
+            {
+              "node": " % Avail Nodes, ",
+              "cpu": " % Avail CPUs, ",
+              "gpu": " % Avail GPUs"
+            }
+          }
+          const pa_type = {
+            {
+              "node": "number",
+              "cpu": "number",
+              "gpu": "number"
+            }
+          }
+          // first para is setting_key
+          createFormInput("low_util_job", low_util_job, luj_label, luj_type, "#low_util_job")
+          createFormInput("low_util_node", low_util_node, nuj_label, nuj_type, "#low_util_node")
+          createFormInput("summary_column", summary_table, sc_label, sc_type, "#summary_column")
+          createFormInput("summary_low_util", summary_low, slu_label, slu_type, "#summary_low_util")
+          createFormInput("summary_high_util", summary_high, slu_label, slu_type, "#summary_high_util")
+          createFormInput("heatmap_avg", heatmap_avg, ha_label, ha_type, "#heatmap_avg")
+          createFormInput("heatmap_weight", heatmap_weight, hw_label, hw_type, "#heatmap_weight")
+          createFormInput("part_avail", part_avail, pa_label, pa_type, "#part_avail")
+          $("form").submit((event) => {
+            {
+              var values = $(this).serialize()
+              console.log("event=", event, "inputs=", values);
+              alert("The values have been submitted");
+            }
+          });
 
-<script type="text/javascript" src="static/scripts/jquery.min.js"></script>
-<script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
-<script type="text/javascript" src="static/scripts/myFunc.js"></script>
-<script type="text/javascript" src="static/scripts/myForm.js"></script>
-<script type="text/javascript">
+        }
+      });
+    </script>
+  </head>
 
-$(document).ready(function(){{
-   //add menu
-    $("#tabmenu").load("/getHeader?page=settings")
-
-    var settings={settings}
-    console.log(settings)
-    var low_util_job =settings.low_util_job
-    var low_util_node=settings.low_util_node
-    var summary_table=settings.summary_column
-    var summary_low  =settings.summary_low_util
-    var summary_high =settings.summary_high_util
-    var heatmap_avg  =settings.heatmap_avg
-    var heatmap_weight  =settings.heatmap_weight
-    var part_avail   =settings.part_avail
-    var luj_label   ={{"cpu":"% CPU, ", "gpu":"% GPU, ", "mem":"% Mem, ", "run_time_hour":"Hours of Run Time, ", "alloc_cpus":"Min CPUs, ", "email":"Daily Reminder"}}
-    var luj_type    ={{"cpu":"number",  "gpu":"number",  "mem":"number",  "run_time_hour":"number",              "alloc_cpus":"number",     "email":"checkbox"}}
-    var nuj_label   ={{"cpu":"% CPU, ", "gpu":"% GPU, ", "mem":"% Mem, ", "alloc_time_min":"Min of Alloc Time"}}
-    var nuj_type    ={{"cpu":"number",  "gpu":"number",  "mem":"number",  "alloc_time_min":"number"}}
-    const sc_label    ={{'node':'Node, ', 'status':'Node Status, ', 'delay':'Report Delay, ', 'job':'Job, ', 'user':'User, ', 'alloc_cpus':'Alloc CPUs, ', 'proc_count':'Proc Count, ', 'cpu_util':'CPU Util, ', 'avg_cpu_util':'Avg CPU Util over Job Runtime, ', 'rss':'RSS, ', 'vms':'VMS, ', 'io':'I/O, ', 'fds':'Num Fds, ', 'alloc_gpus':'Alloc GPUs, ', 'gpu_util':'GPU Util (5 min avg), ', 'avg_gpu_util':'Avg GPU Util over Job Runtime (slow down loading page), ', 'run_time':'Job Runtime'}}
-    console.log(sc_label)
-    const sc_type     =Object.keys(summary_table).reduce(function(rltObj, key) {{rltObj[key]="checkbox";return rltObj}}, {{}})
-    d3.select("form").selectAll("input").data(Object.values(settings.low_util_job))
-                                        .attr("value", function(d) {{console.log(this.name); return d}})
-    const slu_label   ={{"cpu_util":"% CPU Util, ", "avg_cpu_util":"% Avg CPU Util, ", "rss":"% RSS/Mem Ratio, ", "gpu_util":"% GPU Util, ", "avg_gpu_util":"% Avg GPU Util"}}
-    const slu_type    ={{"cpu_util":"number", "avg_cpu_util":"number", "rss":"number", "gpu_util":"number", "avg_gpu_util":"number"}}
-    const ha_label    ={{"cpu":" Minutes for CPU Avg, ", "gpu":" Minutes for GPU Avg"}}
-    const ha_type     ={{"cpu":"number", "gpu":"number"}}
-    const hw_label    ={{"cpu":" % CPU Util, ", "mem":" % Memory Util"}}
-    const hw_type     ={{"cpu":"number", "mem":"number"}}
-    const pa_label    ={{"node":" % Avail Nodes, ", "cpu":" % Avail CPUs, ", "gpu":" % Avail GPUs"}}
-    const pa_type     ={{"node":"number", "cpu":"number", "gpu":"number"}}
-    // first para is setting_key
-    createFormInput ("low_util_job",     low_util_job,  luj_label, luj_type, "#low_util_job")
-    createFormInput ("low_util_node",    low_util_node, nuj_label, nuj_type, "#low_util_node")
-    createFormInput ("summary_column",   summary_table, sc_label,  sc_type,  "#summary_column")
-    createFormInput ("summary_low_util", summary_low,   slu_label, slu_type, "#summary_low_util")
-    createFormInput ("summary_high_util",summary_high,  slu_label, slu_type, "#summary_high_util")
-    createFormInput ("heatmap_avg",      heatmap_avg,   ha_label,  ha_type, "#heatmap_avg")
-    createFormInput ("heatmap_weight",   heatmap_weight,hw_label,  hw_type, "#heatmap_weight")
-    createFormInput ("part_avail",       part_avail,    pa_label,  pa_type, "#part_avail")
-    $("form").submit(function (event) {{
-                                 var values = $(this).serialize()
-                                 console.log("event=", event, "inputs=", values);
-                                 alert("The values have been submitted");
-                             }});
-    
-}})
-</script>
-</head>
-
-<body>
-<div class="tab" id="tabmenu"></div>
-<div> <fieldset>
-  <legend>Bulletin Board Settings</legend>
-  <form id="low_util_job" action="./settings" method="post">
-    <label class="title">Low Resource Util Threshold for Running Job: </label>
-  </form>
-  <form id="low_util_node" action="./settings" method="post">
-    <label class="title">Low Resource Util Threshold for Alloc Node : </label>
-  </form>
-</fieldset> </div>
-<div> <fieldset>
-  <legend>Table Summary Settings</legend>
-  <form id="summary_column" action="./settings" method="post">
-    <label class="title_short">Displayed Columns: </label>
-  </form>
-  <form id="summary_low_util" action="./settings" method="post">
-    <label class="title_short">Low Util Display  <em class="inform">&nbsp &nbsp</em>: </label>
-  </form>
-  <form id="summary_high_util" action="./settings" method="post">
-    <label class="title_short">High Util Display <em class="alarm">&nbsp &nbsp</em>: </label>
-  </form>
-  <p> Note: The Util is caculated as per job per host.
-</fieldset> </div>
-<div> <fieldset>
-  <legend>Host Util Settings</legend>
-  <form id="heatmap_avg" action="./settings" method="post">
-    <label class="title_short">Avg Util Over Time: </label>
-  </form>
-  <form id="heatmap_weight" action="./settings" method="post">
-    <label class="title_short">Combined Util Weight: </label>
-  </form>
-</fieldset> </div>
-<div> <fieldset>
-  <legend>Pending Jobs Settings</legend>
-  <form id="part_avail" action="./settings" method="post">
-    <label class="title">Partition High Avail Display  <em class="inform">&nbsp &nbsp</em>: </label>
-  </form>
-</fieldset> </div>
-</body>
-
+  <body>
+    <div class="tab" id="tabmenu"></div>
+    <div>
+      <fieldset>
+        <legend>Bulletin Board Settings</legend>
+        <form id="low_util_job" action="./settings" method="post">
+          <label class="title">Low Resource Util Threshold for Running Job: </label>
+        </form>
+        <form id="low_util_node" action="./settings" method="post">
+          <label class="title">Low Resource Util Threshold for Alloc Node : </label>
+        </form>
+      </fieldset>
+    </div>
+    <div>
+      <fieldset>
+        <legend>Table Summary Settings</legend>
+        <form id="summary_column" action="./settings" method="post">
+          <label class="title_short">Displayed Columns: </label>
+        </form>
+        <form id="summary_low_util" action="./settings" method="post">
+          <label class="title_short">Low Util Display <em class="inform">&nbsp &nbsp</em>: </label>
+        </form>
+        <form id="summary_high_util" action="./settings" method="post">
+          <label class="title_short">High Util Display <em class="alarm">&nbsp &nbsp</em>: </label>
+        </form>
+        <p>Note: The Util is caculated as per job per host.</p>
+      </fieldset>
+    </div>
+    <div>
+      <fieldset>
+        <legend>Host Util Settings</legend>
+        <form id="heatmap_avg" action="./settings" method="post">
+          <label class="title_short">Avg Util Over Time: </label>
+        </form>
+        <form id="heatmap_weight" action="./settings" method="post">
+          <label class="title_short">Combined Util Weight: </label>
+        </form>
+      </fieldset>
+    </div>
+    <div>
+      <fieldset>
+        <legend>Pending Jobs Settings</legend>
+        <form id="part_avail" action="./settings" method="post">
+          <label class="title">Partition High Avail Display <em class="inform">&nbsp &nbsp</em>: </label>
+        </form>
+      </fieldset>
+    </div>
+    <script>
+      const thisPath = window.location.pathname;
+      $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+      $('#navmenu').load('/getHeader?page=settings');
+    </script>
+    <script>
+      const now = new Date();
+      const year = now.getFullYear();
+      const signature = 'Flatiron Institute, ' + year;
+      const sig = document.querySelector(`#signature`);
+      sig.innerHTML = signature;
+    </script>
+  </body>
 </html>
