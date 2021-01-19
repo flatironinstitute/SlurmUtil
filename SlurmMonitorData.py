@@ -316,6 +316,7 @@ class SLURMMonitorData(object):
             job['node_rss_util']     = {}
             job['node_io_bps_curr']  = {}
             job['node_cpu_util_curr']= {}
+            job['user']              = MyTool.getUser(job['user_id'])
 
             for node in job['cpus_allocated']:
                 node_cpu_time, node_rss, node_mem, node_io_bps_curr, node_cpu_util_curr = 0,0,0,0,0
@@ -348,7 +349,6 @@ class SLURMMonitorData(object):
                    else:
                       logger.error('ERROR: Node {} of Job {} (start at {} on {}) is not in self.jobNode2ProcRecord'.format(node, jid, job['start_time'], job['nodes']))
 
-            job['user']         = MyTool.getUser(job['user_id'])
             job['job_io_bps']   = total_io_bps
             job['job_inst_util']= total_cpu_util_curr
             if total_cpu_time: # has process informatoin
@@ -396,7 +396,9 @@ class SLURMMonitorData(object):
             jobs     = self.getNode2Jobs(nm)
             avg_util = sum([job['job_avg_util'] for job in jobs])
             avg_mem  = sum([job['job_mem_util'] for job in jobs])
-            low_nodes.append({'name':nm, 'msg':'Node is allocated to jobs {}. The average cpu utilization is {} and the average memory utiization is {}.'.format(jobs, avg_util, avg_mem)})
+            u_set    = set([job['user_id'] for job in jobs])
+            u_lst    = [MyTool.getUser(uid) for uid in u_set]
+            low_nodes.append({'name':nm, 'msg':'Node is allocated to job {} of user {}. The average cpu utilization is {} and the average memory utiization is {}.'.format([job['job_id'] for job in jobs], u_lst, avg_util, avg_mem)})
         return low_nodes
 
     def getLUJobs (self, ts, jobs, low_util, long_period, job_width, low_mem, exclude_acct=['scc']):
@@ -484,22 +486,17 @@ class SLURMMonitorData(object):
                         #09/09/2019, add jid to proc
                         for proc in procsByUser[USER_PROC_IDX]:
                             jid2proc[proc[9]].append(proc)    #proc[9] is jid
-               else:
-                  logger.info("{}({}), no proc information for allocated node with jobs {}".format(node, nInfo[0], self.node2jids[node]))
-               #update the latest cpu_time for each proc
+               #else:
+               #   logger.info("{}({}), no proc information for allocated node with jobs {}".format(node, nInfo[0], self.node2jids[node]))
                for jid in self.node2jids[node]:
                   self.updateJobNode2ProcRecord (nInfo[2], jid, node, jid2proc[jid])  #nInfo[2] is ts
-
-                        #jids     = set([proc[9] for proc in procsByUser[USER_PROC_IDX]])
-                        #for jid in jids:
-                        #    self.updateJobNode2ProcRecord (nInfo[2], jid, node, jid2proc[jid])  #nInfo[2] is ts
+               #update the latest cpu_time for each proc
             elif len(nInfo) > USER_INFO_IDX and nInfo[USER_INFO_IDX]:
-               logger.error("Proc reported for node {} in state {}".format(node, nInfo[0]))
+               u_lst = [procsByUser[0] for procsByUser in nInfo[USER_INFO_IDX:]]
+               logger.error("Proc of user {} reported for node {} in state {}".format(node, u_lst, nInfo[0]))
 
         self.addJobsAttr      (self.updateTS, self.currJobs)          #add attribute job_avg_util, job_mem_util, job_io_bps
         self.inMemCache.append(self.data, self.updateTS, self.pyslurmJobs)
-
-        #self.config["settings"]["low_util_job"]  = {"cpu":1, "gpu":10, "mem":30, "run_time_hour":24, "alloc_cpus":2, "email":F     alse}
 
         #check for long run low util jobs and send notice
         #low_util = self.getLongrunLowUtilJobs(self.updateTS, self.currJobs)

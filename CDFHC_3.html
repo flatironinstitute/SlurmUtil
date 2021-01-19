@@ -6,6 +6,7 @@
 	<script type="text/javascript" src="static/scripts/annotations.js"></script>
 	<script type="text/javascript" src="static/scripts/exporting.js"></script>
 	<script type="text/javascript" src="static/scripts/pareto.js"></script>
+	<script type="text/javascript" src="static/scripts/myFunc.js"></script>
 	<script type="text/javascript" src="static/scripts/myHC.js"></script>
     </head>
     <body>
@@ -16,7 +17,7 @@
 	<div id="chart3" style="min-width: 1000px; height: 400px; margin: 0 auto"></div>
 	<script>
 	 graphSeries_stackColumn_CDF({series},  "chart1",  "{title} from {start} to {stop}",  "linear", {xMax},  "{xLabel}",  "{yLabel}");
-	 graphSeries({series2}, "chart2",  "{title2} from {start} to {stop}", "linear", {xMax2}, "{xLabel2}", "{yLabel2}");
-	 graphSeries({series3}, "chart3",  "{title3} from {start} to {stop}", "linear", {xMax3}, "{xLabel3}", "{yLabel3}");
+	 graphSeries_stackColumn_CDF({series2}, "chart2",  "{title2} from {start} to {stop}", "linear", {xMax2}, "{xLabel2}", "{yLabel2}");
+	 graphSeries_stackColumn_CDF({series3}, "chart3",  "{title3} from {start} to {stop}", "linear", {xMax3}, "{xLabel3}", "{yLabel3}");
 	</script>
 </html>

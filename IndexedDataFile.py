@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 import _pickle as pickle
-import sys, zlib
+import os.path, sys, zlib
 from collections import defaultdict
 import time
-import MyTool
+import config, MyTool
 
+logger = config.logger
 class IndexedDataFile(object):
     def __init__(self, prefix, name):
         self.prefix    = prefix + '/'
@@ -89,30 +90,32 @@ class IndexedHostData(object):
     def getDataFileName (self, hostname):
         return '{}/{}_sm.p'.format(self.prefix, hostname)
 
-    def queryDataHosts(self, nodes, start, end, uid=None):
-        if uid:  uname = MyTool.getUser(uid)
-        else:    uname = None
+    def queryDataHosts(self, nodes, start, end, uname=None):
         cpu_all_seq, mem_all_seq, io_all_seq = [], [], []
         for node in nodes:
-            cpu_seq, mem_seq, io_seq = self.queryData (node, start, end, uname)
-            cpu_all_seq.append(cpu_seq)
-            mem_all_seq.append(mem_seq)
-            io_all_seq.append (io_seq)
-
+            lst = self.queryData (node, start, end, uname)
+            if lst:
+               cpu_all_seq.append(lst[0])
+               mem_all_seq.append(lst[1])
+               io_all_seq.append (lst[2])
         return cpu_all_seq, mem_all_seq, io_all_seq
 
     #query data of the user procs on hostname during (ts_start, ts_end)
     def queryData(self, hostname, ts_start, ts_end=None, username=None):
-        ts_start = int(ts_start)
-        with open(self.getDataFileName(hostname), 'rb') as df:
-          idx     = SearchIndex(self.getIndexFileName(hostname), 40)
-          idx_pos = idx.find(ts_start)
+        fname = self.getDataFileName(hostname)
+        if not os.path.isfile(fname):
+           logger.error("Cannot locate file {}".format(fname))
+
+        with open(fname, 'rb') as df:
+          idx      = SearchIndex(self.getIndexFileName(hostname), 40)
+          idx_pos,ts_pos = idx.find(ts_start)
+          if ts_end and ts_end < ts_pos:
+             logger.warning("Host {} data during {}-{} is not saved in the file {}-".format(hostname, ts_start, ts_end, ts_pos))
+             return None
+
           ms_cpu   = defaultdict(list) #{ts: []}
           ms_rssKB = defaultdict(list)
           ms_io    = defaultdict(list)
-          ms_cpu_lst   = []
-          ms_rssKB_lst = []
-          ms_io_lst    = []
           for x in range(idx_pos, idx.len):
             offset = int(idx[x][20:])
             ts, nd = self.readData (df, offset, ts_end) #state, delta, ts, procsByUser
@@ -158,7 +161,6 @@ class SearchIndex(object):
 
     # find ts location pos
     def find(self, ts_start):
-        #print ("find %s"%value)
         lo, hi = 0, self.len
         while lo < hi:
            mid = (lo + hi) // 2
@@ -166,7 +168,7 @@ class SearchIndex(object):
               lo = mid + 1
            else:
               hi = mid
-        return lo 
+        return lo, int(self[mid][:20]) 
 
 def test1():
     print("hello world!")
@@ -180,10 +182,11 @@ def test1():
 
 if __name__ == "__main__":
     # execute only if run as a script
-    hostname, start_ts = sys.argv[1:3]
+    hostname, user = sys.argv[1:3]
     hostname=list(hostname.split(','))
-    print ('{} start ts {}'.format(hostname, start_ts))
 
-    hostfile = IndexedHostData('/mnt/home/yliu/projects/slurm/utils/mqtMonStreamRecord')
-    d        = hostfile.queryDataHosts(hostname, start_ts, end=time.time(), uid=1350)
+    ts       = int(time.time())
+    #hostfile = IndexedHostData('/mnt/home/yliu/projects/slurm/utils/mqtMonStreamRecord')
+    hostfile = IndexedHostData('/mnt/ceph/users/yliu/mqtMonStreamRecord')
+    d        = hostfile.queryDataHosts(hostname, ts-3600, ts, uname=user)
     print ('{}'.format(d))

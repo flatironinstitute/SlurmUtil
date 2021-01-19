@@ -4,12 +4,12 @@ import time
 t1=time.time()
 import os,re,subprocess
 import pyslurm
-import MyTool
+import config, MyTool
 from datetime import date, timedelta
 from functools import reduce
 
-
-CSV_DIR          = "/mnt/home/yliu/projects/slurm/utils/data/"
+logger    = config.logger
+CSV_DIR   = "/mnt/home/yliu/projects/slurm/utils/data/"
 
 class SlurmStatus:
     STATUS_LIST=['undefined', 'running', 'sleeping', 'disk-sleep', 'zombie', 'stopped', 'tracing-stop']
@@ -28,8 +28,6 @@ class SlurmStatus:
         return cls.STATUS_LIST[idInt]
 
 class SlurmCmdQuery:
-    #DF_ASSOC   = pandas.read_csv ("sacctmgr_assoc.csv", sep='|')
-    #DICT_QOS   = DF_ASSOC.set_index("User").to_dict()['QOS']   # {User:QOS}
     TS_ASSOC   = 0
     DICT_ASSOC = {}
 
@@ -146,9 +144,7 @@ class SlurmCmdQuery:
     def updateAssoc ():
         file_nm = CSV_DIR + "sacctmgr_assoc.csv"
         file_ts = os.path.getmtime(file_nm)
-        if file_ts > SlurmCmdQuery.TS_ASSOC:
-           #SlurmCmdQuery.DF_ASSOC   = pandas.read_csv ("sacctmgr_assoc.csv", sep='|')
-           #SlurmCmdQuery.DICT_QOS   = SlurmCmdQuery.DF_ASSOC.set_index("User").to_dict()['QOS']   # {User:QOS}
+        if file_ts > SlurmCmdQuery.TS_ASSOC:      # if file is newer
            with open(file_nm) as fp: 
                 lines = fp.read().splitlines()
            fields = lines[0].split('|')
@@ -205,6 +201,12 @@ class PyslurmQuery():
         if not jobs:
            jobs = pyslurm.job().get()
         return [job for job in jobs.values() if job['user_id']==user_id]
+
+    @staticmethod
+    def getUserRunningJobs (user_id, jobs=None):
+        if not jobs:
+           jobs = pyslurm.job().get()
+        return [job for job in jobs.values() if (job['user_id']==user_id) and (job['job_state']=='RUNNING')]
 
     @staticmethod
     def getCurrJob (jid, job_dict=None):
@@ -277,6 +279,31 @@ class PyslurmQuery():
                       else:
                          rlt[node] = gpu_ids
         return rlt, rlt_jobs
+
+#common: ['account', 'array_job_id', 'array_task_id', 'array_task_str', 'array_max_tasks', 'derived_ec', 'nodes', 'partition', 'priority', 'resv_name', 'tres_alloc_str', 'tres_req_str', 'wckey', 'work_dir']
+#only in job: ['accrue_time', 'admin_comment', 'alloc_node', 'alloc_sid', 'assoc_id', 'batch_flag', 'batch_features', 'batch_host', 'billable_tres', 'bitflags', 'boards_per_node', 'burst_buffer', 'burst_buffer_state', 'command', 'comment', 'contiguous', 'core_spec', 'cores_per_socket', 'cpus_per_task', 'cpus_per_tres', 'cpu_freq_gov', 'cpu_freq_max', 'cpu_freq_min', 'dependency', 'eligible_time', 'end_time', 'exc_nodes', 'exit_code', 'features', 'group_id', 'job_id', 'job_state', 'last_sched_eval', 'licenses', 'max_cpus', 'max_nodes', 'mem_per_tres', 'name', 'network', 'nice', 'ntasks_per_core', 'ntasks_per_core_str', 'ntasks_per_node', 'ntasks_per_socket', 'ntasks_per_socket_str', 'ntasks_per_board', 'num_cpus', 'num_nodes', 'num_tasks', 'mem_per_cpu', 'min_memory_cpu', 'mem_per_node', 'min_memory_node', 'pn_min_memory', 'pn_min_cpus', 'pn_min_tmp_disk', 'power_flags', 'profile', 'qos', 'reboot', 'req_nodes', 'req_switch', 'requeue', 'resize_time', 'restart_cnt', 'run_time', 'run_time_str', 'sched_nodes', 'shared', 'show_flags', 'sockets_per_board', 'sockets_per_node', 'start_time', 'state_reason', 'std_err', 'std_in', 'std_out', 'submit_time', 'suspend_time', 'system_comment', 'time_limit', 'time_limit_str', 'time_min', 'threads_per_core', 'tres_bind', 'tres_freq', 'tres_per_job', 'tres_per_node', 'tres_per_socket', 'tres_per_task', 'user_id', 'wait4switch', 'gres_detail', 'cpus_allocated', 'cpus_alloc_layout']
+#only in db_job: ['alloc_gres', 'alloc_nodes', 'associd', 'blockid', 'cluster', 'derived_es', 'elapsed', 'eligible', 'end', 'exitcode', 'gid', 'jobid', 'jobname', 'lft', 'qosid', 'req_cpus', 'req_gres', 'req_mem', 'requid', 'resvid', 'show_full', 'start', 'state', 'state_str', 'stats', 'steps', 'submit', 'suspended', 'sys_cpu_sec', 'sys_cpu_usec', 'timelimit', 'tot_cpu_sec', 'tot_cpu_usec', 'track_steps', 'uid', 'used_gres', 'user', 'user_cpu_sec', 'wckeyid']
+    COMMON_FLD  = ['account', 'array_job_id', 'array_task_id', 'array_task_str', 'array_max_tasks', 'derived_ec', 'nodes', 'partition', 'priority', 'resv_name', 'tres_alloc_str', 'tres_req_str', 'wckey', 'work_dir']
+    MAP_JOB2DBJ = {'start_time':'start','end_time':'end', 'exitcode':'exit_code', 'jobid':'job_id', 'user_id':'uid'}
+    @staticmethod
+    def getSlurmDBJob (jid, req_fields=[]):
+        job = pyslurm.slurmdb_jobs().get(jobids=[jid]).get(jid, None)
+        if not job:   # cannot find
+           return None
+
+        for f in req_fields:
+            if f in job:
+               continue
+            if f in PyslurmQuery.MAP_JOB2DBJ:  # can be converted
+               if type(PyslurmQuery.MAP_JOB2DBJ[f])!=list:
+                  db_fld = PyslurmQuery.MAP_JOB2DBJ[f]
+                  job[f] = job[db_fld]
+               else:
+                  db_fld, cvtFunc = PyslurmQuery.MAP_JOB2DBJ[f]
+                  job[f] = cvtFunc(job[db_fld])
+            else:                 # cannot be converted
+               logger.error("Cannot find/map reqested job field {} in job {}".format(f, job))
+        return job
 
 def test1():
     client = SlurmCmdQuery()

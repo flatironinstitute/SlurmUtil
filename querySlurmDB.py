@@ -2,89 +2,119 @@
 
 import time
 t1=time.time()
-import os,re,subprocess
+import math,os,re,subprocess
 import pandas
-import MyTool
+import config,MyTool
 from datetime import datetime, date, timedelta
 
+logger           = config.logger
 SLURM_STATE_DICT = {0:'PENDING', 1:'RUNNING', 3:'COMPLETED', 4:'CANCELED', 5:'FAILED', 6:'TIMEOUT', 7:'NODE_FAIL', 8:'PREEMPTED', 11:'OUT_OF_MEM', 8192:'RESIZING'}
 CSV_DIR          = "/mnt/home/yliu/projects/slurm/utils/data/"
+LOG_BUCKET       = {10.0:10000000000} 
+for i in range(1,10):
+    for j in range(0,10):
+        f        = (i*10+j)/10       
+        LOG_BUCKET[f]=round(math.pow(10,f))
 
 class SlurmDBQuery:
     def __init__(self):
-        self.job_df    = None
-        self.job_df_ts = 0
+        self.jobTable      = {}       #{cluster:{ts:, df:}}
   
     def updateDB (self):
-        subprocess.call('../mysqldump.sh')
+        subprocess.call('./mysqldump.sh')
 
-    def getJobTable (self):
+    #index is id_job, seems that saving jobTable does not save much time
+    def getJobTable (self, cluster, fld_lst=['cpus_req','state', 'time_submit', 'time_eligible', 'time_start', 'time_end']):
         #read file time, if updated from last time, reset the value
-        f_name = CSV_DIR + "slurm_cluster_job_table.csv"
+        f_name = "{}/{}_{}".format(CSV_DIR, cluster, "job_table.csv")
         m_time = os.stat(f_name).st_mtime
-        if m_time > self.job_df_ts:
-           self.job_df    = pandas.read_csv(f_name,usecols=['cpus_req','id_job','state', 'time_submit', 'time_eligible', 'time_start', 'time_end'])
-           self.job_df_ts = m_time
+        if (cluster not in self.jobTable) or (m_time > self.jobTable[cluster]['ts']):
+           self.jobTable[cluster]       = {'ts': m_time}
+           self.jobTable[cluster]['df'] = pandas.read_csv(f_name,usecols=['account', 'cpus_req', 'id_job', 'id_qos','id_user', 'nodes_alloc', 'state', 'time_submit', 'time_eligible', 'time_start', 'time_end', 'tres_alloc'], index_col=2)
 
-        return self.job_df
+        return self.jobTable[cluster]['df'][fld_lst]
         
-    def getClusterUsage_hourly(start, stop):
-        #read from csv, TODO: deleted=0 for all data now
-        df               = pandas.read_csv(CSV_DIR + "slurm_cluster_usage_hour_table.csv", usecols=['id_tres','time_start','count','alloc_secs','down_secs','pdown_secs','idle_secs','resv_secs','over_secs'])
-        start, stop, df  = self.getDFBetween(df, 'time_start', start, stop)
-        df['total_secs'] = df['alloc_secs']+df['down_secs']+df['pdown_secs']+df['idle_secs']+df['resv_secs']
-        df               = df[df['count'] * 3600 == df['total_secs']]
-        df['tdown_secs'] = df['down_secs']+df['pdown_secs']
-        #df               = df[df['alloc_secs']>0]
+    def readJobTable (cluster, start, stop, fld_lst, index_col=None):
+        #read file time, if updated from last time, reset the value
+        f_name        = "{}/{}_{}".format(CSV_DIR, cluster, "job_table.csv")
+        df            = pandas.read_csv(f_name, usecols=fld_lst, index_col=index_col)
+        start,stop,df = MyTool.getDFBetween (df, 'time_submit', start, stop)
 
         return start, stop, df
 
+    def getClusterUsage_hourly(cluster, start, stop):
+        #read from csv, TODO: deleted=0 for all data now
+        fname            = "{}/{}_{}".format(CSV_DIR, cluster, "usage_hour_table.csv")
+        df               = pandas.read_csv(fname, usecols=['id_tres','time_start','count','alloc_secs','down_secs','pdown_secs','idle_secs','resv_secs','over_secs'])
+        start, stop, df  = MyTool.getDFBetween(df, 'time_start', start, stop)
+        df['total_secs'] = df['alloc_secs']+df['down_secs']+df['pdown_secs']+df['idle_secs']+df['resv_secs']
+        df['tdown_secs'] = df['down_secs'] +df['pdown_secs']
+        df               = df[df['count'] * 3600 == df['total_secs']]      # count =? count of cores
+        df['ts_ms']      = df['time_start'] * 1000
+        dfg              = df.groupby  ('id_tres')
+ 
+        #cpuDf            = dfg.get_group(1)
+        #memDf            = dfg.get_group(2)
+        #eneDf            = dfg.get_group(3)
+
+        #cpuDf['ts_ms']   = cpuDf['time_start'] * 1000
+        #memDf['ts_ms']   = memDf['time_start'] * 1000
+
+        return start, stop, dfg
+
     # daily.sh update the data daily 
-    def getAccountUsage_hourly (start='', stop=''):
+    def getAccountUsage_hourly (cluster, start='', stop=''):
         #cluster usage
-        df         = pandas.read_csv(CSV_DIR + "slurm_cluster_assoc_usage_hour_table.csv", usecols=['id','id_tres','time_start','alloc_secs'])
+        fname      = "{}/{}_{}".format(CSV_DIR, cluster, "assoc_usage_hour_table.csv")
+        df         = pandas.read_csv(fname, usecols=['id','id_tres','time_start','alloc_secs'])
         st, stp, df= MyTool.getDFBetween (df, 'time_start', start, stop)
 
         # get account's data, id_assoc (user) - account
-        userDf     = pandas.read_csv(CSV_DIR + "slurm_cluster_assoc_table.csv", usecols=['id_assoc','acct'], index_col=0)
+        fname1     = "{}/{}_{}".format(CSV_DIR, cluster, "assoc_table.csv")
+        userDf     = pandas.read_csv(fname1, usecols=['id_assoc','acct'], index_col=0)
         # add acct to df
         df['acct'] = df['id'].map(userDf['acct'])
         df.drop('id', axis=1, inplace=True)
 
         # sum over the same id_tres, acct, time_start
-        sumDf       = df.groupby(['id_tres','acct', 'time_start']).sum()
-        sumDf['ts'] = sumDf.index.get_level_values('time_start') * 1000
+        sumDf          = df.groupby(['id_tres','acct', 'time_start']).sum()
+        sumDf['ts_ms'] = sumDf.index.get_level_values('time_start') * 1000
+        sumDf['alloc_ratio'] = sumDf['alloc_secs']/3600     #1 sec on node1 and 1 sec on node2 =? 2/3600 node  
 
         return st, stp, sumDf
 
-    def getUserReport_hourly(self, start='', stop='', top=5, account=None):
+    def getUserReport_hourly(cluster, start='', stop='', top=5, account=None):
         # get top 5 user for each resource
-        df     = pandas.read_csv(CSV_DIR + "slurm_cluster_assoc_usage_day_table.csv", usecols=['id','id_tres', 'alloc_secs', 'time_start'], dtype={'time_start':int})
-        st, stp, df     = MyTool.getDFBetween (df, 'time_start', start, stop)     #constrain by time
-        sumDf  = df.groupby(['id_tres','id']).sum()                               #sum over user
-        userDf = pandas.read_csv(CSV_DIR + "slurm_cluster_assoc_table.csv",            usecols=['id_assoc','user','acct'], index_col=0)
-        sumDf  = sumDf.join(userDf, on='id')
+        fname       = "{}/{}_{}".format(CSV_DIR, cluster, "assoc_usage_day_table.csv")
+        df          = pandas.read_csv(fname,  usecols=['id','id_tres', 'alloc_secs', 'time_start'], dtype={'time_start':int})
+        st, stp, df = MyTool.getDFBetween (df, 'time_start', start, stop)     #constrain by time
+        sumDf       = df.groupby(['id_tres','id']).sum()                               #sum over user
+        fname1      = "{}/{}_{}".format(CSV_DIR, cluster, "assoc_table.csv")
+        userDf      = pandas.read_csv(fname1, usecols=['id_assoc','user','acct'], index_col=0)
+        sumDf       = sumDf.join(userDf, on='id')
         if account:
-           sumDf = sumDf[sumDf['acct']==account]
-        cpuIdx = sumDf.loc[(1,)].nlargest(top, 'alloc_secs').index
-        memIdx = sumDf.loc[(2,)].nlargest(top, 'alloc_secs').index
-        nodeIdx= sumDf.loc[(4,)].nlargest(top, 'alloc_secs').index
+           sumDf    = sumDf[sumDf['acct']==account]
+        cpuIdx      = sumDf.loc[(1,)].nlargest(top, 'alloc_secs').index
+        memIdx      = sumDf.loc[(2,)].nlargest(top, 'alloc_secs').index
+        nodeIdx     = sumDf.loc[(4,)].nlargest(top, 'alloc_secs').index
         #topIdx = cpuIdx.union(memIdx).union(nodeIdx)
 
-        df     = pandas.read_csv(CSV_DIR + "slurm_cluster_assoc_usage_hour_table.csv", usecols=['id','id_tres','time_start','alloc_secs'])
-        st, stp, df     = MyTool.getDFBetween (df, 'time_start', start, stop)
+        fname2      = "{}/{}_{}".format(CSV_DIR, cluster, "assoc_usage_hour_table.csv")
+        df          = pandas.read_csv(fname2, usecols=['id','id_tres','time_start','alloc_secs'])
+        st, stp, df = MyTool.getDFBetween (df, 'time_start', start, stop)
         # get top users data only
-        dfg    = df.groupby(['id_tres','id'])
-        tresSer= {1:[],     2:[],     4:[]} # {1: [{'data': [[ms,value],...], 'name': uid},...], 2:...} 
-        idxSer = {1:cpuIdx, 2:memIdx, 4:nodeIdx}
+        dfg         = df.groupby(['id_tres','id'])
+        tresSer     = {1:[],     2:[],     4:[]} # {1: [{'data': [[ms,value],...], 'name': uid},...], 2:...} 
+        idxSer      = {1:cpuIdx, 2:memIdx, 4:nodeIdx}
         for tres in [1,2,4]:
             for uid in idxSer[tres]:
-                topDf          = dfg.get_group((tres,uid))
-                topDf['ts_ms'] = topDf['time_start'] * 1000
-                topLst         = topDf[['ts_ms','alloc_secs']].values.tolist()
+                topDf                = dfg.get_group((tres,uid))
+                topDf['ts_ms']       = topDf['time_start'] * 1000
+                topDf['alloc_ratio'] = topDf['alloc_secs'] / 3600
+                topLst               = topDf[['ts_ms','alloc_ratio']].values.tolist()
                 tresSer[tres].append({'data': topLst, 'name': userDf.loc[uid,'user']+"("+userDf.loc[uid,'acct']+")"})
 
-        return tresSer
+        return st,stp,tresSer
     
     # return time_col, value_cols
     def getTimeIndexValue (self, df, time_col, value_cols):
@@ -96,12 +126,11 @@ class SlurmDBQuery:
         return df_time
 
     # get job queue length for the cluster in the format of time, jobQueueLength, requestedCPUs
-    def getClusterJobQueue (self, start='', stop='', qTime=0):
+    def getClusterJobQueue (self, cluster, start='', stop='', qTime=0):
         #job_db_inx,mod_time,deleted,account,admin_comment,array_task_str,array_max_tasks,array_task_pending,cpus_req,derived_ec,derived_es,exit_code,job_name,id_assoc,id_array_job,id_array_task,id_block,id_job,id_qos,id_resv,id_wckey,id_user,id_group,pack_job_id,pack_job_offset,kill_requid,mcs_label,mem_req,nodelist,nodes_alloc,node_inx,partition,priority,state,timelimit,time_submit,time_eligible,time_start,time_end,time_suspended,gres_req,gres_alloc,gres_used,wckey,work_dir,track_steps,tres_alloc,tres_req
         # index is id_job
 
-        #df            = pandas.read_csv("slurm_cluster_job_table.csv",usecols=['account', 'cpus_req','id_job','id_qos', 'id_user', 'nodes_alloc', 'state', 'time_submit', 'time_eligible', 'time_start', 'time_end', 'tres_alloc'])
-        df            = self.getJobTable()
+        df            = self.getJobTable(cluster)
         start,stop,df = MyTool.getDFBetween (df, 'time_submit', start, stop)
 
         # Normally, a job enter the queue at time_eligible and leave the queue at time_start
@@ -120,11 +149,8 @@ class SlurmDBQuery:
 
         # counting
         df_t1           = self.getTimeIndexValue(df,                     'time_eligible', ['inc_count', 'inc_count2'])
-        #print ('getClusterJobQueue df_t1={}'.format(df_t1))
         df_t2           = self.getTimeIndexValue(df[df['time_start']>0], 'time_start',    ['dec_count', 'dec_count2'])
-        #print ('getClusterJobQueue df_t2={}'.format(df_t2))
         df_t3           = self.getTimeIndexValue(df[(df['time_start']==0) & (df['time_end']>0)], 'time_end',    ['dec_count', 'dec_count2'])
-        #print ('getClusterJobQueue df_t3={}'.format(df_t3))
         df_time         = df_t1.add(df_t2, fill_value=0).add(df_t3, fill_value=0)
         df_time         = df_time.sort_index().cumsum()
         #print ('getClusterJobQueue df={}'.format(df_time))
@@ -241,157 +267,80 @@ class SlurmDBQuery:
             cpuAllocDf        = cpuAllocDf.rename(columns={'alloc_secs': 'y'})
             cpuAllocDf.to_csv(output_file.format(acct), index=False)
     
-class SlurmCmdQuery:
-    #DF_ASSOC   = pandas.read_csv ("sacctmgr_assoc.csv", sep='|')
-    #DICT_QOS   = DF_ASSOC.set_index("User").to_dict()['QOS']   # {User:QOS}
-    TS_ASSOC   = 0
-    DICT_ASSOC = {}
-
-    def __init__(self):
-        pass
-
-    @staticmethod
-    def sacct_getUserJobReport (user, days=3, output='JobID,JobIDRaw,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End', skipJobStep=True):
-        return SlurmCmdQuery.sacct_getReport(['-u', user], days, output, skipJobStep)
-
-    @staticmethod
-    def sacct_getNodeReport (nodeName, days=3, output = 'JobID,JobIDRaw,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocTRES', skipJobStep=True):
-        jobs = SlurmCmdQuery.sacct_getReport(['-N', nodeName], days, output, skipJobStep)
-        if 'AllocTRES' in output:
-           for job in jobs:
-               job['AllocGPUS']=MyTool.getTresGPUCount(job['AllocTRES'])
-        return jobs
- 
-    @staticmethod
-    def sacct_getJobReport (jobid, skipJobStep=False):
-        #output = 'JobID,JobIDRaw,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocNodes,NodeList'
-        # may include sub jobs
-        jobs   = SlurmCmdQuery.sacct_getReport(['-j', str(jobid)], days=None, output='ALL', skipJobStep=skipJobStep)
-        if not jobs:
-           return None
-        return jobs
-
-    # return {jid:jinfo, ...}
-    @staticmethod
-    def sacct_getReport (criteria, days=3, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End', skipJobStep=True):
-        #print('sacct_getReport {} {} {}'.format(criteria, days, skipJobStep))
-        if days:
-           t = date.today() + timedelta(days=-days)
-           startDate = '%d-%02d-%02d'%(t.year, t.month, t.day)
-           criteria  = ['-S', startDate] + criteria
-
-        field_str, sacct_rlt = SlurmCmdQuery.sacctCmd (criteria, output)
-        keys                 = field_str.split(sep='|')
-        jobs                 = []
-        jid_idx              = keys.index('JobID')
-        for line in sacct_rlt:
-            ff = line.split(sep='|')
-            if (skipJobStep and '.' in ff[jid_idx]): continue # indicates a job step --- under what circumstances should these be broken out?
-            #508550_0.extern, 508550_[111-626%20], (array job) 511269+0, 511269+0.extern, 511269+0.0 (?)
-            if ( '.' in ff[jid_idx] ):
-               ff0 = ff[jid_idx].split(sep='.')[0]
-            else:
-               ff0 = ff[jid_idx]
-
-            m  = re.fullmatch(r'(\d+)([_\+])(.*)', ff0)
-            if not m:
-               jid = int(ff0)
-            else:
-               jid = int(m.group(1))
-            if ff[3].startswith('CANCELLED by '):
-                uid   = ff[3].rsplit(' ', 1)[1]
-                uname = MyTool.getUser(uid)
-                ff[3] = '%s (%s)'%(ff[3], uname)
-            job = dict(zip(keys, ff))
-            jobs.append(job)
-
-        return jobs
-
-    @staticmethod
-    def sacctCmd (criteria, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End'):
-        cmd = ['sacct', '-P', '-o', output] + criteria
-        #print('{}'.format(cmd)) 
-        try:
-            #TODO: capture standard error separately?
-            d = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            return 'Command "%s" returned %d with output %s.<br>'%(' '.join(cmd), e.returncode, repr(e.output))
-        fields, *rlt = d.decode('utf-8').splitlines()
-        return fields, rlt
-
-    # given a jid, return [jid, uid, start_time, end_time]
-    # if end_time is unknown, return current time
-    # if start_time is unknown, error
-    def getSlurmJobInfo (self, jid): 
-        cmd = ['sacct', '-n', '-P', '-X', '-j', str(jid), '-o', 'JobID,User,NodeList,Start,End']
-        try:
-            d = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            return 'Command "%s" ERROR: returned %d with output %s.<br>'%(' '.join(cmd), e.returncode, repr(e.output))
-
-        d    = d.decode('utf-8')
-        lines= d.split('\n')
-        info = lines[0].rstrip().split('|')
-        if not info or len(info)<5:
-           return [None, None, None, None, None]
-
-        idx  = info[0].find('_')
-        s    = []
-        if idx != -1:  # job array
-           jobid = info[0].split('_')[0]  #jobid
-           for l in lines:
-               if not l.rstrip():      #empty
-                  continue
-               li = l.rstrip().split('|')
-               #print('--{} - {}'.format(l, li[2]))
-               if len(li)>2 and li[2] != "None assigned":
-                  s.extend(MyTool.nl2flat(li[2]))
-           nodelist = list(set(s))                #nodelist
+    def getCDF_X (df, percentile):
+        cdf          = df.cumsum()
+        maxV         = cdf['count'].iloc[-1]
+        cdf['count'] = (cdf['count'] / maxV) * 100
+        tmpDf        = cdf[cdf['count'] < (percentile+0.5)]
+        if tmpDf.empty:
+           x  = 1;
         else:
-           jobid = info[0]
-           nodelist = MyTool.convert2list(info[2])
-           
-        if info[4]!='Unknown':
-           return [jobid, MyTool.getUid(info[1]), nodelist, MyTool.str2ts(info[3]), MyTool.str2ts(info[4])]
-        else:
-           return [jobid, MyTool.getUid(info[1]), nodelist, MyTool.str2ts(info[3]), time.time()]
-        
-    @staticmethod
-    def updateAssoc ():
-        file_nm = CSV_DIR + "sacctmgr_assoc.csv"
-        file_ts = os.path.getmtime(file_nm)
-        if file_ts > SlurmCmdQuery.TS_ASSOC:
-           #SlurmCmdQuery.DF_ASSOC   = pandas.read_csv ("sacctmgr_assoc.csv", sep='|')
-           #SlurmCmdQuery.DICT_QOS   = SlurmCmdQuery.DF_ASSOC.set_index("User").to_dict()['QOS']   # {User:QOS}
-           with open(file_nm) as fp: 
-                lines = fp.read().splitlines()
-           fields = lines[0].split('|')
-           d      = {}
-           for i in range(1, len(lines)):
-               values = lines[i].split('|')
-               d[values[0]] = dict(zip(fields,values))
-           SlurmCmdQuery.DICT_ASSOC = d
-           SlurmCmdQuery.TS_ASSOC   = file_ts
+           x  = tmpDf.iloc[-1].name
 
-    #sacctmgr list user -P -s 
-    @staticmethod
-    def getUserQOS (user):
-        userAssoc = getUserAssoc (user)
-        if userAssoc:
-           return userAssoc['QOS'].split(',')
-        return []
+        return x, cdf
 
-    @staticmethod
-    def getUserAssoc (user):
-        SlurmCmdQuery.updateAssoc ()
-        if user in SlurmCmdQuery.DICT_ASSOC:
-           return SlurmCmdQuery.DICT_ASSOC[user]
-        return {}
+    #return jobs' count by cpus_req, cpus_alloc and nodes_alloc
+    def getJobCount (cluster, start, stop, upper=90):
+        start,stop,df    = SlurmDBQuery.readJobTable  (cluster, start, stop, ['account', 'cpus_req','id_job','id_qos', 'id_user', 'nodes_alloc', 'state', 'time_submit', 'tres_alloc'], index_col=2)
+        #remove nodes_alloc=0
+        df               = df[df['nodes_alloc']>0]
+        df               = df[df['account'].notnull()]
+        df['count']      = 1
+        df['cpus_alloc'] = df['tres_alloc'].map(MyTool.extract1)
 
-    @staticmethod
-    def getAllUserAssoc ():
-        SlurmCmdQuery.updateAssoc ()
-        return SlurmCmdQuery.DICT_ASSOC
+        result           = {}     #{'cpus_req':{'max_x':, 'total':, 'cca':}
+        # get the CDF data of cpus_req
+        for col in ['cpus_req', 'cpus_alloc', 'nodes_alloc']:
+            sumDf        = df[[col, 'count']].groupby(col).sum()
+            xMax,cdf     = SlurmDBQuery.getCDF_X (sumDf, upper)
+            result[col]  = {'upper_x':xMax, 'count':cdf.reset_index(), 'account':{}}
+            # differiate among accounts
+            acctDf       = df[['account', col, 'count']].groupby(['account', col]).sum()
+            idx0         = acctDf.index.get_level_values(0).unique()
+            for v in idx0.values:
+                result[col]['account'][v] = acctDf.loc[v].reset_index()
+
+        return start, stop, result
+
+    def logBucket(x):
+        if x < 5:
+           return 5
+        if x <= 10:
+           return x
+        if x > 10900000000:       # >10^10.04, out of bucket range
+           return x
+        b = round(math.log10(x)*10)/10
+        return LOG_BUCKET[b]
+
+    #return jobs' count by cpus_req, cpus_alloc and nodes_alloc
+    def getJobTime (cluster, start, stop, upper=90):
+        start,stop,df    = SlurmDBQuery.readJobTable  (cluster, start, stop, ['account', 'cpus_req','id_job','state', 'time_submit', 'time_start', 'time_end', 'tres_alloc'], index_col=2)
+        df               = df[df['account'].notnull()]
+        #df    = df[df['state'] == state]     # only count completed jobs (state=3)
+        df               = df[df['time_start']>0]      
+        df               = df[df['time_end']  >df['time_start']]
+        df['count']      = 1
+        df['time_run']   = df['time_end']-df['time_start']
+        #df                   = df[df['time_exe']>5]
+        df['cpus_alloc'] = df['tres_alloc'].map(MyTool.extract1)
+        df['time_cpu']   = df['time_run'] * df['cpus_alloc']
+        df['time_run_log'] = df['time_run'].map(SlurmDBQuery.logBucket)
+        df['time_cpu_log'] = df['time_cpu'].map(SlurmDBQuery.logBucket)
+
+        result           = {}     #{'cpus_req':{'max_x':, 'total':, 'cca':}
+        # get the CDF data of cpus_req
+        for col in ['time_run_log', 'time_cpu_log']:
+            sumDf        = df[[col, 'count']].groupby(col).sum()
+            xMax,cdf     = SlurmDBQuery.getCDF_X (sumDf, upper)
+            result[col]  = {'upper_x':xMax, 'count':cdf.reset_index(), 'account':{}}
+            # differiate among accounts
+            acctDf       = df[['account', col, 'count']].groupby(['account', col]).sum()
+            idx0         = acctDf.index.get_level_values(0).unique()
+            for v in idx0.values:
+                result[col]['account'][v] = acctDf.loc[v].reset_index()
+
+        return start, stop, result
+
 
 def test2():
     client = SlurmDBQuery()
