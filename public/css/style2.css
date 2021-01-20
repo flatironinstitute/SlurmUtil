@@ -897,3 +897,6 @@ th {
   box-shadow: 1px 1px 2px #888;
   padding: 8px;
 }
+.highcharts-tooltip h3 {
+  margin: 0.3em 0;
+}
