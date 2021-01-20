@@ -437,17 +437,17 @@ em.alarm,
   background-color: var(--op-orange);
 }
 .slurminfo tr.summary {
-  background-color: var(--op-blue);
+  font-weight: 500 !important;
 }
 .slurminfo th.sort,
 .slurminfo th.sort_des {
-  background-color: var(--blue);
+  border-top: 2px var(--yellow) solid;
 }
 em.inform,
 .slurminfo td.inform,
 .slurminfo tr.alt td.inform,
 tr.inform {
-  background-color: var(--op-purple);
+  background-color: var(--op-blue);
 }
 
 /* Utilities
