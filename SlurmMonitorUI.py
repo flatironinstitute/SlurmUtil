@@ -200,14 +200,14 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def clusterForecast_hourly(self, start='', stop='', chg_prior=0.5, period=720):
+    def clusterForecast_hourly(self, cluster, chg_prior=0.5, period=720):
         htmlTemp = os.path.join(config.APP_DIR, 'image.html')
         h = open(htmlTemp).read()
 
         return h
 
     @cherrypy.expose
-    def accountForecast_hourly(self, start='', stop='', chg_prior=0.5, period=720):
+    def accountForecast_hourly(self, cluster, chg_prior=0.5, period=720):
         htmlTemp = os.path.join(config.APP_DIR, 'acctImage.html')
         h = open(htmlTemp).read()
 
@@ -541,8 +541,10 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def forecast(self, page=None):
+        clu_dict = PyslurmQuery.getSlurmDBClusters()
+        clu_name = list(clu_dict.keys())
         htmltemp = os.path.join(config.APP_DIR, 'forecast.html')
-        h = open(htmltemp).read()
+        h        = open(htmltemp).read().format(clusters=clu_name)
  
         return h
 
@@ -1482,8 +1484,12 @@ class SLURMMonitorUI(object):
     @cherrypy.expose
     def nodeJobProcGraph(self, node, jid):
         jobid = int(jid)
-        start = self.monData.getJobStart(jobid)
-        msg   = self.nodeJobProcGraph_cache(node, jobid)
+        job   = self.monData.getJob (jobid, req_fields=['start_time'])
+        if not job:
+           return 'Job {}: cannot find the job.'.format(jobid)
+        if not job['start_time']:
+           return 'Job {}: job is not started.'.format(jobid)
+        msg   = self.nodeJobProcGraph_cache  (node, jobid)
         note  = 'cache'
         if not msg:
            logger.info('Job {}: no data in cache'.format(jobid))

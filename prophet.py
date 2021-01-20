@@ -1,8 +1,10 @@
-import datetime
-from collections import defaultdict
-
+#!/usr/bin/env python
+import argparse
+import datetime, glob, os, time
 import holidays,numpy,pandas
 import matplotlib.pyplot as plt
+
+from collections import defaultdict
 #IMPORTANT: can not import pyslurm directly or indirectly, will cuase core dump
 from fbprophet             import Prophet
 from fbprophet.plot        import add_changepoints_to_plot
@@ -11,6 +13,9 @@ from fbprophet.diagnostics import cross_validation
 from fbprophet.diagnostics import performance_metrics
 
 IMG_DIR          = "/mnt/home/yliu/projects/slurm/utils/public/images/"
+
+def getTS (t, formatStr='%Y-%m-%d %H:%M:%S'):
+    return int(time.mktime(time.strptime(t, formatStr)))
 
 def getYearList (year=None, beforeYears=2, afterYears=1):
     if not year:
@@ -32,57 +37,57 @@ def getHolidays(years):
     df             = pandas.concat (list_df)
     return df
 
+def getDFDays (df):
+    t1         = df.iat[0,0]
+    t2         = df.iat[len(df)-1,0]
+    data_days  = int((getTS(t2)-getTS(t1))/3600/24)
+    return data_days
+
+def getFileNameNoExt(fname):
+    return os.path.splitext(os.path.split(fname)[1])[0]
+
 class MyProphet:
     def __init__(self, years=2):
-        #self.holidays = self.getHolidays()
         self.holidays = getHolidays(years)
-        #self.querySDBClient = SlurmDBQuery()
  
-    def getHolidays(self):
-        names = ['New Years Day', 'Martin Luther King, Jr. Day', 'Washington’s Birthday',
-             'Good Friday',   'Memorial Day',                'Independence Day', 
-             'Labor Day',     'Thanksgiving Day',            
-             'Christmas']
-        date  = [['2018-01-01','2019-01-01','2019-01-01','2020-01-01'], ['2018-01-15','2019-01-21'], ['2018-02-19','2019-02-18'],
-             ['2018-03-30','2019-04-19'], ['2018-05-25','2018-05-28','2019-05-24','2019-05-27'], ['2018-07-04','2019-07-04'],
-             ['2018-09-03','2019-09-02'], ['2017-11-23','2017-11-24','2018-11-22','2018-11-23','2019-11-28','2019-11-29'], 
-             ['2017-12-25','2017-12-26','2017-12-27','2017-12-28','2017-12-29', 
-              '2018-12-24','2018-12-25','2018-12-26','2018-12-27','2018-12-28',
-              '2019-12-25']]
+    #TODO: cps not used
+    def clusterUsage_forecast (self, csv_file, cps=0.5, days=14):
+        cpuAllocDf = pandas.read_csv(csv_file)
+        data_days  = getDFDays(cpuAllocDf)
+        
+        model, forecast = MyProphet.predict (cpuAllocDf, self.holidays, cps, days, data_days=days)
+        cv              = MyProphet.validation (model, data_days) 
+        name            = getFileNameNoExt (csv_file)
+        MyProphet.sav_figure (name, model, forecast, cv)
 
-        frames = []
-        for idx in range(len(names)):
-            df = pandas.DataFrame({'holiday': names[idx], 'ds': pandas.to_datetime(date[idx])})
-            frames.append (df)
+        #cpuDownDf  = cpuDf[['ds', 'tdown_secs']]
+        #cpuDownDf  = cpuDownDf.rename(columns={'tdown_secs': 'y'})
+        #cpuDownDf['cap'] = 18568 * 3600
+        #self.predict (cpuDownDf, 'clusterDown', cps, p)
+        return days
 
-        return pandas.concat(frames)
-       
-    def accountUsage_forecast (self, csv_file_template, cps=0.5, p=720):
-        #start, stop, df = SlurmDBQuery.getAccountUsage_hourly()
-        #df['ds']        = df['ts'].apply(lambda x: datetime.datetime.fromtimestamp(x/1000).strftime('%Y-%m-%d %H:%M:%S'))
-        for acct in ['cca', 'ccb', 'ccm', 'ccq']:
+    def accountUsage_forecast (self, csv_file_regex, cps=0.5, days=14):
+        f_lst  = glob.glob(csv_file_regex)
+        for csv_file in f_lst:
             # get cpu,account data
-            #cpuDf = df.loc[(1,acct,),]
-            #cpuAllocDf = cpuDf[['ds', 'alloc_secs']]
-            #cpuAllocDf = cpuAllocDf.rename(columns={'alloc_secs': 'y'})
-            csv_file       = csv_file_template.format(acct)
             cpuAllocDf     = pandas.read_csv(csv_file)
-            cpuAllocDf['cap'] = 18568 * 3600
+            data_days      = getDFDays(cpuAllocDf)
+            #cpuAllocDf['cap'] = 18568 * 3600
             
-            model, forecast= MyProphet.analyze (cpuAllocDf, self.holidays, cps, p)
-            MyProphet.sav_figure (acct, model, forecast)
+            model, forecast = MyProphet.predict (cpuAllocDf, self.holidays, cps, days, data_days)
+            cv              = MyProphet.validation (model, data_days) 
+            name            = getFileNameNoExt (csv_file)
+            MyProphet.sav_figure (name, model, forecast, cv)
 
-    def analyze (df, holidays, cps, p):    
+    def predict (df, holidays, cps, future_days, data_days=365):    
         # Make the prophet model and fit on the data
         #c_prophet = Prophet(changepoint_prior_scale=cps)
-        #c_prophet = Prophet(growth='logistic')
         c_prophet = Prophet(growth='logistic', holidays=holidays, seasonality_mode='multiplicative')
         print("Analyze ---\n{}".format(df.head()))
         print("Holidays={}".format(holidays))
         c_prophet.fit(df)
-
         # Make a future dataframe
-        c_forecast = c_prophet.make_future_dataframe(periods=p, freq='H')
+        c_forecast = c_prophet.make_future_dataframe(periods=future_days*24, freq='H')
         if 'cap' in df.columns: # always true, otherwsie, logistic model will not work
            c_forecast['cap'] = df['cap']
            lastIdx           = df.shape[0]
@@ -95,38 +100,42 @@ class MyProphet:
         c_forecast = c_prophet.predict(c_forecast)
         return c_prophet, c_forecast
 
-    def sav_figure (name, c_prophet, c_forecast):
+    def validation (c_prophet, data_days, horizon_days=14):
+        initial_days = min (200, int(data_days/2))
+        print("validation data_days={},initial={},horizon_days={}".format(data_days,initial_days,horizon_days))
+        
+        # cross validation, 
+        # By default, the initial training period is set to three times the horizon, and cutoffs (period) are made every half a horizon.
+        #ca_cv = cross_validation(c_prophet, initial='200 days', horizon = '14 days', period='100 days') 
+        ca_cv = cross_validation(c_prophet, initial='{} days'.format(initial_days), horizon = '{} days'.format(horizon_days)) 
+        #mean squared error (MSE), root mean squared error (RMSE), mean absolute error (MAE), mean absolute percent error (MAPE
+        #ca_pm = performance_metrics(ca_cv)
+        return ca_cv
+
+    def sav_figure (name, c_prophet, c_forecast, ca_cv):
         fig = c_prophet.plot(c_forecast, xlabel = 'Date', ylabel = 'CPU Secs')
         a   = add_changepoints_to_plot(fig.gca(), c_prophet, c_forecast)
         plt.title  ('CPU Seconds (hourly)')
-        plt.savefig(IMG_DIR + name + 'Forecast.png')
+        plt.savefig(IMG_DIR + name + '_forecast.png')
         #plt.show()
 
         figC = c_prophet.plot_components(c_forecast)
-        plt.savefig(IMG_DIR + name + 'ForecastComp.png')
+        plt.savefig(IMG_DIR + name + '_forecastComp.png')
         #plt.show()
 
-        # cross validation
-        ca_cv = cross_validation(c_prophet, initial='200 days', horizon = '14 days', period='100 days') 
-        #mean squared error (MSE), root mean squared error (RMSE), mean absolute error (MAE), mean absolute percent error (MAPE
-        #ca_pm = performance_metrics(ca_cv)
         figV = plot_cross_validation_metric(ca_cv, metric='mape')
         plt.title  ('CPU Seconds Forecast MAPE (mean absolute percent error)')
-        plt.savefig(IMG_DIR + name + 'ForecastCV.png')
+        plt.savefig(IMG_DIR + name + '_forecastCV.png')
 
-    def clusterUsage_forecast (self, csv_file, cps=0.5, p=720):
-        cpuAllocDf = pandas.read_csv(csv_file)
-        model, forecast= MyProphet.analyze (cpuAllocDf, self.holidays, cps, p)
-        MyProphet.sav_figure ('cluster', model, forecast)
-
-        #cpuDownDf  = cpuDf[['ds', 'tdown_secs']]
-        #cpuDownDf  = cpuDownDf.rename(columns={'tdown_secs': 'y'})
-        #cpuDownDf['cap'] = 18568 * 3600
-        #self.analyze (cpuDownDf, 'clusterDown', cps, p)
-
-def main():
-    inst = MyProphet(2)
-    inst.clusterUsage_forecast ("./data/cpuAllocDF.csv")
-    inst.accountUsage_forecast ("./data/cpuAllocDF_{}.csv")
 if __name__=="__main__":
-   main()
+    parser = argparse.ArgumentParser(description='Make prediction of cluster and account usage.')
+    parser.add_argument('-y', '--years',     type=int, default=2,   help='years of history used to make prediction')
+    parser.add_argument('-d', '--future',    type=int, default=14,  help='days in the future to predict')
+    #parser.add_argument('-c', '--clusters', nargs="+", default=['cluster'],   help='clusters')
+    #parser.add_argument('-u', '--update', default=False, action='store_true', help='training data updated before making prediction')
+    args = parser.parse_args()
+    #print(args)
+
+    inst = MyProphet(args.years)
+    inst.clusterUsage_forecast ("./data/slurm_cpuAllocDF.csv",   days=args.future)
+    inst.accountUsage_forecast ("./data/slurm_cpuAllocDF_*.csv", days=args.future)
