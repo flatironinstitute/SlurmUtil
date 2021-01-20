@@ -26,14 +26,14 @@
   --black: #1c1c1c;
   --off-black: rgb(47, 47, 51);
   --purple: #8383ff;
-  --op-purple: rgba(131, 131, 255, 0.7);
+  --op-purple: rgba(131, 131, 255, 0.1);
   --blue: #3690ff;
   --op-blue: rgba(54, 144, 255, 0.7);
   --whiteish: rgba(255, 255, 255, 0.98);
   --orange: rgb(255, 81, 84);
-  --op-orange: rgba(255, 81, 84, 0.7);
+  --op-orange: rgba(255, 81, 84, 0.3);
   --turquoise: #25ced1;
-  --op-turquoise: rgba(37, 206, 209, 0.7);
+  --op-turquoise: rgba(37, 206, 209, 0.3);
   /* New colors */
   --border-gray: #e5e8ed;
   --background-gray: #f4f5f9;
@@ -656,6 +656,21 @@ tr.inform {
   padding: 8px 0 0;
   font-weight: 400;
   text-shadow: none !important;
+}
+.hero__title--update {
+  text-align: left;
+  border: 0;
+  padding: 8px 0 8px;
+  font-weight: 400;
+  text-shadow: none !important;
+  letter-spacing: 1px;
+  text-decoration: none;
+  font-size: 1.3rem;
+  color: var(--whiteish);
+  border-bottom: none;
+  margin: 0.25em 0;
+  font-weight: 400;
+  letter-spacing: 1px;
 }
 .hero__text {
   font-size: 2rem;
