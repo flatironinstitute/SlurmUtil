@@ -25,17 +25,18 @@
   --yellow: #ffc600;
   --black: #1c1c1c;
   --off-black: rgb(47, 47, 51);
-  --brand-purple: #8383ff;
-  --brand-blue: #3690ff;
+  --purple: #8383ff;
+  --op-purple: rgba(131, 131, 255, 0.7);
+  --blue: #3690ff;
+  --op-blue: rgba(54, 144, 255, 0.7);
   --whiteish: rgba(255, 255, 255, 0.98);
-  --brand-orange: #ff5154;
-  --brand-turquoise: #25ced1;
+  --orange: rgb(255, 81, 84);
+  --op-orange: rgba(255, 81, 84, 0.7);
+  --turquoise: #25ced1;
+  --op-turquoise: rgba(37, 206, 209, 0.7);
   /* New colors */
   --border-gray: #e5e8ed;
   --background-gray: #f4f5f9;
-  --background-dark-blue: rgb(1, 14, 40);
-  --button-teal: rgb(0, 215, 210);
-  --dark-blue-text: rgb(3, 27, 78);
 }
 html {
   box-sizing: border-box;
@@ -430,20 +431,20 @@ th.sort_des:after {
 em.alarm,
 .slurminfo td.alarm,
 .slurminfo tr.alt td.alarm {
-  background-color: var(--brand-orange);
+  background-color: var(--op-orange);
 }
 .slurminfo tr.summary {
-  background-color: #b7dceb;
+  background-color: var(--op-turquoise);
 }
 .slurminfo th.sort,
 .slurminfo th.sort_des {
-  background-color: var(--brand-blue);
+  background-color: var(--op-blue);
 }
 em.inform,
 .slurminfo td.inform,
 .slurminfo tr.alt td.inform,
 tr.inform {
-  background-color: #21b2ea;
+  background-color: var(--op-purple);
 }
 
 /* Old Slurm Info Table */
