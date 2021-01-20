@@ -434,7 +434,7 @@ em.alarm,
   background-color: var(--op-orange);
 }
 .slurminfo tr.summary {
-  background-color: var(--op-turquoise);
+  background-color: var(--op-purple);
 }
 .slurminfo th.sort,
 .slurminfo th.sort_des {
@@ -444,7 +444,7 @@ em.inform,
 .slurminfo td.inform,
 .slurminfo tr.alt td.inform,
 tr.inform {
-  background-color: var(--op-purple);
+  background-color: var(--op-turquoise);
 }
 
 /* Old Slurm Info Table */
