@@ -508,6 +508,11 @@ tr.inform {
   background-size: 70px, auto;
   padding: 0 1vw;
 }
+.stickynav__inner::after {
+  content: '';
+  border-bottom: 1px double #121212;
+  display: block;
+}
 .stickynav__content {
   margin: 0 auto;
   max-width: 1200px;
@@ -520,12 +525,11 @@ tr.inform {
 }
 .stickynav__update {
   float: right;
-  text-align: right;
+  text-align: left;
   padding: 8px 0;
   font-weight: 400;
   text-shadow: none !important;
   letter-spacing: 1px;
-  text-decoration: none;
   font-size: 1.3rem;
   color: var(--whiteish);
   border-bottom: none;
