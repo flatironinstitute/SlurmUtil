@@ -101,6 +101,7 @@ class MyProphet:
         return c_prophet, c_forecast
 
     def validation (c_prophet, data_days, horizon_days=14):
+        #TODO: WARNING:fbprophet:Seasonality has period of 365.25 days which is larger than initial window. Consider increasing initial.
         initial_days = min (200, int(data_days/2))
         print("validation data_days={},initial={},horizon_days={}".format(data_days,initial_days,horizon_days))
         

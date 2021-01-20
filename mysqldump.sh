@@ -17,8 +17,8 @@ do
    do
       table=${cluster}_${tbl}
       echo "${table}..."
-#      mysqldump slurm_acct_db ${table} >& mysqldump-to-csv/${table}_${datestr}.txt
-#      python mysqldump_to_csv.py mysqldump-to-csv/${table}_${datestr}.txt >& ${tgt_dir}/${table}.csv
+      mysqldump slurm_acct_db ${table} >& mysqldump-to-csv/${table}_${datestr}.txt
+      python mysqldump_to_csv.py mysqldump-to-csv/${table}_${datestr}.txt >& ${tgt_dir}/${table}.csv
    done
 done
 #put information in ~/.my.cnf

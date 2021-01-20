@@ -1,0 +1,53 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <link rel="stylesheet" href="/static/css/style.css">
+
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+
+	<script type="text/javascript" src="static/scripts/jquery-3.3.1.min.js"></script>
+        <script>
+$(document).ready(function(){{
+   $("#tabmenu").load("/getHeader?page=forecast")
+
+   //init data
+   var accounts = {accounts};
+   accounts.unshift('ALL')
+   for (var i = 0; i < accounts.length; i++) {{
+        if ( i == 0) 
+           $('#acct').append     ('<option value="_" selected>' + accounts[i] + '</option>');
+        else
+           $('#acct').append     ('<option value="_' + accounts[i] + '_">' + accounts[i] + '</option>');
+   }}
+
+   $("#acct").change(function() {{
+      console.log(accounts)
+      val = $(this).val();
+      $("#fc_img").attr     ({{SRC: "static/images/{cluster}_cpuAllocDF" + val + "forecast.png"}});
+      $("#fc_comp_img").attr({{SRC: "static/images/{cluster}_cpuAllocDF" + val + "forecastComp.png"}});
+      $("#fc_cv_img").attr  ({{SRC: "static/images/{cluster}_cpuAllocDF" + val + "forecastCV.png"}});
+   }});
+}});
+         </script>
+    </head>
+    <body>
+        <div class="tab" id="tabmenu"></div>
+
+	<div id="container_sel">	
+                <label for="acct"> <b>Forecast of {cluster}'s CPU Allocation of account
+                <select id="acct" name="acct"></select>
+                using decompsable (trend+seasonality+holidays) model: </b></label>
+        </div>
+
+	<div id="container"      style="min-width: 620px; max-width: 1200px; margin: 0 auto">	
+        <IMG id="fc_img" SRC="static/images/{cluster}_cpuAllocDF_forecast.png"></img>
+        </div>
+        <div style=margin:10><b> Forecast Components </b></div>
+	<div id="container_comp" style="min-width: 620px; max-width: 1200px; margin: 0 auto">	
+        <IMG id="fc_comp_img" SRC="static/images/{cluster}_cpuAllocDF_forecastComp.png"></img>
+        </div>
+	<div id="container_cv"   style="min-width: 620px; max-width: 1200px; margin: 0 auto">	
+        <IMG id="fc_cv_img" SRC="static/images/{cluster}_cpuAllocDF_forecastCV.png"></img>
+        </div>
+    </body>
+</html>

@@ -199,18 +199,18 @@ class SLURMMonitorUI(object):
 
         return h
 
-    @cherrypy.expose
-    def clusterForecast_hourly(self, cluster):
-        htmlTemp = os.path.join(config.APP_DIR, 'image.html')
-        h = open(htmlTemp).read().format(cluster=cluster)
-        return h
+    #@cherrypy.expose
+    #def clusterForecast_hourly(self, cluster):
+    #    htmlTemp = os.path.join(config.APP_DIR, 'image.html')
+    #    h = open(htmlTemp).read().format(cluster=cluster)
+    #    return h
 
     @cherrypy.expose
-    def accountForecast_hourly(self, cluster):
+    def clusterForecast_hourly(self, cluster):
         f_lst = sorted(glob.glob('./public/images/{}_cpuAllocDF_*_forecast.png'.format(cluster)))
         f_lst = [os.path.splitext(os.path.split(fname)[1])[0] for fname in f_lst]     #filename no dir no ext
-        f_lst = [fname.split('_')[2] for fname in f_lst]
-        htmlTemp = os.path.join(config.APP_DIR, 'acctImage.html')
+        f_lst = [fname.split('_')[-2] for fname in f_lst]
+        htmlTemp = os.path.join(config.APP_DIR, 'forecastImage.html')
         h = open(htmlTemp).read().format(cluster=cluster, accounts=f_lst)
         return h
 

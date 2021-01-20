@@ -27,19 +27,14 @@ $(function(){{
 
 
 <div id="hourly" style="border:1px solid gray; margin: 10px; padding: 10px;">
-<legend style="color:#3A509C"> Hourly Allocation Request of Slurm Jobs</legend>
+<legend style="color:#3A509C"> Hourly Allocation of Slurm Jobs</legend>
   <form action="./clusterForecast_hourly"> 
-        <button>Forecast</button>&nbsp Cluster Allocation Request of 
+        <button>Forecast</button>&nbsp Cluster and Account Allocation of 
         <select name='cluster' class='cluster'></select>
         Cluster for future 2 weeks.
 <!--        <input name="period" value=720 size=4 disabled></input> hours, 
         changepoints prior set to <input name="chg_prior" value=0.5 size=3 disabled></input>
 -->
-  </form>
-  <form action="./accountForecast_hourly"> 
-        <button>Forecast</button>&nbsp Account Allocation Request of  
-        <select name='cluster' class='cluster'></select>
-        Cluster for future 2 weeks.
   </form>
 </div>
 
