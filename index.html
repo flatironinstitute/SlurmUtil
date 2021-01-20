@@ -60,6 +60,7 @@
           <div class="crumb__content">
             <div class="crumb__logo">
               <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
+              <span>Last Update: {update_time}</span>
             </div>
             <div class="crumbs" id="crumbmenu"></div>
           </div>
@@ -68,14 +69,12 @@
       <nav class="nav" id="navmenu"></nav>
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
-          <div class="section__div">
+          <div class="section__div" id="summary">
             <h3>
               Cluster Nodes & Jobs (<small><a href="./clusterHistory?days=7">Cluster History</a></small
               ><small id="user"></small>)
             </h3>
-            <i>Update time: {update_time}</i>
           </div>
-          <div class="section__div" id="summary"></div>
         </div>
       </section>
     </div>
