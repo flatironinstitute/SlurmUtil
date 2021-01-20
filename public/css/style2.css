@@ -28,6 +28,8 @@
   --brand-purple: #8383ff;
   --brand-blue: #3690ff;
   --whiteish: rgba(255, 255, 255, 0.98);
+  --brand-orange: #ff5154;
+  --brand-turquoise: #25ced1;
   /* New colors */
   --border-gray: #e5e8ed;
   --background-gray: #f4f5f9;
@@ -335,10 +337,12 @@ tr:nth-of-type(odd) {
 th {
   background: var(--off-black);
   color: white;
-  cursor: s-resize;
+  cursor: pointer;
+  /* todo: what is this for? */
   background-repeat: no-repeat;
   background-position: 3% center;
   text-align: center;
+  font-weight: 500;
 }
 .table__title {
   margin-bottom: 1rem;
@@ -414,30 +418,44 @@ td.collapse:before {
   content: '📂 ';
 }
 th.sort:after {
-  content: ' 🔼 ';
+  content: ' ▲ ';
 }
 th.sort_des:after {
-  content: ' 🔽 ';
+  content: ' ▼ ';
 }
 .slurminfo th {
   position: sticky;
   top: 30;
 }
-/* Old Slurm Info Table */
-.slurminfo td.right {
-  text-align: right;
-}
 em.alarm,
 .slurminfo td.alarm,
 .slurminfo tr.alt td.alarm {
-  background-color: #f65700;
+  background-color: var(--brand-orange);
 }
+.slurminfo tr.summary {
+  background-color: #b7dceb;
+}
+.slurminfo th.sort,
+.slurminfo th.sort_des {
+  background-color: var(--brand-blue);
+}
+em.inform,
+.slurminfo td.inform,
+.slurminfo tr.alt td.inform,
+tr.inform {
+  background-color: #21b2ea;
+}
+
+/* Old Slurm Info Table */
+/* .slurminfo td.right {
+  text-align: right;
+}
+
 .slurminfo tr:nth-child(even) {
   color: #000000;
   background-color: #d7dceb;
 }
 .slurminfo tr.summary {
-  color: #000000;
   background-color: #b7dceb;
 }
 .slurminfo tr.detail {
@@ -445,20 +463,6 @@ em.alarm,
 }
 .slurminfo tr.detail td {
   padding-left: 1.2em;
-}
-.slurminfo th.sort {
-  background-color: blue;
-  font-size: 1.2em;
-}
-.slurminfo th.sort_des {
-  background-color: blue;
-  font-size: 1.2em;
-}
-em.inform,
-.slurminfo td.inform,
-.slurminfo tr.alt td.inform,
-tr.inform {
-  background-color: #21b2ea;
 }
 .glyphicon {
   float: right;
@@ -468,7 +472,7 @@ tr.inform {
 }
 .glyphicon-triangle-bottom {
   color: white;
-}
+} */
 
 /* Utilities
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
@@ -857,12 +861,11 @@ p.home:before {
 }
 
 .tymor th {
-  font-weight: bold;
   text-align: left;
 }
-.tymor tr {
+/* .tymor tr {
   background-color: white;
-}
+} */
 
 /* .tymor td,
 th {
