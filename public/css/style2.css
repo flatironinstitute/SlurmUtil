@@ -487,6 +487,50 @@ tr.inform {
 
 /* Navigation
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
+.stickynav {
+  position: sticky;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 30px;
+  z-index: 9997;
+  background-color: var(--whiteish);
+  box-shadow: 0px 1px 3px 0px rgba(50, 50, 50, 0.15);
+}
+.stickynav__inner {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: auto;
+  min-height: 100%;
+  z-index: 1;
+  background-color: var(--off-black);
+  background-size: 70px, auto;
+  padding: 0 1vw;
+}
+.stickynav__content {
+  margin: 0 auto;
+  max-width: 1200px;
+  padding: 0;
+  position: relative;
+  z-index: 2;
+}
+.stickynav__logo {
+  float: left;
+}
+.stickynav__update {
+  float: right;
+  text-align: right;
+  padding: 8px 0;
+  font-weight: 400;
+  text-shadow: none !important;
+  letter-spacing: 1px;
+  text-decoration: none;
+  font-size: 1.3rem;
+  color: var(--whiteish);
+  border-bottom: none;
+  margin: 0.25em 0;
+}
 .crumb__container {
   position: sticky;
   top: 0;
@@ -663,10 +707,8 @@ tr.inform {
 .hero__title--update {
   text-align: left;
   border: 0;
-  padding: 8px 0 8px;
-  font-weight: 400;
+  padding: 8px 0 8px 20px;
   text-shadow: none !important;
-  letter-spacing: 1px;
   text-decoration: none;
   font-size: 1.3rem;
   color: var(--whiteish);
