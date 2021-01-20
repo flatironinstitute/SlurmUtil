@@ -25,7 +25,7 @@
   --yellow: #ffc600;
   --black: #272727;
   --off-black: #1c1c1c;
-  --dz-black: #231f20;
+  --dz-black: rgb(47, 47, 51);
   --whiteish: rgba(255, 255, 255, 0.98);
   /* New colors */
   --border-gray: #e5e8ed;
@@ -69,7 +69,7 @@ body {
   padding-top: 100px;
 }
 .section--footer {
-  background-image: url(../images/background-pattern.png), linear-gradient(141deg, #3690ff 0%, #8383ff 100%);
+  background-image: url(static/images/background-pattern.png), linear-gradient(141deg, #3690ff 0%, #8383ff 100%);
   background-size: 70px, auto;
 }
 .section__inner {
@@ -137,7 +137,7 @@ h4,
 h5,
 h6 {
   margin: 0 0 5px 0;
-  font-weight: 700;
+  font-weight: 500;
 }
 a {
   text-decoration: none;
@@ -315,6 +315,7 @@ text.mono {
 table {
   width: 100%;
   border-collapse: collapse;
+  font-size: 1.4rem;
 }
 th,
 td {
@@ -424,11 +425,6 @@ th.sort_des:after {
   content: ' 🔽 ';
 }
 /* Old Slurm Info Table */
-.slurminfo {
-  width: 99%;
-  margin: 0.5%;
-  border-collapse: collapse;
-}
 .slurminfo td,
 .slurminfo th {
   font-size: 1em;
@@ -447,14 +443,6 @@ em.alarm,
 .slurminfo td.alarm,
 .slurminfo tr.alt td.alarm {
   background-color: #f65700;
-}
-.slurminfo th {
-  font-size: 1.1em;
-  text-align: left;
-  padding-top: 5px;
-  padding-bottom: 4px;
-  background-color: #3a509c;
-  color: #ffffff;
 }
 .slurminfo tr:nth-child(even) {
   color: #000000;
@@ -520,9 +508,14 @@ tr.inform {
   height: auto;
   min-height: 100%;
   z-index: 1;
-  background-color: var(--dz-black);
+  /* background-color: var(--dz-black); */
   background-size: 70px, auto;
   padding: 0 1vw;
+}
+.crumb__inner::after {
+  content: '';
+  border-bottom: 1px double #121212;
+  display: block;
 }
 .crumb__logo {
   float: left;
@@ -668,7 +661,8 @@ tr.inform {
   text-align: left;
   border: 0;
   padding: 8px 0 0;
-  font-weight: 500;
+  font-weight: 400;
+  text-shadow: none !important;
 }
 .hero__text {
   font-size: 2rem;
