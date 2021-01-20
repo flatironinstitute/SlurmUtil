@@ -2,41 +2,23 @@
 <!DOCTYPE html>
 
 <head>
+<meta charset="utf-8">
 <title>Forecast</title>
 <link rel="stylesheet" href="/static/css/style.css">
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">  
 
-<meta charset="utf-8">
-<style>
-  path {
-  stroke: #fff;
-  fill-rule: evenodd;
-  }
-
-  text {
-  font-family: Arial, sans-serif;
-  font-size: 8px;
-  }
-
-  div.tooltip {
-    position: absolute;
-    text-align: center;
-    width: 200px;
-    height: 100px;
-    padding: 2px;
-    font: 12px sans-serif;
-    background: lightsteelblue;
-    border: 0px;
-    border-radius: 8px;
-    pointer-events: none;
-}
-</style>
-
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script type="text/javascript" src="static/scripts/jquery.min.js"></script>
 <script>
-$(function(){
+$(function(){{
    $("#tabmenu").load("/getHeader?page=forecast")
-});
+
+   //init data
+   var clusters = {clusters};
+   for (var i = 0; i < clusters.length; i++) {{
+        $('.cluster').append     ('<option value="' + clusters[i] + '">' + clusters[i] + '</option>');
+        //$('#cluster_acct').append('<option value="' + clusters[i] + '">' + clusters[i] + '</option>');
+   }}
+}});
 </script>
 </head>
 
@@ -45,14 +27,19 @@ $(function(){
 
 
 <div id="hourly" style="border:1px solid gray; margin: 10px; padding: 10px;">
-<legend style="color:#3A509C"> Hourly Forecast</legend>
+<legend style="color:#3A509C"> Hourly Allocation Request of Slurm Jobs</legend>
   <form action="./clusterForecast_hourly"> 
-        <button>Forecast</button>&nbsp Slurm Cluster Allocation Usage for future <input name="period" value=720 size=4 disabled></input> hours, 
+        <button>Forecast</button>&nbsp Cluster Allocation Request of 
+        <select name='cluster' class='cluster'></select>
+        Cluster for future 2 weeks.
+<!--        <input name="period" value=720 size=4 disabled></input> hours, 
         changepoints prior set to <input name="chg_prior" value=0.5 size=3 disabled></input>
+-->
   </form>
   <form action="./accountForecast_hourly"> 
-        <button>Forecast</button>&nbsp Slurm Account Allocation Usage for future <input name="period" value=720 size=4 disabled></input> hours, 
-        changepoints prior set to <input name="chg_prior" value=0.5 size=3 disabled></input>
+        <button>Forecast</button>&nbsp Account Allocation Request of  
+        <select name='cluster' class='cluster'></select>
+        Cluster for future 2 weeks.
   </form>
 </div>
 

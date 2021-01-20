@@ -8,27 +8,39 @@
 
 	<script type="text/javascript" src="static/scripts/jquery-3.3.1.min.js"></script>
         <script>
-$(document).ready(function(){
-   $("#acct").change(function() {
-      val = $(this).val();
-      $("#fc_img").attr     ({SRC: "static/images/" + val + "Forecast.png"});
-      $("#fc_comp_img").attr({SRC: "static/images/" + val + "ForecastComp.png"});
-      $("#fc_cv_img").attr  ({SRC: "static/images/" + val + "ForecastCV.png"});
-   });
+$(document).ready(function(){{
+   $("#tabmenu").load("/getHeader?page=forecast")
 
-});
+   //init data
+   var accounts = {accounts};
+   for (var i = 0; i < accounts.length; i++) {{
+        $('#acct').append     ('<option value="' + accounts[i] + '">' + accounts[i] + '</option>');
+        //$('#cluster_acct').append('<option value="' + clusters[i] + '">' + clusters[i] + '</option>');
+   }}
+
+   $("#acct").change(function() {{
+      val = $(this).val();
+    
+      $("#fc_img").attr     ({{SRC: "static/images/{cluster}_cpuAllocDF_" + val + "_forecast.png"}});
+      $("#fc_comp_img").attr({{SRC: "static/images/{cluster}_cpuAllocDF_" + val + "_forecastComp.png"}});
+      $("#fc_cv_img").attr  ({{SRC: "static/images/{cluster}_cpuAllocDF_" + val + "_forecastCV.png"}});
+   }});
+}});
          </script>
     </head>
     <body>
+        <div class="tab" id="tabmenu"></div>
+
 	<div id="container_sel" style="min-width: 620px; max-width: 1200px; margin: 0 auto">	
-                <label for="acct"> Forecast of the CPU seconds of account using decompsable (trend+seasonality+holidays) model: </label>
+                <label for="acct"> Forecast of {cluster}'s CPU Allocation of account
                 <select id="acct" name="acct">
-                   <option value="cca" selected> CCA </option>
+<!--                   <option value="cca" selected> CCA </option>
                    <option value="ccb" >         CCB </option>
                    <option value="ccm" >         CCM </option>
                    <option value="ccm" >         CCN </option>
                    <option value="ccq" >         CCQ </option>
-                </select>
+-->                </select>
+                using decompsable (trend+seasonality+holidays) model: </label>
         </div>
 
 	<div id="container"      style="min-width: 620px; max-width: 1200px; margin: 0 auto">	

@@ -12,7 +12,7 @@ from fbprophet.plot        import plot_cross_validation_metric
 from fbprophet.diagnostics import cross_validation
 from fbprophet.diagnostics import performance_metrics
 
-IMG_DIR          = "/mnt/home/yliu/projects/slurm/utils/public/images/"
+IMG_DIR          = "./public/images/"
 
 def getTS (t, formatStr='%Y-%m-%d %H:%M:%S'):
     return int(time.mktime(time.strptime(t, formatStr)))

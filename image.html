@@ -6,34 +6,37 @@
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 	<script type="text/javascript" src="static/scripts/jquery-3.3.1.min.js"></script>
         <script>
-$(document).ready(function(){
-   $("#fc_sel").change(function() {
-      val = $(this).val();
-      $("#fc_img").attr     ({SRC: "static/images/" + val + "Forecast.png"});
-      $("#fc_comp_img").attr({SRC: "static/images/" + val + "ForecastComp.png"});
-      $("#fc_cv_img").attr  ({SRC: "static/images/" + val + "ForecastCV.png"});
-   });
+$(document).ready(function(){{
+   $("#tabmenu").load("/getHeader?page=forecast")
 
-});
+   $("#fc_sel").change(function() {{
+      val = $(this).val();
+      $("#fc_img").attr     ({{SRC: "static/images/" + val + "Forecast.png"}});
+      $("#fc_comp_img").attr({{SRC: "static/images/" + val + "ForecastComp.png"}});
+      $("#fc_cv_img").attr  ({{SRC: "static/images/" + val + "ForecastCV.png"}});
+   }});
+}});
         </script>
     </head>
     <body>
+        <div class="tab" id="tabmenu"></div>
+
         <div id="container_sel" style="min-width: 620px; max-width: 1200px; margin: 0 auto">
-            <label> Forecast of the CPU seconds of cluster using decompsable (trend+seasonality+holidays) model: </label>
-            <select id="fc_sel" name="fc_sel">
+            <label> Forecast of CPU Allocation of {cluster} cluster using decompsable (trend+seasonality+holidays) model: </label>
+            <!--<select id="fc_sel" name="fc_sel">
                 <option value="cluster" selected> Allocated Seconds </option>
                 <option value="clusterDown">      Down Seconds </option>
-            </select>
+            </select>-->
         </div>
 	<div id="container"      style="min-width: 620px; max-width: 1200px; margin: 0 auto">	
-        <IMG id="fc_img" SRC="static/images/clusterForecast.png"></img>
+        <IMG id="fc_img" SRC="static/images/{cluster}_cpuAllocDF_forecast.png"></img>
         </div>
         <center> Forecast Components </center>
 	<div id="container_comp" style="min-width: 620px; max-width: 1200px; margin: 0 auto">	
-        <IMG id="fc_comp_img" SRC="static/images/clusterForecastComp.png"></img>
+        <IMG id="fc_comp_img" SRC="static/images/{cluster}_cpuAllocDF_forecastComp.png"></img>
         </div>
 	<div id="container_comp" style="min-width: 620px; max-width: 1200px; margin: 0 auto">	
-        <IMG id="fc_cv_img"   SRC="static/images/clusterForecastCV.png"></img>
+        <IMG id="fc_cv_img" SRC="static/images/{cluster}_cpuAllocDF_forecastCV.png"></img>
         </div>
     </body>
 </html>

@@ -1,4 +1,4 @@
-import cherrypy, _pickle as cPickle, datetime, json, os
+import cherrypy, _pickle as cPickle, datetime, glob, json, os
 import pandas, logging, pwd, re, subprocess as SUB, sys, time, zlib
 from collections import defaultdict, OrderedDict
 import operator
@@ -200,17 +200,18 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def clusterForecast_hourly(self, cluster, chg_prior=0.5, period=720):
+    def clusterForecast_hourly(self, cluster):
         htmlTemp = os.path.join(config.APP_DIR, 'image.html')
-        h = open(htmlTemp).read()
-
+        h = open(htmlTemp).read().format(cluster=cluster)
         return h
 
     @cherrypy.expose
-    def accountForecast_hourly(self, cluster, chg_prior=0.5, period=720):
+    def accountForecast_hourly(self, cluster):
+        f_lst = sorted(glob.glob('./public/images/{}_cpuAllocDF_*_forecast.png'.format(cluster)))
+        f_lst = [os.path.splitext(os.path.split(fname)[1])[0] for fname in f_lst]     #filename no dir no ext
+        f_lst = [fname.split('_')[2] for fname in f_lst]
         htmlTemp = os.path.join(config.APP_DIR, 'acctImage.html')
-        h = open(htmlTemp).read()
-
+        h = open(htmlTemp).read().format(cluster=cluster, accounts=f_lst)
         return h
 
     @cherrypy.expose
