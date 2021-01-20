@@ -26,9 +26,9 @@
   --black: #1c1c1c;
   --off-black: rgb(47, 47, 51);
   --purple: #8383ff;
-  --op-purple: rgba(131, 131, 255, 0.1);
+  --op-purple: rgba(131, 131, 255, 0.3);
   --blue: #3690ff;
-  --op-blue: rgba(54, 144, 255, 0.7);
+  --op-blue: rgba(54, 144, 255, 0.1);
   --whiteish: rgba(255, 255, 255, 0.98);
   --orange: rgb(255, 81, 84);
   --op-orange: rgba(255, 81, 84, 0.3);
@@ -429,7 +429,7 @@ th.sort_des:after {
 }
 .slurminfo th {
   position: sticky;
-  top: 30;
+  top: 30px;
 }
 em.alarm,
 .slurminfo td.alarm,
@@ -437,46 +437,18 @@ em.alarm,
   background-color: var(--op-orange);
 }
 .slurminfo tr.summary {
-  background-color: var(--op-purple);
+  background-color: var(--op-blue);
 }
 .slurminfo th.sort,
 .slurminfo th.sort_des {
-  background-color: var(--op-blue);
+  background-color: var(--blue);
 }
 em.inform,
 .slurminfo td.inform,
 .slurminfo tr.alt td.inform,
 tr.inform {
-  background-color: var(--op-turquoise);
+  background-color: var(--op-purple);
 }
-
-/* Old Slurm Info Table */
-/* .slurminfo td.right {
-  text-align: right;
-}
-
-.slurminfo tr:nth-child(even) {
-  color: #000000;
-  background-color: #d7dceb;
-}
-.slurminfo tr.summary {
-  background-color: #b7dceb;
-}
-.slurminfo tr.detail {
-  font-size: 0.95em;
-}
-.slurminfo tr.detail td {
-  padding-left: 1.2em;
-}
-.glyphicon {
-  float: right;
-}
-.glyphicon-triangle-top {
-  color: white;
-}
-.glyphicon-triangle-bottom {
-  color: white;
-} */
 
 /* Utilities
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
