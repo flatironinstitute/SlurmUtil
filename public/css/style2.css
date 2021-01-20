@@ -508,11 +508,6 @@ tr.inform {
   background-size: 70px, auto;
   padding: 0 1vw;
 }
-.stickynav__inner::after {
-  content: '';
-  border-bottom: 1px double #121212;
-  display: block;
-}
 .stickynav__content {
   margin: 0 auto;
   max-width: 1200px;
@@ -608,13 +603,14 @@ tr.inform {
   background-color: #fff;
 }
 .nav__inner {
-  margin: 0;
+  margin: 0 auto;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   list-style: none;
   padding: 2rem 2rem 1rem;
   box-shadow: rgba(0, 0, 0, 0.06) 0px -4px 4px;
+  width: 100%;
 }
 @media (max-width: 1350px) {
   .nav__inner {
