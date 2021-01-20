@@ -421,7 +421,7 @@ th.sort_des:after {
 }
 .slurminfo th {
   position: sticky;
-  top: 0;
+  top: 30;
 }
 /* Old Slurm Info Table */
 .slurminfo td.right {
@@ -496,7 +496,7 @@ tr.inform {
   height: auto;
   min-height: 100%;
   z-index: 1;
-  /* background-color: var(--off-black); */
+  background-color: var(--off-black);
   background-size: 70px, auto;
   padding: 0 1vw;
 }
