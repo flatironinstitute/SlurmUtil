@@ -123,8 +123,8 @@
                 <option value="slurm_cluster">Slurm Cluster</option>
               </select>
               Cluster Job Queue Length from <input name="start" id="start" value="2017-09-18" type="date" /> to
-              <input name="stop" id="stop" value="" type="date" />, counting jobs with a wait time bigger than
-              <input name="queueTime" id="queueTime" size="2" value="1" /> seconds &nbsp
+              <input name="stop" id="stop" value="" type="date" />, counting jobs with waittime longer than
+              <input name="queueTime" id="queueTime" size="2" value="1" type="number" /> seconds
               <button class="button">Report</button>
             </form>
             <form action="./cdfReport">
