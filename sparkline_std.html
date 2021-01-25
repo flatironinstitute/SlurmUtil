@@ -8,7 +8,7 @@
       href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
       rel="stylesheet"
     />
-
+    <title>Tymor</title>
     <link rel="stylesheet" href="/static/css/normalize.css" />
     <link rel="stylesheet" href="/static/css/style2.css" />
     <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
@@ -16,17 +16,24 @@
   </head>
   <body>
     <div class="layout">
-      <div class="crumb__container">
-        <div class="crumb__inner">
-          <div class="crumb__content">
-            <div class="crumb__logo">
+      <div class="stickynav">
+        <div class="stickynav__inner">
+          <div class="stickynav__content">
+            <div class="stickynav__logo">
               <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
             </div>
-            <div class="crumbs" id="crumbmenu"></div>
+            <div class="stickynav__update">Updated: {update_time}</div>
           </div>
         </div>
       </div>
       <nav class="nav" id="navmenu"></nav>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <h3>Tymor</h3>
+          </div>
+        </div>
+      </section>
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
