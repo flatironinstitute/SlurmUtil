@@ -28,7 +28,6 @@
       var data = %(data)s
       console.log (data)
       $(function () {
-                 $("#tabmenu").load("/getHeader?page=usageGraph")
                  $("#navmenu").load("/getHeader?page=usageGraph");
                  const thisPath = window.location.pathname;
                 $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
