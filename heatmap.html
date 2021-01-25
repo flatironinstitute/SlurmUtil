@@ -13,7 +13,6 @@
     <link rel="stylesheet" href="/static/css/normalize.css" />
     <link rel="stylesheet" href="/static/css/style2.css" />
     <title>Host Utilization Heatmap</title>
-    <!-- <link rel="stylesheet" href="/static/css/style.css" /> -->
     <link
       href="http://rawgithub.com/indrimuska/jquery-editable-select/master/dist/jquery-editable-select.min.css"
       rel="stylesheet"
@@ -32,13 +31,13 @@
   </head>
   <body>
     <div class="layout">
-      <div class="crumb__container">
-        <div class="crumb__inner">
-          <div class="crumb__content">
-            <div class="crumb__logo">
+      <div class="stickynav">
+        <div class="stickynav__inner">
+          <div class="stickynav__content">
+            <div class="stickynav__logo">
               <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
             </div>
-            <div class="crumbs" id="crumbmenu"></div>
+            <div class="stickynav__update">Updated: {update_time}</div>
           </div>
         </div>
       </div>
@@ -54,7 +53,6 @@
                 <option value="comb_util">Combined</option>
               </select>
             </div>
-            <i>Update time: {update_time}</i>
             <p>
               Click to see the co-allocated worker nodes for the same job. Double click to see the worker node detail.
               Shift + double click to see the job detail.

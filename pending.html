@@ -54,13 +54,13 @@
 
   <body>
     <div class="layout">
-      <div class="crumb__container">
-        <div class="crumb__inner">
-          <div class="crumb__content">
-            <div class="crumb__logo">
+      <div class="stickynav">
+        <div class="stickynav__inner">
+          <div class="stickynav__content">
+            <div class="stickynav__logo">
               <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
             </div>
-            <div class="crumbs" id="crumbmenu"></div>
+            <div class="stickynav__update">Updated: {update_time}</div>
           </div>
         </div>
       </div>
@@ -68,12 +68,9 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="pending_jobs">
-            <h3>
-              Pending Queue: {job_cnt} Jobs
-              <small>(<a href="./pending_history?days=7"> History of last 7 days</a>)</small>
-            </h3>
-            <i>Update time: {update_time}</i>
+            <h3>Pending Queue: {job_cnt} Jobs</h3>
           </div>
+          <p>Click to see (<a href="./pending_history?days=7"> history of last 7 days</a>)</p>
         </div>
       </section>
       <section class="section">

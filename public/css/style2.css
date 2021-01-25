@@ -334,10 +334,10 @@ th:last-child,
 td:last-child {
   border-right: none;
 }
-tr:nth-of-type(odd) {
-  /* Zebra striping */
-  background: #eee;
-}
+/* tr:nth-of-type(odd) { */
+/* Zebra striping */
+/* background: #eee; */
+/* } */
 th {
   background: var(--off-black);
   color: white;
@@ -360,7 +360,7 @@ th {
   font-size: 2rem;
 }
 /* Old Table Carry-Over */
-table.noborder {
+/* table.noborder {
   border: none;
 }
 tr.noborder {
@@ -390,7 +390,7 @@ tr.IDLE {
 }
 tr.MIXED {
   background: #c6dbef;
-}
+} */
 td.group_plus:before {
   content: '\25b8\ ';
 }
