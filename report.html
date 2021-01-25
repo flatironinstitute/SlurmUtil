@@ -60,7 +60,7 @@
                 <option value="slurm_cluster">Slurm Cluster</option>
               </select>
               Cluster Usage from <input name="start" id="start" value="2017-09-18" type="date" /> to
-              <input name="stop" id="stop" value="" type="date" /> &nbsp <button>Report</button>
+              <input name="stop" id="stop" value="" type="date" /> &nbsp <button class="button">Report</button>
             </form>
             <form action="./accountReport_hourly">
               <select id="cluster" name="cluster">
@@ -68,7 +68,7 @@
                 <option value="slurm_cluster">Slurm Cluster</option>
               </select>
               Cluster Account Allocation from <input name="start" id="start" value="2017-09-25" type="date" /> to
-              <input name="stop" id="stop" value="" type="date" /> <button>Report</button>
+              <input name="stop" id="stop" value="" type="date" /> <button class="button">Report</button>
             </form>
             <form action="./userReport_hourly">
               <select id="cluster" name="cluster">
@@ -86,7 +86,7 @@
                 <option value="scc">SCC</option>
               </select>
               Account from <input name="start" id="start" value="2017-10-05" type="date" /> to
-              <input name="stop" id="stop" value="" type="date" /> <button>Report</button>
+              <input name="stop" id="stop" value="" type="date" /> <button class="button">Report</button>
             </form>
           </div>
         </div>
@@ -106,7 +106,7 @@
                 <option value="xfs1">Xfs1</option>
               </select>
               from <input name="start" id="start" value="2016-10-25" type="date" /> to
-              <input name="stop" id="stop" value="" type="date" /> <button>Report</button>
+              <input name="stop" id="stop" value="" type="date" /> <button class="button">Report</button>
             </form>
           </div>
         </div>
@@ -124,7 +124,8 @@
               </select>
               Cluster Job Queue Length from <input name="start" id="start" value="2017-09-18" type="date" /> to
               <input name="stop" id="stop" value="" type="date" />, counting jobs with a wait time bigger than
-              <input name="queueTime" id="queueTime" size="2" value="1" /> seconds &nbsp <button>Report</button>
+              <input name="queueTime" id="queueTime" size="2" value="1" /> seconds &nbsp
+              <button class="button">Report</button>
             </form>
             <form action="./cdfReport">
               <select id="cluster" name="cluster">
@@ -135,7 +136,7 @@
               <!--(up to <input name="upper" id="upper" size=3 value=90>th percentile)-->
               of request/allocated CPUs/Nodes of ALLOCATED jobs from
               <input name="start" id="start" value="2017-10-05" type="date" /> to
-              <input name="stop" id="stop" value="" type="date" /> <button>Report</button>
+              <input name="stop" id="stop" value="" type="date" /> <button class="button">Report</button>
             </form>
             <form action="./cdfTimeReport">
               <select id="cluster" name="cluster">
@@ -144,7 +145,7 @@
               </select>
               Cluster CDF of exec. time of jobs with execution time longer than 5 seconds from
               <input name="start" id="start" value="2017-10-05" type="date" /> to
-              <input name="stop" id="stop" value="" type="date" /> <button>Report</button>
+              <input name="stop" id="stop" value="" type="date" /> <button class="button">Report</button>
             </form>
           </div>
         </div>
@@ -155,11 +156,13 @@
             <h3>History</h3>
           </div>
           <div class="section__div" id="history">
-            <form action="./jobGraph">Job <input name="jobid" id="jobid" size="10" /> <button>History</button></form>
+            <form action="./jobGraph">
+              Job <input name="jobid" id="jobid" size="10" /> <button class="button">History</button>
+            </form>
             <form action="./nodeGraph">
               Node <input name="node" id="node" size="10" />'s resource usage from
               <input name="start" id="start" type="date" /> to <input name="stop" id="stop" value="" type="date" />
-              <button>History</button>
+              <button class="button">History</button>
             </form>
           </div>
         </div>
