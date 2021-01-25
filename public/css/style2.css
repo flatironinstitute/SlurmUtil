@@ -174,7 +174,6 @@ select {
   border-radius: 4px;
   box-shadow: none;
   box-sizing: border-box;
-  margin: 0 6px;
 }
 /* Removes awkward default styles on some inputs for iOS */
 input[type='email'],
@@ -205,6 +204,17 @@ textarea:focus,
 select:focus {
   border: 1px solid #33c3f0;
   outline: 0;
+}
+input[type='email']::after,
+input[type='number']::after,
+input[type='search']::after,
+input[type='text']::after,
+input[type='tel']::after,
+input[type='url']::after,
+input[type='password']::after,
+textarea::after,
+select::after {
+  content: '\2000';
 }
 label,
 legend {
