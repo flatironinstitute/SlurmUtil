@@ -75,7 +75,8 @@
                 <option value="slurm">Slurm</option>
                 <option value="slurm_cluster">Slurm Cluster</option>
               </select>
-              Cluster Top <input name="top" id="top" size="2" value="5" type="number" /> Users Alloction of
+              Cluster Top <input name="top" class="small-input" id="top" size="2" value="5" type="number" /> Users
+              Alloction of
               <select id="acct" name="acct">
                 <option value="all">All</option>
                 <option value="cca">CCA</option>
@@ -98,8 +99,8 @@
           </div>
           <div class="section__div" id="daily">
             <form action="./fileReport_daily">
-              Top <input name="top" id="top" size="2" value="5" type="number" /> Users File Count and Bytes Daily Usage
-              on
+              Top <input name="top" class="small-input" id="top" size="2" value="5" type="number" /> Users File Count
+              and Bytes Daily Usage on
               <select name="fs">
                 <option value="home">Home</option>
                 <option value="ceph_users">Ceph Users</option>
@@ -126,7 +127,7 @@
               Cluster Job Queue Length from <input name="start" id="start" value="2017-09-18" type="date" /> to
               <input name="stop" id="stop" value="" type="date" /><br />
               counting jobs with wait time longer than
-              <input name="queueTime" id="queueTime" size="2" value="1" type="number" /> seconds
+              <input name="queueTime" class="small-input" id="queueTime" size="2" value="1" type="number" /> seconds
               <button class="button">Report</button>
             </form>
             <form action="./cdfReport">
