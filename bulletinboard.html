@@ -25,7 +25,7 @@
       window.onload = timedRefresh(INTERVAL_REFRESH * 1000);
 
 
-      $(document).ready(function(){{
+      $(document).ready(() => {{
           var j_title    = {{'id':'Job', 'msg':'Message'}};
           var o_title    = {{'source':'Source', 'ts':'Time', 'msg':'Message'}};
           var type       = {{'id':'JobAndStep', 'ts':'Time'}};
@@ -36,7 +36,7 @@
           createTable  ({qos_relax},  {{'user':'User', 'msg':'Message'}}, 'qos_relax_table', 'qos_relax', undefined, {{'user':'UserName'}})
           createTable  ({other},      o_title,  'other_table',     'other',     undefined, type)
           collapseTitle ();
-      }})
+      }});
     </script>
   </head>
 
@@ -48,6 +48,7 @@
             <div class="stickynav__logo">
               <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
             </div>
+            <!-- Todo: Add update time -->
             <div class="stickynav__update">Updated: {update_time}</div>
           </div>
         </div>
