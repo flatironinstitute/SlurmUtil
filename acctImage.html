@@ -7,10 +7,10 @@
     <link
       href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
       rel="stylesheet"
-    />
+      />
     <link rel="stylesheet" href="/static/css/normalize.css" />
     <link rel="stylesheet" href="/static/css/style2.css" />
-    <title>Cluster Account Forecast</title>
+    <title>Slurm Account Allocation Usage Forecast</title>
     <script type="text/javascript" src="static/scripts/jquery-3.3.1.min.js"></script>
     <script>
       $(document).ready(function () {
@@ -39,10 +39,10 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
+            <h3>Slurm Account Allocation Usage Forecast</h3>
             <div class="flex flex__left">
-              <h3>Account Forecast</h3>
               <label for="acct">
-                Forecast of the CPU seconds of account using decompsable (trend+seasonality+holidays) model:
+              Forecast of the CPU seconds of account using decompsable (trend+seasonality+holidays) model:
               </label>
               <select id="acct" name="acct">
                 <option value="cca" selected>CCA</option>
@@ -58,21 +58,21 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="container">
-                <img id="fc_img" src="static/images/ccaForecast.png"></img>
+            <img id="fc_img" src="static/images/ccaForecast.png"></img>
           </div>
         </div>
       </section>
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="container_comp">
-        <img id="fc_comp_img" src="static/images/ccaForecastComp.png"></img>
+            <img id="fc_comp_img" src="static/images/ccaForecastComp.png"></img>
           </div>
         </div>
       </section>
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="container_cv">
-                <img id="fc_cv_img"   src="static/images/ccaForecastCV.png"></img>
+            <img id="fc_cv_img"   src="static/images/ccaForecastCV.png"></img>
           </div>
         </div>
       </section>
@@ -86,7 +86,7 @@
     <script>
       const thisPath = window.location.pathname;
       $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
-      $('#navmenu').load('/getHeader?page=tymor2');
+      $('#navmenu').load('/getHeader?page=forecast');
     </script>
   </body>
 </html>
