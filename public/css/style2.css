@@ -134,6 +134,15 @@ body {
   justify-content: flex-end;
 }
 
+.grid {
+  display: grid;
+  grid-gap: 20px;
+}
+.grid__left {
+  align-items: center;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+}
+
 /* Typography
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
 h1,
