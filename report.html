@@ -13,8 +13,6 @@
     <link rel="stylesheet" href="/static/css/normalize.css" />
     <link rel="stylesheet" href="/static/css/style2.css" />
     <title>Report</title>
-    <!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="/static/css/style.css" /> -->
 
     <style>
       text {
@@ -27,7 +25,7 @@
     <script>
       $(document).ready(function () {
         {
-          $('#navmenu').load('/getHeader?page=usageGraph');
+          $('#navmenu').load('/getHeader?page=report');
           const thisPath = window.location.pathname;
           $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
         }
