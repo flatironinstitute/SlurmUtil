@@ -130,6 +130,9 @@ body {
   justify-content: flex-start;
   align-items: baseline;
 }
+.flex-gap:not(:first-child) {
+  margin-left: 10px;
+}
 .flex__right {
   justify-content: flex-end;
 }
@@ -140,7 +143,7 @@ body {
 }
 .grid__left {
   align-items: center;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 /* Typography
