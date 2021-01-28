@@ -22,8 +22,9 @@
 
       $(document).ready(function(){{
          //add menu
+         const thisPath = window.location.pathname;
           $("#navmenu").load("/getHeader?page=pending");
-          $("#crumbmenu").load("/getBreadcrumbs?path=index");
+          $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
 
           //create table job_table and part_table
           var j_titles     = {{'job_id':'Job', 'submit_time':'Submit Time', 'num_nodes':'Req Node', 'num_cpus':'Req CPU', 'user':'User', 'account':'Account', 'partition':'Req Part.', 'state_reason':'Pending Reason', 'state_exp':'Note'}}
@@ -93,7 +94,7 @@
     <footer class="section section--footer">
       <div class="section__inner section__inner--footer">
         <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
-        <p class="hero__text hero__text--small" id="signature"></p>
+        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
       </div>
     </footer>
   </body>

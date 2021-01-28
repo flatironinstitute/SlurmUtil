@@ -14,16 +14,8 @@
     <title>Sunburst Graph</title>
 
     <!-- TODO: Swap out bootstrap css -->
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
+    <!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" /> -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-
-    <script type="text/javascript">
-      $(document).ready(function () {
-        $('#navmenu').load('/getHeader?page=sunburst');
-        const thisPath = window.location.pathname;
-        $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
-      });
-    </script>
     <script src="https://d3js.org/d3.v3.min.js"></script>
     <script type="text/javascript">
        var users=%(users)s
@@ -255,8 +247,15 @@
     <footer class="section section--footer">
       <div class="section__inner section__inner--footer">
         <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
-        <p class="hero__text hero__text--small" id="signature"></p>
+        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
       </div>
     </footer>
+    <script type="text/javascript">
+      $(document).ready(() => {
+        $('#navmenu').load('/getHeader?page=sunburst');
+        const thisPath = window.location.pathname;
+        $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+      });
+    </script>
   </body>
 </html>

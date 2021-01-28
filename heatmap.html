@@ -24,7 +24,8 @@
     <script>
       $(function () {
         $('#navmenu').load('/getHeader?page=utilHeatmap');
-        $('#crumbmenu').load('/getBreadcrumbs?path=index');
+        const thisPath = window.location.pathname;
+        $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
       });
     </script>
   </head>
@@ -99,7 +100,7 @@
     <footer class="section section--footer">
       <div class="section__inner section__inner--footer">
         <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
-        <p class="hero__text hero__text--small" id="signature"></p>
+        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
       </div>
     </footer>
     <script type="text/javascript">
