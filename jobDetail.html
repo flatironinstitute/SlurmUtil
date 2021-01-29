@@ -72,12 +72,15 @@
                 (<a href="jobGraph?jobid={job_id}">Usage Graph</a>)
               </small>
             </h3>
+            <hr />
             <div id="job_info"></div>
           </div>
           <div class="section__div" id="div_worker_proc">
             <p>
-              Total {proc_cnt} Processes on <span id="node_cnt"></span> Allocated Nodes and
-              <span id="cpu_cnt"></span> Cores
+              <i
+                ><b>Totals:</b> {proc_cnt} Processes on <span id="node_cnt"></span> Allocated Nodes and
+                <span id="cpu_cnt"></span> Cores</i
+              >
             </p>
             <p>{note}</p>
           </div>
