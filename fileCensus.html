@@ -163,12 +163,15 @@
             <h3>File Usage</h3>
           </div>
           <div class="section__div" id="fsSelect">
-            <label for="fsList">Select a File System:</label>
-            <select id="fsList"></select>
+            <div class="flex flex__left flex-gap">
+              <label for="fsList">Select a File System:</label>
+              <select id="fsList"></select>
+            </div>
           </div>
           <div class="section__div" id="userSelect">
-            <form action="javascript:selectUser()">
-              <label id="usernameLabel" for="username">Center on User:&nbsp;</label><input type="text" id="username" />
+            <form action="javascript:selectUser()" class="flex flex__left flex-gap">
+              <label id="usernameLabel" for="username">Center on User:</label>
+              <input type="text" id="username" />
             </form>
           </div>
         </div>

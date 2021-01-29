@@ -130,7 +130,7 @@ body {
   justify-content: flex-start;
   align-items: baseline;
 }
-.flex-gap:not(:first-child) {
+.flex-gap > select {
   margin-left: 10px;
 }
 .flex__right {
