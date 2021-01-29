@@ -46,6 +46,14 @@
 
       }});
     </script>
+    <script>
+      $(function () {
+        $('#navmenu').load('/getHeader?page=index');
+        const thisPath = window.location.pathname;
+        console.log('🛵', thisPath);
+        $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+      });
+    </script>
   </head>
 
   <body>
@@ -64,23 +72,32 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
-            <h3>Job {job_id}:</h3>
-            <h3>
+            <h3>Job {job_id}</h3>
+            <p>
               Job {job_id}: <a href="./jobByName?name={job_name}">{job_name}</a> (<small
                 ><a href="jobGraph?jobid={job_id}">Usage Graph</a></small
               >)
-            </h3>
+            </p>
           </div>
-          <div class="section__div" id="job_info"></div>
-          <div class="section__div" id="div_worker_proc">
-            <h3>
-              Total {proc_cnt} Processes on <span id="node_cnt"></span> Allocated Nodes and
-              <span id="cpu_cnt"></span> Cores
-            </h3>
-            <div class="section__div">
-              <p class="hl">{note}</p>
+          <section class="section">
+            <div class="section__inner section__inner--fullwidth">
+              <div class="section__div" id="job_info">
+                <h3>Job Notes</h3>
+                <hr />
+              </div>
             </div>
-          </div>
+          </section>
+          <section class="section">
+            <div class="section__inner section__inner--fullwidth">
+              <div class="section__div" id="div_worker_proc">
+                <h3>
+                  Total {proc_cnt} Processes on <span id="node_cnt"></span> Allocated Nodes and
+                  <span id="cpu_cnt"></span> Cores
+                </h3>
+                <p class="hl">{note}</p>
+              </div>
+            </div>
+          </section>
         </div>
       </section>
       <footer class="section section--footer">
