@@ -253,7 +253,7 @@
     <script type="text/javascript">
       $(document).ready(() => {
         $('#navmenu').load('/getHeader?page=sunburst');
-        const thisPath = window.location.pathname;
+        var thisPath = window.location.pathname;
         $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
       });
     </script>

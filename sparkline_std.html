@@ -14,7 +14,7 @@
     <script>
       function setupNavs(jQuery) {
         $('#navmenu').load('/getHeader?page=tymor2');
-        const thisPath = window.location.pathname;
+        var thisPath = window.location.pathname;
         $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
       }
       $(window).on('load', setupNavs);

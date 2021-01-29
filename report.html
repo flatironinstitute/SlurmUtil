@@ -18,7 +18,7 @@
       $(document).ready(function () {
         {
           $('#navmenu').load('/getHeader?page=report');
-          const thisPath = window.location.pathname;
+          var thisPath = window.location.pathname;
           $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
         }
       });

@@ -24,7 +24,7 @@
     <script>
       $(function () {
         $('#navmenu').load('/getHeader?page=utilHeatmap');
-        const thisPath = window.location.pathname;
+        var thisPath = window.location.pathname;
         $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
       });
     </script>

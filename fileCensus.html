@@ -29,7 +29,7 @@
       console.log (data)
       $(function () {
                  $("#navmenu").load("/getHeader?page=usageGraph");
-                 const thisPath = window.location.pathname;
+                 var thisPath = window.location.pathname;
                 $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
                  fillOptions (%(file_systems)s)
                  displayData (data['home'])

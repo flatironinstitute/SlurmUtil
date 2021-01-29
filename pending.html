@@ -22,7 +22,7 @@
 
       $(document).ready(function(){{
          //add menu
-         const thisPath = window.location.pathname;
+         var thisPath = window.location.pathname;
           $("#navmenu").load("/getHeader?page=pending");
           $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
 
