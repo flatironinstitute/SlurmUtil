@@ -48,14 +48,12 @@
       </div>
     </footer>
   </body>
-  <script>
-    $(document).ready(function () {
+  <script type="text/javascript">
+    $(document).ready(() => {
       $('#navmenu').load('/getHeader?page=tymor2');
       const thisPath = window.location.pathname;
       $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
-    {
-  </script>
-  <script type="text/javascript">
+    }
     /**
      * Create a constructor for sparklines that takes some sensible defaults and merges in the individual
      * chart options. This function is also available from the jQuery plugin as $(element).highcharts('SparkLine').
