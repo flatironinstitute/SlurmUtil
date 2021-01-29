@@ -1,41 +1,42 @@
 <!DOCTYPE html>
-<html>
-<head>
-<title>Partition</title>
-<link href="/static/css/style.css" rel="stylesheet">
+<html lang="en">
+  <head>
+    <title>Partition</title>
+    <link href="/static/css/style.css" rel="stylesheet" />
 
-<script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
-<script type="text/javascript" src="static/scripts/jquery.min.js"></script>
-<script type="text/javascript" src="static/scripts/myFunc.js"></script>
-<script type="text/javascript" src="static/scripts/myTable.js"></script>
-<script type="text/javascript" src="static/scripts/myList.js"></script>
-<script type="text/javascript">
+    <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+    <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
+    <script type="text/javascript" src="static/scripts/myFunc.js"></script>
+    <script type="text/javascript" src="static/scripts/myTable.js"></script>
+    <script type="text/javascript" src="static/scripts/myList.js"></script>
+    <script type="text/javascript">
 
-$(document).ready(function(){{
-    var part       = {p_detail};
-    var nodes      = {p_nodes};
-    var node_title_dict = {{'name':'Node', 'state':'State', 'tres_fmt_str':'TRES', 'features':'Features', 'alloc_cpus':'Alloc CPU','alloc_mem':'Alloc Mem(MB)', 'cpu_load':'CPU Load', 'running_jobs':'Run Job'}}       
-    var part_list_title = {{'allow_accounts':'Allow Accounts','qos_char':'QoS','nodes':'Nodes','tres_fmt_str':'TRES','flag_shared':'Sharable', 'default_time_str':'Default Job Time', 'def_mem_per_cpu':'Default Mem/CPU','avail_nodes_cnt':'Avail Nodes','avail_cpus_cnt':'Avail CPUs','avail_gpus_cnt':'Avail GPUs','running_jobs':'Running Jobs', 'pending_jobs':'Pending Jobs'}}
+      $(document).ready(function(){{
+          var part       = {p_detail};
+          var nodes      = {p_nodes};
+          var node_title_dict = {{'name':'Node', 'state':'State', 'tres_fmt_str':'TRES', 'features':'Features', 'alloc_cpus':'Alloc CPU','alloc_mem':'Alloc Mem(MB)', 'cpu_load':'CPU Load', 'running_jobs':'Run Job'}}
+          var part_list_title = {{'allow_accounts':'Allow Accounts','qos_char':'QoS','nodes':'Nodes','tres_fmt_str':'TRES','flag_shared':'Sharable', 'default_time_str':'Default Job Time', 'def_mem_per_cpu':'Default Mem/CPU','avail_nodes_cnt':'Avail Nodes','avail_cpus_cnt':'Avail CPUs','avail_gpus_cnt':'Avail GPUs','running_jobs':'Running Jobs', 'pending_jobs':'Pending Jobs'}}
 
-    $("#part_name").text(part.name)
-    createList  (part,   part_list_title, '#details', {{'tres_fmt_str':'TresShort','running_jobs':'JobArray','pending_jobs':'JobArray', 'qos_char':'QoS','def_mem_per_cpu':'M'}});
-    if (part['total_gpus']>0)
-       node_title_dict = {{'name':'Node', 'state':'State', 'tres_fmt_str':'TRES', 'features':'Features', 'alloc_cpus':'Alloc CPU','alloc_gpus':'Alloc GPU', 'alloc_mem':'Alloc Mem(MB)', 'cpu_load':'CPU Load', 'running_jobs':'Run Job'}}       
+          $("#part_name").text(part.name)
+          createList  (part,   part_list_title, '#details', {{'tres_fmt_str':'TresShort','running_jobs':'JobArray','pending_jobs':'JobArray', 'qos_char':'QoS','def_mem_per_cpu':'M'}});
+          if (part['total_gpus']>0)
+             node_title_dict = {{'name':'Node', 'state':'State', 'tres_fmt_str':'TRES', 'features':'Features', 'alloc_cpus':'Alloc CPU','alloc_gpus':'Alloc GPU', 'alloc_mem':'Alloc Mem(MB)', 'cpu_load':'CPU Load', 'running_jobs':'Run Job'}}
 
-    // partition node list
-    createTable (nodes,  node_title_dict,  'table_nodes', 'nodes', undefined, {{'name':'Node','running_jobs':'JobArray'}})
-}})
-</script>
-</head>
-<body>
-  <h3>Partition <font id="part_name"></font>:
+          // partition node list
+          createTable (nodes,  node_title_dict,  'table_nodes', 'nodes', undefined, {{'name':'Node','running_jobs':'JobArray'}})
+      }})
+    </script>
+  </head>
+  <body>
+    <h3>
+      Partition <font id="part_name"></font>:
       <a href="./"><p class="home">Home</p></a>
-  </h3>
-  <p><i>Update time: {update_time}</i>
-  <hr>
-  <div id="details"> </div>
-  <h3>Partition Nodes:</h3> <hr>
-  <div id="nodes"> </div>
-</body>
+    </h3>
+    <p><i>Update time: {update_time}</i></p>
+    <hr />
+    <div id="details"></div>
+    <h3>Partition Nodes:</h3>
+    <hr />
+    <div id="nodes"></div>
+  </body>
 </html>
-
