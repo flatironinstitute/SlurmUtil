@@ -19,7 +19,7 @@
     <script type="text/javascript" src="static/scripts/myList.js"></script>
     <script type="text/javascript">
 
-      $(document).ready(function(){{
+      $(document).ready(() => {
           //create table job_table and part_table
           var j_info         = {job_info}
           var job            = {job}
@@ -42,8 +42,7 @@
 
           if (job['gres_detail'].length || j_info['AllocGRES'])
              $("#extra_link").html(", <a href='jobGPUGraph?jid=" + {job_id} + "'>GPU Usage Graph</a>")
-
-      }});
+      });
     </script>
   </head>
   <body>
@@ -98,36 +97,4 @@
       </footer>
     </div>
   </body>
-  <script>
-    $(document).ready(function () {
-      const thisPath = window.location.pathname;
-      console.log('🛵', thisPath);
-    });
-    // $('#navmenu').load('/getHeader?page=index');
-    // const thisPath = window.location.pathname;
-    // console.log('🛵', thisPath);
-    // $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
-  </script>
-  <!-- <body>
-    <div id="user" class="block">
-      <h3 id="title">
-        Job {job_id}: <a href="./jobByName?name={job_name}">{job_name}</a> (<a href="jobGraph?jobid={job_id}"
-          >Usage Graph</a
-        ><font id="extra_link"></font>)
-        <a href="./"><p class="home">Home</p></a>
-      </h3>
-      <p><i>Update time: {update_time}</i></p>
-      <hr />
-    </div>
-    <div id="job_info"></div>
-    <div id="div_worker_proc" class="block">
-      <h3>
-        Total {proc_cnt} Processes on <font id="node_cnt"></font> Allocated Nodes and <font id="cpu_cnt"></font> Cores
-      </h3>
-      <div><font color="orange">{note}</font></div>
-    </div>
-    <div id="job_report" class="block">
-      <h3>Job Report</h3>
-    </div>
-  </body> -->
 </html>
