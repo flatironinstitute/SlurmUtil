@@ -11,8 +11,15 @@
     <title>Tymor</title>
     <link rel="stylesheet" href="/static/css/normalize.css" />
     <link rel="stylesheet" href="/static/css/style2.css" />
-    <script async src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
-    <script async src="https://code.highcharts.com/highcharts.js"></script>
+    <script>
+      $(document).ready(() => {
+        $('#navmenu').load('/getHeader?page=tymor2');
+        const thisPath = window.location.pathname;
+        $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+      });
+    </script>
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
   </head>
   <body>
     <div class="layout">
@@ -49,11 +56,6 @@
     </footer>
   </body>
   <script type="text/javascript">
-    $(document).ready(() => {
-      $('#navmenu').load('/getHeader?page=tymor2');
-      const thisPath = window.location.pathname;
-      $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
-    }
     /**
      * Create a constructor for sparklines that takes some sensible defaults and merges in the individual
      * chart options. This function is also available from the jQuery plugin as $(element).highcharts('SparkLine').
