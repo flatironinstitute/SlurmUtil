@@ -14,7 +14,6 @@
     <title>Job Detail</title>
 
     <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
-    <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
     <script type="text/javascript" src="static/scripts/myFunc.js"></script>
     <script type="text/javascript" src="static/scripts/myTable.js"></script>
     <script type="text/javascript" src="static/scripts/myList.js"></script>
@@ -46,16 +45,7 @@
 
       }});
     </script>
-    <script>
-      $(function () {
-        $('#navmenu').load('/getHeader?page=index');
-        const thisPath = window.location.pathname;
-        console.log('🛵', thisPath);
-        $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
-      });
-    </script>
   </head>
-
   <body>
     <div class="layout">
       <div class="stickynav">
@@ -108,7 +98,16 @@
       </footer>
     </div>
   </body>
-
+  <script>
+    $(document).ready(function () {
+      const thisPath = window.location.pathname;
+      console.log('🛵', thisPath);
+    });
+    // $('#navmenu').load('/getHeader?page=index');
+    // const thisPath = window.location.pathname;
+    // console.log('🛵', thisPath);
+    // $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+  </script>
   <!-- <body>
     <div id="user" class="block">
       <h3 id="title">
