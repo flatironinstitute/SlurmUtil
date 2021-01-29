@@ -568,7 +568,7 @@ class SLURMMonitorUI(object):
         if ( page == "search"):
             result += '<li class="nav__item nav__item--active nav__item--search"><a class="nav__link nav__link--search" href="/inputSearch"></a></li></ul>'
         else:
-            result += '<li class="nav__item nav__item--active nav__item--search"><a class="nav__link nav__link--search" href="/inputSearch"></a></li></ul>'
+            result += '<li class="nav__item nav__item nav__item--search"><a class="nav__link nav__link--search" href="/inputSearch"></a></li></ul>'
 
         return result
 
