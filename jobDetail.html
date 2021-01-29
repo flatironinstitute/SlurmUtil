@@ -66,9 +66,11 @@
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
             <h3>
-              Job {job_id} <a href="./jobByName?name={job_name}">{job_name}</a> (<small
-                ><a href="jobGraph?jobid={job_id}">Usage Graph</a></small
-              >)
+              Job {job_id}
+              <small>
+                <a href="./jobByName?name={job_name}">{job_name}</a>
+                (<a href="jobGraph?jobid={job_id}">Usage Graph</a>)
+              </small>
             </h3>
             <div id="job_info"></div>
           </div>
