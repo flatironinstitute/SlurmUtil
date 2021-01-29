@@ -65,25 +65,24 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
-            <h3>Job {job_id}</h3>
-            <p>
-              Job {job_id}: <a href="./jobByName?name={job_name}">{job_name}</a> (<small
+            <h3>
+              Job {job_id} <a href="./jobByName?name={job_name}">{job_name}</a> (<small
                 ><a href="jobGraph?jobid={job_id}">Usage Graph</a></small
               >)
-            </p>
+            </h3>
             <div id="job_info"></div>
+          </div>
+          <div class="section__div" id="div_worker_proc">
+            <p>
+              Total {proc_cnt} Processes on <span id="node_cnt"></span> Allocated Nodes and
+              <span id="cpu_cnt"></span> Cores
+            </p>
+            <p>{note}</p>
           </div>
         </div>
       </section>
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
-          <div class="section__div" id="div_worker_proc">
-            <h3>
-              Total {proc_cnt} Processes on <span id="node_cnt"></span> Allocated Nodes and
-              <span id="cpu_cnt"></span> Cores
-            </h3>
-            <p class="hl">{note}</p>
-          </div>
           <div class="section__div" id="job_report">
             <h3>Job Report</h3>
           </div>
