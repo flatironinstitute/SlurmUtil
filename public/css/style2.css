@@ -130,7 +130,8 @@ body {
   justify-content: flex-start;
   align-items: baseline;
 }
-.flex-gap > select {
+.flex-gap > select,
+.flex-gap > input {
   margin-left: 10px;
 }
 .flex__right {

@@ -161,15 +161,11 @@
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
             <h3>File Usage</h3>
-          </div>
-          <div class="section__div" id="fsSelect">
-            <div class="flex flex__left flex-gap">
+            <div class="flex flex__left flex-gap" id="fsSelect">
               <label for="fsList">Select a File System:</label>
               <select id="fsList"></select>
             </div>
-          </div>
-          <div class="section__div" id="userSelect">
-            <form action="javascript:selectUser()" class="flex flex__left flex-gap">
+            <form action="javascript:selectUser()" class="flex flex__left flex-gap" id="userSelect">
               <label id="usernameLabel" for="username">Center on User:</label>
               <input type="text" id="username" />
             </form>
@@ -179,7 +175,9 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
-            <p>Note: Double-Click on a user to see the history (default to 180 days) of the user's file usage.</p>
+            <p>
+              <b>Note:</b> Double-Click on a user to see the history (default to 180 days) of the user's file usage.
+            </p>
           </div>
           <div class="section__div">
             <div id="container" style="height: 640px; min-width: 620px; max-width: 1200px; margin: 0 auto"></div>
