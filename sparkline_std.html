@@ -11,6 +11,14 @@
     <title>Tymor</title>
     <link rel="stylesheet" href="/static/css/normalize.css" />
     <link rel="stylesheet" href="/static/css/style2.css" />
+    <script>
+      function setupNavs(jQuery) {
+        $('#navmenu').load('/getHeader?page=tymor2');
+        const thisPath = window.location.pathname;
+        $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+      }
+      $(window).on('load', setupNavs);
+    </script>
     <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
     <script src="https://code.highcharts.com/highcharts.js"></script>
   </head>
@@ -242,10 +250,5 @@
       }
     }
     doChunk();
-  </script>
-  <script>
-    $('#navmenu').load('/getHeader?page=tymor2');
-    const thisPath = window.location.pathname;
-    $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
   </script>
 </html>

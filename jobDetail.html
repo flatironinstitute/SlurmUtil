@@ -2,8 +2,16 @@
 <html>
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="/static/css/normalize.css" />
+    <link rel="stylesheet" href="/static/css/style2.css" />
     <title>Job Detail</title>
-    <link rel="stylesheet" href="/static/css/style.css" />
 
     <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
     <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
@@ -41,6 +49,50 @@
   </head>
 
   <body>
+    <div class="layout">
+      <div class="stickynav">
+        <div class="stickynav__inner">
+          <div class="stickynav__content">
+            <div class="stickynav__logo">
+              <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
+            </div>
+            <div class="stickynav__update">Updated: {update_time}</div>
+          </div>
+        </div>
+      </div>
+      <nav class="nav" id="navmenu"></nav>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <h3>Job {job_id}:</h3>
+            <h3>
+              Job {job_id}: <a href="./jobByName?name={job_name}">{job_name}</a> (<small
+                ><a href="jobGraph?jobid={job_id}">Usage Graph</a></small
+              >)
+            </h3>
+          </div>
+          <div class="section__div" id="job_info"></div>
+          <div class="section__div" id="div_worker_proc">
+            <h3>
+              Total {proc_cnt} Processes on <span id="node_cnt"></span> Allocated Nodes and
+              <span id="cpu_cnt"></span> Cores
+            </h3>
+            <div class="section__div">
+              <p class="hl">{note}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <footer class="section section--footer">
+        <div class="section__inner section__inner--footer">
+          <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
+          <p class="hero__text hero__text--small">Updates every 10 minutes</p>
+        </div>
+      </footer>
+    </div>
+  </body>
+
+  <!-- <body>
     <div id="user" class="block">
       <h3 id="title">
         Job {job_id}: <a href="./jobByName?name={job_name}">{job_name}</a> (<a href="jobGraph?jobid={job_id}"
@@ -61,5 +113,5 @@
     <div id="job_report" class="block">
       <h3>Job Report</h3>
     </div>
-  </body>
+  </body> -->
 </html>
