@@ -437,6 +437,9 @@ th {
   text-align: center;
   font-weight: 500;
 }
+#running_jobs > td{
+  word-wrap: break-word;
+}
 .table__title {
   margin-bottom: 1rem;
 }

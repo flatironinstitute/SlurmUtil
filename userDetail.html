@@ -97,9 +97,12 @@
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
             <h3>
-              {user} ({uname}): <a href="userJobGraph?user={uname}">Usage Graph</a>,
-              <font id="gpu_link"></font>
-              <a href="user_fileReport?user={uname}&days=30">File Usage Report</a>
+              {user} ({uname}):
+              <small>
+                <a href="userJobGraph?user={uname}">Usage Graph</a>,
+                <span id="gpu_link"></span>
+                <a href="user_fileReport?user={uname}&days=30">File Usage Report</a>
+              </small>
             </h3>
             <p><i>Update time: {update_time}</i></p>
           </div>
@@ -111,29 +114,29 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="qos_part">
-            <h3 class="table_title">Total <font id="part_len"></font> Available Partitions</h3>
+            <h3 class="table_title">Total <span id="part_len"></span> Available Partitions</h3>
           </div>
         </div>
       </section>
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="running_jobs">
-            <h3 class="table_title">Total <font id="running_jobs_len"></font> Running Jobs</h3>
+            <h3 class="table_title">Total <span id="running_jobs_len"></span> Running Jobs</h3>
           </div>
         </div>
       </section>
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="pending_jobs">
-            <h3 class="table_title">Total <font id="pending_jobs_len"></font> Pending Jobs</h3>
+            <h3 class="table_title">Total <span id="pending_jobs_len"></span> Pending Jobs</h3>
           </div>
         </div>
       </section>
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="past_job">
-            <h3 class="table_title">Total <font id="job_history_len"></font> Jobs of Last {day_cnt} Days of User</h3>
-            <!-- <p>You can change the number of days by adding/changing the parameter "days" in the address such as http://scclin011:8126/userDetails?user=uname<font color="green">&days=7</font> -->
+            <h3 class="table_title">Total <span id="job_history_len"></span> Jobs of Last {day_cnt} Days of User</h3>
+            <!-- <p>You can change the number of days by adding/changing the parameter "days" in the address such as http://scclin011:8126/userDetails?user=uname<span color="green">&days=7</span> -->
           </div>
         </div>
       </section>
@@ -144,30 +147,5 @@
         <p class="hero__text hero__text--small">Updates every 10 minutes</p>
       </div>
     </footer>
-    <div id="user" class="block">
-      <h3>
-        {user} ({uname}): <a href="userJobGraph?user={uname}">Usage Graph</a>,
-        <font id="gpu_link"></font>
-        <a href="user_fileReport?user={uname}&days=30">File Usage Report</a>
-        <a href="./"><p class="home">Home</p></a>
-      </h3>
-      <p><i>Update time: {update_time}</i></p>
-      <hr />
-    </div>
-    <div id="user_assoc"></div>
-    <div id="qos_part" class="block">
-      <h3 class="table_title">Total <font id="part_len"></font> Available Partitions</h3>
-    </div>
-    <div id="running_jobs" class="block">
-      <h3 class="table_title">Total <font id="running_jobs_len"></font> Running Jobs</h3>
-    </div>
-    <div id="pending_jobs" class="block">
-      <h3 class="table_title">Total <font id="pending_jobs_len"></font> Pending Jobs</h3>
-    </div>
-    <div id="past_job" class="block">
-      <h3 class="table_title">Total <font id="job_history_len"></font> Jobs of Last {day_cnt} Days of User</h3>
-      <!--   <p>You can change the number of days by adding/changing the parameter "days" in the address such as http://scclin011:8126/userDetails?user=uname<font color="green">&days=7</font>
--->
-    </div>
   </body>
 </html>
