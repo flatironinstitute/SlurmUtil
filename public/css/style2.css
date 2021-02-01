@@ -103,7 +103,7 @@ body {
   padding-top: 0;
 }
 .section__div--nobottom {
-  padding-bottom: 0;
+  margin-bottom: -4rem;
 }
 .section__inner--footer {
   display: flex;
