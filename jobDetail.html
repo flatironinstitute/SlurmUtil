@@ -72,15 +72,19 @@
                 (<a href="jobGraph?jobid={job_id}">Usage Graph</a>)
               </small>
             </h3>
-            <hr />
+          </div>
+          <div class="section__div">
             <div id="job_info"></div>
           </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="div_worker_proc">
+            <h3>Job {job_id} Notes</h3>
             <p>
-              <i
-                ><b>Totals:</b> {proc_cnt} Processes on <span id="node_cnt"></span> Allocated Nodes and
-                <span id="cpu_cnt"></span> Cores</i
-              >
+              <b>Totals:</b> {proc_cnt} Processes on <b><span id="node_cnt"></span> Allocated Nodes</b> and
+              <b><span id="cpu_cnt"></span></b> Cores
             </p>
             <p>{note}</p>
           </div>
@@ -89,7 +93,7 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="job_report">
-            <h3>Job Report</h3>
+            <h3>Job {job_id} Report</h3>
           </div>
         </div>
       </section>
