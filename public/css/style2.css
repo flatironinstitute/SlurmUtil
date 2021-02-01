@@ -437,7 +437,7 @@ th {
   text-align: center;
   font-weight: 500;
 }
-table#run_job_table > td{
+#run_job_table > * {
   word-wrap: break-word !important;
 }
 .table__title {
