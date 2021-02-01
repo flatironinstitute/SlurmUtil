@@ -1,8 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>Partition</title>
-    <link href="/static/css/style.css" rel="stylesheet" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="/static/css/normalize.css" />
+    <link rel="stylesheet" href="/static/css/style2.css" />
+    <title>Partition | {p_detail.name}</title>
 
     <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
     <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
@@ -12,6 +21,11 @@
     <script type="text/javascript">
 
       $(document).ready(function(){{
+        // Add menus
+          $("#navmenu").load("/getHeader?page=index");
+          var thisPath = window.location.pathname;
+          $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+        // Create partition node table
           var part       = {p_detail};
           var nodes      = {p_nodes};
           var node_title_dict = {{'name':'Node', 'state':'State', 'tres_fmt_str':'TRES', 'features':'Features', 'alloc_cpus':'Alloc CPU','alloc_mem':'Alloc Mem(MB)', 'cpu_load':'CPU Load', 'running_jobs':'Run Job'}}
@@ -24,12 +38,55 @@
 
           // partition node list
           createTable (nodes,  node_title_dict,  'table_nodes', 'nodes', undefined, {{'name':'Node','running_jobs':'JobArray'}})
-      }})
+      }});
     </script>
   </head>
   <body>
+    <div class="layout">
+      <div class="stickynav">
+        <div class="stickynav__inner">
+          <div class="stickynav__content">
+            <div class="stickynav__logo">
+              <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
+            </div>
+            <div class="stickynav__update">Updated: {update_time}</div>
+          </div>
+        </div>
+      </div>
+      <nav class="nav" id="navmenu"></nav>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <h3>
+              Partition <span id="part_name"></span>
+              <small>
+                <a href="./jobByName?name={job_name}">{job_name}</a>
+                (<a href="jobGraph?jobid={job_id}">Usage Graph</a>)
+              </small>
+            </h3>
+          </div>
+          <div class="section__div">
+            <div id="details"></div>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div section__div--nobottom">
+            <h3>Partition Nodes</h3>
+            <div id="nodes"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+    <footer class="section section--footer">
+      <div class="section__inner section__inner--footer">
+        <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
+        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
+      </div>
+    </footer>
     <h3>
-      Partition <font id="part_name"></font>:
+      Partition <span id="part_name"></span>:
       <a href="./"><p class="home">Home</p></a>
     </h3>
     <p><i>Update time: {update_time}</i></p>
