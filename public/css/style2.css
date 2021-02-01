@@ -407,6 +407,9 @@ text.mono {
 
 /* Tables
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
+#run_job_table > * {
+  word-wrap: break-word !important;
+}
 table {
   width: 100%;
   border-collapse: collapse;
@@ -436,9 +439,6 @@ th {
   background-position: 3% center;
   text-align: center;
   font-weight: 500;
-}
-#run_job_table > * {
-  word-wrap: break-word !important;
 }
 .table__title {
   margin-bottom: 1rem;
