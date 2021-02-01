@@ -437,8 +437,8 @@ th {
   text-align: center;
   font-weight: 500;
 }
-#running_jobs > td{
-  word-wrap: break-word;
+table#run_job_table > td{
+  word-wrap: break-word !important;
 }
 .table__title {
   margin-bottom: 1rem;

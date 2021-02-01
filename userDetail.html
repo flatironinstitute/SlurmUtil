@@ -21,6 +21,11 @@
     <script type="text/javascript">
 
       $(document).ready(function(){{
+          // Add menus
+          $("#navmenu").load("/getHeader?page=index");
+          var thisPath = window.location.pathname;
+          $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+
           //create table job_table and part_table
           var r_j_titles     = {{'job_id':'Job ID', 'partition':'Partition', 'name':'Job Name', 'submit_time':'Submit Time', 'start_time':'Start Time', 'nodes':'Nodes', 'tres_req_str':'Tres Req', 'tres_alloc_str':'Tres Alloc', 'command':'Command', 'work_dir':'Work Dir'}}
           var p_j_titles     = {{'job_id':'Job ID', 'partition':'Partition', 'name':'Job Name', 'submit_time':'Submit Time', 'tres_req_str':'Tres Req', 'state_reason':'Pending Reason', 'state_exp':'Note'}}
