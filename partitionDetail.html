@@ -11,7 +11,6 @@
 
     <link rel="stylesheet" href="/static/css/normalize.css" />
     <link rel="stylesheet" href="/static/css/style2.css" />
-    <title>Partition | {p_detail}</title>
 
     <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
     <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
@@ -40,6 +39,7 @@
           createTable (nodes,  node_title_dict,  'table_nodes', 'nodes', undefined, {{'name':'Node','running_jobs':'JobArray'}})
       }});
     </script>
+    <title>Partition | {p_detail}</title>
   </head>
   <body>
     <div class="layout">
@@ -59,10 +59,7 @@
           <div class="section__div">
             <h3>
               Partition <span id="part_name"></span>
-              <small>
-                <a href="./jobByName?name={job_name}">{job_name}</a>
-                (<a href="jobGraph?jobid={job_id}">Usage Graph</a>)
-              </small>
+              <small> </small>
             </h3>
           </div>
           <div class="section__div">
