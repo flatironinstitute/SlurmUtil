@@ -102,6 +102,9 @@ body {
 .section__div + .section__div {
   padding-top: 0;
 }
+.section__div--nobottom {
+  padding-bottom: 0;
+}
 .section__inner--footer {
   display: flex;
   justify-content: space-between;
