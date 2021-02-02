@@ -73,33 +73,32 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
-            <fieldset>
-              <legend>Retrieve information of typed-in input</legend>
-              <p></p>
-              <form action="./userDetails">
-                <label for="user" class="short">User: </label>
-                <input id="user" name="user" />
-                <input type="submit" value="Submit" />
-              </form>
-              <p></p>
-              <form action="./jobDetails">
-                <label for="job" class="short">Job: </label>
-                <input id="job" name="jid" />
-                <input type="submit" value="Submit" />
-              </form>
-              <p></p>
-              <form action="./nodeDetails">
-                <label for="node" class="short">Node: </label>
-                <input id="node" name="node" />
-                <input type="submit" value="Submit" />
-              </form>
-              <p></p>
-              <form action="./partitionDetail">
-                <label for="partition" class="short">Partition: </label>
-                <input id="partition" name="partition" />
-                <input type="submit" value="Submit" />
-              </form>
-            </fieldset>
+            <h3>Retrieve information of typed-in input</h3>
+          </div>
+          <div class="section__div">
+            <form action="./userDetails">
+              <label for="user" class="short">User: </label>
+              <input id="user" name="user" type="text" />
+              <input type="submit" value="Submit" />
+            </form>
+            <p></p>
+            <form action="./jobDetails">
+              <label for="job" class="short">Job: </label>
+              <input id="job" name="jid" type="text" />
+              <input type="submit" value="Submit" />
+            </form>
+            <p></p>
+            <form action="./nodeDetails">
+              <label for="node" class="short">Node: </label>
+              <input id="node" name="node" type="text" />
+              <input type="submit" value="Submit" />
+            </form>
+            <p></p>
+            <form action="./partitionDetail">
+              <label for="partition" class="short">Partition: </label>
+              <input id="partition" name="partition" type="text" />
+              <input type="submit" value="Submit" />
+            </form>
           </div>
         </div>
       </section>
