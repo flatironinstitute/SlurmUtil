@@ -1,10 +1,18 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>User Detail</title>
-    <link rel="stylesheet" href="/static/css/style.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
+      rel="stylesheet"
+    />
 
+    <link rel="stylesheet" href="/static/css/normalize.css" />
+    <link rel="stylesheet" href="/static/css/style2.css" />
+
+    <title>User Detail | {uname}</title>
     <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
     <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
     <script type="text/javascript" src="static/scripts/myFunc.js"></script>
@@ -13,6 +21,11 @@
     <script type="text/javascript">
 
       $(document).ready(function(){{
+          // Add menus
+          $("#navmenu").load("/getHeader?page=index");
+          var thisPath = window.location.pathname;
+          $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+
           //create table job_table and part_table
           var r_j_titles     = {{'job_id':'Job ID', 'partition':'Partition', 'name':'Job Name', 'submit_time':'Submit Time', 'start_time':'Start Time', 'nodes':'Nodes', 'tres_req_str':'Tres Req', 'tres_alloc_str':'Tres Alloc', 'command':'Command', 'work_dir':'Work Dir'}}
           var p_j_titles     = {{'job_id':'Job ID', 'partition':'Partition', 'name':'Job Name', 'submit_time':'Submit Time', 'tres_req_str':'Tres Req', 'state_reason':'Pending Reason', 'state_exp':'Note'}}
@@ -73,30 +86,71 @@
   </head>
 
   <body>
-    <div id="user" class="block">
-      <h3>
-        {user} ({uname}): <a href="userJobGraph?user={uname}">Usage Graph</a>,
-        <font id="gpu_link"></font>
-        <a href="user_fileReport?user={uname}&days=30">File Usage Report</a>
-        <a href="./"><p class="home">Home</p></a>
-      </h3>
-      <p><i>Update time: {update_time}</i></p>
-      <hr />
+    <div class="layout">
+      <div class="stickynav">
+        <div class="stickynav__inner">
+          <div class="stickynav__content">
+            <div class="stickynav__logo">
+              <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
+            </div>
+            <div class="stickynav__update">Updated: {update_time}</div>
+          </div>
+        </div>
+      </div>
+      <nav class="nav" id="navmenu"></nav>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <h3>
+              {user} ({uname}):
+              <small>
+                <a href="userJobGraph?user={uname}">Usage Graph</a>,
+                <span id="gpu_link"></span>
+                <a href="user_fileReport?user={uname}&days=30">File Usage Report</a>
+              </small>
+            </h3>
+            <p><i>Update time: {update_time}</i></p>
+          </div>
+          <div class="section__div">
+            <div id="user_assoc"></div>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div" id="qos_part">
+            <h3 class="table_title">Total <span id="part_len"></span> Available Partitions</h3>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div" id="running_jobs">
+            <h3 class="table_title">Total <span id="running_jobs_len"></span> Running Jobs</h3>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div" id="pending_jobs">
+            <h3 class="table_title">Total <span id="pending_jobs_len"></span> Pending Jobs</h3>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div" id="past_job">
+            <h3 class="table_title">Total <span id="job_history_len"></span> Jobs of Last {day_cnt} Days of User</h3>
+            <!-- <p>You can change the number of days by adding/changing the parameter "days" in the address such as http://scclin011:8126/userDetails?user=uname<span color="green">&days=7</span> -->
+          </div>
+        </div>
+      </section>
     </div>
-    <div id="user_assoc"></div>
-    <div id="qos_part" class="block">
-      <h3 class="table_title">Total <font id="part_len"></font> Available Partitions</h3>
-    </div>
-    <div id="running_jobs" class="block">
-      <h3 class="table_title">Total <font id="running_jobs_len"></font> Running Jobs</h3>
-    </div>
-    <div id="pending_jobs" class="block">
-      <h3 class="table_title">Total <font id="pending_jobs_len"></font> Pending Jobs</h3>
-    </div>
-    <div id="past_job" class="block">
-      <h3 class="table_title">Total <font id="job_history_len"></font> Jobs of Last {day_cnt} Days of User</h3>
-      <!--   <p>You can change the number of days by adding/changing the parameter "days" in the address such as http://scclin011:8126/userDetails?user=uname<font color="green">&days=7</font>
--->
-    </div>
+    <footer class="section section--footer">
+      <div class="section__inner section__inner--footer">
+        <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
+        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
+      </div>
+    </footer>
   </body>
 </html>

@@ -1,18 +1,29 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Job Detail</title>
-    <link rel="stylesheet" href="/static/css/style.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
+      rel="stylesheet"
+    />
 
-    <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
+    <link rel="stylesheet" href="/static/css/normalize.css" />
+    <link rel="stylesheet" href="/static/css/style2.css" />
+    <title>Job Detail | {job_id}</title>
     <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+    <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
     <script type="text/javascript" src="static/scripts/myFunc.js"></script>
     <script type="text/javascript" src="static/scripts/myTable.js"></script>
     <script type="text/javascript" src="static/scripts/myList.js"></script>
     <script type="text/javascript">
 
-      $(document).ready(function(){{
+      $(document).ready(() => {{
+          // Add menus
+          $("#navmenu").load("/getHeader?page=index");
+          var thisPath = window.location.pathname;
+          $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
           //create table job_table and part_table
           var j_info         = {job_info}
           var job            = {job}
@@ -35,31 +46,64 @@
 
           if (job['gres_detail'].length || j_info['AllocGRES'])
              $("#extra_link").html(", <a href='jobGPUGraph?jid=" + {job_id} + "'>GPU Usage Graph</a>")
-
       }});
     </script>
   </head>
-
   <body>
-    <div id="user" class="block">
-      <h3 id="title">
-        Job {job_id}: <a href="./jobByName?name={job_name}">{job_name}</a> (<a href="jobGraph?jobid={job_id}"
-          >Usage Graph</a
-        ><font id="extra_link"></font>)
-        <a href="./"><p class="home">Home</p></a>
-      </h3>
-      <p><i>Update time: {update_time}</i></p>
-      <hr />
+    <div class="layout">
+      <div class="stickynav">
+        <div class="stickynav__inner">
+          <div class="stickynav__content">
+            <div class="stickynav__logo">
+              <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
+            </div>
+            <div class="stickynav__update">Updated: {update_time}</div>
+          </div>
+        </div>
+      </div>
+      <nav class="nav" id="navmenu"></nav>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <h3>
+              Job {job_id}
+              <small>
+                <a href="./jobByName?name={job_name}">{job_name}</a>
+                (<a href="jobGraph?jobid={job_id}">Usage Graph</a>)
+              </small>
+            </h3>
+          </div>
+          <div class="section__div">
+            <div id="job_info"></div>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div section__div--nobottom">
+            <h3>Allocated Node Details</h3>
+            <p>
+              <b>Totals:</b> {proc_cnt} Processes on <b><span id="node_cnt"></span> Allocated Nodes</b> and
+              <b><span id="cpu_cnt"></span></b> Cores
+            </p>
+            <p>{note}</p>
+          </div>
+          <div id="div_worker_proc"></div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div" id="job_report">
+            <h3>Job {job_id} Report</h3>
+          </div>
+        </div>
+      </section>
     </div>
-    <div id="job_info"></div>
-    <div id="div_worker_proc" class="block">
-      <h3>
-        Total {proc_cnt} Processes on <font id="node_cnt"></font> Allocated Nodes and <font id="cpu_cnt"></font> Cores
-      </h3>
-      <div><font color="orange">{note}</font></div>
-    </div>
-    <div id="job_report" class="block">
-      <h3>Job Report</h3>
-    </div>
+    <footer class="section section--footer">
+      <div class="section__inner section__inner--footer">
+        <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
+        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
+      </div>
+    </footer>
   </body>
 </html>

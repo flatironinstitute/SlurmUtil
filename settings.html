@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <title>Settings</title>
@@ -222,7 +222,7 @@
       </fieldset>
     </div>
     <script>
-      const thisPath = window.location.pathname;
+      var thisPath = window.location.pathname;
       $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
       $('#navmenu').load('/getHeader?page=settings');
     </script>

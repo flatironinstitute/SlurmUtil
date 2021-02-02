@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="preconnect" href="https://fonts.gstatic.com" />
     <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
       rel="stylesheet"
     />
 
@@ -14,16 +14,8 @@
     <title>Sunburst Graph</title>
 
     <!-- TODO: Swap out bootstrap css -->
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
+    <!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" /> -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-
-    <script type="text/javascript">
-      $(document).ready(function () {
-        $('#navmenu').load('/getHeader?page=sunburst');
-        const thisPath = window.location.pathname;
-        $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
-      });
-    </script>
     <script src="https://d3js.org/d3.v3.min.js"></script>
     <script type="text/javascript">
        var users=%(users)s
@@ -215,13 +207,13 @@
 
   <body>
     <div class="layout">
-      <div class="crumb__container">
-        <div class="crumb__inner">
-          <div class="crumb__content">
-            <div class="crumb__logo">
+      <div class="stickynav">
+        <div class="stickynav__inner">
+          <div class="stickynav__content">
+            <div class="stickynav__logo">
               <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
             </div>
-            <div class="crumbs" id="crumbmenu"></div>
+            <div class="stickynav__update">Updated: {update_time}</div>
           </div>
         </div>
       </div>
@@ -229,17 +221,18 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
-            <div class="flex flex__left" id="optionsSelect">
-              <h3>Needs a Title</h3>
-              <label for="optionsList">Select a Graph Option 1:</label>
-              <select id="optionsList">
-                <option value="load_data">Load Graph</option>
-                <option value="vms_data">VMS Graph</option>
-                <option value="rss_data">RSS Graph</option>
-                <option value="state_data">State Graph</option>
-              </select>
+            <div class="flex flex__left flex-gap" id="optionsSelect">
+              <h3>Sunburst Graph</h3>
+              <div>
+                <label for="optionsList">Select a Graph Option 1:</label>
+                <select id="optionsList">
+                  <option value="load_data">Load Graph</option>
+                  <option value="vms_data">VMS Graph</option>
+                  <option value="rss_data">RSS Graph</option>
+                  <option value="state_data">State Graph</option>
+                </select>
+              </div>
             </div>
-            <i>Update time: %(update_time)s</i>
           </div>
         </div>
       </section>
@@ -254,8 +247,15 @@
     <footer class="section section--footer">
       <div class="section__inner section__inner--footer">
         <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
-        <p class="hero__text hero__text--small" id="signature"></p>
+        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
       </div>
     </footer>
+    <script type="text/javascript">
+      $(document).ready(() => {
+        $('#navmenu').load('/getHeader?page=sunburst');
+        var thisPath = window.location.pathname;
+        $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+      });
+    </script>
   </body>
 </html>

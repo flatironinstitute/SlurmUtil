@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="preconnect" href="https://fonts.gstatic.com" />
     <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
       rel="stylesheet"
     />
 
@@ -22,8 +22,9 @@
 
       $(document).ready(function(){{
          //add menu
+         var thisPath = window.location.pathname;
           $("#navmenu").load("/getHeader?page=pending");
-          $("#crumbmenu").load("/getBreadcrumbs?path=index");
+          $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
 
           //create table job_table and part_table
           var j_titles     = {{'job_id':'Job', 'submit_time':'Submit Time', 'num_nodes':'Req Node', 'num_cpus':'Req CPU', 'user':'User', 'account':'Account', 'partition':'Req Part.', 'state_reason':'Pending Reason', 'state_exp':'Note'}}
@@ -54,13 +55,13 @@
 
   <body>
     <div class="layout">
-      <div class="crumb__container">
-        <div class="crumb__inner">
-          <div class="crumb__content">
-            <div class="crumb__logo">
+      <div class="stickynav">
+        <div class="stickynav__inner">
+          <div class="stickynav__content">
+            <div class="stickynav__logo">
               <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
             </div>
-            <div class="crumbs" id="crumbmenu"></div>
+            <div class="stickynav__update">Updated: {update_time}</div>
           </div>
         </div>
       </div>
@@ -68,18 +69,16 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="pending_jobs">
-            <h3>
-              Pending Queue: {job_cnt} Jobs
-              <small>(<a href="./pending_history?days=7"> History of last 7 days</a>)</small>
-            </h3>
-            <i>Update time: {update_time}</i>
+            <h3>Pending Queue: {job_cnt} Jobs</h3>
+            <p>Click to see (<a href="./pending_history?days=7"> history of last 7 days</a>)</p>
           </div>
         </div>
       </section>
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="note">
-            <h3>Administrator Note:</h3>
+            <h3>Administrator Notes:</h3>
+            <p></p>
           </div>
         </div>
       </section>
@@ -95,7 +94,7 @@
     <footer class="section section--footer">
       <div class="section__inner section__inner--footer">
         <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
-        <p class="hero__text hero__text--small" id="signature"></p>
+        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
       </div>
     </footer>
   </body>

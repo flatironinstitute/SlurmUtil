@@ -1,118 +1,180 @@
-<html>
-<!DOCTYPE html>
+<html lang="en">
+  <!DOCTYPE html>
 
-<head>
-<title>Report</title>
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
-<link rel="stylesheet" href="/static/css/style.css">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
+      rel="stylesheet"
+    />
 
-<meta charset="utf-8">
-<style>
-  text {
-  font-family: Arial, sans-serif;
-  font-size: 8px;
-  }
-</style>
+    <link rel="stylesheet" href="/static/css/normalize.css" />
+    <link rel="stylesheet" href="/static/css/style2.css" />
+    <title>Report</title>
+    <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
+    <script>
+      $(document).ready(function () {
+        {
+          $('#navmenu').load('/getHeader?page=report');
+          var thisPath = window.location.pathname;
+          $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+        }
+      });
+    </script>
+  </head>
 
-<script type="text/javascript" src="static/scripts/jquery.min.js"></script>
-<script>
-$(document).ready(function(){{
-   $("#tabmenu").load("/getHeader?page=report")
-}});
-</script>
-</head>
+  <body>
+    <div class="layout">
+      <div class="stickynav">
+        <div class="stickynav__inner">
+          <div class="stickynav__content">
+            <div class="stickynav__logo">
+              <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
+            </div>
+            <div class="stickynav__update">Updated: {update_time}</div>
+          </div>
+        </div>
+      </div>
+      <nav class="nav" id="navmenu"></nav>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <h3>Cluster, Accounts and Users Hourly Usage Report</h3>
+          </div>
+          <div class="section__div" id="hourly">
+            <form action="./clusterReport_hourly">
+              <select id="cluster" name="cluster">
+                <option value="slurm">Slurm</option>
+                <option value="slurm_cluster">Slurm Cluster</option>
+              </select>
+              Cluster Usage from <input name="start" id="start" value="2017-09-18" type="date" /> to
+              <input name="stop" id="stop" value="" type="date" /> &nbsp <button class="button">Report</button>
+            </form>
+            <form action="./accountReport_hourly">
+              <select id="cluster" name="cluster">
+                <option value="slurm">Slurm</option>
+                <option value="slurm_cluster">Slurm Cluster</option>
+              </select>
+              Cluster Account Allocation from <input name="start" id="start" value="2017-09-25" type="date" /> to
+              <input name="stop" id="stop" value="" type="date" /> <button class="button">Report</button>
+            </form>
+            <form action="./userReport_hourly">
+              <select id="cluster" name="cluster">
+                <option value="slurm">Slurm</option>
+                <option value="slurm_cluster">Slurm Cluster</option>
+              </select>
+              Cluster Top <input name="top" class="small-input" id="top" size="2" value="5" type="number" /> Users
+              Alloction of
+              <select id="acct" name="acct">
+                <option value="all">All</option>
+                <option value="cca">CCA</option>
+                <option value="ccb">CCB</option>
+                <option value="ccm">CCM</option>
+                <option value="ccn">CCN</option>
+                <option value="ccq">CCQ</option>
+                <option value="scc">SCC</option>
+              </select>
+              Account from <input name="start" id="start" value="2017-10-05" type="date" /> to
+              <input name="stop" id="stop" value="" type="date" /> <button class="button">Report</button>
+            </form>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <h3>File Usage Daily Report</h3>
+          </div>
+          <div class="section__div" id="daily">
+            <form action="./fileReport_daily">
+              Top <input name="top" class="small-input" id="top" size="2" value="5" type="number" /> Users File Count
+              and Bytes Daily Usage on
+              <select name="fs">
+                <option value="home">Home</option>
+                <option value="ceph_users">Ceph Users</option>
+                <option value="ceph_full">Ceph Full</option>
+                <option value="xfs1">Xfs1</option>
+              </select>
+              from <input name="start" id="start" value="2016-10-25" type="date" /> to
+              <input name="stop" id="stop" value="" type="date" /> <button class="button">Report</button>
+            </form>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <h3>Pending Queue and CDF Report</h3>
+          </div>
+          <div class="section__div" id="secondly">
+            <form action="./queueLengthReport">
+              <select id="cluster" name="cluster">
+                <option value="slurm">Slurm</option>
+                <option value="slurm_cluster">Slurm Cluster</option>
+              </select>
+              Cluster Job Queue Length from <input name="start" id="start" value="2017-09-18" type="date" /> to
+              <input name="stop" id="stop" value="" type="date" /><br />
+              counting jobs with wait time longer than
+              <input name="queueTime" class="small-input" id="queueTime" size="2" value="1" type="number" /> seconds
+              <button class="button">Report</button>
+            </form>
+            <form action="./cdfReport">
+              <select id="cluster" name="cluster">
+                <option value="slurm">Slurm</option>
+                <option value="slurm_cluster">Slurm Cluster</option>
+              </select>
+              Cluster CDF
+              <!--(up to <input name="upper" id="upper" size=3 value=90>th percentile)-->
+              of request/allocated CPUs/Nodes of ALLOCATED jobs from
+              <input name="start" id="start" value="2017-10-05" type="date" /> to
+              <input name="stop" id="stop" value="" type="date" /> <button class="button">Report</button>
+            </form>
+            <form action="./cdfTimeReport">
+              <select id="cluster" name="cluster">
+                <option value="slurm">Slurm</option>
+                <option value="slurm_cluster">Slurm Cluster</option>
+              </select>
+              Cluster CDF of exec. time of jobs with execution time longer than 5 seconds from
+              <input name="start" id="start" value="2017-10-05" type="date" /> to
+              <input name="stop" id="stop" value="" type="date" /> <button class="button">Report</button>
+            </form>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <h3>History</h3>
+          </div>
+          <div class="section__div" id="history">
+            <form action="./jobGraph">
+              Job <input name="jobid" id="jobid" size="10" type="text" /> <button class="button">History</button>
+            </form>
+            <form action="./nodeGraph">
+              Node <input name="node" id="node" size="10" type="text" />'s resource usage from
+              <input name="start" id="start" type="date" /> to <input name="stop" id="stop" value="" type="date" />
+              <button class="button">History</button>
+            </form>
+          </div>
+        </div>
+      </section>
+      <footer class="section section--footer">
+        <div class="section__inner section__inner--footer">
+          <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
+          <p class="hero__text hero__text--small">Updates every 10 minutes</p>
+        </div>
+      </footer>
+    </div>
+    <script>
+      yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      $("input[name='stop'").val(yesterday.toISOString().split('T')[0]);
 
-<body>
-<div class="tab" id="tabmenu"></div>
-
-<div id="hourly" class="border">
-<legend> Cluster, Accounts and Users Hourly Usage Report </legend>
-  <form action="./clusterReport_hourly"> 
-        <select id='cluster' name='cluster'> 
-                   <option value='slurm'>Slurm</option>
-                   <option value='slurm_cluster'>Slurm Cluster</option></select>
-        Cluster Usage from <input name="start" id="start" value="2017-09-18" type="date"> to <input name="stop" id="stop" value="" type="date"> &nbsp
-        <button> Report </button></form>
-  <form action="./accountReport_hourly"> 
-        <select id='cluster' name='cluster'> 
-                   <option value='slurm'>Slurm</option>
-                   <option value='slurm_cluster'>Slurm Cluster</option></select>
-        Cluster Account Allocation from <input name="start" id="start" value="2017-09-25" type="date"> to <input name="stop" id="stop" value="" type="date">
-        <button> Report </button></form>
-  <form action="./userReport_hourly"> 
-        <select id='cluster' name='cluster'> 
-                   <option value='slurm'>Slurm</option>
-                   <option value='slurm_cluster'>Slurm Cluster</option></select>
-        Cluster Top <input name="top" id="top" size=2 value=5> 
-        Users Alloction of <select id='acct' name='acct'>
-                                <option value="all">All</option>
-                                <option value="cca">CCA</option>
-                                <option value="ccb">CCB</option>
-                                <option value="ccm">CCM</option>
-                                <option value="ccn">CCN</option>
-                                <option value="ccq">CCQ</option>
-                                <option value="scc">SCC</option>
-                             </select> Account from <input name="start" id="start" value="2017-10-05" type="date"> to <input name="stop" id="stop" value="" type="date">
-        <button> Report </button></form>
-</div>
-
-<div id="daily" class="border">
-<legend> File Usage Daily Report </legend>
-<form action="./fileReport_daily"> 
-        Top <input name="top" id="top" size=2 value=5> Users 
-        File Count and Bytes Daily Usage on 
-        <select name="fs">
-          <option value="home">      Home</option>
-          <option value="ceph_users">Ceph Users</option>
-          <option value="ceph_full"> Ceph Full</option>
-          <option value="xfs1">      Xfs1</option>
-        </select>
-        from <input name="start" id="start" value="2016-10-25" type="date"> to <input name="stop" id="stop" value="" type="date">
-        <button> Report </button></form>
-</div>
-
-<div id="secondly" class="border">
-<legend> Pending Queue and CDF Report </legend>
-  <form action="./queueLengthReport"> 
-        <select id='cluster' name='cluster'> 
-                   <option value='slurm'>Slurm</option>
-                   <option value='slurm_cluster'>Slurm Cluster</option></select>
-        Cluster Job Queue Length from <input name="start" id="start" value="2017-09-18" type="date"> to <input name="stop" id="stop" value="" type="date">,
-        counting jobs with a wait time bigger than <input name="queueTime" id="queueTime" size=2 value=1> seconds &nbsp
-        <button> Report </button></form>
-    <form action="./cdfReport"> 
-        <select id='cluster' name='cluster'> 
-                   <option value='slurm'>Slurm</option>
-                   <option value='slurm_cluster'>Slurm Cluster</option></select>
-        Cluster CDF 
-        <!--(up to <input name="upper" id="upper" size=3 value=90>th percentile)-->
-        of request/allocated CPUs/Nodes of ALLOCATED jobs 
-        from <input name="start" id="start" value="2017-10-05" type="date"> to <input name="stop" id="stop" value="" type="date">
-        <button> Report </button></form>
-    <form action="./cdfTimeReport"> 
-        <select id='cluster' name='cluster'> 
-                   <option value='slurm'>Slurm</option>
-                   <option value='slurm_cluster'>Slurm Cluster</option></select>
-        Cluster CDF 
-        of exec. time of jobs with execution time longer than 5 seconds
-        from <input name="start" id="start" value="2017-10-05" type="date"> to <input name="stop" id="stop" value="" type="date">
-        <button> Report </button></form>
-</div>
-<div id="history" class="border">
-<legend> History</legend>
-    <form action="./jobGraph"> 
-        Job <input name="jobid" id="jobid" size=10> <button> History</button></form>
-    <form action="./nodeGraph"> 
-        Node <input name="node" id="node" size=10>'s resource usage from <input name="start" id="start" type="date"> to <input name="stop" id="stop" value="" type="date"> <button> History</button></form>
-</div>
-<script>
-  yesterday = new Date() 
-  yesterday.setDate(yesterday.getDate()-1)
-  $("input[name='stop'").val(yesterday.toISOString().split('T')[0])
-
-  startDate = new Date() 
-  startDate.setMonth(startDate.getMonth()-3)
-  $("input[name='start'").val(startDate.toISOString().split('T')[0])
-</script>
-</body>
+      startDate = new Date();
+      startDate.setMonth(startDate.getMonth() - 3);
+      $("input[name='start'").val(startDate.toISOString().split('T')[0]);
+    </script>
+  </body>
 </html>
