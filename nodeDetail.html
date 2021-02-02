@@ -2,8 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="/static/css/normalize.css" />
+    <link rel="stylesheet" href="/static/css/style2.css" />
     <title>Node Detail</title>
-    <link rel="stylesheet" href="/static/css/style.css" />
 
     <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
     <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
@@ -13,6 +21,11 @@
     <script type="text/javascript">
 
       $(document).ready(function(){{
+        // Add menus
+          $("#navmenu").load("/getHeader?page=index");
+          var thisPath = window.location.pathname;
+          $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+          // Create node detail table
           var node_data         = {node_data}
           var node_display_data = {node_display_data}
           var proc_title        = ['PID', 'Avg CPU Util', 'RSS', 'VMS','IO Rate', 'Command']
@@ -44,23 +57,54 @@
   </head>
 
   <body>
-    <div id="user" class="block">
-      <h3>
-        {node_name} : <font id="node_state"></font> (<a href="nodeGraph?node={node_name}">Usage Graph</a
-        ><font id="gpu_link"></font>)
-        <a href="./"><p class="home">Home</p></a>
-      </h3>
-      <h3 id="node_summary"></h3>
-      <b>Jump to <a href="#sacct_history">sacct report</a></b>
-      <p><i>Update time: {update_time}</i></p>
-      <hr />
+    <div class="layout">
+      <div class="stickynav">
+        <div class="stickynav__inner">
+          <div class="stickynav__content">
+            <div class="stickynav__logo">
+              <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
+            </div>
+            <div class="stickynav__update">Updated: {update_time}</div>
+          </div>
+        </div>
+      </div>
+      <nav class="nav" id="navmenu"></nav>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <h3>
+              {node_name} : <span id="node_state"></span>
+              <small>(<a href="nodeGraph?node={node_name}">Usage Graph</a><span id="gpu_link"></span>)</small>
+            </h3>
+            <p>Jump to <a href="#sacct_history">sacct report</a></p>
+          </div>
+          <div class="section__div">
+            <div id="div_node_info"></div>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div section__div--nobottom">
+            <h3 id="summary"></h3>
+            <div id="div_job"></div>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div section__div--nobottom">
+            <h3 id="sacct_history">Last 3 Days' Jobs on Node</h3>
+            <div id="div_sacct_report"></div>
+          </div>
+        </div>
+      </section>
     </div>
-    <div id="div_node_info" class="block"></div>
-    <div id="div_job" class="block">
-      <h3 id="summary"></h3>
-    </div>
-    <div id="div_sacct_report" class="block">
-      <h3 id="sacct_history">Jobs of Last 3 Days on Node</h3>
-    </div>
+    <footer class="section section--footer">
+      <div class="section__inner section__inner--footer">
+        <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
+        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
+      </div>
+    </footer>
   </body>
 </html>
