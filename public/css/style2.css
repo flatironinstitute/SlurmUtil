@@ -664,7 +664,7 @@ tr.inform {
   transition: all 0.2s ease-in-out;
 }
 .nav__item--active {
-  border-top: 2px var(--yellow) solid;
+  border-top: 2px var(--yellow) solid !important;
   transition: all 0.2s ease-out;
 }
 .nav__item--search {
