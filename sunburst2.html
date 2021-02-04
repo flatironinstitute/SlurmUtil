@@ -154,8 +154,8 @@
        // Interpolate the scales!
        function arcTween(d) {
          var xd = d3.interpolate(x.domain(), [d.x, d.x + d.dx]),
-         var yd = d3.interpolate(y.domain(), [d.y, 1]),
-         var yr = d3.interpolate(y.range(), [d.y ? 20 : 0, radius]);
+            yd = d3.interpolate(y.domain(), [d.y, 1]),
+            yr = d3.interpolate(y.range(), [d.y ? 20 : 0, radius]);
          return function(d, i) {
              return i ? function(t) { return arc(d); } : function(t) { x.domain(xd(t)); y.domain(yd(t)).range(yr(t)); return arc(d); };
          };
@@ -219,7 +219,7 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
-            <div class="flex flex__left flex-gap" id="optionsSelect">
+            <div id="optionsSelect">
               <h3>Sunburst Graph</h3>
               <div>
                 <label for="optionsList">Select a Graph Option 1:</label>
