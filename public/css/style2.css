@@ -105,6 +105,9 @@ body {
 .section__div--nobottom {
   margin-bottom: -4rem;
 }
+.section__div--sunburst {
+  min-height: 800px;
+}
 .section__inner--footer {
   display: flex;
   justify-content: space-between;

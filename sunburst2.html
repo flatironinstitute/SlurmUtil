@@ -55,7 +55,7 @@
          .append("g")
          .attr("transform", "translate(" + (width / 2 + margin.left) + "," + (height / 2 + margin.top) + ")");
 
-       console.log('🦆 🦆 svg append with new load');
+       console.log('🦆 🦆 svg append with new load', console.log(svg));
        var partition = d3.layout.partition()
          .value(function(d) {
              return d.value;
@@ -237,7 +237,7 @@
       </section>
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
-          <div class="section__div">
+          <div class="section__div section__div--sunburst">
             <div id="sunburstDiv"></div>
           </div>
         </div>
