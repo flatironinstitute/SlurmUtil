@@ -16,7 +16,84 @@
     <!-- TODO: Swap out bootstrap css -->
     <!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" /> -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-    <script src="https://d3js.org/d3.v3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/6.5.0/d3.min.js"></script>
+    <style>
+      path {
+        stroke: #fff;
+        fill-rule: evenodd;
+      }
+
+      text {
+        font-family: Arial, sans-serif;
+        font-size: 8px;
+      }
+
+      div.tooltip {
+        position: absolute;
+        text-align: center;
+        width: 200px;
+        height: 100px;
+        padding: 2px;
+        font: 12px sans-serif;
+        background: lightsteelblue;
+        border: 0px;
+        border-radius: 8px;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <div class="stickynav">
+        <div class="stickynav__inner">
+          <div class="stickynav__content">
+            <div class="stickynav__logo">
+              <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
+            </div>
+            <div class="stickynav__update">Updated: {update_time}</div>
+          </div>
+        </div>
+      </div>
+      <nav class="nav" id="navmenu"></nav>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <div id="optionsSelect">
+              <h3>Sunburst Graph</h3>
+              <div>
+                <label for="optionsList">Select a Graph Option 1:</label>
+                <select id="optionsList">
+                  <option value="load_data">Load Graph</option>
+                  <option value="vms_data">VMS Graph</option>
+                  <option value="rss_data">RSS Graph</option>
+                  <option value="state_data">State Graph</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div section__div--sunburst">
+            <div id="sunburstDiv"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+    <footer class="section section--footer">
+      <div class="section__inner section__inner--footer">
+        <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
+        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
+      </div>
+    </footer>
+    <script type="text/javascript">
+      $(document).ready(() => {
+        $('#navmenu').load('/getHeader?page=sunburst');
+        var thisPath = window.location.pathname;
+        $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+      });
+    </script>
     <script type="text/javascript">
       var users=%(users)s
       var load_data=%(data1)s
@@ -176,85 +253,6 @@
           var newData = eval(d3.select(this).property('value'));
           createVisualization(newData);
         });
-    </script>
-
-    <style>
-      path {
-        stroke: #fff;
-        fill-rule: evenodd;
-      }
-
-      text {
-        font-family: Arial, sans-serif;
-        font-size: 8px;
-      }
-
-      div.tooltip {
-        position: absolute;
-        text-align: center;
-        width: 200px;
-        height: 100px;
-        padding: 2px;
-        font: 12px sans-serif;
-        background: lightsteelblue;
-        border: 0px;
-        border-radius: 8px;
-        pointer-events: none;
-      }
-    </style>
-  </head>
-
-  <body>
-    <div class="layout">
-      <div class="stickynav">
-        <div class="stickynav__inner">
-          <div class="stickynav__content">
-            <div class="stickynav__logo">
-              <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
-            </div>
-            <div class="stickynav__update">Updated: {update_time}</div>
-          </div>
-        </div>
-      </div>
-      <nav class="nav" id="navmenu"></nav>
-      <section class="section">
-        <div class="section__inner section__inner--fullwidth">
-          <div class="section__div">
-            <div id="optionsSelect">
-              <h3>Sunburst Graph</h3>
-              <div>
-                <label for="optionsList">Select a Graph Option 1:</label>
-                <select id="optionsList">
-                  <option value="load_data">Load Graph</option>
-                  <option value="vms_data">VMS Graph</option>
-                  <option value="rss_data">RSS Graph</option>
-                  <option value="state_data">State Graph</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-      <section class="section">
-        <div class="section__inner section__inner--fullwidth">
-          <div class="section__div section__div--sunburst">
-            <div id="sunburstDiv"></div>
-          </div>
-        </div>
-      </section>
-    </div>
-    <footer class="section section--footer">
-      <div class="section__inner section__inner--footer">
-        <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
-        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
-      </div>
-    </footer>
-    <script type="text/javascript">
-      $(document).ready(() => {
-        $('#navmenu').load('/getHeader?page=sunburst');
-        var thisPath = window.location.pathname;
-        $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
-      });
     </script>
   </body>
 </html>
