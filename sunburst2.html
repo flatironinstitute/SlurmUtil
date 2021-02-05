@@ -125,14 +125,16 @@
         var format = d3.format(",d");
         var color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, data.children.length + 1));
 
-        partition = data => {
-          var root = d3.hierarchy(data)
-            .sum(d => d.value)
-            .sort((a, b) => b.value - a.value);
+        function partition(data) {
+          var groot = d3.hierarchy(data)
+              .sum(d => d.value)
+              .sort((a, b) => b.value - a.value);
           return d3.partition()
-            .size([2 * Math.PI, root.height + 1])
-            (root);
+              .size([2 * Math.PI, groot.height + 1])
+            (groot);
         }
+
+        var root = partition(data);
         console.log("🌲", root);
         var svg = d3.select("#sunburst").append("svg:svg")
           .attr("viewBox", [0, 0, width, width])
