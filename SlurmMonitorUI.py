@@ -199,11 +199,25 @@ class SLURMMonitorUI(object):
 
         return h
 
-    #@cherrypy.expose
-    #def clusterForecast_hourly(self, cluster):
-    #    htmlTemp = os.path.join(config.APP_DIR, 'image.html')
-    #    h = open(htmlTemp).read().format(cluster=cluster)
-    #    return h
+    @cherrypy.expose
+    def forecast_old(self, page=None):
+        clu_dict = PyslurmQuery.getSlurmDBClusters()
+        clu_name = list(clu_dict.keys())
+        htmltemp = os.path.join(config.APP_DIR, 'forecast.html')
+        h        = open(htmltemp).read().format(clusters=clu_name)
+ 
+        return h
+
+    @cherrypy.expose
+    def forecast(self):
+        clusters = list(PyslurmQuery.getSlurmDBClusters())
+        clusters = ['slurm', 'slurm_plus_day']
+        f_lst   = sorted(glob.glob('./public/images/{}_cpuAllocDF_*_forecast.png'.format(clusters[0])))
+        f_lst   = [os.path.splitext(os.path.split(fname)[1])[0] for fname in f_lst]     #filename no dir no ext
+        f_lst = [fname.split('_')[-2] for fname in f_lst]
+        htmlTemp = os.path.join(config.APP_DIR, 'forecastImage.html')
+        h = open(htmlTemp).read().format(clusters=clusters, accounts=f_lst)
+        return h
 
     @cherrypy.expose
     def clusterForecast_hourly(self, cluster):
@@ -539,15 +553,6 @@ class SLURMMonitorUI(object):
                                           'gpu_avg_minute'  : json.dumps(avg_minute["gpu"])}
  
         return h 
-
-    @cherrypy.expose
-    def forecast(self, page=None):
-        clu_dict = PyslurmQuery.getSlurmDBClusters()
-        clu_name = list(clu_dict.keys())
-        htmltemp = os.path.join(config.APP_DIR, 'forecast.html')
-        h        = open(htmltemp).read().format(clusters=clu_name)
- 
-        return h
 
     @cherrypy.expose
     def report(self, page=None):
@@ -1453,7 +1458,7 @@ class SLURMMonitorUI(object):
             io_r_all_nodes.append ({'name': pid, 'data': MyTool.getSeqDeri_x(pidSeq, 0, 3)})
             io_w_all_nodes.append ({'name': pid, 'data': MyTool.getSeqDeri_x(pidSeq, 0, 4)})
 
-        return start, last, cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes
+        return first, last, cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes
 
     @cherrypy.expose
     def nodeGPUGraph(self, node, hours=72):  #the GPU util for the node of last day
@@ -1494,7 +1499,7 @@ class SLURMMonitorUI(object):
         note  = 'cache'
         if not msg:
            logger.info('Job {}: no data in cache'.format(jobid))
-           msg = self.nodeJobProcGraph_influx(node, jobid, start)
+           msg = self.nodeJobProcGraph_influx(node, jobid)
            note= 'influx'
         if not msg:
            logger.info('Job {}: no data returned from influx'.format(jobid))
