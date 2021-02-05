@@ -135,12 +135,14 @@
         }
 
         var root = partition(data);
+        root.each(d => d.current = d);
+
         console.log("🌲", root);
         var svg = d3.select("#sunburst").append("svg:svg")
           .attr("viewBox", [0, 0, width, width])
           .style("font", "10px sans-serif");
-        var g = svg.append("svg:g")
-          .attr("id", "container")
+
+        var g = svg.append("g")
           .attr("transform", `translate(${width / 2},${width / 2})`);
 
         var path = g.append("g")
@@ -198,6 +200,7 @@
           path.transition(t)
             .tween("data", d => {
               var i = d3.interpolate(d.current, d.target);
+              console.log("path.transition", i);
               return t => d.current = i(t);
             })
             .filter(function(d) {
@@ -214,7 +217,6 @@
         }
 
         function arcVisible(d) {
-          console.log("arcVisible", d);
           return d.y1 <= 3 && d.y0 >= 1 && d.x1 > d.x0;
         }
 
