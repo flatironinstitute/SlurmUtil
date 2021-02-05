@@ -1,62 +1,101 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
+      rel="stylesheet"
+    />
 
-<head>
-<meta charset='UTF-8'>
-<title>Pending Jobs</title>
-<link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/normalize.css" />
+    <link rel="stylesheet" href="/static/css/style2.css" />
+    <title>Pending Jobs</title>
 
-<script type="text/javascript" src="static/scripts/jquery.min.js"></script>
-<script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
-<script type="text/javascript" src="static/scripts/myFunc.js"></script>
-<script type="text/javascript" src="static/scripts/myTable.js"></script>
-<script type="text/javascript" src="static/scripts/myList.js"></script>
-<script type="text/javascript">
+    <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
+    <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+    <script type="text/javascript" src="static/scripts/myFunc.js"></script>
+    <script type="text/javascript" src="static/scripts/myTable.js"></script>
+    <script type="text/javascript" src="static/scripts/myList.js"></script>
+    <script type="text/javascript">
 
-$(document).ready(function(){{
-   //add menu
-    $("#tabmenu").load("/getHeader?page=pending")
+      $(document).ready(function(){{
+         //add menu
+         var thisPath = window.location.pathname;
+          $("#navmenu").load("/getHeader?page=pending");
+          $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
 
-    //create table job_table and part_table
-    var j_titles     = {{'job_id':'Job', 'submit_time':'Submit Time', 'num_nodes':'Req Node', 'num_cpus':'Req CPU', 'user':'User', 'account':'Account', 'partition':'Req Part.', 'state_reason':'Pending Reason', 'state_exp':'Note'}}
-    var p_titles     = {{'name':'Name', 'flag_shared':'Share', 'total_nodes':'Total Node', 'total_cpus':'Total CPU', 'total_gpus':'Total GPU', 'avail_nodes_cnt':'Avail Node', 'avail_cpus_cnt':'Avail CPU','avail_gpus_cnt':'Avail GPU', 'pending_jobs':'PENDING JOB', 'running_jobs':'RUNNING JOB'}}
-    var type         = {{'job_id':'JobAndStep','user':'User','partition':'Partition','name':'Partition', 'pending_jobs':'JobList', 'running_jobs':'JobList', 'submit_time':'Time'}}
-    createTable ({pending_jobs_input}, j_titles, 'job_table',  'pending_jobs', prepareData_pending, type);
-    createTable ({partitions_input},   p_titles, 'part_table', 'partitions',   undefined, type);  //undefined will use default value
-    createList  ({note},               null,     '#note')
+          //create table job_table and part_table
+          var j_titles     = {{'job_id':'Job', 'submit_time':'Submit Time', 'num_nodes':'Req Node', 'num_cpus':'Req CPU', 'user':'User', 'account':'Account', 'partition':'Req Part.', 'state_reason':'Pending Reason', 'state_exp':'Note'}}
+          var p_titles     = {{'name':'Name', 'flag_shared':'Share', 'total_nodes':'Total Node', 'total_cpus':'Total CPU', 'total_gpus':'Total GPU', 'avail_nodes_cnt':'Avail Node', 'avail_cpus_cnt':'Avail CPU','avail_gpus_cnt':'Avail GPU', 'pending_jobs':'PENDING JOB', 'running_jobs':'RUNNING JOB'}}
+          var type         = {{'job_id':'JobAndStep','user':'User','partition':'Partition','name':'Partition', 'pending_jobs':'JobList', 'running_jobs':'JobList', 'submit_time':'Time'}}
+          createTable ({pending_jobs_input}, j_titles, 'job_table',  'pending_jobs', prepareData_pending, type);
+          createTable ({partitions_input},   p_titles, 'part_table', 'partitions',   undefined, type);  //undefined will use default value
+          createList  ({note},               null,     '#note')
 
-    //add expand icon or space to data-group if more than one item is there
-    $('#job_table>tbody>tr[data-group-idx="0"]:not([data-group-cnt="1"])').find('td:first').addClass('group_plus')    
-    //hide row with same data-group except the first one
-    $('#job_table>tbody>tr:not([data-group-idx="0"])').find('td:first').addClass('group_sub')  //group_sub means the toggle ones under a group    
-    $('#job_table>tbody>tr:not([data-group-idx="0"])').hide()
+          //add expand icon or space to data-group if more than one item is there
+          $('#job_table>tbody>tr[data-group-idx="0"]:not([data-group-cnt="1"])').find('td:first').addClass('group_plus')
+          //hide row with same data-group except the first one
+          $('#job_table>tbody>tr:not([data-group-idx="0"])').find('td:first').addClass('group_sub')  //group_sub means the toggle ones under a group
+          $('#job_table>tbody>tr:not([data-group-idx="0"])').hide()
 
-    $('#job_table td.group_plus').html(function(i, origText) {{ var cnt=$(this).attr('group-cnt'); return origText + "<i>, ... Total " + cnt + " jobs</i>"; }})
-    //add click function to right arrow
-    $('#job_table td.group_plus').click(function(event) {{
-       //console.log('click', this)
-       var group = $(this).parent().attr('data-group')
-       $(this).toggleClass('group_minus')  //toggleClass() toggles between adding and removing one or more class names from the selected elements. 
-       //$(this).children("i").toggleClass('hide')
-       $('#job_table>tbody>tr:has(td.group_sub)[data-group=' + group + ']').toggle()
-    }});
-}});
-</script>
-</head>
+          $('#job_table td.group_plus').html(function(i, origText) {{ var cnt=$(this).attr('group-cnt'); return origText + "<i>, ... Total " + cnt + " jobs</i>"; }})
+          //add click function to right arrow
+          $('#job_table td.group_plus').click(function(event) {{
+             //console.log('click', this)
+             var group = $(this).parent().attr('data-group')
+             $(this).toggleClass('group_minus')  //toggleClass() toggles between adding and removing one or more class names from the selected elements.
+             //$(this).children("i").toggleClass('hide')
+             $('#job_table>tbody>tr:has(td.group_sub)[data-group=' + group + ']').toggle()
+          }});
+      }});
+    </script>
+  </head>
 
-<body>
-<div class="tab" id="tabmenu"></div>
-<div id="pending_jobs" class="page-wrap">
-   <h2>Pending Queue: {job_cnt} Jobs <small>(<a href="./pending_history?days=7"> History of last 7 days</a>)</small></h2>
-   <i>Update time: {update_time}</i>
-</div>
-<div id="note" class="page-wrap"> 
-   <h2>Administrator Note: </h2>
-</div>
-<div id="partitions" class="page-wrap">
-   <h2>Partitions</h2>
-   <i>Click the table header to sort data according to that column</i>
-</div>
-</body>
-
+  <body>
+    <div class="layout">
+      <div class="stickynav">
+        <div class="stickynav__inner">
+          <div class="stickynav__content">
+            <div class="stickynav__logo">
+              <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
+            </div>
+            <div class="stickynav__update">Updated: {update_time}</div>
+          </div>
+        </div>
+      </div>
+      <nav class="nav" id="navmenu"></nav>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div" id="pending_jobs">
+            <h3>Pending Queue: {job_cnt} Jobs</h3>
+            <p>Click to see (<a href="./pending_history?days=7"> history of last 7 days</a>)</p>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div" id="note">
+            <h3>Administrator Notes:</h3>
+            <p></p>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div" id="partitions">
+            <h3>Partitions</h3>
+            <p>Click the table header to sort data according to that column</p>
+          </div>
+        </div>
+      </section>
+    </div>
+    <footer class="section section--footer">
+      <div class="section__inner section__inner--footer">
+        <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
+        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
+      </div>
+    </footer>
+  </body>
 </html>

@@ -1,54 +1,108 @@
 <!DOCTYPE html>
-<meta charset="utf-8">
-<html>
+<html lang="en">
   <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="/static/css/normalize.css" />
+    <link rel="stylesheet" href="/static/css/style2.css" />
     <title>Host Utilization Heatmap</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link href="http://rawgithub.com/indrimuska/jquery-editable-select/master/dist/jquery-editable-select.min.css" rel="stylesheet">
+    <link
+      href="http://rawgithub.com/indrimuska/jquery-editable-select/master/dist/jquery-editable-select.min.css"
+      rel="stylesheet"
+    />
     <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
-    <script type="text/javascript" src="static/scripts/d3.v3.js"></script> <!--v5 will cause error -->
+    <script type="text/javascript" src="static/scripts/d3.v3.js"></script>
+    <!--v5 will cause error -->
     <script type="text/javascript" src="static/scripts/myHeatmap.js"></script>
     <script src="http://rawgithub.com/indrimuska/jquery-editable-select/master/dist/jquery-editable-select.min.js"></script>
     <script>
-       $(function(){
-          $("#tabmenu").load("/getHeader?page=utilHeatmap")
-       });
+      $(function () {
+        $('#navmenu').load('/getHeader?page=utilHeatmap');
+        var thisPath = window.location.pathname;
+        $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+      });
     </script>
   </head>
   <body>
-    <div class="tab" id="tabmenu"></div>
-    <div id="header">
-       <h3>Worker Nodes Utilization
-         <span style="padding: 6px"> 
-           <select id="select_cpu_mem">
-             <option value="util"> CPU </option>
-             <option value="mem_util">Memory</option>
-             <option value="comb_util">Combined</option>
-           </select></span>
-       </h3>
-       <i>Update time: %(update_time)s</i>
-       <p> <i>"Click" to see the co-allocated worker nodes for the same job. "Double Click" to see the worker node detail. "Shift + Double Click" to see the job detail</i>
-       <hr></div>
-    <div id="select_div">Select an option to see the allocated worker nodes: 
-       <select id="select_job_user">
-          <option value="job"> Job </option>
-          <option value="user">User</option>
-       </select>
-       <span id="select_list_div"></span>
-   </div>
-    <div id="legend"> 
-       <input type="checkbox" id="colorCheckbox" name="colorCheckBox" checked> 
-       <label for="color"> Color to differentiate account </label>
-       <p><svg id="legend_svg"></svg></div>
-    <div><svg id="node_svg"></svg></div>
-    <div>
-       <h3>GPU Average Utilization of Last %(gpu_avg_minute)s Minutes</h3>
-       <i>Update time: %(gpu_update_time)s</i>
-       <i id='gpu_update'></i>
-       <p> <i>"Click" to see the co-allocated worker nodes for the same job. "Double Click" to see the worker node details.</i>
-       <hr></div>
-    <div><svg id="gpu_svg"> </svg></div>
-
+    <div class="layout">
+      <div class="stickynav">
+        <div class="stickynav__inner">
+          <div class="stickynav__content">
+            <div class="stickynav__logo">
+              <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
+            </div>
+            <div class="stickynav__update">Updated: {update_time}</div>
+          </div>
+        </div>
+      </div>
+      <nav class="nav" id="navmenu"></nav>
+      <section class="section" id="header">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <div class="flex flex__left flex-gap">
+              <h3>Worker Nodes Utilization</h3>
+              <select id="select_cpu_mem">
+                <option value="util">CPU</option>
+                <option value="mem_util">Memory</option>
+                <option value="comb_util">Combined</option>
+              </select>
+            </div>
+            <p>
+              Click to see the co-allocated worker nodes for the same job. Double click to see the worker node detail.
+              Shift + double click to see the job detail.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <div id="select_div">
+              Select an option to see the allocated worker nodes:
+              <select id="select_job_user">
+                <option value="job">Job</option>
+                <option value="user">User</option>
+              </select>
+              <span id="select_list_div"></span>
+            </div>
+            <div id="legend">
+               <div class="flex flex__left">
+                  <input type="checkbox" id="colorCheckbox" name="colorCheckBox" checked />
+                  <label for="colorCheckbox"> Use color to differentiate account </label>
+               </div>
+              <p><svg id="legend_svg"></svg></p>
+            </div>
+            <div class="viz-wrapper"><svg id="node_svg"></svg></div>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+         <div class="section__inner section__inner--fullwidth">
+            <div class="section__div">
+               <h3>GPU Average Utilization of Last %(gpu_avg_minute)s Minutes</h3>
+               <i>Update time: %(gpu_update_time)s</i>
+               <i id="gpu_update"></i>
+               <p>Click to see the co-allocated worker nodes for the same job. Double click to see the worker node details.
+               </p>
+               <div class="viz-wrapper"><svg id="gpu_svg"></svg></div>
+             </div>
+            </div>
+         </div>
+        <div>
+      </section>
+    </div>
+    <footer class="section section--footer">
+      <div class="section__inner section__inner--footer">
+        <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
+        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
+      </div>
+    </footer>
     <script type="text/javascript">
       var margin      = { top: 10, right: 0, bottom: 50, left: 120 },
           gpu_margin  = { top: 100, right: 0, bottom: 50, left: 120 },
@@ -62,7 +116,7 @@
           users_data  = %(users)s                                   //input
           gpu_obj     = %(gpu)s
 
-      var labels       = [], gpu_labels=[];                   // labels, save results 
+      var labels       = [], gpu_labels=[];                   // labels, save results
       var grpCnt       = [0,0,0,0,0,0,0,0,0,0];  // count for each group worker0..., ..., save results from function call
       var workers_data = prepareNodeData_1 (workers, grpCnt, labels, gpu_obj)
       var gpu_data     = prepareGPUData    (workers_data,    gpu_labels)
@@ -74,7 +128,7 @@
           .attr("height", 100)
           .append("g")
              .attr("transform", "translate(" + 120 + "," + 10 + ")");
-      
+
       var svg_line = 0
       for (var i=0; i<grpCnt.length; i++)
           svg_line += Math.ceil(grpCnt[i] / cntPerLine)
@@ -117,7 +171,7 @@
       // init
       createSelectList ("#select_list_div", jobs_data,  "select_list",  "job_id", job_onchange);
       heatmapChart     (workers_data);
-      
+
       function job_onchange() {
          selectedJid=d3.select("#select_list_div select").property("value");
          //console.log("job_onchange", selectedJid)
@@ -135,7 +189,6 @@
          });
          select_jids = jids.map(function (num) {return parseInt(num);})
       }
-      
     </script>
   </body>
 </html>

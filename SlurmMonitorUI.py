@@ -27,7 +27,7 @@ logger  = config.logger
 SACCT_WINDOW_DAYS  = 3 # number of days of records to return from sacct.
 USER_INFO_IDX      = 3
 USER_PROC_IDX      = 7
-WAIT_MSG           = 'No data received yet. Wait a minute and come back. '
+WAIT_MSG           = 'No data received yet. Please wait a minute and come back. '
 EMPTYDATA_MSG      = 'There is no data retrieved according to the constraints.'
 EMPTYPROCDATA_MSG  = 'There is no process data present in the retrieved data.'
 ONE_HOUR_SECS      = 3600
@@ -46,7 +46,7 @@ class SLURMMonitorUI(object):
         self.querySlurmClient= SlurmDBQuery()
         self.jobNoticeSender = JobNoticeSender()
         self.startTime       = time.time()
-        self.data            = 'No data received yet. Wait a minute and come back.'
+        self.data            = 'No data received yet. Please wait a minute and come back.'
         self.pyslurmNode     = None
 
     def getDFBetween(self, df, field, start, stop):
@@ -67,8 +67,8 @@ class SLURMMonitorUI(object):
         qos           = pyslurm.qos().get()[qos]
         #ts_qos        = py_qos.lastUpdate()   # does not have lastUpdate
         htmlTemp      = os.path.join(config.APP_DIR, 'qosDetail.html')
-        htmlStr       = open(htmlTemp).read().format(update_time=MyTool.getTsString(time.time()), 
-                                                     qos        =json.dumps(qos)) 
+        htmlStr       = open(htmlTemp).read().format(update_time=MyTool.getTsString(time.time()),
+                                                     qos        =json.dumps(qos))
         return htmlStr
 
     @cherrypy.expose
@@ -81,11 +81,11 @@ class SLURMMonitorUI(object):
         ins           = SlurmEntities.SlurmEntities()
         p_info, nodes = ins.getPartitionAndNodes (partition)
         htmlTemp      = os.path.join(config.APP_DIR, 'partitionDetail.html')
-        htmlStr       = open(htmlTemp).read().format(update_time=MyTool.getTsString(ins.ts_node_dict), 
-                                                     p_detail   =json.dumps(p_info), 
+        htmlStr       = open(htmlTemp).read().format(update_time=MyTool.getTsString(ins.ts_node_dict),
+                                                     p_detail   =json.dumps(p_info),
                                                      p_nodes    =json.dumps(nodes))
         return htmlStr
-       
+
     @cherrypy.expose
     def pending(self, start='', stop='', state=3):
         ins        = SlurmEntities.SlurmEntities()
@@ -100,22 +100,22 @@ class SLURMMonitorUI(object):
             if p['total_nodes'] and p['total_cpus'] and p['total_gpus']:
                if p['avail_nodes_cnt']*100/p['total_nodes'] > partS['node'] or p['avail_cpus_cnt']*100/p['total_cpus'] > partS['cpu'] or (p['total_gpus'] and p['avail_gpus_cnt']*100/p['total_gpus'] > partS['gpu']):
                   p['display_class'] = 'inform'
-        
+
         htmlTemp   = os.path.join(config.APP_DIR, 'pending.html')
         htmlStr    = open(htmlTemp).read().format(update_time       =MyTool.getTsString(ins.ts_job_dict),
-                                                  job_cnt           =len(pendingLst), 
-                                                  pending_jobs_input=json.dumps(pendingLst), 
+                                                  job_cnt           =len(pendingLst),
+                                                  pending_jobs_input=json.dumps(pendingLst),
                                                   note              = '{}'.format(relaxQoS),
                                                   partitions_input  =json.dumps(partLst))
         return htmlStr
-       
+
     @cherrypy.expose
     def cdfTimeReport(self, cluster, upper=90, start='', stop='', state=3):
         start,stop,cdfData = SlurmDBQuery.getJobTime(cluster, start, stop, upper)
 
         series     = []
         for fld in ['time_run_log', 'time_cpu_log']:
-            s  = [{'type': 'spline', 'name': 'CDF', 'yAxis':1, 'zIndex': 10, 'data': cdfData[fld]['count'].values.tolist()}] 
+            s  = [{'type': 'spline', 'name': 'CDF', 'yAxis':1, 'zIndex': 10, 'data': cdfData[fld]['count'].values.tolist()}]
             for acct,d in cdfData[fld]['account'].items():
                 s.append({'type': 'column', 'name': acct, 'data': d.values.tolist()})
             series.append (s)
@@ -123,7 +123,7 @@ class SLURMMonitorUI(object):
         htmlTemp   = os.path.join(config.APP_DIR, 'CDFHC.html')
         t1         = 'Cluster {}: CDF of Job Run Time'.format(cluster)
         t2         = 'Cluster {}: CDF of Job CPU Time'.format(cluster)
-        parameters = {'start': time.strftime('%Y-%m-%d', time.localtime(start)), 
+        parameters = {'start': time.strftime('%Y-%m-%d', time.localtime(start)),
                       'stop':  time.strftime('%Y-%m-%d', time.localtime(stop)),
                       'series': series[0], 'title': t1, 'xMax': int(cdfData['time_run_log']['upper_x']+10),'xLabel': 'Run Time',  'yLabel': 'Count',
                       'series2':series[1], 'title2':t2, 'xMax2':int(cdfData['time_cpu_log']['upper_x'])+10,'xLabel2':'CPU Time',  'yLabel2':'Count'}
@@ -136,16 +136,16 @@ class SLURMMonitorUI(object):
 
         series     = []
         for fld in ['cpus_req', 'cpus_alloc', 'nodes_alloc']:
-            s = [{'type': 'spline', 'name': 'CDF', 'yAxis':1, 'zIndex': 10, 'data': cdfData[fld]['count'].values.tolist()}] 
+            s = [{'type': 'spline', 'name': 'CDF', 'yAxis':1, 'zIndex': 10, 'data': cdfData[fld]['count'].values.tolist()}]
             for acct,d in cdfData[fld]['account'].items():
                 s.append({'type': 'column', 'name': acct, 'data': d.values.tolist()})
             series.append (s)
-            
+
         htmlTemp   = os.path.join(config.APP_DIR, 'CDFHC_3.html')
         t1         = 'Cluster {}: CDF of Job Requested CPUs'.format(cluster)
         t2         = 'Cluster {}: CDF of Job Allocated CPUs'.format(cluster)
         t3         = 'Cluster {}: CDF of Job Allocated Nodes'.format(cluster)
-        parameters = {'start': time.strftime('%Y-%m-%d', time.localtime(start)), 
+        parameters = {'start': time.strftime('%Y-%m-%d', time.localtime(start)),
                       'stop':  time.strftime('%Y-%m-%d', time.localtime(stop)),
                       'series': series[0], 'title': t1, 'xMax': int(cdfData['cpus_req']['upper_x']+10),  'xLabel': 'Number of CPUs',  'yLabel': 'Count',
                       'series2':series[1], 'title2':t2, 'xMax2':int(cdfData['cpus_alloc']['upper_x'])+10,'xLabel2':'Number of CPUs',  'yLabel2':'Count',
@@ -155,25 +155,25 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def accountReport_hourly(self, cluster, start='', stop=''):
-        #sumDf index ['id_tres','acct', 'time_start'], 
-        
+        #sumDf index ['id_tres','acct', 'time_start'],
+
         start, stop, sumDf = SlurmDBQuery.getAccountUsage_hourly(cluster,start, stop)
 
         sumDfg      = sumDf.groupby('id_tres')
-        tresSer     = {} # {1: [{'data': [[ms,value],...], 'name': uid},...], 2:...} 
+        tresSer     = {} # {1: [{'data': [[ms,value],...], 'name': uid},...], 2:...}
         for tres in sumDf.index.get_level_values('id_tres').unique():
             tresSer[tres] = []
             acctIdx       = sumDfg.get_group(tres).index.get_level_values('acct').unique()
             for acct in acctIdx:
                 sumDf.loc[(tres,acct,), ]
-                tresSer[tres].append({'name': acct, 'data':sumDf.loc[(tres,acct,), ['ts_ms', 'alloc_ratio']].values.tolist()}) 
-                
+                tresSer[tres].append({'name': acct, 'data':sumDf.loc[(tres,acct,), ['ts_ms', 'alloc_ratio']].values.tolist()})
+
         #generate data
         htmlTemp = os.path.join(config.APP_DIR, 'scatterHC.html')
         h = open(htmlTemp).read()%{
                                    'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
-                                   'series1': tresSer[1], 'title1': 'Cluster {}: Account CPU Hourly Usage'.format(cluster),  'xlabel1': 'Avg CPU',    'aseries1':[], 
+                                   'series1': tresSer[1], 'title1': 'Cluster {}: Account CPU Hourly Usage'.format(cluster),  'xlabel1': 'Avg CPU',    'aseries1':[],
                                    'series2': tresSer[2], 'title2': 'Cluster {}: AAccount Mem Hourly Usage'.format(cluster), 'xlabel2': 'Avg MEM MB', 'aseries2':[],
                                    'series3': tresSer[4], 'title3': 'Cluster {}: Account Node Hourly Usage'.format(cluster), 'xlabel3': 'Avg Node',   'aseries3':[]}
 
@@ -185,7 +185,7 @@ class SLURMMonitorUI(object):
         if acct=='all':
            acct = None
         start, stop, tresSer  = SlurmDBQuery.getUserReport_hourly(cluster, start, stop, int(top), acct)
-        
+
         #cpuLst   = tresSer[1]
         #start    = min(cpuLst, key=(lambda item: (item['data'][0][0])))['data'][0][0]  /1000
         #stop     = max(cpuLst, key=(lambda item: (item['data'][-1][0])))['data'][-1][0]/1000
@@ -193,7 +193,7 @@ class SLURMMonitorUI(object):
         h = open(htmlTemp).read()%{
                                    'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
-                                   'series1': tresSer[1], 'title1': 'Cluster {}: Top User CPU Hourly Usage'.format(cluster), 'xlabel1': 'CPU', 'aseries1':[], 
+                                   'series1': tresSer[1], 'title1': 'Cluster {}: Top User CPU Hourly Usage'.format(cluster), 'xlabel1': 'CPU', 'aseries1':[],
                                    'series2': tresSer[2], 'title2': 'Cluster {}: Top User Mem Hourly Usage'.format(cluster), 'xlabel2': 'MEM MB',   'aseries2':[],
                                    'series3': tresSer[4], 'title3': 'Cluster {}: Top User Node Hourly Usage'.format(cluster),'xlabel3': 'Node', 'aseries3':[]}
 
@@ -204,7 +204,8 @@ class SLURMMonitorUI(object):
         clu_dict = PyslurmQuery.getSlurmDBClusters()
         clu_name = list(clu_dict.keys())
         htmltemp = os.path.join(config.APP_DIR, 'forecast.html')
-        h        = open(htmltemp).read().format(clusters=clu_name)
+        #h        = open(htmltemp).read().format(clusters=clu_name)
+        h        = open(htmltemp).read()
  
         return h
 
@@ -236,7 +237,7 @@ class SLURMMonitorUI(object):
         influxClient = InfluxQueryClient(self.config['influxdb']['host'])
         ts2AllocNodeCnt, ts2MixNodeCnt, ts2IdleNodeCnt, ts2DownNodeCnt, ts2AllocCPUCnt, ts2MixCPUCnt, ts2IdleCPUCnt, ts2DownCPUCnt= influxClient.getSavedNodeHistory(days=days)
         runJidSet, ts2ReqNodeCnt, ts2ReqCPUCnt, pendJidSet, ts2PendReqNodeCnt, ts2PendReqCPUCnt = influxClient.getSavedJobRequestHistory (days=days)
-        #it is more difficult to get the node number from running jobs as they may share 
+        #it is more difficult to get the node number from running jobs as they may share
         series11  = [
                      {'name': 'Allocated Nodes', 'data':[[ts, cnt] for ts, cnt in ts2AllocNodeCnt.items()]},
                      {'name': 'Mixed Nodes',     'data':[[ts, cnt] for ts, cnt in ts2MixNodeCnt.items()]},
@@ -292,11 +293,11 @@ class SLURMMonitorUI(object):
         reason2cate  = dict([(reason, self.getReason2Cate(reason)) for reason in reasons])
         cates        = set(reason2cate.values())
         #print('reasons={}, cates={}, reason2cate={}'.format(reasons, cates, reason2cate))
-        
+
         #reformat the tsReason2Cnt to cate2ts_cnt
         other_reason_set = set()
         sav_set      = set()
-        cate2ts_cnt  = defaultdict(list)         
+        cate2ts_cnt  = defaultdict(list)
         for ts, reason2Cnt in tsReason2Cnt.items():  # {ts: {reason:cnt, }}
             cate2cnt = defaultdict(int)
             for reason, cnt in reason2Cnt.items():
@@ -306,14 +307,14 @@ class SLURMMonitorUI(object):
                    other_reason_set.add(reason)
             for cate in cates:
                 cate2ts_cnt[cate].append ([ts, cate2cnt[cate]])
-        #note = '{}'.format(sav_set) 
+        #note = '{}'.format(sav_set)
 
         cate2title = {'Resource':'Queued by Resource', 'GPU':'Queued by GPU Resource', 'QoSGrp':'Queued by Group QoS', 'QoS':'Queued by User QoS', 'Sched':'Queued by Job Defination', 'Other':'Queued by Other'}  #order matters
         series1    = [{'name':cate2title[cate], 'data':cate2ts_cnt[cate]} for cate in cates]
         htmlTemp   = os.path.join(config.APP_DIR, 'pendingJobReport.html')
         h          = open(htmlTemp).read().format(start=time.strftime(DATE_DISPLAY_FORMAT, time.localtime(start)),
                                                   stop =time.strftime(DATE_DISPLAY_FORMAT, time.localtime(stop)),
-                                                  series1=series1, title1='Cluster Job Queue Length', xlabel1='Queue Length', 
+                                                  series1=series1, title1='Cluster Job Queue Length', xlabel1='Queue Length',
                                                   other_reason=list(other_reason_set),
                                                   note=note)
 
@@ -322,8 +323,8 @@ class SLURMMonitorUI(object):
     @cherrypy.expose
     def queueLengthReport(self, cluster, start='', stop='', queueTime=0):
         start, stop, df = self.querySlurmClient.getClusterJobQueue (cluster, start, stop, int(queueTime))
-        
-        #df = index | time | value 
+
+        #df = index | time | value
         #convert to highchart format, cpu, mem, energy (all 0, ignore)
         df['time'] = df['time'] * 1000
         series1   = [{'data': df[['time', 'value0']].values.tolist(), 'name': 'Job Queue Length'}]
@@ -333,8 +334,8 @@ class SLURMMonitorUI(object):
         h = open(htmlTemp).read()%{
                                    'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
-                                   'series1': series1, 'title1': 'Cluster Job Queue Length', 'xlabel1': 'Queue Length', 'aseries1':[], 
-                                   'series2': series2, 'title2': 'Requested CPUs of Queued Job', 'xlabel2': 'CPUs', 'aseries2':[]} 
+                                   'series1': series1, 'title1': 'Cluster Job Queue Length', 'xlabel1': 'Queue Length', 'aseries1':[],
+                                   'series2': series2, 'title2': 'Requested CPUs of Queued Job', 'xlabel2': 'CPUs', 'aseries2':[]}
 
         return h
 
@@ -358,7 +359,7 @@ class SLURMMonitorUI(object):
                       {'data': cpu_idle,  'name': 'Idle secs'},
                       {'data': cpu_down,  'name': 'Down secs'},
                       {'data': cpu_over,  'name': 'Over secs', 'visible': False},
-                     ]  ##[{'data': [[1531147508000(ms), value]...], 'name':'userXXX'}, ...] 
+                     ]  ##[{'data': [[1531147508000(ms), value]...], 'name':'userXXX'}, ...]
 
         mem_alloc  = memDf.loc[:,['ts_ms', 'alloc_secs']].values.tolist()
         mem_down   = memDf.loc[:,['ts_ms', 'tdown_secs']].values.tolist()
@@ -371,7 +372,7 @@ class SLURMMonitorUI(object):
                       {'data': mem_idle,  'name': 'Idle secs'},
                       {'data': mem_down,  'name': 'Down secs'},
                       {'data': mem_over,  'name': 'Over secs'},
-                     ]  ##[{'data': [[1531147508, value]...], 'name':'userXXX'}, ...] 
+                     ]  ##[{'data': [[1531147508, value]...], 'name':'userXXX'}, ...]
 
         cpu_ann    = cpuDf.groupby('count').first().loc[:,['ts_ms', 'total_secs']].reset_index().values.tolist()
         mem_ann    = memDf.groupby('count').first().loc[:,['ts_ms', 'total_secs']].reset_index().values.tolist()
@@ -380,7 +381,7 @@ class SLURMMonitorUI(object):
         h = open(htmlTemp).read()%{
                                    'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
-                                   'series1': json.dumps(cpu_series), 'title1': "Cluster {}: CPU Hourly Usage".format(cluster), 'xlabel1': 'CPU core secs', 'aseries1':cpu_ann, 
+                                   'series1': json.dumps(cpu_series), 'title1': "Cluster {}: CPU Hourly Usage".format(cluster), 'xlabel1': 'CPU core secs', 'aseries1':cpu_ann,
                                    'series2': mem_series, 'title2': 'Cluster {}: Mem Hourly Usage'.format(cluster), 'xlabel2': 'MEM MB secs',   'aseries2':mem_ann}
 
         return h
@@ -396,9 +397,9 @@ class SLURMMonitorUI(object):
     def getSummaryTableData_1(self, gpudata, gpu_jid2data=None):
         lst_lst = self.getSummaryTableData (self.monData.data, self.monData.currJobs, self.monData.node2jids, self.monData.pyslurmNodes, gpudata, gpu_jid2data)
         # in self.monData.currJobs, if gpus_allocated, then get the value
-        # gpudata[gpu_name][node_name]   
+        # gpudata[gpu_name][node_name]
         return [dict(zip(config.SUMMARY_TABLE_COL, lst)) for lst in lst_lst]
-            
+
     def getSummaryTableData(self, hostData, jobData, node2jobs, pyslurmNode, gpudata=None, gpu_jid2data=None):
         result    = []
         for node, nodeInfo in sorted(hostData.items()):
@@ -408,7 +409,7 @@ class SLURMMonitorUI(object):
 
             node_mem_M = pyslurmNode[node]['real_memory']
             if len(nodeInfo) < USER_INFO_IDX:
-               logger.error("getSummaryTableData nodeInfo wrong format {}:{}".format(node, nodeInfo)) 
+               logger.error("getSummaryTableData nodeInfo wrong format {}:{}".format(node, nodeInfo))
                continue
 
             #status display no extra
@@ -419,13 +420,13 @@ class SLURMMonitorUI(object):
                for jid in node2jobs[node]:                # for each job on the node, add one item
                   job_user    = MyTool.getUser(jobData[jid]['user_id'])
                   job_coreCnt = jobData[jid]['cpus_allocated'][node]
-                  job_runTime = int(ts)-jobData[jid]['start_time'] 
+                  job_runTime = int(ts)-jobData[jid]['start_time']
                   if job_runTime < 0:
                      logger.warning("job {} rumTime <0 {}-{}".format(jid, ts, jobData[jid]['start_time']))
                   # check job proc information
                   job_cpuUtil, job_rss, job_vms, job_iobyteps, job_procCnt, job_fds = self.monData.getJobUsageOnNode(jid, jobData[jid], node, nodeInfo)
                   if job_procCnt and (job_runTime>0):     # has proc information
-                     job_avg_cpu = self.monData.getJobNodeTotalCPUTime(jid, node) / job_runTime if jobData[jid]['start_time'] > 0 else 0 
+                     job_avg_cpu = self.monData.getJobNodeTotalCPUTime(jid, node) / job_runTime if jobData[jid]['start_time'] > 0 else 0
                      job_info    = [node, status, delay, node_mem_M, jid, job_user, job_coreCnt, job_runTime, job_procCnt, job_cpuUtil, job_avg_cpu, job_rss, job_vms, job_iobyteps, job_fds]
                   else:
                      job_info    = [node, status, delay, node_mem_M, jid, job_user, job_coreCnt, job_runTime, 0,           0,           0,           0,       0,       0,            0]
@@ -439,9 +440,9 @@ class SLURMMonitorUI(object):
                   result.append(job_info)
             else:                                          # node has no allocated jobs
                result.append([node, status, delay, node_mem_M])
-                
+
         return result
-        
+
     def getJobGPUUtil_node (self, job, nodename, gpudata):
         if not gpudata:
            return 0
@@ -481,7 +482,7 @@ class SLURMMonitorUI(object):
             else:
                result.append([hostname, 0])
         return repr(result)
-                   
+
     # return a list of jobs with attribute long_label and disabled
     # generate jobs info {job_id, long_label, disabled}
     def getAllocJobsWithLabel (self):
@@ -499,7 +500,7 @@ class SLURMMonitorUI(object):
     def getAllocUsersWithLabel (self):
         users_dict = defaultdict(list)
         for jid, jobinfo in self.monData.currJobs.items():
-            if jobinfo['tres_alloc_str']: 
+            if jobinfo['tres_alloc_str']:
                users_dict[jobinfo['user']].append (jid)
         users      = []
         for user, jobs in sorted(users_dict.items()):
@@ -511,7 +512,7 @@ class SLURMMonitorUI(object):
     def getHeatMapSetting (self):
         settings = config.getSettings()
         return settings["heatmap_avg"], settings["heatmap_weight"]
-        
+
         #if 'user' in cherrypy.session:
         #   return cherrypy.session["settings"]["heatmap_avg"], cherrypy.session["settings"]["heatmap_weight"]
         #else:
@@ -534,7 +535,7 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def utilHeatmap(self, **args):
-        if not self.monData.hasData(): 
+        if not self.monData.hasData():
            return self.getNoDataPage ('Host Utilization Heatmap', 'utilHeatmap')
 
         avg_minute, weight   = self.getHeatMapSetting()
@@ -542,38 +543,55 @@ class SLURMMonitorUI(object):
         logger.info ("gpu_nodes={}".format(gpu_nodes))
         gpu_ts, gpudata      = BrightRestClient().getAllGPUAvg (gpu_nodes, minutes=avg_minute["gpu"], max_gpu_cnt=max_gpu_cnt)
         workers,jobs,users   = self.getHeatmapData (gpudata, weight, avg_minute["cpu"])
-        
+
         htmltemp = os.path.join(config.APP_DIR, 'heatmap.html')
         h        = open(htmltemp).read()%{'update_time': MyTool.getTsString(self.monData.updateTS),
-                                          'data1'      : json.dumps(workers), 
-                                          'data2'      : json.dumps(jobs), 
-                                          'users'      : json.dumps(users), 
+                                          'data1'      : json.dumps(workers),
+                                          'data2'      : json.dumps(jobs),
+                                          'users'      : json.dumps(users),
                                           'gpu'        : json.dumps(gpudata),
                                           'gpu_update_time' : MyTool.getTsString(gpu_ts),
                                           'gpu_avg_minute'  : json.dumps(avg_minute["gpu"])}
- 
-        return h 
+
+        return h
 
     @cherrypy.expose
     def report(self, page=None):
         htmltemp = os.path.join(config.APP_DIR, 'report.html')
         h = open(htmltemp).read()
- 
+
         return h
 
     @cherrypy.expose
     def getHeader(self, page=None):
-        pages =["index",           "utilHeatmap", "pending",      "sunburst",       "usageGraph", "tymor2", "bulletinboard", "report", "inputSearch", "settings", "forecast"]
-        titles=["Tabular Summary", "Host Util.",  "Pending Jobs", "Sunburst Graph", "File Usage","Tymor", "Bulletin Board", "Report", "Search", "Settings", "Forecast"]
- 
-        result=""
+        pages =["index", "utilHeatmap", "pending", "sunburst", "usageGraph", "tymor2", "bulletinboard", "report",   "forecast", "settings"]
+        titles=["Summary", "Host Util.",  "Pending Jobs", "Sunburst Graph", "File Usage","Tymor", "Bulletin Board", "Report", "Forecast", "Settings"]
+        result='<ul class="nav__inner">'
+
         for i in range (len(pages)):
            if ( pages[i] == page ):
-              result += '<button class="tablinks active"><a href="/' + pages[i] + '">' + titles[i] + '</a></button>'
+              result += '<li class="nav__item nav__item--active"><a class="nav__link" href="/' + pages[i] + '">' + titles[i] + '</a></li>'
            else:
-              result += '<button class="tablinks"><a href="/' + pages[i] + '">' + titles[i] + '</a></button>'
+              result += '<li class="nav__item"><a class="nav__link" href="/' + pages[i] + '">' + titles[i] + '</a></li>'
+
+        if ( page == "inputSearch"):
+            result += '<li class="nav__item nav__item--active nav__item--search"><a class="nav__link nav__link--search" href="/inputSearch"></a></li></ul>'
+        else:
+            result += '<li class="nav__item nav__item nav__item--search"><a class="nav__link nav__link--search" href="/inputSearch"></a></li></ul>'
 
         return result
+
+    @cherrypy.expose
+    def getBreadcrumbs(self, path=None):
+        crumbs='<a href="/" class="crumb hero__title--crumb">Home</a>'
+        # TODO: Add function to parse worker and job route
+
+        # splitPath=path.split('/')
+        # for i in range (len(splitPath)):
+        #     crumbs += '<a href="/" class="crumb">' + i + '</a>'
+
+        return crumbs
+
 
     def getSummaryColumn (self):
         settings = config.getSettings()
@@ -581,7 +599,7 @@ class SLURMMonitorUI(object):
     def getSummaryUtilAlarm (self):
         settings = config.getSettings()
         return settings["summary_low_util"], settings["summary_high_util"]
-     
+
     @cherrypy.expose
     def index(self, **args):
         if not self.monData.hasData():
@@ -590,21 +608,21 @@ class SLURMMonitorUI(object):
         column      = [key for key, val in self.getSummaryColumn().items() if val]
         gpudata     = None
         gpu_jid2data= None
-        if 'gpu_util' in column: 
-           gpu_nodes,max_gpu_cnt   = self.monData.getCurrJobGPUNodes()   
+        if 'gpu_util' in column:
+           gpu_nodes,max_gpu_cnt   = self.monData.getCurrJobGPUNodes()
            logger.info("max_gpu_cnt={},gpu_nodes={}".format(max_gpu_cnt, gpu_nodes))
            if max_gpu_cnt:
               gpu_ts, gpudata      = BrightRestClient().getAllGPUAvg (gpu_nodes, minutes=5, max_gpu_cnt=max_gpu_cnt)
         if 'avg_gpu_util' in column:
            min_start_ts, gpu_detail= self.monData.getCurrJobGPUDetail()   #gpu_detail include job's start_time
-           minutes                 = int(int(time.time()) - min_start_ts)/60  
+           minutes                 = int(int(time.time()) - min_start_ts)/60
            gpu_ts_d, gpu_jid2data  = BrightRestClient().getAllGPUAvg_jobs(gpu_detail, minutes)
            #logger.info('---index gpudata_d={}'.format(gpu_jid2data))
         data      = self.getSummaryTableData_1 (gpudata, gpu_jid2data)
         alarms    = self.getSummaryUtilAlarm()
         user      = config.getUser()
         htmltemp  = os.path.join(config.APP_DIR, 'index.html')
-        h         = open(htmltemp).read().format(table_data =json.dumps(data), 
+        h         = open(htmltemp).read().format(table_data =json.dumps(data),
                                                  update_time=MyTool.getTsString(self.monData.updateTS),
                                                  column     =column,
                                                  alarms     =json.dumps(alarms),
@@ -631,7 +649,7 @@ class SLURMMonitorUI(object):
                       rlt[node] = gpu_ids
         return rlt, rlt_jobs
 
-    
+
 
     @cherrypy.expose
     def getLowResourceJobs (self, job_length_secs=ONE_DAY_SECS, job_width_cpus=1, job_cpu_avg_util=0.1, job_mem_util=0.3):
@@ -643,9 +661,9 @@ class SLURMMonitorUI(object):
 
     def getLongrunLowUtilJobs (self):
         low_util, low_gpu, low_mem, long_period, job_width = self.getLUJSettings()
-        long_period       = long_period * 3600          # hours -> seconds       
-        
-        return self.monData.getCurrLUJobs (low_util, long_period, job_width, low_mem) 
+        long_period       = long_period * 3600          # hours -> seconds
+
+        return self.monData.getCurrLUJobs (low_util, long_period, job_width, low_mem)
 
     @cherrypy.expose
     def getUnbalancedJobs (self, job_cpu_avg_util=0.1, job_mem_util=0.3, job_io_bps=1000000):
@@ -667,7 +685,7 @@ class SLURMMonitorUI(object):
     def getUnbalLoadJobs (self, cpu_stdev, rss_stdev, io_stdev):
         cpu_stdev, rss_stdev, io_stdev = int(cpu_stdev), int(rss_stdev), int(io_stdev)
         self.calculateStat (self.monData.currJobs, self.data)
-        sel_jobs = [(jid, job) for jid, job in self.monData.currJobs.items() 
+        sel_jobs = [(jid, job) for jid, job in self.monData.currJobs.items()
                          if (job['node_cpu_stdev']>cpu_stdev) or (job['node_rss_stdev']>rss_stdev) or (job['node_io_stdev']>io_stdev)]
         return json.dumps ([self.monData.updateTS, dict(sel_jobs)])
 
@@ -713,7 +731,7 @@ class SLURMMonitorUI(object):
         t = '<table class="slurminfo"><tbody><tr>'
         for th in titles: t += '<th>{}</th>'.format(th)
         t += '</tr>'
-        
+
         jid2info = defaultdict(list)
         for l in d.splitlines():
             if not l: continue
@@ -762,13 +780,13 @@ class SLURMMonitorUI(object):
         # click from File Usage
         start, stop   = MyTool.getStartStopTS (start, stop, '%Y-%m-%d', int(days))
         fc_seq,bc_seq = fs2hc.gendata_user(user, start, stop)
-        
+
         htmlTemp = os.path.join(config.APP_DIR, 'userFile.html')
         h        = open(htmlTemp).read()%{
                                    'start':   time.strftime(DATE_DISPLAY_FORMAT, time.localtime(start)),
                                    'stop':    time.strftime(DATE_DISPLAY_FORMAT, time.localtime(stop)),
                                    'spec_title': user,
-                                   'series1': json.dumps(fc_seq),   
+                                   'series1': json.dumps(fc_seq),
                                    'series2': json.dumps(bc_seq)}
         return h
 
@@ -777,16 +795,16 @@ class SLURMMonitorUI(object):
         start, stop  = MyTool.getStartStopTS (start, stop, '%Y-%m-%d')
         fcSer, bcSer = fs2hc.gendata_all(fs, start, stop, int(top))
         if not fcSer:
-           return EMPTYDATA_MSG 
+           return EMPTYDATA_MSG
 
         start        = fcSer[0]['data'][0][0]/1000
         stop         = fcSer[0]['data'][-1][0]/1000
-    
+
         htmlTemp = os.path.join(config.APP_DIR, 'seriesHC.html')
         h        = open(htmlTemp).read()%{
                                    'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
-                                   'series1': json.dumps(fcSer), 'title1': 'File count daily report', 'xlabel1': 'File Count', 'aseries1':[], 
+                                   'series1': json.dumps(fcSer), 'title1': 'File count daily report', 'xlabel1': 'File Count', 'aseries1':[],
                                    'series2': json.dumps(bcSer), 'title2': 'Byte count daily report', 'xlabel2': 'Byte Count',   'aseries2':[]}
         return h
 
@@ -794,7 +812,7 @@ class SLURMMonitorUI(object):
     def nodeGraph(self, node,start='', stop=''):
         start, stop = MyTool.getStartStopTS (start, stop, formatStr='%Y-%m-%d')
         logger.info("start={},stop={}".format(MyTool.getTsString(start), MyTool.getTsString(stop)))
-        
+
         msg = self.nodeGraph_cache(node, start, stop)
         note  = 'cache'
         if not msg:
@@ -813,7 +831,7 @@ class SLURMMonitorUI(object):
             for seq in msg[idx]:
                 dict_ms = [ [ts*1000, value] for ts,value in seq['data']]
                 seq['data'] = dict_ms
-        
+
         if len(msg)==6: #from cache or influx, 'first_ts', 'last_ts', cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes
            htmltemp = os.path.join(config.APP_DIR, 'nodeGraph.html')
            h = open(htmltemp).read()%{'spec_title': ' of {}'.format(node),
@@ -834,7 +852,7 @@ class SLURMMonitorUI(object):
                                    'mseries'   : msg[3],
                                    'iseries_rw': msg[4]}
         return h
-  
+
     def nodeGraph_cache(self, node, start, stop):
         nodeInfo, cpu_all_nodes, mem_all_nodes, io_all_nodes = self.monData.inMemCache.queryNode(node, start, stop)
         if nodeInfo:
@@ -851,7 +869,7 @@ class SLURMMonitorUI(object):
            return None
 
         cpu_series,mem_series,io_series_r,io_series_w = [],[],[],[]
-                                                 ##[{'data': [[1531147508000, value]...], 'name':'userXXX'}, ...] 
+                                                 ##[{'data': [[1531147508000, value]...], 'name':'userXXX'}, ...]
         for uid, d in uid2seq.items():
             uname = MyTool.getUser(uid)
             cpu_series.append  ({'name': uname, 'data':[[ts, d[ts][0]] for ts in d.keys()]})
@@ -884,12 +902,12 @@ class SLURMMonitorUI(object):
            nodeDisplay['alloc_gpus']   = nodeData['alloc_gpus']
         if nodeData['jobProc']:
            nodeDisplay['running_jobs'] = list(nodeData['jobProc'].keys())
-    
+
         nodeReport  = SlurmCmdQuery.sacct_getNodeReport(node, days=3)
         array_het_jids = [ job['JobID'] for job in nodeReport if '_' in job['JobID'] or '+' in job['JobID']]
 
         htmlTemp   = os.path.join(config.APP_DIR, 'nodeDetail.html')
-        htmlStr    = open(htmlTemp).read().format(update_time      = MyTool.getTsString(nodeData['updateTS']), 
+        htmlStr    = open(htmlTemp).read().format(update_time      = MyTool.getTsString(nodeData['updateTS']),
                                                   node_name        = node,
                                                   node_data        = nodeData,
                                                   node_display_data= json.dumps(nodeDisplay),
@@ -902,7 +920,7 @@ class SLURMMonitorUI(object):
         uid            = MyTool.getUid(user)
         if not uid:
            return 'Cannot find uid of user {}!'.format(user)
-           
+
         userAssoc      = SlurmCmdQuery.getUserAssoc(user)
         ins            = SlurmEntities.SlurmEntities()
         userjob        = ins.getUserJobsByState (uid)  # can also get from sacct -u user -s 'RUNNING, PENDING'
@@ -913,7 +931,7 @@ class SLURMMonitorUI(object):
         if self.monData.hasData():
            note       = ''
            userworker = self.getUserNodeData(user)
-           core_cnt   = sum([val[0] for val in userworker.values()]) 
+           core_cnt   = sum([val[0] for val in userworker.values()])
            proc_cnt   = sum([val[1] for val in userworker.values()])
         else:
            note       = 'Note: {}'.format(self.data)
@@ -933,14 +951,14 @@ class SLURMMonitorUI(object):
         userAssoc['alloc_nodes']= sum([t['node'] for t in tres_alloc])
         userAssoc['alloc_gpus'] = sum([t.get('gres/gpu',0) for t in tres_alloc])
         userAssoc['alloc_mem']  = MyTool.sumOfListWithUnit([t['mem']  for t in tres_alloc if 'mem' in t])
-               
+
         htmlTemp   = os.path.join(config.APP_DIR, 'userDetail.html')
         htmlStr    = open(htmlTemp).read().format(user        =MyTool.getUserFullName(uid),
-                                                  uname       =user, 
+                                                  uname       =user,
                                                   user_assoc  = userAssoc,
                                                   update_time = MyTool.getTsString(ins.ts_job_dict),
                                                   running_jobs=json.dumps(running_jobs),
-                                                  pending_jobs=json.dumps(pending_jobs), 
+                                                  pending_jobs=json.dumps(pending_jobs),
                                                   worker_proc =json.dumps(userworker), note=note,
                                                   part_info   =json.dumps(part),
                                                   array_het_jids=array_het_jids, job_history=past_job, day_cnt = days)
@@ -948,7 +966,7 @@ class SLURMMonitorUI(object):
         # Currently, running jobs & pending jobs of the user processes in the worker nodes
         # Future, QoS and resource restriction
         # Past,   finished or cancelled jobs for the last 3 days
-        
+
     #return dict (workername, workerinfo)
     def getUserNodeData (self, user):
         if type(self.data) == str: return {} # error of some sort.
@@ -977,7 +995,7 @@ class SLURMMonitorUI(object):
         htmlStr    = open(htmlTemp).read().format(job_name=name, job_cnt=total_cnt, job_list=data, job_title=d_flds)
         return htmlStr
         #return '{}\n{}'.format(fields, data)
-        
+
     @cherrypy.expose
     def userGPUGraph (self, user):
         uid                     = MyTool.getUid (user)
@@ -1049,7 +1067,7 @@ class SLURMMonitorUI(object):
             worker2proc[node]=[0,len(procs),0,0,0,[],0]  #[alloc_core_cnt, proc_cnt, total_cpu, t_rss, t_vms, rlt_procs, t_io]
             for proc in procs:
                 worker2proc[node][5].append([proc['pid'], '{:.2f}'.format(proc['avg_util']), MyTool.getDisplayKB(proc.get('mem_rss_K',0)), MyTool.getDisplayKB(proc.get('mem_vms_K',0)), MyTool.getDisplayBps(proc.get('avg_io',0)), proc['cmdline']])
-  
+
         return ['PID', 'Avg CPU Util', 'RSS',  'VMS', 'IO Rate', 'Command'], worker2proc
 
     @cherrypy.expose
@@ -1081,10 +1099,10 @@ class SLURMMonitorUI(object):
                  msg_note = self.getWaitMsg()
               else: # should in the data
                  ts                           = self.monData.updateTS
-                 proc_disp_field, worker2proc = self.monData.getJobProc (jid)        
+                 proc_disp_field, worker2proc = self.monData.getJobProc (jid)
                  if not worker2proc:
                     msg_note = "Cannot find Job {} in the current data".format(jid)
-                 else: 
+                 else:
                     if len(worker2proc) != int(job_report['AllocNodes']):
                        msg_note='WARNING: Job {} is running on {} nodes, which is less than {} allocated nodes.'.format(jid, len(worker2proc), job_report['AllocNodes'])
         job_report['ArrayJobID']         = job_report['JobID'] if '_' in job_report['JobID'] else None
@@ -1095,16 +1113,16 @@ class SLURMMonitorUI(object):
            job['HeterogeneousJobID']     = job_report['HeterogeneousJobID']
 
         #grafana_url = 'http://mon8:3000/d/jYgoAfiWz/yanbin-slurm-node-util?orgId=1&from={}{}&var-jobID={}&theme=light'.format(start*1000, '&var-hostname=' + '&var-hostname='.join(MyTool.nl2flat(job_report['NodeList'])), jid)
-       
+
         htmlTemp   = os.path.join(config.APP_DIR, 'jobDetail.html')
-        htmlStr    = open(htmlTemp).read().format(job_id     =jid, 
-                                                  job_name   =job_name, 
+        htmlStr    = open(htmlTemp).read().format(job_id     =jid,
+                                                  job_name   =job_name,
                                                   update_time=datetime.datetime.fromtimestamp(ts).ctime(),
                                                   job        =json.dumps(job),
-                                                  job_info   =json.dumps(job_report), 
+                                                  job_info   =json.dumps(job_report),
                                                   title_list =proc_disp_field,
                                                   proc_cnt   =sum([val[1] for val in worker2proc.values()]),
-                                                  worker_proc=json.dumps(worker2proc), 
+                                                  worker_proc=json.dumps(worker2proc),
                                                   note       =msg_note,
                                                   job_report =json.dumps(jobstep_report))
         return htmlStr
@@ -1129,10 +1147,10 @@ class SLURMMonitorUI(object):
         k = list(zip(zqos, zcpus))
         for (x,y) in k:
             if x in d:
-                d[x] = d[x] + y 
+                d[x] = d[x] + y
             else:
                 d[x] = y
-        
+
         #1 Getting the data in the right form for the job view. Selfdata is the node information, we want to
         #turn the complicated nested lists into something simple
         more_data      ={i:selfdata[i] for i in selfdata if len(selfdata[i]) > USER_INFO_IDX}
@@ -1141,7 +1159,7 @@ class SLURMMonitorUI(object):
         idle_data2     ={i:more_data[i] for i in (set(more_data)-set(more_data_clean))}
         less_data      =dict(idle_data1,**idle_data2)
         selfdata_dict  =dict(more_data_clean,**less_data)
-        
+
         #this appends a dictionary for all of the node information to the job dataset
         for jid, jinfo in data.items():
             x  = [node for node, coreCount in jinfo.get(u'cpus_allocated').items()]
@@ -1163,11 +1181,11 @@ class SLURMMonitorUI(object):
             data_dash[n]['list_RSS']      =[v['node_info'][i][8] for i in nodes if len(v['node_info'][i])>=7]
             data_dash[n]['list_VMS']      =[v['node_info'][i][9] for i in nodes if len(v['node_info'][i])>=7]
             data_dash[n]['list_core_load_diff']=[round(v['node_info'][i][5] -v['node_info'][i][7],3) for i in nodes if len(v['node_info'][i])>=7]
-                
+
         t = '''
 <thead><tr><th>JobID</th><th>UserID</th><th>Nodes</th><th>CPUs</th><th>List_load_stndrd</th><th>List_load_diff_stndrd</th><th>List_VMS_stndrd</th><th>List_RSS_stndrd</th></tr></thead>
 <tbody id="tbody-sparkline">
-''' 
+'''
         t2 = '''
 <thead><tr><th>JobID</th><th>UserID</th><th>Nodes</th><th>CPUs</th><th>List_load</th><th>List_core_load_diff</th><th>List_VMS</th><th>List_RSS</th></tr></thead><tbody id="tbody-sparkline">
 '''
@@ -1218,26 +1236,26 @@ class SLURMMonitorUI(object):
 /><td data-sparkline="%s"/><td class="categories" style="display:none;">%s</td></tr>\n'%(cherrypy.request.base,jid,jid,cherrypy.request.base,uid,uid,nodes,num_cpus,list_load,list_core_load_diff,list_VMS,list_RSS,list_nodes)
 
         t  += '</tbody>\n<a href="%s/tymor?refresh=1">&#8635</a>\n'%cherrypy.request.base
-        t2 += '</tbody>\n<a href="%s/tymor?refresh=1">&#8635</a>\n'%cherrypy.request.base        
+        t2 += '</tbody>\n<a href="%s/tymor?refresh=1">&#8635</a>\n'%cherrypy.request.base
 
         htmlTemp = os.path.join(config.APP_DIR, 'sparkline.html')
         h        = open(htmlTemp).read()%{'tablespark' : t, 'tablespark2' : t2 }
-        
+
         return h
-    
+
     @cherrypy.expose
     def tymor2(self,**args):
-        if not self.monData.hasData(): 
+        if not self.monData.hasData():
            return self.getNoDataPage('Tymor', 'tymor2') # error of some sort.
 
         selfdata_o = self.monData.data
         data_o     = self.monData.currJobs
         selfdata   = {k:v for k,v in selfdata_o.items()}
         data       = {k:v for k,v in data_o.items()}
-        #1: bar chart/pie chart data- this aggregates the node states, could also do for summing aggregate load,RSS,VMS                                                              
+        #1: bar chart/pie chart data- this aggregates the node states, could also do for summing aggregate load,RSS,VMS
         x=[selfdata[j][0] for j in list(selfdata)]
         y={i:x.count(i) for i in set(x)}
-        #2:QOS bars: (table of nodes/cores by qos (i.e. ccb, cca, ))                                                                                                                 
+        #2:QOS bars: (table of nodes/cores by qos (i.e. ccb, cca, ))
         zqos  =[data[x][u'qos'] for x in list(data)]
         zcpus =[data[x][u'num_cpus'] for x in list(data)]
         znodes=[data[x][u'num_nodes'] for x in list(data)]
@@ -1249,9 +1267,9 @@ class SLURMMonitorUI(object):
             else:
                 d[x] = y
 
-        #1 Getting the data in the right form for the job view. Selfdata is the node information, we want to                                                                        
-        #turn the complicated nested lists into something simple  
-        
+        #1 Getting the data in the right form for the job view. Selfdata is the node information, we want to
+        #turn the complicated nested lists into something simple
+
         more_data={i:selfdata[i] for i in selfdata if len(selfdata[i]) > USER_INFO_IDX}
         more_data_clean={i:more_data[i][0:USER_INFO_IDX]+ more_data[i][j][0:7] for i in more_data for j in range(USER_INFO_IDX,len(more_data[i])) if more_data[i][j][2]>=0 }
         idle_data1={i:selfdata[i][0:USER_INFO_IDX] for i in selfdata if len(selfdata[i])<=USER_INFO_IDX}
@@ -1281,9 +1299,9 @@ class SLURMMonitorUI(object):
             data_dash[n]['list_VMS']=[v['node_info'][i][9] for i in nodes if len(v['node_info'][i])>=7]
             data_dash[n]['list_core_load_diff']=[round(v['node_info'][i][5] -v['node_info'][i][7],3) for i in nodes if len(v['node_info'][i])>=7]
 
-        t = '''                                                                                                                                                                      <thead><tr><th>JobID</th><th>UserID</th><th>Nodes</th><th>CPUs</th><th>List_load_stndrd</th><th>List_load_diff_stndrd</th><th>List_VMS_stndrd</th><th>List_RSS_stndrd</th></tr></thead><tbody id="tbody-sparkline">                                                                                               
+        t = '''                                                                                                                                                                      <thead><tr><th>JobID</th><th>UserID</th><th>Nodes</th><th>CPUs</th><th>List_load_stndrd</th><th>List_load_diff_stndrd</th><th>List_VMS_stndrd</th><th>List_RSS_stndrd</th></tr></thead><tbody id="tbody-sparkline">
         '''
-        t2 = '''                                                                                                                                                                     <thead><tr><th>JobID</th><th>UserID</th><th>Nodes</th><th>CPUs</th><th>List_load</th><th>List_core_load_diff</th><th>List_VMS</th><th>List_RSS</th></tr></thead><tbody id="tbody-sparkline">                                                                                                                                                                           
+        t2 = '''                                                                                                                                                                     <thead><tr><th>JobID</th><th>UserID</th><th>Nodes</th><th>CPUs</th><th>List_load</th><th>List_core_load_diff</th><th>List_VMS</th><th>List_RSS</th></tr></thead><tbody id="tbody-sparkline">
         '''
 
         list_nodes=[data_dash[i]['list_nodes'] for i in data_dash]
@@ -1310,7 +1328,7 @@ class SLURMMonitorUI(object):
             data_dash[n]['RSS_stndrd']=[round((v['list_RSS'][i]-RSS_mean)/RSS_sd,3) for i in range(len(v['list_RSS']))]
             data_dash[n]['VMS_stndrd']=[round((v['list_VMS'][i]-VMS_mean)/VMS_sd,3) for i in range(len(v['list_VMS']))]
             data_dash[n]['load_diff_stndrd']=[round((v['list_core_load_diff'][i]-load_diff_mean)/load_diff_sd,3) for i in range(len(v['list_core_load_diff']))]
-        
+
         for i in data_dash:
             jid=data_dash[i][u'job_id']
             uid=data_dash[i]['username']
@@ -1390,7 +1408,7 @@ class SLURMMonitorUI(object):
 
         start    = job['start_time']
         stop     = job['end_time'] if job['end_time'] else int(time.time())
-        nodelist = MyTool.nl2flat(job['nodes']) 
+        nodelist = MyTool.nl2flat(job['nodes'])
         hostData = IndexedHostData(self.config["fileStorage"]["dir"])
         cpu_all_seq, mem_all_seq, io_all_seq = hostData.queryDataHosts(nodelist, job['start_time'], stop, job['user'])
         if (not cpu_all_seq) and (not mem_all_seq) and (not mem_all_seq):
@@ -1405,10 +1423,10 @@ class SLURMMonitorUI(object):
         if not node2seq:
            return None
 
-        mem_all_nodes  = []  ##[{'data': [[1531147508(s), value]...], 'name':'workerXXX'}, ...] 
-        cpu_all_nodes  = []  ##[{'data': [[1531147508, value]...], 'name':'workerXXX'}, ...] 
-        io_r_all_nodes = []  ##[{'data': [[1531147508, value]...], 'name':'workerXXX'}, ...] 
-        io_w_all_nodes = []  ##[{'data': [[1531147508, value]...], 'name':'workerXXX'}, ...] 
+        mem_all_nodes  = []  ##[{'data': [[1531147508(s), value]...], 'name':'workerXXX'}, ...]
+        cpu_all_nodes  = []  ##[{'data': [[1531147508, value]...], 'name':'workerXXX'}, ...]
+        io_r_all_nodes = []  ##[{'data': [[1531147508, value]...], 'name':'workerXXX'}, ...]
+        io_w_all_nodes = []  ##[{'data': [[1531147508, value]...], 'name':'workerXXX'}, ...]
         for hostname, hostdict in node2seq.items():
             cpu_all_nodes.append  ({'name': hostname, 'data': [[ts, hostdict[ts][0]] for ts in hostdict.keys()]})
             mem_all_nodes.append  ({'name': hostname, 'data': [[ts, hostdict[ts][1]] for ts in hostdict.keys()]})
@@ -1420,13 +1438,13 @@ class SLURMMonitorUI(object):
         jobid       = int(jobid)
         job, cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes= self.monData.inMemCache.queryJob(jobid)
 
-        # highcharts 
+        # highcharts
         if job:  #job is in cache
            if cpu_all_nodes and cpu_all_nodes[0]['data']:
               start = min([n['data'][0][0]  for n in cpu_all_nodes if n['data']])
               stop  = max([n['data'][-1][0] for n in cpu_all_nodes if n['data']])
-           
-              if start - job['submit_time'] < 120: # tolerate 120 seoconds  
+
+              if start - job['submit_time'] < 120: # tolerate 120 seoconds
                  return start, stop, cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes
               else:
                  logger.warning("jobGraph_cache: job {} data in cache is not complete ({} << {})".format(jobid, job['submit_time'], start))
@@ -1448,7 +1466,7 @@ class SLURMMonitorUI(object):
         if not seq:
            return None
 
-        cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes  = [],[],[],[]  ##[{'data': [[1531147508, value]...], 'name':'workerXXX'}, ...] 
+        cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes  = [],[],[],[]  ##[{'data': [[1531147508, value]...], 'name':'workerXXX'}, ...]
         for pid, pidSeq in seq.items():
             if start and (start < first):
                pidSeq.insert(0, (start, 0, 0, 0, 0))
@@ -1473,7 +1491,7 @@ class SLURMMonitorUI(object):
         series  = []
         for node_gpu,s in data.items():
             series.append({'name':node_gpu, 'data':s})
-            
+
         #start   = min([item['data'][0][0] for item in data['data']])
         #stop    = max([item['data'][-1][0] for item in data['data']])
         #series  = data['data']       # [{name:, data:[[ts,val]],}]
@@ -1532,7 +1550,7 @@ class SLURMMonitorUI(object):
             return None, None, None
         start = min([j['start_time'] for j in jobs])  #curr jobs always have start_time
 
-        # get nodes and period, 
+        # get nodes and period,
         # get the utilization of each jobs
         #queryClient = InfluxQueryClient.getClientInstance()
         ifxClient = InfluxQueryClient(self.config['influxdb']['host'])
@@ -1562,13 +1580,13 @@ class SLURMMonitorUI(object):
             # take the averge of time and value
             sumDf['time'] = sumDf['time']/sumDf['count']
             #print ("sumDf=" + repr(sumDf.head()))
-                
+
             jid          = job['job_id']
             jid2df[jid]  = sumDf
             jid2dsc[jid] = '{} ({}, {} CPUs)'.format(jid, job['nodes'], job['num_cpus'])
             logger.info('getUserJobMeasurement reconstruct result takes {}'.format(time.time()-t1))
         return start, jid2df, jid2dsc
-                
+
     def getWaitMsg (self):
         elapse_time = (int)(time.time() - self.startTime)
         return WAIT_MSG + repr(elapse_time) + " seconds since server restarted."
@@ -1581,7 +1599,7 @@ class SLURMMonitorUI(object):
         uid                      = MyTool.getUid(user)
         start, jid2df, jid2dsc   = self.getUserJobMeasurement (uid)
         if not jid2df:          return "User does not have running jobs at this time"
-      
+
         #{'name': jid, 'data':[[ts, value], ...]
         series       = {'cpu':[], 'mem':[], 'io':[]}
         for jid, df in jid2df.items():
@@ -1591,7 +1609,7 @@ class SLURMMonitorUI(object):
             series['cpu'].append({'name': jid2dsc[jid], 'data':df[['time','cpu_time']].values.tolist()})
             series['mem'].append({'name': jid2dsc[jid], 'data':df[['time','mem_rss_K']].values.tolist()})
             series['io'].append ({'name': jid2dsc[jid], 'data':df[['time','io_bytes']].values.tolist()})
-        
+
         #if len(msg)==6:
         htmltemp = os.path.join(config.APP_DIR, 'nodeGraph_2.html')
         h        = open(htmltemp).read()%{'spec_title': ' of user {}'.format(user),
@@ -1709,12 +1727,12 @@ class SLURMMonitorUI(object):
         qos_relax  = SE_ins.relaxQoS()   # {uid:suggestion}
         qos_relax  = [ {'user':MyTool.getUser(uid), 'msg':s} for uid,s in qos_relax.items()]
         other      = self.monData.inMemLog.getAllLogs () #[{'source':'', 'ts':'','msg':''}]
-        
+
         htmlTemp   = os.path.join(config.APP_DIR, 'bulletinboard.html')
-        htmlStr    = open(htmlTemp).read().format(low_util    =json.dumps(msgs),       
+        htmlStr    = open(htmlTemp).read().format(low_util    =json.dumps(msgs),
                                                   low_util_ts =low_util_ts,
                                                   low_node    =json.dumps(low_nodes),
-                                                  qos_relax   =json.dumps(qos_relax), 
+                                                  qos_relax   =json.dumps(qos_relax),
                                                   qos_relax_ts=MyTool.getTsString(SE_ins.ts_job_dict),
                                                   other       =other)
         return htmlStr
@@ -1750,7 +1768,7 @@ if __name__=="__main__":
    cherrypy.config.update({#'log.access_file':    '/tmp/slurm_util/smcpgraph-html-sun.log',
                            'log.screen':         True,
                            'tools.sessions.on':              True,
-                           'server.socket_host': '0.0.0.0', 
+                           'server.socket_host': '0.0.0.0',
                            'server.socket_port': 8128})
    conf = {
     '/static': {

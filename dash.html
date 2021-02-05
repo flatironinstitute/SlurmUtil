@@ -1,210 +1,206 @@
-<!doctype html>
-<meta charset="utf-8">
-<html>
-    <head>
-      <script src="http://www.d3plus.org/js/d3.js"></script>
-      <script src="http://www.d3plus.org/js/d3plus.js"></script>
-    </head>
-    <style>
-    
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<html lang="en">
+  <head>
+    <script src="http://www.d3plus.org/js/d3.js"></script>
+    <script src="http://www.d3plus.org/js/d3plus.js"></script>
+  </head>
+  <style>
     #viz1 {
-     width: 500px;
-     height: 300px;
-     border: 1px solid green;
-     float: left;
-     margin: 5px;
+      width: 500px;
+      height: 300px;
+      border: 1px solid green;
+      float: left;
+      margin: 5px;
     }
 
     #viz2 {
-     width: 500px;
-     height: 300px;
-     border: 1px solid green;
-     float: left;
-     margin: 5px;
+      width: 500px;
+      height: 300px;
+      border: 1px solid green;
+      float: left;
+      margin: 5px;
     }
 
     #viz3 {
-     width: 500px;
-     height: 300px;
-     border: 1px solid green;
-     float: left;
-     margin: 5px;
+      width: 500px;
+      height: 300px;
+      border: 1px solid green;
+      float: left;
+      margin: 5px;
     }
     #viz4 {
-     width: 500px;
-     height: 300px;
-     border: 1px solid green;
-     float: left;
-     margin: 5px;
+      width: 500px;
+      height: 300px;
+      border: 1px solid green;
+      float: left;
+      margin: 5px;
     }
-    
-    </style> 
-    <body>
-      <div id="viz1"></div>
-      <div id="viz2"></div>
-      <div id="viz3"></div>
-      <div id="viz4"></div>
+  </style>
+  <body>
+    <div id="viz1"></div>
+    <div id="viz2"></div>
+    <div id="viz3"></div>
+    <div id="viz4"></div>
 
-      <script type="text/javascript">
-	var data1 = %(data1)s 
-	var data2 = %(data2)s  
-	var data3 = %(data3)s
+    <script type="text/javascript">
+      	var data1 = %(data1)s
+      	var data2 = %(data2)s
+      	var data3 = %(data3)s
 
-	function RemoveLastDirectoryPartOf(the_url){
-	var the_arr = the_url.split('/');
-	the_arr.pop();
-	return( the_arr.join('/') );
-	}	
+      	function RemoveLastDirectoryPartOf(the_url){
+      	var the_arr = the_url.split('/');
+      	the_arr.pop();
+      	return( the_arr.join('/') );
+      	}
 
-	function htmlContent(id) {
-	var url = window.location.href;
-	var base_url = RemoveLastDirectoryPartOf(url);
-	return "<a href='" + base_url + "/jobDetails?jid=" + id + "'>Click Here</a>";
-	}
-	
-	var visualization1 = d3plus.viz()
-        .container("#viz1")
-        .data(data3)
-        .type("scatter")
-        .id("job_id")
-        .tooltip({"html": htmlContent})
-        .x("run_time")
-        .color("avg_load")
-        .size("sum_vms")
-        .y("num_nodes")
-        .ui([
-          {
-            "method" : "color",
-            "type": "drop",
-            "value"  : [{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
-          },
-          {
-        "method" : "size",
-        "type": "drop",
-        "value"  : [{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum\
-_rss"}]
+      	function htmlContent(id) {
+      	var url = window.location.href;
+      	var base_url = RemoveLastDirectoryPartOf(url);
+      	return "<a href='" + base_url + "/jobDetails?jid=" + id + "'>Click Here</a>";
+      	}
 
-        },
-        {
-          "method" : "y",
-          "type": "drop",
-          "value"  : [{"num_nodes":"num_nodes"},{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
-        },
-	{
-          "method" : "x",
-          "type": "drop",
-          "value"  : [{"run_time":"run_time"},{"num_nodes":"num_nodes"},{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "m\
-ax_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
-        }
-	])
-	.draw();
+      	var visualization1 = d3plus.viz()
+              .container("#viz1")
+              .data(data3)
+              .type("scatter")
+              .id("job_id")
+              .tooltip({"html": htmlContent})
+              .x("run_time")
+              .color("avg_load")
+              .size("sum_vms")
+              .y("num_nodes")
+              .ui([
+                {
+                  "method" : "color",
+                  "type": "drop",
+                  "value"  : [{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
+                },
+                {
+              "method" : "size",
+              "type": "drop",
+              "value"  : [{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum\
+      _rss"}]
 
-	var visualization2 = d3plus.viz()
-        .container("#viz2")
-        .data(data3)
-        .type("scatter")
-        .id("job_id")
-        .tooltip({"html": htmlContent})
-        .x("run_time")
-        .color("avg_load")
-        .size("sum_vms")
-        .y("num_nodes")
-        .ui([
-          {
-            "method" : "color",
-            "type": "drop",
-            "value"  : [{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
-          },
-          {
-        "method" : "size",
-        "type": "drop",
-        "value"  : [{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
+              },
+              {
+                "method" : "y",
+                "type": "drop",
+                "value"  : [{"num_nodes":"num_nodes"},{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
+              },
+      	{
+                "method" : "x",
+                "type": "drop",
+                "value"  : [{"run_time":"run_time"},{"num_nodes":"num_nodes"},{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "m\
+      ax_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
+              }
+      	])
+      	.draw();
 
-        },
-        {
-          "method" : "y",
-          "type": "drop",
-          "value"  : [{"num_nodes":"num_nodes"},{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
-        },
-        {
-          "method" : "x",
-          "type": "drop",
-          "value"  : [{"run_time":"run_time"},{"num_nodes":"num_nodes"},{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
-        }
-        ])
-        .draw();
+      	var visualization2 = d3plus.viz()
+              .container("#viz2")
+              .data(data3)
+              .type("scatter")
+              .id("job_id")
+              .tooltip({"html": htmlContent})
+              .x("run_time")
+              .color("avg_load")
+              .size("sum_vms")
+              .y("num_nodes")
+              .ui([
+                {
+                  "method" : "color",
+                  "type": "drop",
+                  "value"  : [{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
+                },
+                {
+              "method" : "size",
+              "type": "drop",
+              "value"  : [{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
 
-	var visualization3 = d3plus.viz()
-        .container("#viz3")
-        .data(data3)
-        .type("scatter")
-        .id("job_id")
-        .tooltip({"html": htmlContent})
-        .x("run_time")
-        .color("avg_load")
-        .size("sum_vms")
-        .y("num_nodes")
-        .ui([
-          {
-            "method" : "color",
-            "type": "drop",
-            "value"  : [{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
-          },
-          {
-        "method" : "size",
-        "type": "drop",
-        "value"  : [{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
+              },
+              {
+                "method" : "y",
+                "type": "drop",
+                "value"  : [{"num_nodes":"num_nodes"},{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
+              },
+              {
+                "method" : "x",
+                "type": "drop",
+                "value"  : [{"run_time":"run_time"},{"num_nodes":"num_nodes"},{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
+              }
+              ])
+              .draw();
 
-        },
-        {
-          "method" : "y",
-          "type": "drop",
-          "value"  : [{"num_nodes":"num_nodes"},{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
-        },
-        {
-          "method" : "x",
-          "type": "drop",
-          "value"  : [{"run_time":"run_time"},{"num_nodes":"num_nodes"},{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
-        }
-        ])
-        .draw();
+      	var visualization3 = d3plus.viz()
+              .container("#viz3")
+              .data(data3)
+              .type("scatter")
+              .id("job_id")
+              .tooltip({"html": htmlContent})
+              .x("run_time")
+              .color("avg_load")
+              .size("sum_vms")
+              .y("num_nodes")
+              .ui([
+                {
+                  "method" : "color",
+                  "type": "drop",
+                  "value"  : [{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
+                },
+                {
+              "method" : "size",
+              "type": "drop",
+              "value"  : [{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
 
-	var visualization4 = d3plus.viz()
-        .container("#viz4")
-        .data(data3)
-        .type("scatter")
-        .id("job_id")
-        .tooltip({"html": htmlContent})
-        .x("run_time")
-        .color("avg_load")
-        .size("sum_vms")
-        .y("num_nodes")
-        .ui([
-          {
-            "method" : "color",
-            "type": "drop",
-            "value"  : [{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
-          },
-          {
-        "method" : "size",
-        "type": "drop",
-        "value"  : [{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
+              },
+              {
+                "method" : "y",
+                "type": "drop",
+                "value"  : [{"num_nodes":"num_nodes"},{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
+              },
+              {
+                "method" : "x",
+                "type": "drop",
+                "value"  : [{"run_time":"run_time"},{"num_nodes":"num_nodes"},{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
+              }
+              ])
+              .draw();
 
-        },
-        {
-          "method" : "y",
-          "type": "drop",
-          "value"  : [{"num_nodes":"num_nodes"},{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
-        },
-        {
-          "method" : "x",
-          "type": "drop",
-          "value"  : [{"run_time":"run_time"},{"num_nodes":"num_nodes"},{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
-        }
-        ])
-        .draw();
+      	var visualization4 = d3plus.viz()
+              .container("#viz4")
+              .data(data3)
+              .type("scatter")
+              .id("job_id")
+              .tooltip({"html": htmlContent})
+              .x("run_time")
+              .color("avg_load")
+              .size("sum_vms")
+              .y("num_nodes")
+              .ui([
+                {
+                  "method" : "color",
+                  "type": "drop",
+                  "value"  : [{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
+                },
+                {
+              "method" : "size",
+              "type": "drop",
+              "value"  : [{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
 
-      </script>
-    </body>
+              },
+              {
+                "method" : "y",
+                "type": "drop",
+                "value"  : [{"num_nodes":"num_nodes"},{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
+              },
+              {
+                "method" : "x",
+                "type": "drop",
+                "value"  : [{"run_time":"run_time"},{"num_nodes":"num_nodes"},{"avg load": "avg_load"}, {"sum load": "sum_load"},{"sum load difference": "sum_load_diff"},{"max_load": "max_load"},{"sum_vms": "sum_vms"}, {"sum_rss": "sum_rss"}]
+              }
+              ])
+              .draw();
+    </script>
+  </body>
 </html>
-

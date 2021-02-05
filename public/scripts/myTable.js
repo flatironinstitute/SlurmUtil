@@ -8,7 +8,7 @@ function getDisplayBps(n) {
 //input is nB
 function getDisplayB (n) {
    if (typeof (n) != 'Number')
-      n = parseFloat (n) 
+      n = parseFloat (n)
    if (n < 1024)
       return n.toString() + ' B'
    n /= 1024
@@ -16,15 +16,15 @@ function getDisplayB (n) {
 }
 function getDisplayI (n) {
    if (typeof (n) != 'Number')
-      n = parseFloat (n) 
+      n = parseFloat (n)
    if ( n < 1024)
-      return n.toString() 
+      return n.toString()
    n = n / 1024
    return getDisplayK(n)
 }
 function getDisplayK (n) {
    if (typeof (n) != 'Number')
-      n = parseFloat (n) 
+      n = parseFloat (n)
    if (n < 1024) {
       if (Number.isInteger(n))
          return n.toString() + ' K'
@@ -42,8 +42,8 @@ function getDisplayK (n) {
 }
 function getDisplayFloat (n) {
    if (typeof (n) != 'Number')
-      n = parseFloat (n) 
-   if (n < 1024) 
+      n = parseFloat (n)
+   if (n < 1024)
       return n.toFixed(2)
    else {
       n /= 1024
@@ -54,7 +54,7 @@ function getDisplayFloat (n) {
 function createMultiTitle (data_dict, parent_id, job_id) {
    var pas = d3.select(parent_id).selectAll('p')
                .data(Object.keys(data_dict))
-               .enter().append('div')
+               .enter().append('div').attr('class', 'section__div')
    pas.append('p')
       .attr('class', 'thick table_title')
       .html(function (d) {
@@ -104,7 +104,7 @@ function createMultiTitle2 (data_dict, parent_id, node) {
                if ( d!= 'undefined') {
                   var job = data_dict[d]["job"]
                   str += 'alloc ' + job["cpus_allocated"][node] + ' CPUs'
-                  if (("gpus_allocated" in job) && (node in job["gpus_allocated"]))  
+                  if (("gpus_allocated" in job) && (node in job["gpus_allocated"]))
                      str += ', ' + job["gpus_allocated"][node].length + ' GPUs'
                   if (data_dict[d]["procs"] != undefined)
 		     str += ', running processes ' + data_dict[d]["procs"].length +'<a href="./nodeJobProcGraph?node=' + node + '&jid=' + d + '"> (Proc Usage Graph) </a>'
@@ -150,11 +150,11 @@ function createMultiTable2 (data_dict, parent_id, table_title_list, node, type_l
          .html(function (d, i) {
                  if (type_list && type_list[i]) {
                     if (type_list[i] == 'B')
-                       return getDisplayB(d) 
+                       return getDisplayB(d)
                     else if (type_list[i] == 'Bps')
                        return getDisplayBps(d)
                     else if (type_list[i] == 'Float')
-                       return getDisplayFloat(d) 
+                       return getDisplayFloat(d)
                  }
              return d
          })
@@ -188,7 +188,7 @@ function getSummaryHtml (d, key, summary_type, sortCol)
       else if (summary_type[key] == 'total')
          return 'Total ' + d[key];
       else
-         return d[key] 
+         return d[key]
    } else {  // default set
       const firstVal = d[key].values().next().value
       if (d[key].size == 1)
@@ -220,12 +220,12 @@ function getTypedValueHtml (d_value, d_type)
       else if (d_type == 'JobList') {
                        var jids = d_value.split(" ")
                        var str  = ''
-                       for (jid of jids) 
+                       for (jid of jids)
                            str  = str + ' ' + getJobDetailHtml(jid)
                        return str }
-      else if (d_type == 'JobArray' && d_value) 
+      else if (d_type == 'JobArray' && d_value)
                        return getJobArrayDetail(d_value)
-      else if (d_type == 'JobName') 
+      else if (d_type == 'JobName')
                        return '<a href=./jobByName?name=' + d_value+'>' + d_value + '</a>'
       else if (d_type == 'JobAndStep') {
                        if ((d_value.toString().indexOf('.') == -1) && (d_value.toString().indexOf('_')==-1))   // not jobstep
@@ -233,14 +233,14 @@ function getTypedValueHtml (d_value, d_type)
                           return '<a href=./jobDetails?jid=' + d_value+'>' + d_value + '</a>'}
       else if (d_type == 'Node')
                        return getNodeDetailHtml (d_value)
-      else if (d_type == 'User') 
+      else if (d_type == 'User')
                        return '<a href=./userDetails?user=' + d_value+'>' + d_value + '</a>'
       else if (d_type == 'Float')
-           return getDisplayFloat(d_value) 
+           return getDisplayFloat(d_value)
       else if (d_type == 'BigInt')
-           return getDisplayI(d_value) 
+           return getDisplayI(d_value)
       else if (d_type == 'Byte')
-           return getDisplayI(d_value)+'B' 
+           return getDisplayI(d_value)+'B'
       else if (d_type == 'Bps')
            return getDisplayBps(d_value)
    }
@@ -250,13 +250,13 @@ function getTypedValueHtml (d_value, d_type)
 //for summary table
 function getAlarmClass (d, key, alarm_list) {
    var classes = alarm_list.flatMap(function(alarm) {
-                    if (key in alarm && (d[key] != undefined)) { 
+                    if (key in alarm && (d[key] != undefined)) {
                        var val = d[key]
                        if        (key.includes("rss") && ('node_mem_M' in d) ) {
                           val = d[key]/1024/1024/d.node_mem_M*100
                        } else if (key.includes("cpu") && ('alloc_cpus' in d) ) {
                           val = d[key]*100/d.alloc_cpus
-                       } else if (key.includes("gpu") && ('alloc_gpus' in d) ) 
+                       } else if (key.includes("gpu") && ('alloc_gpus' in d) )
                           val = d[key]*100/d.alloc_gpus
                        if ( (alarm.type == "alarm" && val>alarm[key]) || (alarm.type == "inform" && val<alarm[key]))
                           return alarm.type
@@ -281,12 +281,12 @@ function getTRHtml (d, titles_dict, type_dict) {
    return tds
 }
 
-var Summary_ALARM    =null      // a list 
+var Summary_ALARM    =null      // a list
 var Summary_TYPE_DICT=null      // a dict
 function createSummaryTable (data, titles_dict, table_id, parent_id, type_dict, summary_type, alarm_lst) {
    console.log("createSummaryTable data=", data, ",titles=", titles_dict, ",type=", type_dict, ",alarm=", alarm_lst)
    Summary_ALARM     = alarm_lst
-   Summary_TYPE_DICT = type_dict   
+   Summary_TYPE_DICT = type_dict
    data.forEach (function(d) { d.html = getTRHtml (d, titles_dict, type_dict) });
    var table = d3.select('#'+parent_id).append('table')
                                           .property('id', table_id)
@@ -294,7 +294,7 @@ function createSummaryTable (data, titles_dict, table_id, parent_id, type_dict, 
    var tbody = table.append('tbody')
    var allData = sortSummaryTable   (tbody, data, 'status', true, titles_dict, type_dict, summary_type)
    createSummaryTbody (tbody, allData, 'status', titles_dict, type_dict, summary_type)
-   createSummaryThead (table, titles_dict, tbody, data, type_dict, summary_type)          
+   createSummaryThead (table, titles_dict, tbody, data, type_dict, summary_type)
    setSummaryTableBehavior ('status', true)
 }
 
@@ -317,14 +317,14 @@ function setSummaryTableBehavior (sortCol, ascOrder) {
    $("tbody td.summary").click(function(event) {
                            var group = $(this).parent().attr('data-group')
                            var count = $(this).parent().attr('data-group-cnt')
-                           $(this).toggleClass('collapse')  //toggleClass() toggles between adding and removing one or more class names from the selected elements. 
+                           $(this).toggleClass('collapse')  //toggleClass() toggles between adding and removing one or more class names from the selected elements.
                            $(this).parent().nextAll(`:lt(${count})`).toggle()
-                       }); 
+                       });
    $("tbody tr.summary").click(function(event) {
                            var group = $(this).attr('data-group')
                            var count = $(this).attr('data-group-cnt')
                            $(this).nextAll(`:lt(${count})`).toggle()
-                       }); 
+                       });
 }
 
 function sortSummaryTable (tbody, data, sortCol, ascOrder, titles_dict, type_dict, summary_type) {
@@ -351,7 +351,7 @@ function createSummaryTbody (tbody, allData, sortCol, titles_dict, type_dict, su
                       .attr('class', function(d, i) {
                                         if (d.type=='summary') {
                                            currSummary =d;
-                                           idxSummary  =i; 
+                                           idxSummary  =i;
                                            return 'summary';
                                         } else {
                                            if (currSummary && i < idxSummary+1+currSummary.count)
@@ -378,26 +378,26 @@ function createSummaryTbody (tbody, allData, sortCol, titles_dict, type_dict, su
        }).enter()
        .append('td')
             .attr('class', function(d) { if (d.type=='summary' && d.name==expCol) return "expand";
-                                         else                                     return type_dict[d.name];}) 
+                                         else                                     return type_dict[d.name];})
             .html(         function(d) { if (d.type=='summary') return d.value;
                                          //else                   return getTypedHtml(d, type_dict) });
                                          else                   return d.value });
 */
    // set up behavor
    // sortCol of summary row has class "expand", on click triggle display detail rows, then toggle class
-   // 
+   //
 };
 
 
 function merge (detailData, summaryData, sortCol) {
    var data      = []
    var d_idx     = 0
-   const notEmptySortCol = ['node', 'status', 'job', 'user', 'alloc_cpus', 'alloc_gpus', 'gpu_util', 'avg_gpu_util'] 
+   const notEmptySortCol = ['node', 'status', 'job', 'user', 'alloc_cpus', 'alloc_gpus', 'gpu_util', 'avg_gpu_util']
    var check     = false
    if (notEmptySortCol.includes(sortCol)) check = true
    for (var s_idx=0; s_idx < summaryData.length; s_idx++) {
        currS = summaryData[s_idx]
-       
+
        for (var i=d_idx; i<currS.start; i++) {
            if (!check)
               data.push(detailData[d_idx]);
@@ -407,13 +407,13 @@ function merge (detailData, summaryData, sortCol) {
        }
        if (!check || (check && currS[sortCol] != undefined))
           data.push(currS)
-       
+
    }
    while (d_idx < detailData.length ) {
        if (!check || (check && currS[sortCol] != undefined))
           data.push(detailData[d_idx])
        d_idx  = d_idx + 1
-   } 
+   }
    //console.log("merge ", data.length)
    return data
 }
@@ -422,7 +422,7 @@ function sortFun_inc (a,b) {
    if (a[d] == b[d]) {
       if (b[firstKey]<a[firstKey]) {return 1;} else {return -1;}}
    else {
-      if (b[d] < a[d]) {return 1;} else {return -1;} } 
+      if (b[d] < a[d]) {return 1;} else {return -1;} }
 }
 
 //sort data on column key in asc(true/false) order
@@ -499,7 +499,7 @@ function getSingleSummaryData(table_data, startRow, endRow, sortCol, titles_dict
              summary[key].push(value)
       }
       currRow ++;
-   } 
+   }
    // deal with data
    const count = endRow - startRow + 1
    for (var key of Object.keys(summary)) {
@@ -513,7 +513,7 @@ function getSingleSummaryData(table_data, startRow, endRow, sortCol, titles_dict
           var total = summary[key].reduce(function (sum, curr) {return sum + curr;}, 0)
           summary[key] = total / count
        } else {
-          summary[key] = new Set(summary[key]) 
+          summary[key] = new Set(summary[key])
        }
    }
    return summary
@@ -541,12 +541,12 @@ function createSummaryThead (table, titles_dict, tbody, data, type_dict, summary
                       .html(function (d) { return titles_dict[d] })
                       .on('click', function (d) {  // every td can be sorted
                          //console.log('---', d, ',' ,sortAscending[d])
-                         reorderSummaryTable (tbody, data, d, sortAscending[d], titles_dict, type_dict, summary_type, currSortCol, !sortAscending[d]) 
+                         reorderSummaryTable (tbody, data, d, sortAscending[d], titles_dict, type_dict, summary_type, currSortCol, !sortAscending[d])
                          //tbody.selectAll('tr').lower() //each(function() { console.log(this); this.parentNode.appendChild(this); });
                          currSortCol      = d
                          sortAscending[d] = !sortAscending[d]
                       });
-    return thead;                  
+    return thead;
 }
 
 function createTableHeader (table, titles_dict, rows) {
@@ -563,13 +563,13 @@ function createTableHeader (table, titles_dict, rows) {
                                if (sortAscending) {
                                   rows.sort(function(a, b) {
                                       if (a[d] == b[d]) {
-                                         if (b[firstKey]<a[firstKey]) {return 1;} else {return -1;}} 
+                                         if (b[firstKey]<a[firstKey]) {return 1;} else {return -1;}}
                                       else {
                                          if (b[d] < a[d]) {return 1;} else {return -1;} } });
                                   sortAscending  = false;
                                   this.className = 'aes';
                                } else {
-                                  rows.sort(function(a, b) { 
+                                  rows.sort(function(a, b) {
                                       if (a[d] == b[d]) {
                                          if (b[firstKey]<a[firstKey]) {return 1;} else {return -1;}} // firstKey always ascending
                                       else {
@@ -579,7 +579,7 @@ function createTableHeader (table, titles_dict, rows) {
                                }
                                console.log("click rows=", rows.datum())
                       });
-    return headers;                  
+    return headers;
 }
 
 //data is a list of dict
@@ -600,11 +600,11 @@ function createTable (data, titles_dict, table_id, parent_id, pre_data_func, typ
                                   if ( d.data_group) return d.data_group_cnt;})
                                .attr('class', function(d) {
                                   if ( d.display_class) return d.display_class;})
-               
+
         rows.selectAll('td')
             .data(function (d) {
                 return Object.keys(titles_dict).map(function (k) {
-                    if (d.data_group_cnt) 
+                    if (d.data_group_cnt)
                        return { 'value': d[k], 'name': k, 'group_cnt': d.data_group_cnt};
                     else
                        return { 'value': d[k], 'name': k};
@@ -618,7 +618,7 @@ function createTable (data, titles_dict, table_id, parent_id, pre_data_func, typ
             .html(function (d) {
                  return getTypedHtml (d, type_dict)
             });
-        createTableHeader(table, titles_dict, rows)          
+        createTableHeader(table, titles_dict, rows)
 };
 function getTres_short(tres) {
     return tres.replace(/,billing=\d+/,'')

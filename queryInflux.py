@@ -531,9 +531,7 @@ def main():
     #print('{}'.format(rlt))
     #app.getPendingCount(start, stop)
     #app.getJobRequestHistory(start, stop)
-    #point = app.getSlurmJobInfo('70900')
     #point = app.getSlurmJobInfo('105179')
-    #print("getSlurmJobInfo result " + repr(point))
     #if point:
     #   nodelist = MyTool.convert2list(point['nodes'])
     #   start    = point['start_time']

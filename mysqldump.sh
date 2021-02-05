@@ -4,7 +4,7 @@ clusters=$@
 echo "$0: Clusters are ${clusters}"
 
 #tables="slurm_cluster_usage_hour_table slurm_cluster_assoc_usage_hour_table slurm_cluster_assoc_usage_day_table slurm_cluster_assoc_table slurm_cluster_job_table qos_table"
-tables="usage_hour_table assoc_usage_hour_table assoc_usage_day_table assoc_table job_table"
+tables="usage_hour_table assoc_usage_hour_table usage_day_table assoc_usage_day_table assoc_table job_table"
 
 cd ~/projects/slurm/utils
 table="qos_table"

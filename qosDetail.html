@@ -1,32 +1,32 @@
 <!DOCTYPE html>
-<html>
-<head>
-<title>QoS</title>
-<link href="/static/css/style.css" rel="stylesheet">
+<html lang="en">
+  <head>
+    <title>QoS</title>
+    <link href="/static/css/style.css" rel="stylesheet" />
 
-<script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
-<script type="text/javascript" src="static/scripts/jquery.min.js"></script>
-<script type="text/javascript" src="static/scripts/myFunc.js"></script>
-<script type="text/javascript" src="static/scripts/myTable.js"></script>
-<script type="text/javascript" src="static/scripts/myList.js"></script>
-<script type="text/javascript">
+    <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+    <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
+    <script type="text/javascript" src="static/scripts/myFunc.js"></script>
+    <script type="text/javascript" src="static/scripts/myTable.js"></script>
+    <script type="text/javascript" src="static/scripts/myList.js"></script>
+    <script type="text/javascript">
 
-$(document).ready(function(){{
-    var qos          = {qos}
-    var qos_disp_fld = {{'priority':'Priority','max_tres_pu':'Max TRES/User','max_jobs_pu':'Max Jobs/User','max_tres_pj':'Max Tres/Job', 'max_wall_pj':'Max Wall Time/Job','min_tres_pj':'Min TRES/Job','preempt_mode':'Preempt'}}
+      $(document).ready(function(){{
+          var qos          = {qos}
+          var qos_disp_fld = {{'priority':'Priority','max_tres_pu':'Max TRES/User','max_jobs_pu':'Max Jobs/User','max_tres_pj':'Max Tres/Job', 'max_wall_pj':'Max Wall Time/Job','min_tres_pj':'Min TRES/Job','preempt_mode':'Preempt'}}
 
-    $("#qos_name").text(qos.name)
-    createList  (qos,   qos_disp_fld, '#details', {{'max_tres_pu':'TresInteger','max_tres_pj':'TresInteger','min_tres_pj':'TresInteger'}});
-}})
-</script>
-</head>
-<body>
-  <h3>QoS <font id="qos_name"></font>:
-    <a href="./"><p class="home">Home</p></a>
-  </h3>
-  <p><i>Update time: {update_time}</i>
-  <hr>
-  <div id="details"> </div>
-</body>
+          $("#qos_name").text(qos.name)
+          createList  (qos,   qos_disp_fld, '#details', {{'max_tres_pu':'TresInteger','max_tres_pj':'TresInteger','min_tres_pj':'TresInteger'}});
+      }})
+    </script>
+  </head>
+  <body>
+    <h3>
+      QoS <font id="qos_name"></font>:
+      <a href="./"><p class="home">Home</p></a>
+    </h3>
+    <p><i>Update time: {update_time}</i></p>
+    <hr />
+    <div id="details"></div>
+  </body>
 </html>
-

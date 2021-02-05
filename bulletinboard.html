@@ -1,71 +1,118 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/css/normalize.css" />
+    <link rel="stylesheet" href="/static/css/style2.css" />
+    <title>Bulletin Board</title>
 
-<head>
-<meta charset='UTF-8'>
-<title>Bulletin Board</title>
-<link rel="stylesheet" href="/static/css/style.css">
-
-<script type="text/javascript" src="static/scripts/jquery.min.js"></script>
-<script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
-<script type="text/javascript" src="static/scripts/myFunc.js"></script>
-<script type="text/javascript" src="static/scripts/myTable.js"></script>
-<script type="text/javascript" src="static/scripts/myList.js"></script>
-<script type="text/javascript">
-const INTERVAL_REFRESH=600
-function timedRefresh(timeoutPeriod) {{
-        setTimeout("location.reload(true);",timeoutPeriod);
-}}
-window.onload = timedRefresh(INTERVAL_REFRESH * 1000);
+    <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
+    <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+    <script type="text/javascript" src="static/scripts/myFunc.js"></script>
+    <script type="text/javascript" src="static/scripts/myTable.js"></script>
+    <script type="text/javascript" src="static/scripts/myList.js"></script>
+    <script type="text/javascript">
+      const INTERVAL_REFRESH=600
+      function timedRefresh(timeoutPeriod) {{
+              setTimeout("location.reload(true);",timeoutPeriod);
+      }}
+      window.onload = timedRefresh(INTERVAL_REFRESH * 1000);
 
 
-$(document).ready(function(){{
-   //add menu
-    $("#tabmenu").load("/getHeader?page=bulletinboard")
-    var j_title    = {{'id':'Job', 'msg':'Message'}}
-    var o_title    = {{'source':'Source', 'ts':'Time', 'msg':'Message'}}
-    var type       = {{'id':'JobAndStep', 'ts':'Time'}}
+      $(document).ready(() => {{
+          var j_title    = {{'id':'Job', 'msg':'Message'}};
+          var o_title    = {{'source':'Source', 'ts':'Time', 'msg':'Message'}};
+          var type       = {{'id':'JobAndStep', 'ts':'Time'}};
 
-    //create table job_table and part_table
-    createTable  ({low_util},   j_title,  'low_util_table',  'low_util',  undefined, type)
-    createTable  ({low_node},   {{'name':'Node', 'msg':'Message'}}, 'low_node_table',  'low_node',  undefined, {{'name':'Node'}})
-    createTable  ({qos_relax},  {{'user':'User', 'msg':'Message'}}, 'qos_relax_table', 'qos_relax', undefined, {{'user':'UserName'}})
-    createTable  ({other},      o_title,  'other_table',     'other',     undefined, type)
-    collapseTitle ()
-}})
-</script>
-</head>
+          //create table job_table and part_table
+          createTable  ({low_util},   j_title,  'low_util_table',  'low_util',  undefined, type)
+          createTable  ({low_node},   {{'name':'Node', 'msg':'Message'}}, 'low_node_table',  'low_node',  undefined, {{'name':'Node'}})
+          createTable  ({qos_relax},  {{'user':'User', 'msg':'Message'}}, 'qos_relax_table', 'qos_relax', undefined, {{'user':'UserName'}})
+          createTable  ({other},      o_title,  'other_table',     'other',     undefined, type)
+          collapseTitle ();
+      }});
+    </script>
+  </head>
 
-<body>
-<div class="tab" id="tabmenu"></div>
-<div class="page-wrap">
-   <h2> Bulletin Board </h2>
-   <p>(Refreshed every 10 minutes automatically)</p>
-</div>
-<div class="page-wrap">
-   <h3 class="table_title">Running Jobs with Low Resource Utilization: </h3>
-   <div id="low_util">
-      <i>Update time: {low_util_ts}</i>
-   </div>
-</div>
-<div class="page-wrap">
-   <h3 class="table_title">Alloc Nodes with Low Resource Utilization: </h3>
-   <div id="low_node">
-      <i>Update time: {low_util_ts}</i>
-   </div>
-</div>
-<div class="page-wrap">
-   <h3 class="table_title">QoS Relaxation for Pending Jobs to Run: </h3>
-   <div id="qos_relax"> 
-      <i>Update time: {qos_relax_ts}</i>
-   </div>
-</div>
-<div class="page-wrap">
-   <h3 class="table_title">Other: </h3>
-   <div id="other"> 
-      <i>Update time: </i>
-   </div>
-</div>
-</body>
-
+  <body>
+    <div class="layout">
+      <div class="stickynav">
+        <div class="stickynav__inner">
+          <div class="stickynav__content">
+            <div class="stickynav__logo">
+              <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
+            </div>
+            <!-- Todo: Add update time -->
+            <div class="stickynav__update">Updated:</div>
+          </div>
+        </div>
+      </div>
+      <nav class="nav" id="navmenu"></nav>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <h3>Bulletin Board</h3>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <h3 class="table__title">Running Jobs with Low Resource Utilization:</h3>
+            <div class="table__subtitle" id="low_util">
+              <p><i>Update time: {low_util_ts}</i></p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <h3 class="table_title">Alloc Nodes with Low Resource Utilization:</h3>
+            <div class="table__subtitle" id="low_node">
+              <p><i>Update time: {low_util_ts}</i></p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <h3 class="table__title">QoS Relaxation for Pending Jobs to Run:</h3>
+            <div class="table__subtitle" id="qos_relax">
+              <p><i>Update time: {qos_relax_ts}</i></p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <h3>Other:</h3>
+            <div class="table__subtitle" id="other">
+              <!-- TODO: Is there an update time here? -->
+              <p><i>Update time: </i></p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+    <footer class="section section--footer">
+      <div class="section__inner section__inner--footer">
+        <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
+        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
+      </div>
+    </footer>
+    <script>
+      var thisPath = window.location.pathname;
+      $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+      $('#navmenu').load('/getHeader?page=bulletinboard');
+    </script>
+  </body>
 </html>

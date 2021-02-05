@@ -1,32 +1,32 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{title}</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
 
-<head>
-<meta charset='UTF-8'>
-<title>{title}</title>
-<link rel="stylesheet" href="/static/css/style.css">
+    <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
+    <script type="text/javascript" src="static/scripts/d3.v5.min.js"></script>
+    <script type="text/javascript" src="static/scripts/myFunc.js"></script>
+    <script type="text/javascript" src="static/scripts/myTable.js"></script>
+    <script type="text/javascript" src="static/scripts/myList.js"></script>
+    <script type="text/javascript">
+      setTimeout('location.reload(true);', 10 * 1000);
 
-<script type="text/javascript" src="static/scripts/jquery.min.js"></script>
-<script type="text/javascript" src="static/scripts/d3.v5.min.js"></script>
-<script type="text/javascript" src="static/scripts/myFunc.js"></script>
-<script type="text/javascript" src="static/scripts/myTable.js"></script>
-<script type="text/javascript" src="static/scripts/myList.js"></script>
-<script type="text/javascript">
-setTimeout("location.reload(true);",10*1000);
+      $(document).ready(function () {
+        {
+          //add menu
+          $('#tabmenu').load('/getHeader?page={page}');
+        }
+      });
+    </script>
+  </head>
 
-$(document).ready(function(){{
-   //add menu
-    $("#tabmenu").load("/getHeader?page={page}")
-}});
-</script>
-</head>
-
-<body>
-<div class="tab" id="tabmenu"></div>
-<div>
-   <i>Update time: {update_time}</i>
-   <p>{msg}</p>
-</div>
-</body>
-
+  <body>
+    <div class="tab" id="tabmenu"></div>
+    <div>
+      <i>Update time: {update_time}</i>
+      <p>{msg}</p>
+    </div>
+  </body>
 </html>

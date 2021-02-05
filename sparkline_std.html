@@ -1,182 +1,172 @@
-<!doc type HTML>
-<html>
-    <head>
-        <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
-        <script src="https://code.highcharts.com/highcharts.js"></script>
-    </head>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <style>
-
-#result {
-    text-align: right;
-    color: gray;
-    min-height: 2em;
-}
-
-#table-sparkline {
-    margin: 0 auto;
-    border-collapse: collapse;
-    background-color: white;
-}
-
-.tymor a:link {
-    color: black;
-    text-decoration: none;
-}    
-
-.tymor th {
-    font-weight: bold;
-    text-align: left;
-}
-.tymor tr {
-    background-color: white;
-}
-
-.tymor td, th {
-    padding: 5px;
-    border-top:    none;
-    border-left:   none;
-    border-right:  none;
-    border-bottom: 1px solid silver;
-    height: 20px;
-}
-
-.tymor thead th {
-    border-top: 2px solid gray;
-    border-bottom: 2px solid gray;
-}
-.highcharts-tooltip>span {
-    background: white;
-    border: 1px solid silver;
-    border-radius: 3px;
-    box-shadow: 1px 1px 2px #888;
-    padding: 8px;
-}
-    </style>
-    <body>
-        <div class="tab" id="tabmenu"></div>
-	<div id="result"></div>
-	<table id="table-sparkline" class="tymor">%(tablespark)s
-	</table>
-
-    <script type="text/javascript">
-    //   $(function(){
-          $("#tabmenu").load("/getHeader?page=tymor2")
-    //   });
-
-/**
- * Create a constructor for sparklines that takes some sensible defaults and merges in the individual
- * chart options. This function is also available from the jQuery plugin as $(element).highcharts('SparkLine').
- */
-Highcharts.SparkLine = function (a, b, c) {
-    var hasRenderToArg = typeof a === 'string' || a.nodeName,
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
+      rel="stylesheet"
+    />
+    <title>Tymor</title>
+    <link rel="stylesheet" href="/static/css/normalize.css" />
+    <link rel="stylesheet" href="/static/css/style2.css" />
+    <script>
+      function setupNavs(jQuery) {
+        $('#navmenu').load('/getHeader?page=tymor2');
+        var thisPath = window.location.pathname;
+        $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+      }
+      $(window).on('load', setupNavs);
+    </script>
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+  </head>
+  <body>
+    <div class="layout">
+      <div class="stickynav">
+        <div class="stickynav__inner">
+          <div class="stickynav__content">
+            <div class="stickynav__logo">
+              <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
+            </div>
+            <div class="stickynav__update">Updated: {update_time}</div>
+          </div>
+        </div>
+      </div>
+      <nav class="nav" id="navmenu"></nav>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <h3>Tymor</h3>
+          </div>
+          <div class="section__div">
+            <div id="result"></div>
+            <table id="table-sparkline" class="tymor">
+              %(tablespark)s
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+    <footer class="section section--footer">
+      <div class="section__inner section__inner--footer">
+        <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
+        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
+      </div>
+    </footer>
+  </body>
+  <script type="text/javascript">
+    /**
+     * Create a constructor for sparklines that takes some sensible defaults and merges in the individual
+     * chart options. This function is also available from the jQuery plugin as $(element).highcharts('SparkLine').
+     */
+    Highcharts.SparkLine = function (a, b, c) {
+      var hasRenderToArg = typeof a === 'string' || a.nodeName,
         options = arguments[hasRenderToArg ? 1 : 0],
         defaultOptions = {
-            chart: {
-                renderTo: (options.chart && options.chart.renderTo) || this,
-                backgroundColor: null,
-                borderWidth: 0,
-                type: 'area',
-                margin: [2, 0, 2, 0],
-                width: 120,
-                height: 20,
-                style: {
-                    overflow: 'visible'
-                },
+          chart: {
+            renderTo: (options.chart && options.chart.renderTo) || this,
+            backgroundColor: null,
+            borderWidth: 0,
+            type: 'area',
+            margin: [2, 0, 2, 0],
+            width: 120,
+            height: 20,
+            style: {
+              overflow: 'visible',
+            },
 
-                // small optimalization, saves 1-2 ms each sparkline
-                skipClone: true
+            // small optimalization, saves 1-2 ms each sparkline
+            skipClone: true,
+          },
+          title: {
+            text: '',
+          },
+          credits: {
+            enabled: false,
+          },
+          xAxis: {
+            labels: {
+              enabled: false,
             },
             title: {
-                text: ''
+              text: null,
             },
-            credits: {
-                enabled: false
+            startOnTick: false,
+            endOnTick: false,
+            tickPositions: [],
+          },
+          yAxis: {
+            softMin: -2,
+            softMax: 2,
+            endOnTick: false,
+            startOnTick: false,
+            labels: {
+              enabled: false,
             },
-            xAxis: {
-                labels: {
-                    enabled: false
+            title: {
+              text: null,
+            },
+            tickPositions: [0],
+          },
+          legend: {
+            enabled: false,
+          },
+          tooltip: {
+            backgroundColor: null,
+            borderWidth: 0,
+            shadow: false,
+            useHTML: true,
+            hideDelay: 0,
+            shared: true,
+            padding: 0,
+            positioner: function (w, h, point) {
+              return { x: point.plotX - w / 2, y: point.plotY - h };
+            },
+          },
+          plotOptions: {
+            series: {
+              animation: false,
+              lineWidth: 1,
+              shadow: false,
+              states: {
+                hover: {
+                  lineWidth: 1,
                 },
-                title: {
-                    text: null
+              },
+              marker: {
+                radius: 1,
+                states: {
+                  hover: {
+                    radius: 2,
+                  },
                 },
-                startOnTick: false,
-                endOnTick: false,
-                tickPositions: []
+              },
+              fillOpacity: 0.25,
             },
-            yAxis: {
-                softMin: -2,
-                softMax: 2,
-                endOnTick: false,
-                startOnTick: false,
-                labels: {
-                    enabled: false
-                },
-                title: {
-                    text: null
-                },
-                tickPositions: [0]
+            column: {
+              negativeColor: '#910000',
+              borderColor: 'silver',
             },
-            legend: {
-                enabled: false
-            },
-            tooltip: {
-                backgroundColor: null,
-                borderWidth: 0,
-                shadow: false,
-                useHTML: true,
-                hideDelay: 0,
-                shared: true,
-                padding: 0,
-                positioner: function (w, h, point) {
-                    return { x: point.plotX - w / 2, y: point.plotY - h };
-                }
-            },
-            plotOptions: {               
-                series: {
-                    animation: false,
-                    lineWidth: 1,
-                    shadow: false,
-                    states: {
-                        hover: {
-                            lineWidth: 1
-                        }
-                    },
-                    marker: {
-                        radius: 1,
-                        states: {
-                            hover: {
-                                radius: 2
-                            }
-                        }
-                    },
-                    fillOpacity: 0.25
-                },
-                column: {
-                    negativeColor: '#910000',
-                    borderColor: 'silver'
-                }
-            }
+          },
         };
 
-    options = Highcharts.merge(defaultOptions, options);
+      options = Highcharts.merge(defaultOptions, options);
 
-    return hasRenderToArg ?
-        new Highcharts.Chart(a, options, c) :
-        new Highcharts.Chart(options, b);
-};
+      return hasRenderToArg ? new Highcharts.Chart(a, options, c) : new Highcharts.Chart(options, b);
+    };
 
-var start = +new Date(),
-    $tds = $('td[data-sparkline]'),
-    fullLen = $tds.length,
-    n = 0;
+    var start = +new Date(),
+      $tds = $('td[data-sparkline]'),
+      fullLen = $tds.length,
+      n = 0;
 
-
-// Creating 153 sparkline charts is quite fast in modern browsers, but IE8 and mobile
-// can take some seconds, so we split the input into chunks and apply them in timeouts
-// in order avoid locking up the browser process and allow interaction.
-function doChunk() {
-    var time = +new Date(),
+    // Creating 153 sparkline charts is quite fast in modern browsers, but IE8 and mobile
+    // can take some seconds, so we split the input into chunks and apply them in timeouts
+    // in order avoid locking up the browser process and allow interaction.
+    function doChunk() {
+      var time = +new Date(),
         i,
         len = $tds.length,
         $td,
@@ -185,7 +175,7 @@ function doChunk() {
         data,
         chart;
 
-    for (i = 0; i < len; i += 1) {
+      for (i = 0; i < len; i += 1) {
         $td = $($tds[i]);
         stringdata = $td.data('sparkline');
         arr = stringdata.split('; ');
@@ -193,80 +183,72 @@ function doChunk() {
         chart = {};
 
         if (arr[1]) {
-            chart.type = arr[1];
+          chart.type = arr[1];
         }
         $td.highcharts('SparkLine', {
-            series: [{
-                data: data,
-                pointStart: 1,
-		point: {
-                    events: {
-		    /*
-		    load: function () {
-                        var points = []
-                        this.series.forEach(function (entry) {
-                          entry.data.forEach(function (theData) {
-                            points.push(theData.y);
-                        });
-                        });
-                        this.yAxis[0].update({
-                          max: Math.max.apply(Math, points)
-                        });
-                      },
-		    */
-		    click: function(x) {
-		     return function () {
-                          var cells=document.getElementsByClassName("categories");
-                          var row_index=Math.floor(x/4);
-                          var cell=cells[row_index];
-                          var string_data = cell.textContent;
-                          var array_data = string_data.split(',');
-                          //var link = array_data[this.x-1];
-                          var url = window.location.href;
-                          var tmp1_url = url.split('/');
-                          tmp1_url.pop();
-                          var base_url = tmp1_url.join('/')
-		          return location.href = base_url + '/nodeDetails?node=' + array_data[this.x-1]
-		    }
-		    }(i)
-		    }
-		    }
-            }],
+          series: [
+            {
+              data: data,
+              pointStart: 1,
+              point: {
+                events: {
+                  click: (function (x) {
+                    return function () {
+                      var cells = document.getElementsByClassName('categories');
+                      var row_index = Math.floor(x / 4);
+                      var cell = cells[row_index];
+                      var string_data = cell.textContent;
+                      var array_data = string_data.split(',');
+                      //var link = array_data[this.x-1];
+                      var url = window.location.href;
+                      var tmp1_url = url.split('/');
+                      tmp1_url.pop();
+                      var base_url = tmp1_url.join('/');
+                      return (location.href = base_url + '/nodeDetails?node=' + array_data[this.x - 1]);
+                    };
+                  })(i),
+                },
+              },
+            },
+          ],
 
-
-	tooltip: {
-                formatter:  function(x) {
-		    //console.log("x="+x);
-		    return function(){
-		    var row_index = Math.floor(x/4);
-		    var cells=document.getElementsByClassName("categories");
-		    var cell=cells[row_index];
-		    var string_data = cell.textContent;
-		    var array_data = string_data.split(',');
-		    return 'The value for <b>' + array_data[this.x-1] + '</b> is <b>' + Highcharts.numberFormat(this.y, 2, '.', ',') + '</b>, in series '
-		    }
-		 }(i)   
-	},
-            chart: chart
+          tooltip: {
+            formatter: (function (x) {
+              //console.log("x="+x);
+              return function () {
+                var row_index = Math.floor(x / 4);
+                var cells = document.getElementsByClassName('categories');
+                var cell = cells[row_index];
+                var string_data = cell.textContent;
+                var array_data = string_data.split(',');
+                return (
+                  'The value for <b>' +
+                  array_data[this.x - 1] +
+                  '</b> is <b>' +
+                  Highcharts.numberFormat(this.y, 2, '.', ',') +
+                  '</b>, in series '
+                );
+              };
+            })(i),
+          },
+          chart: chart,
         });
 
         n += 1;
 
         // If the process takes too much time, run a timeout to allow interaction with the browser
         if (new Date() - time > 10000) {
-            $tds.splice(0, i + 1);
-            setTimeout(doChunk, 0);
-            break;
+          $tds.splice(0, i + 1);
+          setTimeout(doChunk, 0);
+          break;
         }
 
         // Print a feedback on the performance
         if (n === fullLen) {
-            $('#result').html('Generated ' + fullLen + ' sparklines in ' + (new Date() - start) + ' ms');
+          $('#result').html('Generated ' + fullLen + ' sparklines in ' + (new Date() - start) + ' ms');
         }
+      }
     }
-}
-doChunk();
-
-</script>
-</body>
+    doChunk();
+  </script>
 </html>

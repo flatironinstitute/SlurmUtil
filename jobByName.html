@@ -1,32 +1,33 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Job By Name</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
 
-<head>
-<meta charset='UTF-8'>
-<title>Job By Name</title>
-<link rel="stylesheet" href="/static/css/style.css">
+    <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
+    <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+    <script type="text/javascript" src="static/scripts/myFunc.js"></script>
+    <script type="text/javascript" src="static/scripts/myTable.js"></script>
+    <script type="text/javascript">
+      $(document).ready(function () {
+        {
+          createTable({ job_list }, { job_title }, 'job_table', 'job_list');
+        }
+      });
+    </script>
+  </head>
 
-<script type="text/javascript" src="static/scripts/jquery.min.js"></script>
-<script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
-<script type="text/javascript" src="static/scripts/myFunc.js"></script>
-<script type="text/javascript" src="static/scripts/myTable.js"></script>
-<script type="text/javascript">
-
-
-$(document).ready(function(){{
-    createTable ({job_list}, {job_title},  'job_table', 'job_list') 
-}});
-</script>
-</head>
-
-<body>
-<div id="job_name" class="page-wrap">
-  <h3> Jobs with Name: {job_name}</h3>
-  <hr>
-</div>
-<div id="job_list" class="page-wrap">
-  <p>Total {job_cnt} jobs with the same name have been submitted. We shall display last 100 jobs if there are more jobs. 
-</div>
-</body>
-
+  <body>
+    <div id="job_name" class="block">
+      <h3>Jobs with Name: {job_name}</h3>
+      <hr />
+    </div>
+    <div id="job_list" class="block">
+      <p>
+        Total {job_cnt} jobs with the same name have been submitted. We shall display last 100 jobs if there are more
+        jobs.
+      </p>
+    </div>
+  </body>
 </html>
