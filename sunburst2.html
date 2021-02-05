@@ -54,7 +54,7 @@
       </div>
       <nav class="nav" id="navmenu"></nav>
       <section class="section">
-        <div class="section__inner section__inner--fullwidth">
+        <div class="section__inner">
           <div class="section__div">
             <div id="optionsSelect">
               <h3>Sunburst Graph</h3>
@@ -153,7 +153,8 @@
         var root = partition(data);
         root.each(d => d.current = d);
 
-        var svg = d3.create("svg")
+        var svg = d3.select(#)
+         .create("svg")
           .attr("viewBox", [0, 0, width, width])
           .style("font", "11px sans-serif");
 
