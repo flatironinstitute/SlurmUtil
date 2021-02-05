@@ -101,16 +101,16 @@
       console.log("users=", users);
       console.log("load_data=", load_data);
 
-      // var fixedColor = {
-      //   'cca':'#ce3232',
-      //    'ccb':'#81ad4a',
-      //    'ccm':'#f37a00',
-      //    'ccn':'#008080',
-      //    'ccq':'#855b8e',
-      //    'gen':'#537eba',
-      //    'ib':'#3f51b5',
-      //    'root':'1f77b4'
-      //   };
+      var fixedColor = {
+        'cca':'#ce3232',
+         'ccb':'#81ad4a',
+         'ccm':'#f37a00',
+         'ccn':'#008080',
+         'ccq':'#855b8e',
+         'gen':'#537eba',
+         'ib':'#3f51b5',
+         'root':'1f77b4'
+        };
 
       function createVisualization(data) {
         var arc = d3.arc()
@@ -137,7 +137,6 @@
         var root = partition(data);
         root.each(d => d.current = d);
 
-        console.log("🌲", root);
         var svg = d3.select("#sunburst").append("svg:svg")
           .attr("viewBox", [0, 0, width, width])
           .style("font", "10px sans-serif");
@@ -151,6 +150,7 @@
           .join("path")
           .attr("fill", d => {
             while (d.depth > 1) d = d.parent;
+            console.log("🎨", d.data.name, fixedColor[d.data.name]);
             return color(d.data.name);
           })
           .attr("fill-opacity", d => arcVisible(d.current) ? (d.children ? 0.6 : 0.4) : 0)
@@ -200,7 +200,6 @@
           path.transition(t)
             .tween("data", d => {
               var i = d3.interpolate(d.current, d.target);
-              console.log("path.transition", i);
               return t => d.current = i(t);
             })
             .filter(function(d) {
