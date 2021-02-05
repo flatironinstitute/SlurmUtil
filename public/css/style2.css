@@ -142,6 +142,10 @@ body {
 .flex__right {
   justify-content: flex-end;
 }
+.flex__center {
+  justify-content: center;
+  align-items: center;
+}
 .grid {
   display: grid;
   grid-gap: 20px;

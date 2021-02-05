@@ -74,7 +74,7 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div section__div--sunburst">
-            <div id="sunburst"></div>
+            <div class="flex flex__center" id="sunburst"></div>
           </div>
         </div>
       </section>
@@ -107,10 +107,10 @@
           height = 800 - margin.top - margin.bottom,
           radius = Math.min(width, height) / 2;
 
-      //var formatNumber = d3.format(",d");
-      // var formatNumber = d3.format(".4n");
-      // var x = d3.scale.linear().range([0, 2 * Math.PI]);
-      // var y = d3.scale.linear().range([0, radius]);
+      var formatNumber = d3.format(",d");
+      var formatNumber = d3.format(".4n");
+      var x = d3.scaleLinear().range([0, 2 * Math.PI]);
+      var y = d3.scaleLinear().range([0, radius]);
       // var color = d3.scale.category20c().domain(users);
       // var fixedColor = {
       //   'cca':'#ce3232',
@@ -130,14 +130,14 @@
       //    .append("g")
       //    .attr("transform", "translate(" + (width / 2 + margin.left) + "," + (height / 2 + margin.top) + ")");
 
-      var vis = d3.select("#sunburst").append("svg:svg")
+      var svg = d3.select("#sunburst").append("svg:svg")
         .attr("width", width)
         .attr("height", height)
         .append("svg:g")
         .attr("id", "container")
         .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
 
-       console.log('🦆 🦆 svg append with new load', console.log(vis));
+       console.log('🦆 🦆 svg append with new load', console.log(svg));
       //  var partition = d3.layout.partition()
       //    .value(function(d) {
       //        return d.value;
