@@ -102,33 +102,33 @@
       console.log("load_data=", load_data);
 
       function getFixedColor(name) {
-        var hex;
+        var col;
         switch(name) {
           case 'cca':
-            hex = '#ce3232';
+            col = 'rgb(206, 50,50)';
             break;
           case 'ccb':
-            hex = '#81ad4a';
+            col = 'rgb(129, 173, 74)';
             break;
           case 'ccm':
-            hex = '#f37a00';
+            col = 'rgb(246, 134, 45)';
             break;
           case 'ccn':
-            hex = '#008080';
+            col = 'rgb(0, 128, 158)';
             break;
           case 'ccq':
-            hex = '#855b8e';
+            col = 'rgb(132, 91, 142)';
             break;
           case 'scc':
-            hex = '#8f8f8f';
+            col = 'rgb(143, 143, 143)';
             break;
           case 'ib':
-            hex = '#3f51b5';
+            col = 'rgb(255, 194, 0)';
             break;
           default:
-            hex = '#537EBA';
+            col = 'rgb(83, 146, 195)';
         }
-        return hex;
+        return col;
       }
 
       function createVisualization(data) {
@@ -170,7 +170,7 @@
           .attr("fill", d => {
             while (d.depth > 1) d = d.parent;
             var fillColor = getFixedColor(d.data.name);
-            console.log("🎨", d.data.name, getFixedColor(d.data.name), color(d.data.name));
+            console.log("🎨", d.data.name, fillColor, color(d.data.name));
             return color(d.data.name);
           })
           .attr("fill-opacity", d => arcVisible(d.current) ? (d.children ? 0.6 : 0.4) : 0)
