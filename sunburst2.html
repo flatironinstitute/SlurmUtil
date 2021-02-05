@@ -133,7 +133,6 @@
             .size([2 * Math.PI, root.height + 1])
             (root);
         }
-        var root = partition(data);
         console.log("🌲", root);
         var svg = d3.select("#sunburst").append("svg:svg")
           .attr("viewBox", [0, 0, width, width])
