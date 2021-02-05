@@ -106,7 +106,7 @@ body {
   margin-bottom: -4rem;
 }
 .section__div--sunburst {
-  min-height: 800px;
+  padding: 60px 30px;
 }
 .section__inner--footer {
   display: flex;

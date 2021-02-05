@@ -15,7 +15,7 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/6.5.0/d3.min.js"></script>
     <!-- Todo: Move this CSS -->
-    <style>
+    <!-- <style>
       path {
         stroke: #fff;
         fill-rule: evenodd;
@@ -38,7 +38,7 @@
         border-radius: 8px;
         pointer-events: none;
       }
-    </style>
+    </style> -->
   </head>
   <body>
     <div class="layout">
@@ -98,8 +98,6 @@
       var vms_data = %(data3)s
       var rss_data = %(data4)s
       var state_data = %(data2)s
-      console.log("users=", users);
-      console.log("load_data=", load_data);
 
       function getColor(name) {
         var rgb;
@@ -247,15 +245,15 @@
         }
 
         return svg.node();
-      } //createVisualization
+      } // End createVisualization
 
-            createVisualization(load_data);
-                    // d3.select('#optionsList')
-                    //   .on('change', function() {
-                    //     console.log('Change viz');
-                    //     var newData = eval(d3.select(this).property('value'));
-                    //     createVisualization(newData);
-                    //   });
+      createVisualization(load_data);
+      d3.select('#optionsList')
+        .on('change', function() {
+          var newData = eval(d3.select(this).property('value'));
+          console.log('Change viz', newData);
+          createVisualization(newData);
+        });
     </script>
   </body>
 </html>
