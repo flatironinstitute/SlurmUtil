@@ -107,6 +107,9 @@ body {
 }
 .section__div--sunburst {
   padding: 60px 30px;
+  display: flex;
+  flex-direction: center;
+  align-items: center;
 }
 .section__inner--footer {
   display: flex;
