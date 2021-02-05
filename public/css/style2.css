@@ -107,7 +107,6 @@ body {
 }
 .section__div--sunburst {
   padding: 60px 30px;
-  width: calc((100% + (100vw - 100%) / 2) - 260px);
 }
 .section__inner--footer {
   display: flex;
@@ -146,6 +145,9 @@ body {
 .flex__center {
   justify-content: center;
   align-items: center;
+}
+.graphic__center {
+  width: calc((100% + (100vw - 100%) / 2) - 260px);
 }
 .grid {
   display: grid;
