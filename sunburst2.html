@@ -124,24 +124,18 @@
       //   };
 
       function createVisualization(data) {
-      //  var svg = d3.select("#sunburstDiv").append("svg:svg")
-      //    .attr("width", width + margin.left + margin.right)
-      //    .attr("height", height + margin.top + margin.bottom)
-      //    .append("g")
-      //    .attr("transform", "translate(" + (width / 2 + margin.left) + "," + (height / 2 + margin.top) + ")");
-
       var svg = d3.select("#sunburst").append("svg:svg")
         .attr("width", width)
         .attr("height", height)
         .append("svg:g")
         .attr("id", "container")
-        .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+        .attr("transform", "translate(" + (width / 2 + margin.left) + "," + (height / 2 + margin.top) + ")");
 
        console.log('🦆 🦆 svg append with new load', console.log(svg));
-      //  var partition = d3.layout.partition()
-      //    .value(function(d) {
-      //        return d.value;
-      //    });
+       var partition = d3.layout.partition()
+         .value(function(d) {
+             return d.value;
+         });
 
       //  var arc = d3.svg.arc()
       //    .startAngle(function(d)  { return Math.max(0, Math.min(2 * Math.PI, x(d.x))); })
