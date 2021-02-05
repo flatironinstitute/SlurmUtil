@@ -101,34 +101,34 @@
       console.log("users=", users);
       console.log("load_data=", load_data);
 
-      function getFixedColor(name) {
-        var col;
+      function getColor(name) {
+        var rgb;
         switch(name) {
           case 'cca':
-            col = 'rgb(206, 50,50)';
+            rgb = 'rgb(206, 50,50)';
             break;
           case 'ccb':
-            col = 'rgb(129, 173, 74)';
+            rgb = 'rgb(129, 173, 74)';
             break;
           case 'ccm':
-            col = 'rgb(246, 134, 45)';
+            rgb = 'rgb(246, 134, 45)';
             break;
           case 'ccn':
-            col = 'rgb(0, 128, 158)';
+            rgb = 'rgb(0, 128, 158)';
             break;
           case 'ccq':
-            col = 'rgb(132, 91, 142)';
+            rgb = 'rgb(132, 91, 142)';
             break;
           case 'scc':
-            col = 'rgb(143, 143, 143)';
+            rgb = 'rgb(143, 143, 143)';
             break;
           case 'ib':
-            col = 'rgb(255, 194, 0)';
+            rgb = 'rgb(255, 194, 0)';
             break;
           default:
-            col = 'rgb(83, 146, 195)';
+            rgb = 'rgb(83, 146, 195)';
         }
-        return col;
+        return rgb;
       }
 
       function createVisualization(data) {
@@ -142,7 +142,6 @@
         var width = 932;
         var radius = width / 6;
         var format = d3.format(",d");
-        var color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, data.children.length + 1));
 
         function partition(data) {
           var groot = d3.hierarchy(data)
@@ -169,9 +168,7 @@
           .join("path")
           .attr("fill", d => {
             while (d.depth > 1) d = d.parent;
-            var fillColor = getFixedColor(d.data.name);
-            console.log("🎨", d.data.name, fillColor, color(d.data.name));
-            return color(d.data.name);
+            return getColor(d.data.name);
           })
           .attr("fill-opacity", d => arcVisible(d.current) ? (d.children ? 0.6 : 0.4) : 0)
           .attr("d", d => arc(d.current));
