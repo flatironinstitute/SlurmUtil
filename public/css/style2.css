@@ -149,9 +149,6 @@ body {
   justify-content: center;
   align-items: center;
 }
-.graphic__center {
-  width: calc((100% + (100vw - 100%) / 2) - 260px);
-}
 .grid {
   display: grid;
   grid-gap: 20px;

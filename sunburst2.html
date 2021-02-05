@@ -72,11 +72,9 @@
         </div>
       </section>
       <section class="section">
-        <div class="section__inner section__inner--fullwidth">
+        <div class="section__inner">
           <div class="section__div section__div--sunburst">
-            <div class="graphic__center">
-              <div class="flex flex__center" id="sunburst"></div>
-            </div>
+            <div class="flex flex__center" id="sunburst"></div>
           </div>
         </div>
       </section>
@@ -155,7 +153,7 @@
         var root = partition(data);
         root.each(d => d.current = d);
 
-        var svg = d3.select("#sunburst").append("svg:svg")
+        var svg = d3.create("svg")
           .attr("viewBox", [0, 0, width, width])
           .style("font", "11px sans-serif");
 
@@ -249,11 +247,14 @@
         return svg.node();
       } // End createVisualization
 
-      createVisualization(load_data);
+      var sunburst = createVisualization(load_data);
+      d3.select("#sunburst").append(sunburst);
       d3.select('#optionsList')
         .on('change', function() {
           var newData = eval(d3.select(this).property('value'));
-          createVisualization(newData);
+          var newBurst = createVisualization(newData);
+          d3.select("#sunburst").remove();
+          d3.select("#sunburst").append(newBurst);
         });
     </script>
   </body>
