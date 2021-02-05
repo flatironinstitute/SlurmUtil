@@ -125,7 +125,7 @@
         var format = d3.format(",d");
         var color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, data.children.length + 1));
 
-        var partition = function(data) {
+        partition = data => {
           var root = d3.hierarchy(data)
             .sum(d => d.value)
             .sort((a, b) => b.value - a.value);
