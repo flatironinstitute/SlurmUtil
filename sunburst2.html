@@ -101,16 +101,35 @@
       console.log("users=", users);
       console.log("load_data=", load_data);
 
-      var fixedColor = {
-        'cca':'#ce3232',
-         'ccb':'#81ad4a',
-         'ccm':'#f37a00',
-         'ccn':'#008080',
-         'ccq':'#855b8e',
-         'gen':'#537eba',
-         'ib':'#3f51b5',
-         'root':'1f77b4'
-        };
+      function getFixedColor(name) {
+        var hex;
+        switch(name) {
+          case 'cca':
+            hex = '#ce3232';
+            break;
+          case 'ccb':
+            hex = '#81ad4a';
+            break;
+          case 'ccm':
+            hex = '#f37a00';
+            break;
+          case 'ccn':
+            hex = '#008080';
+            break;
+          case 'ccq':
+            hex = '#855b8e';
+            break;
+          case 'scc':
+            hex = '#8f8f8f';
+            break;
+          case 'ib':
+            hex = '#3f51b5';
+            break;
+          default:
+            hex = '#537EBA';
+        }
+        return hex;
+      }
 
       function createVisualization(data) {
         var arc = d3.arc()
@@ -150,7 +169,8 @@
           .join("path")
           .attr("fill", d => {
             while (d.depth > 1) d = d.parent;
-            console.log("🎨", d.data.name, fixedColor[d.data.name]);
+            var fillColor = getFixedColor(d.data.name);
+            console.log("🎨", d.data.name, getFixedColor(d.data.name), color(d.data.name));
             return color(d.data.name);
           })
           .attr("fill-opacity", d => arcVisible(d.current) ? (d.children ? 0.6 : 0.4) : 0)
