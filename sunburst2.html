@@ -132,7 +132,7 @@
         .attr("transform", "translate(" + (width / 2 + margin.left) + "," + (height / 2 + margin.top) + ")");
 
        console.log('🦆 🦆 svg append with new load', console.log(svg));
-       var partition = d3.layout.partition()
+       var partition = d3.partition()
          .value(function(d) {
              return d.value;
          });
