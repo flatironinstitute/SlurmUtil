@@ -417,6 +417,10 @@ class SlurmEntities:
 
   def explainPendingJob(self, job, p_name, higherJobs, reserved_nodes):
       job['user']    = MyTool.getUser(job['user_id'])  # will be used in html
+      if '_' in job['state_reason']:
+         # mod in pyslurm not working anymore, workaround 02/05/2021
+         job['state_reason_desc'] = job['state_reason']
+         job['state_reason']      = 'Resources'
       state_exp      = PEND_EXP.get(job['state_reason'], '')
 
       if job['state_reason'] == 'QOSMaxWallDurationPerJobLimit':

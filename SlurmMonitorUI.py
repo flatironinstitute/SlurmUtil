@@ -1479,30 +1479,32 @@ class SLURMMonitorUI(object):
         return first, last, cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes
 
     @cherrypy.expose
-    def nodeGPUGraph(self, node, hours=72):  #the GPU util for the node of last day
+    def nodeGPUGraph(self, node, hours=72):  #the GPU util for the node of last hours 
         nodeData= pyslurm.node().get_node(node)
         if not nodeData:
            return 'Node {} is not in slurm cluster.'.format(node)
         if not nodeData[node]['gres']:
            return 'Node {} does not have gres resource'.format(node)
-        stop    = int(time.time())
-        start   = stop - hours * 60 * 60
-        data    = BrightRestClient().getNodeGPU(node, start)
+        stop      = int(time.time())
+        start     = stop - hours * 60 * 60
+        #data      = BrightRestClient().getNodeGPU(node, start)
+        data      = BrightRestClient().getNodesGPU_Mem([node], start, max_gpu_id=3, msec=True)
+        util_data = data['gpu_utilization']
+        mem_data  = data['gpu_fb_used']
+   
         series  = []
-        for node_gpu,s in data.items():
+        for node_gpu,s in util_data.items():
             series.append({'name':node_gpu, 'data':s})
-
-        #start   = min([item['data'][0][0] for item in data['data']])
-        #stop    = max([item['data'][-1][0] for item in data['data']])
-        #series  = data['data']       # [{name:, data:[[ts,val]],}]
-        #for item in series:
-        #    item['data'] = [[i[0]*1000,i[1]] for i in item['data']]
+        series2  = []
+        for node_gpu,s in mem_data.items():
+            series2.append({'name':node_gpu, 'data':s})
 
         htmltemp = os.path.join(config.APP_DIR, 'nodeGPUGraph.html')
         h = open(htmltemp).read()%{'spec_title': ' on {}'.format(node),
                                    'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(start)),
                                    'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(stop)),
-                                   'series'    : json.dumps(series)}
+                                   'series'    : json.dumps(series),
+                                   'series2'    : json.dumps(series2)}
         return h
 
     @cherrypy.expose
