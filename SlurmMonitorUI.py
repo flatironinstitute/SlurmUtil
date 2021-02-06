@@ -629,18 +629,13 @@ class SLURMMonitorUI(object):
                                                  user       =json.dumps(user))
         return h
 
-    def getJobAllocGPU (job, node_dict):
-        node_list      = [node_dict[node] for node in job['cpus_allocated']]
-        gpus_allocated = MyTool.getGPUAlloc_layout(node_list, job['gres_detail'])
-        return gpus_allocated
-
     def getUserAllocGPU (uid, node_dict):
         rlt      = {}
         rlt_jobs = []
         jobs     = PyslurmQuery.getUserCurrJobs(uid)
         if jobs:
            for job in jobs:
-               job_gpus = SLURMMonitorUI.getJobAllocGPU(job, node_dict)
+               job_gpus = SLURMMonitorData.getJobAllocGPU(job, node_dict)
                for node, gpu_ids in job_gpus.items():
                    rlt_jobs.append(job)
                    if node in rlt:
@@ -1034,23 +1029,27 @@ class SLURMMonitorUI(object):
         job_start    = job['start_time']
         if not job['gres_detail']:
            return "No GPU Alloc for job {}".format(jid)
-        job_gpu_alloc= SLURMMonitorUI.getJobAllocGPU(job, pyslurm.node().get())  #{'workergpu01':[0,1]
-        brightClient = BrightRestClient()
+        job_gpu_alloc= SLURMMonitorData.getJobAllocGPU(job, pyslurm.node().get())  #{'workergpu01':[0,1]
         max_gpu_id   = max([i for id_lst in job_gpu_alloc.values() for i in id_lst])
-        gpu_dict     = brightClient.getGPU (list(job_gpu_alloc.keys()), job_start, max_gpu_id=max_gpu_id)
+        d            = BrightRestClient().getNodesGPU_Mem (list(job_gpu_alloc.keys()), job_start, max_gpu_id=max_gpu_id, msec=True)
+        gpu_dict     = d['gpu_utilization']
+        mem_dict     = d['gpu_fb_used']
+
+        #display only the allocated gid
         series       = []
+        series2      = []
         for node,gpu_list in job_gpu_alloc.items():
             for gpu_id in gpu_list:
                 name = '{}.gpu{}'.format(node, gpu_id)
-                if gpu_dict[name][0][0] < (job_start - 600) * 1000:
-                   gpu_dict[name][0][0] = job_start * 1000
-                series.append ({'name':name, 'data':gpu_dict[name]})
+                series.append  ({'name':name, 'data':gpu_dict[name]})
+                series2.append ({'name':name, 'data':mem_dict[name]})
 
         htmltemp = os.path.join(config.APP_DIR, 'nodeGPUGraph.html')
         h = open(htmltemp).read()%{'spec_title': ' of Job {}'.format(jid),
                                    'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(job_start)),
                                    'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(int(time.time()))),
-                                   'series'    : json.dumps(series)}
+                                   'series'    : json.dumps(series),
+                                   'series2'   : json.dumps(series2)}
         return h
 
     def getDoneJobProc (self, jid, job_report):
@@ -1487,8 +1486,7 @@ class SLURMMonitorUI(object):
            return 'Node {} does not have gres resource'.format(node)
         stop      = int(time.time())
         start     = stop - hours * 60 * 60
-        #data      = BrightRestClient().getNodeGPU(node, start)
-        data      = BrightRestClient().getNodesGPU_Mem([node], start, max_gpu_id=3, msec=True)
+        data      = BrightRestClient().getNodesGPU_Mem({node:[0,1,2,3]}, start, msec=True)
         util_data = data['gpu_utilization']
         mem_data  = data['gpu_fb_used']
    
