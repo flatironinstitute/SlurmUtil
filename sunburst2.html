@@ -154,7 +154,7 @@
         root.each(d => d.current = d);
 
         var svg = d3.select("#sunburst")
-         .create("svg")
+          .append("svg:svg")
           .attr("viewBox", [0, 0, width, width])
           .style("font", "11px sans-serif");
 
@@ -249,7 +249,6 @@
       } // End createVisualization
 
       var sunburst = createVisualization(load_data);
-      d3.select("#sunburst").append(sunburst);
       d3.select('#optionsList')
         .on('change', function() {
           var newData = eval(d3.select(this).property('value'));
