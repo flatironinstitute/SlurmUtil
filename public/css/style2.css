@@ -108,8 +108,10 @@ body {
 .section__div--sunburst {
   padding: 60px 30px;
   display: flex;
-  flex-direction: center;
+  flex-direction: row;
   align-items: center;
+  justify-content: center;
+  min-height: 400px;
 }
 .section__inner--footer {
   display: flex;
