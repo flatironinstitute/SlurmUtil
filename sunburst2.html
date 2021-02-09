@@ -250,13 +250,12 @@
         return svg.node();
       } // End createVisualization
 
-      var sunburst = createVisualization(load_data);
+      createVisualization(load_data);
       d3.select('#optionsList')
         .on('change', function() {
           var newData = eval(d3.select(this).property('value'));
-          var newBurst = createVisualization(newData);
-          d3.select("#sunburst").remove();
-          d3.select("#sunburst").append(newBurst);
+          console.log('Change viz', newData);
+          createVisualization(newData);
         });
     </script>
   </body>
