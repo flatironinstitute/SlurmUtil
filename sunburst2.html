@@ -54,7 +54,7 @@
       </div>
       <nav class="nav" id="navmenu"></nav>
       <section class="section">
-        <div class="section__inner">
+        <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
             <div id="optionsSelect">
               <h3>Sunburst Graph</h3>
@@ -72,9 +72,11 @@
         </div>
       </section>
       <section class="section">
-        <div class="section__inner">
-          <div class="section__div section__div--sunburst">
-            <div class="flex flex__center" id="sunburst"></div>
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div section__div--sunburst flex flex__center">
+            <div class="graphic__center flex flex__center">
+              <div id="sunburst"></div>
+            </div>
           </div>
         </div>
       </section>
@@ -153,12 +155,9 @@
         var root = partition(data);
         root.each(d => d.current = d);
 
-        var svg = d3.select("#sunburst")
-          .append("svg:svg")
+        var svg = d3.select("#sunburst").append("svg:svg")
           .attr("viewBox", [0, 0, width, width])
           .style("font", "11px sans-serif");
-
-          console.log('🐶', svg);
 
         var g = svg.append("g")
           .attr("transform", `translate(${width / 2},${width / 2})`);
