@@ -153,7 +153,7 @@
         var root = partition(data);
         root.each(d => d.current = d);
 
-        var svg = d3.select(#)
+        var svg = d3.select("#sunburst")
          .create("svg")
           .attr("viewBox", [0, 0, width, width])
           .style("font", "11px sans-serif");
