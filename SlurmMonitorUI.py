@@ -1075,13 +1075,14 @@ class SLURMMonitorUI(object):
            jid         = jid.split(',')[0]
         jid            = int(jid)
         ts             = int(time.time())
+
         jobstep_report = SlurmCmdQuery.sacct_getJobReport(jid)
         if not jobstep_report:
            return "Cannot find job {}".format(jid)
         job_report     = jobstep_report[0]
-
-        pyslurm_job    = pyslurm.job()
-        job            = pyslurm_job.get().get(jid, None)
+        job            = PyslurmQuery.getCurrJob(jid)
+        if not job:
+           job         = PyslurmQuery.getSlurmDBJob(jid)
 
         msg_note       = ''
         worker2proc    = {}

@@ -48,9 +48,9 @@ class SlurmCmdQuery:
  
     @staticmethod
     def sacct_getJobReport (jobid, skipJobStep=False):
-        #output = 'JobID,JobIDRaw,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocNodes,NodeList'
+        output = 'JobID,JobIDRaw,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocNodes,NodeList'
         # may include sub jobs
-        jobs   = SlurmCmdQuery.sacct_getReport(['-j', str(jobid)], days=None, output='ALL', skipJobStep=skipJobStep)
+        jobs   = SlurmCmdQuery.sacct_getReport(['-j', str(jobid)], days=None, output=output, skipJobStep=skipJobStep)
         if not jobs:
            return None
         return jobs
@@ -64,6 +64,7 @@ class SlurmCmdQuery:
            startDate = '%d-%02d-%02d'%(t.year, t.month, t.day)
            criteria  = ['-S', startDate] + criteria
 
+        #Constraints has problem
         field_str, sacct_rlt = SlurmCmdQuery.sacctCmd (criteria, output)
         keys                 = field_str.split(sep='|')
         jobs                 = []
@@ -93,6 +94,7 @@ class SlurmCmdQuery:
 
     @staticmethod
     def sacctCmd (criteria, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End'):
+        #has problem with constrains such as skylank|broadwell
         cmd = ['sacct', '-P', '-o', output] + criteria
         #print('{}'.format(cmd)) 
         try:
@@ -253,8 +255,9 @@ class PyslurmQuery():
     #only in db_job: ['alloc_gres', 'alloc_nodes', 'associd', 'blockid', 'cluster', 'derived_es', 'elapsed', 'eligible', 'end', 'exitcode', 'gid', 'jobid', 'jobname', 'lft', 'qosid', 'req_cpus', 'req_gres', 'req_mem', 'requid', 'resvid', 'show_full', 'start', 'state', 'state_str', 'stats', 'steps', 'submit', 'suspended', 'sys_cpu_sec', 'sys_cpu_usec', 'timelimit', 'tot_cpu_sec', 'tot_cpu_usec', 'track_steps', 'uid', 'used_gres', 'user', 'user_cpu_sec', 'wckeyid']
     COMMON_FLD  = ['account', 'array_job_id', 'array_task_id', 'array_task_str', 'array_max_tasks', 'derived_ec', 'nodes', 'partition', 'priority', 'resv_name', 'tres_alloc_str', 'tres_req_str', 'wckey', 'work_dir']
     MAP_JOB2DBJ = {'start_time':'start','end_time':'end', 'exitcode':'exit_code', 'jobid':'job_id', 'user_id':'uid'}
+    DEF_REQ_FLD = COMMON_FLD + list(MAP_JOB2DBJ.keys())
     @staticmethod
-    def getSlurmDBJob (jid, req_fields=[]):
+    def getSlurmDBJob (jid, req_fields=DEF_REQ_FLD):
         job = pyslurm.slurmdb_jobs().get(jobids=[jid]).get(jid, None)
         if not job:   # cannot find
            return None
@@ -282,7 +285,7 @@ def test3():
     client.getJobByName ('script.sh')
 
 def test4():
-    jobs=SlurmCmdQuery.sacct_getJobReport(514269)
+    jobs=SlurmCmdQuery.sacct_getJobReport(927525)
     print(repr(jobs))
 
 def test5():
