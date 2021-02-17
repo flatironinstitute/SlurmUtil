@@ -147,6 +147,9 @@ body {
   align-items: center;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
+.hide {
+  display: none;
+}
 
 /* Typography
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
@@ -984,3 +987,15 @@ th {
 .highcharts-tooltip h3 {
   margin: 0.3em 0;
 } */
+
+/*added by Yanbin for hidden behavior*/
+.hide {
+   display: none
+}
+/*added by Yanbin
+li span.attribute {
+    width: 20ch;
+    font-weight: bold;
+    display: inline-block;
+}
+*/
