@@ -235,7 +235,7 @@ class InMemLog:
     def __init__(self, max_len=MAX_COUNT):
         self.log           = deque(maxlen=max_len)               # logRecord {'source':, 'funcName':, 'ts':, 'msg:'}
     def append(self, logRecord):
-        print("---logRecord={}".format(logRecord))
+        #print("---logRecord={}".format(logRecord))
         self.log.append({'source':'{}.{}'.format(logRecord.get('module','unknown'),logRecord.get('funcName','unknown')), 'ts':logRecord.get('created',time.time()), 'msg':logRecord.get('msg','unknown')})
     #revTS if want in the reverse order of timestamp
     def getAllLogs(self, reverse=True):

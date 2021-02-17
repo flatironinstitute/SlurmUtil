@@ -2,7 +2,7 @@
 
 import time
 t1=time.time()
-import math,os,re,subprocess
+import math,os,re,shutil,subprocess
 import pandas
 import config,MyTool
 from datetime import datetime, date, timedelta
@@ -10,11 +10,20 @@ from datetime import datetime, date, timedelta
 logger           = config.logger
 SLURM_STATE_DICT = {0:'PENDING', 1:'RUNNING', 3:'COMPLETED', 4:'CANCELED', 5:'FAILED', 6:'TIMEOUT', 7:'NODE_FAIL', 8:'PREEMPTED', 11:'OUT_OF_MEM', 8192:'RESIZING'}
 CSV_DIR          = "/mnt/home/yliu/projects/slurm/utils/data/"
+CEPH_DIR         = "/mnt/home/yliu/ceph/projects/slurm/utils/"
 LOG_BUCKET       = {10.0:10000000000} 
 for i in range(1,10):
     for j in range(0,10):
         f        = (i*10+j)/10       
         LOG_BUCKET[f]=round(math.pow(10,f))
+
+#truncate csv file, removing lines with create_time bigger than ts
+def truncUsageFile (inFile, outFile, ts):
+    print("Truncate {} file and save to {}".format(inFile, outFile))
+    #creation_time    mod_time  deleted  id_tres  time_start  ...  down_secs  pdown_secs  idle_secs  resv_secs  over_secs
+    df     = pandas.read_csv(inFile)
+    df     = df[df['creation_time']<ts]
+    df.to_csv(outFile, index=False)
 
 class SlurmDBQuery:
     def __init__(self):
@@ -214,58 +223,81 @@ class SlurmDBQuery:
         lst            = df.to_dict(orient='records')
         return lst
 
+    def readClusterTable (cluster, part_table_name, fld_lst, index_col=None):
+        f_name        = "{}/{}_{}.csv".format(CSV_DIR, cluster, part_table_name)
+        df            = pandas.read_csv(f_name, usecols=fld_lst, index_col=index_col)
+        return df
+
+    def readClusterTableBetween (cluster, part_table_name, fld_lst, start=None, stop=None, index_col=None, ts_col=None):
+        df  = SlurmDBQuery.readClusterTable (cluster, part_table_name, fld_lst, index_col)
+        if ts_col:
+           start,stop,df = MyTool.getDFBetween (df, ts_col, start, stop)
+           return start, stop, df
+        else:
+           return 0,0,df
+
     #sav last yeasrs' cpu usage data to cpuAllocDF.csv
-    def savCPUAlloc (output_file, years=2):
-        #TODO: add dtype{'id_tres':int, ...} to save memory
-        df               = pandas.read_csv(CSV_DIR +"slurm_cluster_usage_hour_table.csv", usecols=['id_tres','time_start','count','alloc_secs','down_secs','pdown_secs','idle_secs','resv_secs','over_secs'])
-        # get 2 years's history only
+    def savCPUAlloc (cluster, day_or_hour, output_file):
+        #maybe add dtype{'id_tres':int, ...} to save memory
         now              = datetime.now()
-        start            = int(now.replace(year=now.year-years).timestamp())      # use 2 years' history
-        start,stop,df    = MyTool.getDFBetween(df, 'time_start', start)
+        #start            = int(now.replace(year=now.year-years).timestamp())      # use 2 years' history
+        fld              = ['id_tres','time_start','count','alloc_secs','down_secs','pdown_secs','idle_secs','resv_secs','over_secs']
+        part_table_nm    = "usage_{}_table".format(day_or_hour)
+        df               = SlurmDBQuery.readClusterTable(cluster, part_table_nm, fld)
+
+        #sav cpu data only
+        dfg        = df.groupby  ('id_tres')
+        df         = dfg.get_group(1)      #cpu's id_tres is 1
+
         # calculate new columns 
         df['total_secs'] = df['alloc_secs']+df['down_secs']+df['pdown_secs']+df['idle_secs']+df['resv_secs']
-        df               = df[df['count'] * 3600 == df['total_secs']]         # filter
+        if day_or_hour == 'day':
+           df_warning    = df[df['count'] * 3600*24 != df['total_secs']]
+           print("filter out count * 3600 * 24 != total_secs\n{}".format(df_warning))
+           df            = df[df['count'] * 3600*24 == df['total_secs']]         # filter, cause problems later for NaN in savAccountCPUAlloc
+                                                                                 # the situation may due to add/remove new machines in cluster
+        elif day_or_hour == 'hour':
+           df_warning    = df[df['count'] * 3600 != df['total_secs']]
+           print("filter out count * 3600 != total_secs\n{}".format(df_warning))
+           df            = df[df['count'] * 3600 == df['total_secs']]         # filter
         df['ds']         = df['time_start'].apply(lambda x: datetime.fromtimestamp(x).strftime('%Y-%m-%d %H:%M:%S'))
-        #df.reset_index (drop=True, inplace=True)
-        # remove 0 alloc_secs at the beginning 
-        #idx              = 0
-        #while df.loc[idx,'alloc_secs'] == 0: idx += 1
-        #if idx:
-        #   df.drop(range(0, idx), inplace=True)
-        #   df.reset_index (drop=True, inplace=True)
 
-        #save data to cpuAllocDF.sav
-        #sav cpu data only
-        dfg              = df.groupby  ('id_tres')
-        df               = dfg.get_group(1)      #cpu's id_tres is 1
         cpuAllocDf = df[['ds', 'alloc_secs', 'total_secs']]
         cpuAllocDf = cpuAllocDf.rename(columns={'alloc_secs': 'y', 'total_secs': 'cap'})
         cpuAllocDf.to_csv(output_file, index=False)
+        return cpuAllocDf.iat[0,0], cpuAllocDf.iat[-1,0], cpuAllocDf
 
-    def savAccountCPUAlloc (output_file, years=2):
+    # use clusterDf to set cap
+    def savAccountCPUAlloc (cluster, day_or_hour, output_file, clusterDf=None):
         # read data
-        df         = pandas.read_csv(CSV_DIR + "slurm_cluster_assoc_usage_hour_table.csv", usecols=['id','id_tres','time_start','alloc_secs'])
-        # get 2 years's history only
-        now        = datetime.now()
-        start      = int(now.replace(year=now.year-years).timestamp())      # use 2 years' history
-        st, stp, df= MyTool.getDFBetween (df, 'time_start', start)
+        now              = datetime.now()
+        #start            = int(now.replace(year=now.year-years).timestamp())      # use 2 years' history
+        part_table_nm    = "assoc_usage_{}_table".format(day_or_hour)
+        df               = SlurmDBQuery.readClusterTable (cluster, part_table_nm, ['id', 'id_tres','time_start','alloc_secs'])
+        start, stop      = df.iat[0,2], df.iat[-1,2]
+
         # add acct to df
-        userDf     = pandas.read_csv(CSV_DIR + "slurm_cluster_assoc_table.csv", usecols=['id_assoc','acct'], index_col=0)
+        userDf     = SlurmDBQuery.readClusterTable (cluster, "assoc_table", ['id_assoc','acct'], index_col=0)
         df['acct'] = df['id'].map(userDf['acct'])
         df.drop('id', axis=1, inplace=True)
         # sum over the same id_tres, acct, time_start
         df         = df.groupby(['id_tres','acct', 'time_start']).sum()
         df['ts']   = df.index.get_level_values('time_start')
+        df['ds']   = df['ts'].apply(lambda x: datetime.fromtimestamp(x).strftime('%Y-%m-%d %H:%M:%S'))
 
         #sav data
-        df['ds']   = df['ts'].apply(lambda x: datetime.fromtimestamp(x).strftime('%Y-%m-%d %H:%M:%S'))
-        #TODO: hard code account name
-        for acct in ['cca', 'ccb', 'ccm', 'ccn', 'ccq']:
+        idx_acct   = df.index.get_level_values('acct').unique()
+        for acct in idx_acct.values:   #['cca', 'ccb', 'ccm', 'ccn', 'ccq']:
             # get cpu,account data
             cpuDf             = df.loc[(1,acct,),]      # TODO: 1 is cpu
-            cpuAllocDf        = cpuDf[['ds', 'alloc_secs']]
+            cpuDf             = cpuDf.join(clusterDf.set_index('ds'),on='ds',how='inner')
+            cpuAllocDf        = cpuDf[['ds', 'alloc_secs', 'cap']]
+            cpuAllocDf        = cpuAllocDf.fillna (cpuAllocDf.iat[len(cpuAllocDf)-1,2])  #fill nan cell, should be non with inner
+            cpuAllocDf['cap'] = cpuAllocDf['cap'].astype(int)
             cpuAllocDf        = cpuAllocDf.rename(columns={'alloc_secs': 'y'})
-            cpuAllocDf.to_csv(output_file.format(acct), index=False)
+            cpuAllocDf.to_csv(output_file.format(acct), na_rep=cpuAllocDf.iat[len(cpuAllocDf)-1,2], index=False)
+            print ("\t{}: {}-{}".format(acct, cpuAllocDf.iat[0,0], cpuAllocDf.iat[-1,0])) 
+        return 
     
     def getCDF_X (df, percentile):
         cdf          = df.cumsum()
@@ -312,7 +344,7 @@ class SlurmDBQuery:
         b = round(math.log10(x)*10)/10
         return LOG_BUCKET[b]
 
-    #return jobs' count by cpus_req, cpus_alloc and nodes_alloc
+    #return jobs' count by time_run, time_cpu=time_run * cpus_alloc
     def getJobTime (cluster, start, stop, upper=90):
         start,stop,df    = SlurmDBQuery.readJobTable  (cluster, start, stop, ['account', 'cpus_req','id_job','state', 'time_submit', 'time_start', 'time_end', 'tres_alloc'], index_col=2)
         df               = df[df['account'].notnull()]
@@ -340,6 +372,34 @@ class SlurmDBQuery:
                 result[col]['account'][v] = acctDf.loc[v].reset_index()
 
         return start, stop, result
+    #call daily
+    def plusFiles ():
+        SlurmDBQuery.plusUsageFiles()
+        for tbl in ['assoc_table']:
+           src  = "{}/slurm_{}.csv".format(CSV_DIR, tbl)
+           dst  = "{}/slurm_plus_{}.csv".format(CSV_DIR, tbl)
+           shutil.copy(src,dst)
+
+    def plusUsageFiles ():
+      # combine usage files
+      for tbl in ['usage_day_table', 'usage_hour_table', 'assoc_usage_day_table', 'assoc_usage_hour_table']:
+        f1  = "{}/slurm_cluster_mod_{}.csv".format(CSV_DIR, tbl)
+        f2  = "{}/slurm_{}.csv".format(CSV_DIR, tbl)
+        f   = "{}/slurm_plus_{}.csv".format(CSV_DIR, tbl)
+
+        print("{} + {} = {}".format(f1,f2,f))
+        df1 = pandas.read_csv(f1)
+        df2 = pandas.read_csv(f2)
+        df  = df1.append(df2, ignore_index=True)
+        df.to_csv(f, index=False)
+
+#one time calling 
+def truncUsageFiles():
+    ts     = 1604786400        #head slurm_usage_hour_table 
+    for tbl in ['usage_day_table', 'usage_hour_table', 'assoc_usage_day_table', 'assoc_usage_hour_table']:
+        in_f  = "{}/slurm_cluster_{}.csv".format(CSV_DIR, tbl)
+        out_f = "{}/slurm_cluster_mod_{}.csv".format(CSV_DIR, tbl)
+        truncUsageFile (in_f, out_f, ts)
 
 
 def test2():
@@ -350,8 +410,13 @@ def test3():
     client = SlurmDBQuery()
     client.getJobByName ('script.sh')
 
+
 def main():
     t1=time.time()
 
 if __name__=="__main__":
-   main()
+    #SlurmDBQuery.plusUsageFiles ()
+    #def savAccountCPUAlloc (cluster, day_or_hour, output_file, clusterDf=None):
+    df = pandas.read_csv("./data/slurm_plus_day_cpuAllocDF.csv")
+    #fname2 = "{}/{}_{}_{}".format(CSV_DIR, cluster, day_or_hour, "cpuAllocDF_{}.csv")
+    SlurmDBQuery.savAccountCPUAlloc('slurm_plus', 'day', './data/slurm_plus_day_cpuAllocDF_{}.csv', df)

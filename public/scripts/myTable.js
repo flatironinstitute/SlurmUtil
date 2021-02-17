@@ -54,14 +54,14 @@ function getDisplayFloat (n) {
 function createMultiTitle (data_dict, parent_id, job_id) {
    var pas = d3.select(parent_id).selectAll('p')
                .data(Object.keys(data_dict))
-               .enter().append('div').attr('class', 'section__div')
+               .enter().append('div')
    pas.append('p')
       .attr('class', 'thick table_title')
       .html(function (d) {
                var procLink = '<a href="./nodeJobProcGraph?node=' + d + '&jid=' + job_id + '"> (Proc Usage Graph) </a>'
                var rlt      = '<a href="./nodeDetails?node=' + d + '">' + d + '</a>: ' + data_dict[d][1] + ' processes'
                if (data_dict[d][0]>0)
-                  rlt  = rlt + ' on ' + data_dict[d][0] + ' CPUs'
+                  rlt  = rlt + ' on ' + data_dict[d][0] + ' CPUs, avg CPU util ' + data_dict[d][2].toFixed(2)
                rlt          = rlt + procLink
                return rlt})
    return pas
@@ -90,6 +90,7 @@ function createMultiTable (data_dict, parent_id, table_title_list, job_id) {
          .attr('class', function(d,i) {return 'noborder ' + table_title_list[i]})
          .text(function (d) {return d}) //TODO: change to createMultiTable2 style
 
+   console.log("--done createMutliTable")
    collapseTitle ()
 }
 
@@ -117,6 +118,8 @@ function createMultiTitle2 (data_dict, parent_id, node) {
 
 function collapseTitle () {
    // collapse behavior
+   $('.table_title').toggleClass('table_title_collapse')
+   $('.table_title').next().toggleClass('hide')
    $('.table_title').click(function(event) {
        //$(this).children("i").toggleClass('hide')
       $(this).toggleClass('table_title_collapse')
@@ -157,6 +160,7 @@ function createMultiTable2 (data_dict, parent_id, table_title_list, node, type_l
              return d
          })
 
+   
    // collapse behavior
    collapseTitle ()
 }

@@ -181,7 +181,7 @@ def display_node_CPU(node_name, hours=2, detail=False):
     return
 
 if __name__=="__main__":
-    parser = argparse.ArgumentParser(description='Collect GPU utilization data')
+    parser = argparse.ArgumentParser(description='Collect CPU and other resources (mem, io) utilization data')
     parser.add_argument('-j', '--jid',  metavar='JOBID', type=int, nargs="+", help='job id')
     parser.add_argument('-n', '--node', metavar='workerNode',     nargs="+", help='node')
     parser.add_argument('-u', '--user', metavar='USER',        nargs="+", help='user name')
