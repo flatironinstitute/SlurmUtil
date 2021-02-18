@@ -136,7 +136,7 @@
           .padRadius(radius * 1.5)
           .innerRadius(d => d.y0 * radius)
           .outerRadius(d => Math.max(d.y0 * radius, d.y1 * radius - 1));
-        var width = 932;
+        var width = 902;
         var radius = width / 6;
         var format = d3.format(",d");
 
@@ -154,8 +154,8 @@
 
         var svg = d3.select("#sunburst")
           .append("svg:svg")
-          .attr("viewBox", [0, 0, 932, 932])
-          .style("font", "15px bebas neue");
+          .attr("viewBox", [0, 0, 902, 902])
+          .style("font", "18px Roboto");
 
         var g = svg.append("g")
           .attr("transform", `translate(${width / 2},${width / 2})`);
