@@ -136,9 +136,14 @@
           .padRadius(radius * 1.5)
           .innerRadius(d => d.y0 * radius)
           .outerRadius(d => Math.max(d.y0 * radius, d.y1 * radius - 1));
-        var width = 902;
+        var margin = {top: 60, right: 30, bottom: 60, left: 30};
+        var width = 1100 - margin.left - margin.right;
+        var height = 800 - margin.top - margin.bottom;
         var radius = width / 6;
         var format = d3.format(",d");
+        var tooltip = d3.select("body").append("div")
+        .attr("class", "tooltip")
+        .style("opacity", 0);
 
         function partition(data) {
           var groot = d3.hierarchy(data)
@@ -154,8 +159,7 @@
 
         var svg = d3.select("#sunburst")
           .append("svg:svg")
-          .attr("viewBox", [0, 0, 902, 902])
-          .style("font", "18px Roboto");
+          .attr("viewBox", [0, 0, width, height]);
 
         var g = svg.append("g")
           .attr("transform", `translate(${width / 2},${width / 2})`);
@@ -188,7 +192,7 @@
           .attr("dy", "0.35em")
           .attr("fill-opacity", d => +labelVisible(d.current))
           .attr("transform", d => labelTransform(d.current))
-          .style("font", "18px Roboto")
+          .style("font", "15px Roboto")
           .text(d => d.data.name);
 
         var parent = g.append("circle")
@@ -196,7 +200,20 @@
           .attr("r", radius)
           .attr("fill", "none")
           .attr("pointer-events", "all")
-          .on("click", clicked);
+          .on("click", clicked)
+          .on("mouseover",function(d, i) {
+            var totalSize = path.node().__data__.value;
+            sysname=data.sysname
+            tooltip.text(d.name + " " + sysname+ ": " + formatNumber(d.value))
+          .style("opacity", 0.9)
+          .style("left", (d3.event.pageX) + 20 + "px")
+          .style("top", (d3.event.pageY) - 20 + "px");
+        })
+        .on("mouseout", function(d) {
+            tooltip.style("opacity", 0);
+        });
+
+
 
         function clicked(event, p) {
           parent.datum(p.parent || root);
