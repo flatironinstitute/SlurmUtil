@@ -128,8 +128,6 @@
       }
 
       function createVisualization(data) {
-      // Tooltip
-
 
         var arc = d3.arc()
           .startAngle(d => d.x0)
@@ -154,7 +152,9 @@
         var root = partition(data);
         root.each(d => d.current = d);
 
-        var svg = d3.select("#sunburst").append("svg:svg")
+        var svg = d3.select("#sunburst")
+          .enter()
+          .append("svg")
           .attr("viewBox", [0, 0, width, width])
           .style("font", "15px bebas neue");
 
