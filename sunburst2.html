@@ -128,6 +128,9 @@
       }
 
       function createVisualization(data) {
+      // Tooltip
+
+
         var arc = d3.arc()
           .startAngle(d => d.x0)
           .endAngle(d => d.x1)
@@ -153,7 +156,7 @@
 
         var svg = d3.select("#sunburst").append("svg:svg")
           .attr("viewBox", [0, 0, width, width])
-          .style("font", "18px sans-serif");
+          .style("font", "15px bebas neue");
 
         var g = svg.append("g")
           .attr("transform", `translate(${width / 2},${width / 2})`);
@@ -207,9 +210,6 @@
 
           var t = g.transition().duration(750);
 
-          // Transition the data on all arcs, even the ones that aren’t visible,
-          // so that if this transition is interrupted, entering arcs will start
-          // the next transition from the desired position.
           path.transition(t)
             .tween("data", d => {
               var i = d3.interpolate(d.current, d.target);
