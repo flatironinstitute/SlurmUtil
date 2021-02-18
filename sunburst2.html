@@ -188,6 +188,7 @@
           .attr("dy", "0.35em")
           .attr("fill-opacity", d => +labelVisible(d.current))
           .attr("transform", d => labelTransform(d.current))
+          .style("font", "18px Roboto")
           .text(d => d.data.name);
 
         var parent = g.append("circle")
