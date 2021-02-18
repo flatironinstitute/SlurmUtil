@@ -147,7 +147,7 @@ body {
   align-items: center;
 }
 .flex__sunburst {
-  background-color: green;
+  margin: 0 auto;
   max-width: 932px;
 }
 .grid {
