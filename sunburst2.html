@@ -54,7 +54,7 @@
       </div>
       <nav class="nav" id="navmenu"></nav>
       <section class="section">
-        <div class="section__inner section__inner--fullwidth">
+        <div class="section__inner">
           <div class="section__div">
             <div id="optionsSelect">
               <h3>Sunburst Graph</h3>
@@ -154,7 +154,7 @@
 
         var svg = d3.select("#sunburst")
           .append("svg:svg")
-          .attr("viewBox", [0, 0, width, width])
+          .attr("viewBox", [0, 0, 932, 932])
           .style("font", "15px bebas neue");
 
         var g = svg.append("g")
