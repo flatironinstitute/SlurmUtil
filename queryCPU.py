@@ -69,10 +69,11 @@ def display_job_CPU(jid, detail=False):
        #TODO: get job from sacct 
 
     influxClient          = InfluxQueryClient()
-    start, stop, node2seq = influxClient.getSlurmJobData(jid)  #{hostname: {ts: [cpu, mem, io_r, io_w] ... }}
-    if not node2seq:
+    queryRlt              = influxClient.getJobMonData_hc(jid)
+    if not queryRlt:
        print ("Cannot find Job {} in Influx Server".format(jid))
        return
+
     if job:
        print ("{} Job {} of {} running {}, allocate {} nodes {}.".format(MyTool.getTsString(ts), jid, MyTool.getUser(job['user_id']), datetime.timedelta(seconds=ts - job['start_time']), len(job['cpus_allocated']), list(job['cpus_allocated'])))
     else:
@@ -82,18 +83,20 @@ def display_job_CPU(jid, detail=False):
     dfmt_str ="    {:>11} {:>8} {:>5.2f}({:>5.2f},{:>5.2f},{:>5.2f}) {:>10} {:>10} {:>10}"
     print(fmt_str.format('Node', 'AllocCPU', 'AvgCPU(10,30,60min)', 'AvgMem', 'AvgIORead', 'AvgIOWrite'))
     print(fmt_str.format('-'*10, '-'*8, '-'*24, '-'*10, '-'*10, '-'*10))
-    for node, seqDict in node2seq.items():
-        cpuSeq   = [[ts,info[0]] for ts,info in seqDict.items()]
+    start,stop,cpu_rlt,mem_rlt,ior_rlt,iow_rlt = queryRlt       # highchart format
+    for idx in range(len(cpu_rlt)):
+        node     = cpu_rlt[idx]['name']
+        cpuSeq   = cpu_rlt[idx]['data']
+        memSeq   = mem_rlt[idx]['data']
+        io_rSeq  = ior_rlt[idx]['data']
+        io_wSeq  = iow_rlt[idx]['data']
+
         cpuAvg   = MyTool.getTimeSeqAvg(cpuSeq, start, stop)
         cpuAvg1  = MyTool.getTimeSeqAvg(cpuSeq, stop-60*10, stop)
         cpuAvg2  = MyTool.getTimeSeqAvg(cpuSeq, stop-60*30, stop)
         cpuAvg3  = MyTool.getTimeSeqAvg(cpuSeq, stop-60*60, stop)
-
-        memSeq   = [[ts,info[1]] for ts,info in seqDict.items()]
         memAvg   = MyTool.getTimeSeqAvg(memSeq, start, stop)
-        io_rSeq  = [[ts,info[2]] for ts,info in seqDict.items()]
         io_rAvg  = MyTool.getTimeSeqAvg(io_rSeq, start, stop)
-        io_wSeq  = [[ts,info[3]] for ts,info in seqDict.items()]
         io_wAvg  = MyTool.getTimeSeqAvg(io_wSeq, start, stop)
         if job:
            alloc_cpu = job['cpus_allocated'].get(node, '')

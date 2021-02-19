@@ -304,12 +304,14 @@ def extract1 (s):
        print("extrac1 has a empty value")
        return 0
     d = getTresDict(s)
-    return d['1']
-    #lst = s.split(',')[0].split('=')
-    #if len(lst) > 1:
-    #   return int(lst[1])
-    #else:
-    #   return 0
+    return d.get('1',0)
+
+def extract4 (s):
+    if not s:
+       print("extrac4 has a empty value")
+       return 0
+    d = getTresDict(s)
+    return d.get('4',0)
 
 #a=1,b=2 to {a:1, b:2}
 def str2dict (dict_str):
@@ -523,7 +525,7 @@ def getGPUAlloc_layout (node_iter, gpu_detail_iter):
 TRES_KEY_MAP={1:'cpu',2:'mem',4:'node',1001:'gpu'}
 def getTresDict (tres_str, mapKey=False):
     d  = {}
-    if tres_str:
+    if tres_str and isinstance(tres_str, str):
        for item in tres_str.split(','):
            k,v  = item.split('=')
            if v.isnumeric():
