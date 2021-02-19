@@ -32,23 +32,12 @@ class SlurmDBQuery:
     def updateDB (self):
         subprocess.call('./mysqldump.sh')
 
-    #index is id_job, seems that saving jobTable does not save much time
-    def getJobTable (self, cluster, fld_lst=['cpus_req','state', 'time_submit', 'time_eligible', 'time_start', 'time_end']):
-        #read file time, if updated from last time, reset the value
-        f_name = "{}/{}_{}".format(CSV_DIR, cluster, "job_table.csv")
-        m_time = os.stat(f_name).st_mtime
-        if (cluster not in self.jobTable) or (m_time > self.jobTable[cluster]['ts']):
-           self.jobTable[cluster]       = {'ts': m_time}
-           self.jobTable[cluster]['df'] = pandas.read_csv(f_name,usecols=['account', 'cpus_req', 'id_job', 'id_qos','id_user', 'nodes_alloc', 'state', 'time_submit', 'time_eligible', 'time_start', 'time_end', 'tres_alloc'], index_col=2)
-
-        return self.jobTable[cluster]['df'][fld_lst]
-        
-    def readJobTable (cluster, start=None, stop=None, fld_lst=None, index_col=None):
+    def readJobTable (cluster, start=None, stop=None, fld_lst=None, index_col=None, time_col='time_submit'):
         #read file time, if updated from last time, reset the value
         f_name        = "{}/{}_{}".format(CSV_DIR, cluster, "job_table.csv")
         df            = pandas.read_csv(f_name, usecols=fld_lst, index_col=index_col)
         if start or stop:
-           start,stop,df = MyTool.getDFBetween (df, 'time_submit', start, stop)
+           start,stop,df = MyTool.getDFBetween (df, time_col, start, stop)
 
         return start, stop, df
 
@@ -135,14 +124,11 @@ class SlurmDBQuery:
 
     # get job queue length for the cluster in the format of time, jobQueueLength, requestedCPUs
     def getClusterJobQueue (self, cluster, start='', stop='', qTime=0):
-        #job_db_inx,mod_time,deleted,account,admin_comment,array_task_str,array_max_tasks,array_task_pending,cpus_req,derived_ec,derived_es,exit_code,job_name,id_assoc,id_array_job,id_array_task,id_block,id_job,id_qos,id_resv,id_wckey,id_user,id_group,pack_job_id,pack_job_offset,kill_requid,mcs_label,mem_req,nodelist,nodes_alloc,node_inx,partition,priority,state,timelimit,time_submit,time_eligible,time_start,time_end,time_suspended,gres_req,gres_alloc,gres_used,wckey,work_dir,track_steps,tres_alloc,tres_req
-        # index is id_job
-
-        df            = self.getJobTable(cluster)
-        start,stop,df = MyTool.getDFBetween (df, 'time_submit', start, stop)
+        fields        = ['cpus_req', 'time_eligible', 'time_start', 'time_end']
+        start,stop,df = SlurmDBQuery.readJobTable (cluster, start, stop, fld_lst=fields, time_col='time_eligible') #time_eligible between start, stop
 
         # Normally, a job enter the queue at time_eligible and leave the queue at time_start
-        df               = df[(df['time_eligible'] > 0) & (df['time_eligible'] < stop)]
+        df               = df[(df['time_eligible'] > 0)]
         # reppared for counting
         df['inc_count']  = 1
         df['dec_count']  = -1
@@ -172,10 +158,9 @@ class SlurmDBQuery:
 
         return df
         
-    #return jobs that run on node during [start, stop]
+    #return jobs that run on node during [start, stop], TODO: not used by anyone now
     def getNodeRunJobs (self, node, start, stop):
         df            = pandas.read_csv(CSV_DIR + "slurm_cluster_job_table.csv",usecols=['id_job','id_user','nodelist','nodes_alloc','state','time_start','time_end','time_suspended'])
-        #df            = pandas.read_csv("slurm_cluster_job_table.csv",usecols=['id_job','id_user','nodelist','nodes_alloc','state','time_start','time_end','time_suspended'],index_col=0)
         start,stop,df = MyTool.getDFBetween (df, 'time_start', start, stop)
         df            = df[df['nodes_alloc'] > 0]
 
@@ -207,7 +192,7 @@ class SlurmDBQuery:
         lst            = df.to_dict(orient='records')
         return lst
 
-    # return jobs after the given start time
+    # return jobs after the given start time, TODO: no cluster as parameter
     def getJobByStartTime (self, start_time, fields=['id_job','job_name', 'id_user','state', 'nodes_alloc','nodelist', 'time_start','time_end', 'tres_req', 'gres_req']):
         df             = pandas.read_csv(CSV_DIR + "slurm_cluster_job_table.csv",usecols=fields)
         df             = df[df['time_start']>start_time]

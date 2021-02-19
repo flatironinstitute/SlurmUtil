@@ -323,6 +323,7 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def queueLengthReport(self, cluster, start='', stop='', queueTime=0):
+        start, stop     = MyTool.getStartStopTS (start, stop, '%Y-%m-%d', days=30)     #default curr-30days, curr
         start, stop, df = self.querySlurmClient.getClusterJobQueue (cluster, start, stop, int(queueTime))
 
         #df = index | time | value
