@@ -135,7 +135,7 @@ class SLURMMonitorUI(object):
         start,stop,cdfData = SlurmDBQuery.getJobCount (cluster, start, stop, upper)
 
         series     = []
-        for fld in ['cpus_req', 'cpus_alloc', 'nodes_alloc']:
+        for fld in ['cpus_req', 'cpus_alloc', 'nodes_req', 'nodes_alloc']:
             s = [{'type': 'spline', 'name': 'CDF', 'yAxis':1, 'zIndex': 10, 'data': cdfData[fld]['count'].values.tolist()}]
             for acct,d in cdfData[fld]['account'].items():
                 s.append({'type': 'column', 'name': acct, 'data': d.values.tolist()})
@@ -149,7 +149,8 @@ class SLURMMonitorUI(object):
                       'stop':  time.strftime('%Y-%m-%d', time.localtime(stop)),
                       'series': series[0], 'title': t1, 'xMax': int(cdfData['cpus_req']['upper_x']+10),  'xLabel': 'Number of CPUs',  'yLabel': 'Count',
                       'series2':series[1], 'title2':t2, 'xMax2':int(cdfData['cpus_alloc']['upper_x'])+10,'xLabel2':'Number of CPUs',  'yLabel2':'Count',
-                      'series3':series[2], 'title3':t3, 'xMax3':int(cdfData['nodes_alloc']['upper_x']+10),'xLabel3':'Number of Nodes','yLabel3':'Count'}
+                      'series3':series[2], 'title3':t3, 'xMax3':int(cdfData['nodes_req']['upper_x']+10),'xLabel3':'Number of Nodes','yLabel3':'Count',
+                      'series4':series[3], 'title4':t3, 'xMax4':int(cdfData['nodes_alloc']['upper_x']+10),'xLabel4':'Number of Nodes','yLabel4':'Count'}
         htmlStr    = open(htmlTemp).read().format(**parameters)
         return htmlStr
 
@@ -981,7 +982,7 @@ class SLURMMonitorUI(object):
     @cherrypy.expose
     def jobByName(self, name='script', curr_jid=None):
         fields    =['id_job','job_name', 'id_user','state', 'nodelist', 'time_start','time_end', 'exit_code', 'tres_req', 'tres_alloc', 'gres_req', 'gres_alloc', 'work_dir']
-        data      = SlurmDBQuery().getJobByName(name, fields)  #user, duration is added by the function
+        data      = SlurmDBQuery.getJobByName(name, fields)  #user, duration is added by the function
         d_flds    = {'id_job':'Job ID', 'state':'State', 'user':'User', 'nodelist':'Alloc Node', 'time_start':'Start', 'time_end':'End', 'duration':'Duration', 'exit_code':'Exit', 'tres_req':'Req Tres', 'gres_req':'Req Gres', 'work_dir':'Work Dir'}
         total_cnt = len(data)
         if len(data) > 100:
@@ -1427,23 +1428,8 @@ class SLURMMonitorUI(object):
     def jobGraph_influx(self, jobid, start=None, stop=None):
         jobid        = int(jobid)
         influxClient = InfluxQueryClient()
-        queryRlt     =influxClient.getJobMonData(jobid, start, stop)
+        queryRlt     =influxClient.getJobMonData_hc(jobid, start, stop)
         return queryRlt
-
-        #start, stop, node2seq = influxClient.getSlurmJobData(jobid, start, stop)  
-        #if not node2seq:
-        #   return None
-
-        #mem_all_nodes  = []  ##[{'data': [[1531147508(s), value]...], 'name':'workerXXX'}, ...]
-        #cpu_all_nodes  = []  ##[{'data': [[1531147508, value]...], 'name':'workerXXX'}, ...]
-        #io_r_all_nodes = []  ##[{'data': [[1531147508, value]...], 'name':'workerXXX'}, ...]
-        #io_w_all_nodes = []  ##[{'data': [[1531147508, value]...], 'name':'workerXXX'}, ...]
-        #for hostname, hostdict in node2seq.items():
-        #    cpu_all_nodes.append  ({'name': hostname, 'data': [[ts, hostdict[ts][0]] for ts in hostdict.keys()]})
-        #    mem_all_nodes.append  ({'name': hostname, 'data': [[ts, hostdict[ts][1]] for ts in hostdict.keys()]})
-        #    io_r_all_nodes.append ({'name': hostname, 'data': [[ts, hostdict[ts][2]] for ts in hostdict.keys()]})
-        #    io_w_all_nodes.append ({'name': hostname, 'data': [[ts, hostdict[ts][3]] for ts in hostdict.keys()]})
-        #return start, stop, cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes
 
     def jobGraph_cache(self, jobid, start=None, stop=None):
         jobid  = int(jobid)
