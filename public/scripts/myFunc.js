@@ -30,6 +30,7 @@ function getTresReplaceInteger(tres_str) {
     return     tres_str.replace('1=',         'cpu=')
 }
 function getDisplayN (n) {
+   //console.log('getDisplayN', n)
    if (typeof (n) != 'Number')
       n = parseFloat (n)
    if (n < 1024) {
@@ -59,5 +60,18 @@ function getDisplayK (n) {
    n = n / 1024
    return n.toFixed(2) + ' T'
 }
+function getPadStr (s) {
+   return ("0" + s).slice(-2)
+}
+function getDateString (d) {
+   return d.getFullYear() + "-" + getPadStr(d.getMonth()+1) + '-' + getPadStr(d.getDate()) 
+}
+function getTimeString(d) {
+   return getPadStr(d.getHours()) + ":" + getPadStr(d.getMinutes())
+}
+function getDateTimeString(d) {
+   return getDateString (d) + "T" + getTimeString(d)
+}
+
 
 

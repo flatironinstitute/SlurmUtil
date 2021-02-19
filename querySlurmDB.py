@@ -62,14 +62,12 @@ class SlurmDBQuery:
         df['ts_ms']      = df['time_start'] * 1000
         dfg              = df.groupby  ('id_tres')
  
-        #cpuDf            = dfg.get_group(1)
-        #memDf            = dfg.get_group(2)
+        cpuDf            = dfg.get_group(1)
+        memDf            = dfg.get_group(2)
         #eneDf            = dfg.get_group(3)
+        #nodeDf     = dfg.get_group(4)  not available
 
-        #cpuDf['ts_ms']   = cpuDf['time_start'] * 1000
-        #memDf['ts_ms']   = memDf['time_start'] * 1000
-
-        return start, stop, dfg
+        return start, stop, cpuDf, memDf
 
     # daily.sh update the data daily 
     def getAccountUsage_hourly (cluster, start='', stop=''):

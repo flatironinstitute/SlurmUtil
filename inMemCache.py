@@ -27,6 +27,8 @@ class InMemCache:
     CPU_IDX       = 7
     RSS_IDX       = 9
     IO_IDX        = 10
+    READ_IDX      = 12
+    WRITE_IDX     = 13
     def __init__(self, debugMode = False):
         self.node_job      = defaultdict(lambda:defaultdict(list))   # node:  {jid: JobNodeSeries}, ...
         self.node_user     = defaultdict(lambda:defaultdict(list))   # node: {uid:  JobNodeSeries}, ...
@@ -143,20 +145,30 @@ class InMemCache:
                          self.node_job[node].pop(jid)
             
     # query job's history from start_time to now
-    def queryJob (self, jid, start_time=None):
+    def queryJob (self, jid, start_time='', stop_time=''):
         logger.debug("queryJob {}".format(jid))
         cpu_rlt, mem_rlt, read_rlt, write_rlt = [], [], [], []
         if jid not in self.jobs:
-           logger.warning("Job {}({}-) is not in self.jobs={}".format(jid, start_time, list(self.jobs.keys())))
-           return None, [], [], [], []
+           logger.warning("Job {} is not in self.jobs={}".format(jid, list(self.jobs.keys())))
+           return None
         
         #logger.debug("\t{}".format(self.jobs[jid]))
         for node in self.jobs[jid]['nodes']:
-            #logger.debug("\t{}:{}".format(node, self.node_job[node][jid]))
-            cpu_rlt.append  ({'name':node, 'data':[ [ts, usage[InMemCache.CPU_IDX]] for (ts, usage) in self.node_job[node][jid] ]})       
-            mem_rlt.append  ({'name':node, 'data':[ [ts, usage[InMemCache.RSS_IDX]]  for (ts, usage) in self.node_job[node][jid] ]})       
-            read_rlt.append ({'name':node, 'data':[ [ts, usage[12]] for (ts, usage) in self.node_job[node][jid] ]})       
-            write_rlt.append({'name':node, 'data':[ [ts, usage[13]] for (ts, usage) in self.node_job[node][jid] ]})       
+            usage_seq = self.node_job[node][jid] 
+            if usage_seq and (start_time or stop_time):        #start, stop constraint
+               firstTS   = usage_seq[0][0]
+               lastTS    = usage_seq[-1][0]
+               if start_time and start_time > firstTS + 60 :  # relax 60 seconds
+                  usage_seq = [(ts, usage) for (ts, usage) in usage_seq if ts >= start_time]
+               if stop_time and stop_time < lastTS - 60:      # relax 60 seconds
+                  usage_seq = [(ts, usage) for (ts, usage) in usage_seq if ts <= stop_time]
+            #if not usage_seq:                  #no data
+            #   continue
+            #empty usage_seq will return a empty []
+            cpu_rlt.append  ({'name':node, 'data':[ [ts, usage[InMemCache.CPU_IDX]]   for (ts, usage) in usage_seq ]})
+            mem_rlt.append  ({'name':node, 'data':[ [ts, usage[InMemCache.RSS_IDX]]   for (ts, usage) in usage_seq ]})
+            read_rlt.append ({'name':node, 'data':[ [ts, usage[InMemCache.READ_IDX]]  for (ts, usage) in usage_seq ]})
+            write_rlt.append({'name':node, 'data':[ [ts, usage[InMemCache.WRITE_IDX]] for (ts, usage) in usage_seq ]})
 
         return self.jobs[jid], cpu_rlt, mem_rlt, read_rlt, write_rlt
 

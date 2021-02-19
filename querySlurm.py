@@ -28,8 +28,9 @@ class SlurmStatus:
         return cls.STATUS_LIST[idInt]
 
 class SlurmCmdQuery:
-    TS_ASSOC   = 0
-    DICT_ASSOC = {}
+    TS_ASSOC     = 0
+    DICT_ASSOC   = {}
+    SET_ACCT     = set()
 
     def __init__(self):
         pass
@@ -112,13 +113,15 @@ class SlurmCmdQuery:
         if file_ts > SlurmCmdQuery.TS_ASSOC:      # if file is newer
            with open(file_nm) as fp: 
                 lines = fp.read().splitlines()
-           fields = lines[0].split('|')
+           fields = lines[0].split('|')           # read field name from first line
+                                                  # User|Def Acct|Admin|Cluster|Account|Partition|Share|Priority|MaxJobs|MaxNodes|MaxCPUs|MaxSubmit|MaxWall|MaxCPUMins|QOS|Def QOS
            d      = {}
            for i in range(1, len(lines)):
-               values = lines[i].split('|')
+               values = lines[i].split('|')       #arora|cca|None|slurm|cca||1||||||||cca,gen,ib,preempt|gen
                d[values[0]] = dict(zip(fields,values))
-           SlurmCmdQuery.DICT_ASSOC = d
            SlurmCmdQuery.TS_ASSOC   = file_ts
+           SlurmCmdQuery.DICT_ASSOC = d
+           SlurmCmdQuery.SET_ACCT   = set([item['Def Acct'] for item in d.values()])
 
     #sacctmgr list user -P -s 
     @staticmethod
@@ -139,6 +142,11 @@ class SlurmCmdQuery:
     def getAllUserAssoc ():
         SlurmCmdQuery.updateAssoc ()
         return SlurmCmdQuery.DICT_ASSOC
+
+    @staticmethod
+    def getAccounts ():
+        SlurmCmdQuery.updateAssoc ()
+        return SlurmCmdQuery.SET_ACCT
 
 class PyslurmQuery():
     @staticmethod
