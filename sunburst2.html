@@ -158,7 +158,6 @@
         root.each(d => d.current = d);
 
         var svg = d3.select("#sunburst")
-          .remove()
           .append("svg:svg")
           .attr("viewBox", [0, 0, width, height]);
 
@@ -214,7 +213,15 @@
             tooltip.style("opacity", 0);
         });
 
+        var dropdown = d3.select('#optionsList')
+          .on('change', function() {
+            console.log('Change viz');
+            var newData = eval(d3.select(this).property('value'));
+          });
 
+        function swapData(newData) {
+          console.log("🐕‍🍩", newData);
+        }
 
         function clicked(event, p) {
           parent.datum(p.parent || root);
@@ -264,13 +271,6 @@
       } //createVisualization
 
         createVisualization(load_data);
-        d3.select('#optionsList')
-          .on('change', function() {
-            console.log('Change viz');
-            var newData = eval(d3.select(this).property('value'));
-            console.log("🐕‍🦺", newData);
-            // createVisualization(newData);
-          });
     </script>
   </body>
 </html>
