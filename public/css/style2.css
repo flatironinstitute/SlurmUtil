@@ -707,11 +707,39 @@ tr.inform {
   text-align: right;
 }
 
+/* Tooltip
+–––––––––––––––––––––––––––––––––––––––––––––––––– */
+
+#sunburst > div.tooltip {
+    position: absolute;
+    text-align: center;
+    width: 200px;
+    height: 100px;
+    padding: 2px;
+    font: 12px sans-serif;
+    /* background: lightsteelblue; */
+    background: pink;
+    border: 0px;
+    border-radius: 8px;
+    pointer-events: none;
+}
+/* path {
+  stroke: #fff;
+  fill-rule: evenodd;
+}
+
+text {
+  font-family: Arial, sans-serif;
+  font-size: 8px;
+} */
+
+
+
 /* TK: Landing Page Dashboard
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
 .hero {
   text-align: center;
-  background-image: url(../images/background-pattern.png), linear-gradient(141deg, #3690ff 0%, #8383ff 100%);
+  /* background-image: url(../images/background-pattern.png), linear-gradient(141deg, #3690ff 0%, #8383ff 100%); */
   background-size: 70px, auto;
   clip-path: polygon(0 0, 100% 0%, 100% calc(100% - 100px), 0 100%);
   perspective: 500px;
@@ -811,6 +839,7 @@ tr.inform {
   box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.1), 0 0 6px rgba(0, 0, 0, 0.18);
 }
 
+<<<<<<< HEAD
 /* Old CSS
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
 /* .indented {
@@ -1011,3 +1040,5 @@ li span.attribute {
     display: inline-block;
 }
 */
+=======
+>>>>>>> 8b348f7df7014bd936abb5e0a9d28275b378682d
