@@ -272,18 +272,11 @@
         if (event.target.id !== 'optionsList') return;
         let value = event.target.value;
         var newData = eval(value);
-        console.log('Change viz 🍌🍌', newData);
         var graph = document.querySelector('#sunburst');
         removeAllChildNodes(graph);
         createVisualization(newData);
       }, false);
 
-      // var dropdown = document.querySelector('#optionsList')
-      //   .on('change', function() {
-      //     var newData = eval(d3.select(this).property('value'));
-      //     console.log('Change viz 🍌', newData);
-      //     createVisualization(newData);
-      //   });
     </script>
   </body>
 </html>
