@@ -260,6 +260,12 @@
         return svg.node();
       } //createVisualization
 
+      function removeAllChildNodes(parent) {
+        while (parent.firstChild) {
+            parent.removeChild(parent.firstChild);
+        }
+      }
+
       document.addEventListener("DOMContentLoaded", function() {
         createVisualization(load_data);
       });
@@ -268,6 +274,8 @@
         let value = event.target.value;
         var newData = eval(value);
         console.log('Change viz 🍌🍌', newData);
+        var graph = document.querySelector('#sunburst');
+        removeAllChildNodes(graph);
       }, false);
 
       // var dropdown = document.querySelector('#optionsList')
