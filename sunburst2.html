@@ -265,8 +265,9 @@
       });
       document.addEventListener('input', function (event) {
         if (event.target.id !== 'optionsList') return;
-        console.log("target value", event.target.value);
-        console.log("target option", event.target.options[event.target.selectedIndex]);
+        let value = event.target.value;
+        var newData = eval(value);
+        console.log('Change viz 🍌🍌', newData);
       }, false);
 
       // var dropdown = document.querySelector('#optionsList')
