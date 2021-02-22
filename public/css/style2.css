@@ -148,7 +148,7 @@ body {
 }
 .flex__sunburst {
   align-items: flex-start;
-  max-width: 960px;
+  max-width: 900px;
   margin: 0 auto;
 }
 .grid {
