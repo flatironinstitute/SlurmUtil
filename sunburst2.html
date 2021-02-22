@@ -158,6 +158,7 @@
         root.each(d => d.current = d);
 
         var svg = d3.select("#sunburst")
+          .remove()
           .append("svg:svg")
           .attr("viewBox", [0, 0, width, height]);
 
