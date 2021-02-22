@@ -1,71 +1,101 @@
 <!DOCTYPE HTML>
 <html>
     <head>
-        <link rel="stylesheet" href="/static/css/style.css">
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
+          rel="stylesheet"
+        />
 
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-
-	<script type="text/javascript" src="static/scripts/jquery-3.3.1.min.js"></script>
+        <link rel="stylesheet" href="/static/css/normalize.css" />
+        <link rel="stylesheet" href="/static/css/style2.css" />
+        <title>Forecast</title>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
         <script>
-$(document).ready(function(){{
-   $("#tabmenu").load("/getHeader?page=forecast")
+                $(document).ready(function(){{
+                var thisPath = window.location.pathname;
+                $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+                $('#navmenu').load('/getHeader?page=forecast');
 
-   //init data
-   var accounts = {accounts};
-   var clusters = {clusters};
-   for (var i = 0; i < clusters.length; i++) {{
-       $('#cluster').append     ('<option value="' + clusters[i] + '">' + clusters[i] + '</option>');
-   }}
-   accounts.unshift('ALL')
-   for (var i = 0; i < accounts.length; i++) {{
-        if ( i == 0) 
-           $('#acct').append     ('<option value="_" selected>' + accounts[i] + '</option>');
-        else
-           $('#acct').append     ('<option value="_' + accounts[i] + '_">' + accounts[i] + '</option>');
-   }}
+                //init data
+                var accounts = {accounts};
+                var clusters = {clusters};
+                for (var i = 0; i < clusters.length; i++) {{
+                $('#cluster').append     ('<option value="' + clusters[i] + '">' + clusters[i] + '</option>');
+                }}
+                accounts.unshift('ALL')
+                for (var i = 0; i < accounts.length; i++) {{
+                        if ( i == 0)
+                        $('#acct').append     ('<option value="_" selected>' + accounts[i] + '</option>');
+                        else
+                        $('#acct').append     ('<option value="_' + accounts[i] + '_">' + accounts[i] + '</option>');
+                }}
 
-   cluster=clusters[0]
-   $("#fc_img").attr     ({{SRC: "static/images/" + cluster +"_cpuAllocDF_forecast.png"}});
-   $("#fc_comp_img").attr({{SRC: "static/images/" + cluster +"_cpuAllocDF_forecastComp.png"}});
-   $("#fc_cv_img").attr  ({{SRC: "static/images/" + cluster +"_cpuAllocDF_forecastCV.png"}});
-   $("#cluster").change(function() {{
-      cluster = $(this).val();
-      console.log("cluster " + cluster)
-      $("#acct").val('_')
-      $("#fc_img").attr     ({{SRC: "static/images/" + cluster +"_cpuAllocDF_forecast.png"}});
-      $("#fc_comp_img").attr({{SRC: "static/images/" + cluster +"_cpuAllocDF_forecastComp.png"}});
-      $("#fc_cv_img").attr  ({{SRC: "static/images/" + cluster +"_cpuAllocDF_forecastCV.png"}});
-   }});
-   $("#acct").change(function() {{
-      console.log(accounts)
-      val = $(this).val();
-      $("#fc_img").attr     ({{SRC: "static/images/" + cluster +"_cpuAllocDF" + val + "forecast.png"}});
-      $("#fc_comp_img").attr({{SRC: "static/images/" + cluster +"_cpuAllocDF" + val + "forecastComp.png"}});
-      $("#fc_cv_img").attr  ({{SRC: "static/images/" + cluster +"_cpuAllocDF" + val + "forecastCV.png"}});
-   }});
-}});
+                cluster=clusters[0]
+                $("#fc_img").attr     ({{SRC: "static/images/" + cluster +"_cpuAllocDF_forecast.png"}});
+                $("#fc_comp_img").attr({{SRC: "static/images/" + cluster +"_cpuAllocDF_forecastComp.png"}});
+                $("#fc_cv_img").attr  ({{SRC: "static/images/" + cluster +"_cpuAllocDF_forecastCV.png"}});
+                $("#cluster").change(function() {{
+                cluster = $(this).val();
+                console.log("cluster " + cluster)
+                $("#acct").val('_')
+                $("#fc_img").attr     ({{SRC: "static/images/" + cluster +"_cpuAllocDF_forecast.png"}});
+                $("#fc_comp_img").attr({{SRC: "static/images/" + cluster +"_cpuAllocDF_forecastComp.png"}});
+                $("#fc_cv_img").attr  ({{SRC: "static/images/" + cluster +"_cpuAllocDF_forecastCV.png"}});
+                }});
+                $("#acct").change(function() {{
+                console.log(accounts)
+                val = $(this).val();
+                $("#fc_img").attr     ({{SRC: "static/images/" + cluster +"_cpuAllocDF" + val + "forecast.png"}});
+                $("#fc_comp_img").attr({{SRC: "static/images/" + cluster +"_cpuAllocDF" + val + "forecastComp.png"}});
+                $("#fc_cv_img").attr  ({{SRC: "static/images/" + cluster +"_cpuAllocDF" + val + "forecastCV.png"}});
+                }});
+                }});
          </script>
     </head>
     <body>
-        <div class="tab" id="tabmenu"></div>
+        <div class="layout">
+                <div class="stickynav">
+                  <div class="stickynav__inner">
+                    <div class="stickynav__content">
+                      <div class="stickynav__logo">
+                        <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
+                      </div>
+                      <div class="stickynav__update">Updated: {update_time}</div>
+                    </div>
+                  </div>
+                </div>
+                <nav class="nav" id="navmenu"></nav>
+                <section class="section">
+                        <div class="section__inner">
+                                <div id="container_sel">
+                                        <label for="acct"> <b>Forecast of
+                                        <select id="cluster" name="cluster"></select>
+                                        's CPU Allocation of account
+                                        <select id="acct" name="acct"></select>
+                                        using decompsable (trend+seasonality+holidays) model: </b></label>
+                                </div>
 
-	<div id="container_sel">	
-                <label for="acct"> <b>Forecast of 
-                <select id="cluster" name="cluster"></select>
-                's CPU Allocation of account
-                <select id="acct" name="acct"></select>
-                using decompsable (trend+seasonality+holidays) model: </b></label>
+                                <div id="container" style="min-width: 620px; max-width: 1200px; margin: 0 auto">
+                                        <IMG id="fc_img"></img>
+                                </div>
+                                <div style=margin:10><b> Forecast Components </b></div>
+                                <div id="container_comp" style="min-width: 620px; max-width: 1200px; margin: 0 auto">
+                                        <IMG id="fc_comp_img"></img>
+                                </div>
+                                <div id="container_cv"   style="min-width: 620px; max-width: 1200px; margin: 0 auto">
+                                        <IMG id="fc_cv_img"></img>
+                                </div>
+                        </div>
+                </section>
         </div>
-
-	<div id="container"      style="min-width: 620px; max-width: 1200px; margin: 0 auto">	
-        <IMG id="fc_img"></img>
-        </div>
-        <div style=margin:10><b> Forecast Components </b></div>
-	<div id="container_comp" style="min-width: 620px; max-width: 1200px; margin: 0 auto">	
-        <IMG id="fc_comp_img"></img>
-        </div>
-	<div id="container_cv"   style="min-width: 620px; max-width: 1200px; margin: 0 auto">	
-        <IMG id="fc_cv_img"></img>
-        </div>
+        <footer class="section section--footer">
+                <div class="section__inner section__inner--footer">
+                  <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
+                  <p class="hero__text hero__text--small">Updates every 10 minutes</p>
+                </div>
+        </footer>
     </body>
 </html>
