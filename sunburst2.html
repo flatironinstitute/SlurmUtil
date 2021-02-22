@@ -213,38 +213,6 @@
             tooltip.style("opacity", 0);
         });
 
-        var dropdown = d3.select('#optionsList')
-          .on('change', function() {
-            console.log('Change viz');
-            var newData = eval(d3.select(this).property('value'));
-            swapData(newData);
-          });
-
-        function swapData(newData) {
-          console.log("🐕‍🍩", newData);
-          root = partition(newData);
-          root.each(d => d.target = d);
-
-          var t = g.transition().duration(750);
-
-          path.transition(t)
-            .tween("data", d => {
-              var i = d3.interpolate(d.current, d.target);
-              return t => d.current = i(t);
-            })
-            .filter(function(d) {
-              return +this.getAttribute("fill-opacity") || arcVisible(d.target);
-            })
-            .attr("fill-opacity", d => arcVisible(d.target) ? (d.children ? 0.6 : 0.4) : 0)
-            .attrTween("d", d => () => arc(d.current));
-
-          label.filter(function(d) {
-              return +this.getAttribute("fill-opacity") || labelVisible(d.target);
-            }).transition(t)
-            .attr("fill-opacity", d => +labelVisible(d.target))
-            .attrTween("transform", d => () => labelTransform(d.current));
-        }
-
         function clicked(event, p) {
           parent.datum(p.parent || root);
 
@@ -292,7 +260,21 @@
         return svg.node();
       } //createVisualization
 
+      document.addEventListener("DOMContentLoaded", function() {
         createVisualization(load_data);
+      });
+      document.addEventListener('input', function (event) {
+        if (event.target.id !== 'optionsList') return;
+        console.log("target value", event.target.value);
+        console.log("target option", event.target.options[event.target.selectedIndex]);
+      }, false);
+
+      // var dropdown = document.querySelector('#optionsList')
+      //   .on('change', function() {
+      //     var newData = eval(d3.select(this).property('value'));
+      //     console.log('Change viz 🍌', newData);
+      //     createVisualization(newData);
+      //   });
     </script>
   </body>
 </html>
