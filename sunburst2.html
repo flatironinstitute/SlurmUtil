@@ -136,8 +136,8 @@
           .padRadius(radius * 1.5)
           .innerRadius(d => d.y0 * radius)
           .outerRadius(d => Math.max(d.y0 * radius, d.y1 * radius - 1));
-        var width = 960;
-        var height = 960;
+        var width = 900;
+        var height = 900;
         var radius = width / 6;
         var format = d3.format(",d");
         var tooltip = d3.select("body").append("div")
