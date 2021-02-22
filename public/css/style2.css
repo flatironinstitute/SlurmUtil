@@ -10,12 +10,18 @@
 - Layout
 - Typography
 - Links
-- Buttons
 - Forms
+- Buttons
 - Lists
 - Code
+- Grid
 - Tables
 - Utilities
+- Navigation
+- Footer
+- Tooltip
+- Landing
+- Misc
 */
 
 /* Base Styles
@@ -158,6 +164,9 @@ body {
 .grid__left {
   align-items: center;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+.hide {
+  display: none;
 }
 
 /* Typography
@@ -732,7 +741,7 @@ text {
 
 
 
-/* TK: Landing Page Dashboard
+/* TK: Landing
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
 .hero {
   text-align: center;
@@ -836,3 +845,15 @@ text {
   box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.1), 0 0 6px rgba(0, 0, 0, 0.18);
 }
 
+/* Misc - Yanbin
+–––––––––––––––––––––––––––––––––––––––––––––––––– */
+.hide {
+   display: none
+}
+/*added by Yanbin
+li span.attribute {
+    width: 20ch;
+    font-weight: bold;
+    display: inline-block;
+}
+*/

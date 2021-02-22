@@ -37,18 +37,6 @@ class InfluxQueryClient:
     def connectInflux (self, host, port, dbname):
         return influxdb.InfluxDBClient(host, port, "yliu", "", dbname)
 
-        
-    # given a jid, return the timed history on its assigned nodes
-    def getSlurmJobHistory (self, jid):
-        #select nodes from slurm_jobs where job_id = jid
-        history = {}
-        nodes = self.getSlurmJobInfo (jid)
-        for node in nodes:
-            #mem,cpu = getSlurmNodeResourceHistory (node)
-            history[node]=[mem, cpu]
-            
-        return history
-
     def getSlurmJobInfo (self, jid):
         #jid is string
         t1=time.time()
@@ -150,28 +138,35 @@ class InfluxQueryClient:
 
         return first_time, last_time, rlt
 
-    #return the query result list of dict {hostname: {ts: [cpu, mem, io_r, io_w] ... }, ...}, 
-    def getSlurmJobData (self, jid, start_time='', stop_time=''):
-        t1=time.time()
-        query   = "select * from autogen.cpu_jid_mon where jid='{}'".format(jid)  #jid is str type
-        query = self.extendQuery (query, start_time, stop_time)
-
-        results = self.query(query)
-        if not results:
-           return None, None, None
-        points  = list(results.get_points()) # lists of dictionaries
-        rlt     = defaultdict(dict)
+    def getJobMonData (self, jid, start_time=None, stop_time=None):
+        points   = self.queryJidMonData(jid, start_time, stop_time)
+        if not points:   #no data
+           return None
+           
+        # save points by node
+        d        = defaultdict(list)     # {node: [point, ...]}
         for point in points:
-            rlt[point['hostname']][point['time']] = [ MyTool.getDictNumValue(point, 'cpu_system_util') + MyTool.getDictNumValue(point, 'cpu_user_util'),
-                              MyTool.getDictNumValue(point, 'mem_rss_K'),
-                              MyTool.getDictNumValue(point, 'io_read_rate'),
-                              MyTool.getDictNumValue(point, 'io_write_rate')]
-        if len(points)>0:
-           start_time = points[0]['time']
-           stop_time  = points[len(points)-1]['time']
-        logger.info("INFO: getSlurmJobData {}, take time {} and return {} points".format(query, (time.time()-t1), len(points)))
+            d[point['hostname']].append(point)
 
-        return start_time, stop_time, rlt
+        return d
+
+    #return the query result suitable for highchart
+    def getJobMonData_hc (self, jid, start_time=None, stop_time=None):
+        d        = self.getJobMonData(jid, start_time, stop_time)
+
+        # save data suitable for highchart
+        cpu_rlt,mem_rlt,ior_rlt,iow_rlt = [], [], [], []
+        for node, points in d.items():
+            cpu_rlt.append  ({'name':node, 'data':[ [p['time'], MyTool.getDictNumValue(p, 'cpu_system_util')+MyTool.getDictNumValue(p, 'cpu_user_util')] for p in points ]})
+            mem_rlt.append  ({'name':node, 'data':[ [p['time'], MyTool.getDictNumValue(p, 'mem_rss_K')]       for p in points ]})
+            ior_rlt.append  ({'name':node, 'data':[ [p['time'], MyTool.getDictNumValue(p, 'io_read_rate')]    for p in points ]})
+            iow_rlt.append  ({'name':node, 'data':[ [p['time'], MyTool.getDictNumValue(p, 'io_write_rate')]   for p in points ]})
+
+        # get min, max timestamp of cpu_rlt and return them as the values for all result
+        minTS = min([n['data'][0][0]  for n in cpu_rlt if n['data']])
+        maxTS = max([n['data'][-1][0] for n in cpu_rlt if n['data']])
+
+        return minTS,maxTS,cpu_rlt,mem_rlt,ior_rlt,iow_rlt
 
     #if first_flag, then remove first and
     def extendQuery (self, query, start_time='', stop_time='', nodelist=[], first_flag=False):
@@ -191,6 +186,7 @@ class InfluxQueryClient:
 
     #return the query result list of dictionaries
     def queryJidMonData (self, jid, start_time='', stop_time='', nodelist=[], fields=[]):
+        t1      = time.time()
         query   = "select * from autogen.cpu_jid_mon where jid='{}'".format(jid)  #jid is str type
         query   = self.extendQuery (query, start_time, stop_time, nodelist)
         results = self.query(query)
@@ -200,6 +196,7 @@ class InfluxQueryClient:
               points = list(map(lambda x:MyTool.sub_dict(x, fields,0), points))
         else:
            points  = []
+        logger.info("INFO: queryJidMonData {}, take time {} and return {} points".format(query, (time.time()-t1), len(points)))
         return points
 
     #return the query result list of dictionaries
@@ -518,9 +515,13 @@ def test1(node):
     print("influxdb query {} take time {}, return {} key and {} records".format(query, time.time()-t1, query_rlt.keys(), len(list(query_rlt.get_points()))))
     print("{}".format(query_rlt.get_points()))
  
+def test2(jid):
+    app        = InfluxQueryClient()
+    points     = app.queryJidMonData (jid)
+
 def main():
     t1=time.time()
-    test1("workergpu00")
+    test2(927525)
     #start, stop = MyTool.getStartStopTS(days=3) 
     #start, stop, rlt   = app.getNodeJobProcData('worker1006',469406)
     #s1, e1, d1=app.getSlurmJobData(465261)
@@ -531,9 +532,7 @@ def main():
     #print('{}'.format(rlt))
     #app.getPendingCount(start, stop)
     #app.getJobRequestHistory(start, stop)
-    #point = app.getSlurmJobInfo('70900')
     #point = app.getSlurmJobInfo('105179')
-    #print("getSlurmJobInfo result " + repr(point))
     #if point:
     #   nodelist = MyTool.convert2list(point['nodes'])
     #   start    = point['start_time']

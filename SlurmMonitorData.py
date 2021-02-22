@@ -493,7 +493,7 @@ class SLURMMonitorData(object):
                #update the latest cpu_time for each proc
             elif len(nInfo) > USER_INFO_IDX and nInfo[USER_INFO_IDX]:
                u_lst = [procsByUser[0] for procsByUser in nInfo[USER_INFO_IDX:]]
-               logger.error("Proc of user {} reported for node {} in state {}".format(node, u_lst, nInfo[0]))
+               logger.error("{}-{}: User {} has proc running on the node.".format(node, nInfo[0], u_lst))
 
         self.addJobsAttr      (self.updateTS, self.currJobs)          #add attribute job_avg_util, job_mem_util, job_io_bps
         self.inMemCache.append(self.data, self.updateTS, self.pyslurmJobs)
@@ -566,7 +566,8 @@ class SLURMMonitorData(object):
         if jid not in self.currJobs:
            return None, None
         job_info = self.currJobs[jid]
-        result   = {}
+        job_start= job_info.get('start_time', 0)
+        node2job = {}
         nodes    = list(job_info['cpus_allocated'].keys())
         user     = MyTool.getUser(job_info['user_id'])
         for node_name in nodes:
@@ -579,15 +580,18 @@ class SLURMMonitorData(object):
             for user_name, uid, alloc_core_cnt, proc_cnt, t_cpu, t_rss, t_vms, procs, t_io, *etc in d[USER_INFO_IDX:]:
                 if user_name == user:
                    #procs[[pid, intervalCPUtimeAvg, create_time, 'user_time', 'system_time, 'rss', 'vms', 'cmdline', intervalIOByteAvg],...]
-                   rlt_procs = []
+                   
+                   job_procs = []
+                   job_cpu   = 0
                    # 09/09/2019 add jid
                    for pid, intervalCPUtimeAvg, create_time, user_time, system_time, rss, vms, cmdline, intervalIOByteAvg, jid, num_fds, *etc in procs:
                        if jid == job_info['job_id']:
-                          job_stime   = job_info.get('start_time', 0)
-                          job_avg_cpu = (user_time+system_time) / (ts-job_stime) if job_stime > 0 else 0
-                          rlt_procs.append ([pid, '{:.2f}'.format(intervalCPUtimeAvg), '{:.2f}'.format(job_avg_cpu), MyTool.getDisplayB(rss), MyTool.getDisplayB(vms), MyTool.getDisplayBps(intervalIOByteAvg), num_fds, ' '.join(cmdline)])
-                   result[node_name]= [int(alloc_core_cnt), int(proc_cnt), t_cpu, t_rss, t_vms, rlt_procs, t_io]
-        return ['PID', 'Inst CPU Util', 'Avg CPU Util', 'RSS', 'VMS', 'IO Rate', 'Num Fds', 'Command'], result
+                          proc_avg_cpu = (user_time+system_time) / (ts-job_start) if job_start > 0 else 0
+                          job_procs.append ([pid, '{:.2f}'.format(intervalCPUtimeAvg), '{:.2f}'.format(proc_avg_cpu), MyTool.getDisplayB(rss), MyTool.getDisplayB(vms), MyTool.getDisplayBps(intervalIOByteAvg), num_fds, ' '.join(cmdline)])
+                          job_cpu     += proc_avg_cpu
+                   #TODO: t_rss, t_vms, t_io incorrect, should do similar thing as job_cpu
+                   node2job[node_name]= [int(job_info['cpus_allocated'][node_name]), len(job_procs), job_cpu, t_rss, t_vms, job_procs, t_io]
+        return ['PID', 'Inst CPU Util', 'Avg CPU Util', 'RSS', 'VMS', 'IO Rate', 'Num Fds', 'Command'], node2job
 
     def getUserData(self):
         hostdata   = {host:v for host,v  in self.data.items()}
@@ -601,15 +605,13 @@ class SLURMMonitorData(object):
         jobCpus    = [jobdata[j][u'num_cpus']  for j in list(jobdata)]
         jobNodes   = [jobdata[j][u'num_nodes'] for j in list(jobdata)]
 
-    def getJobStart (self, jobid):
-        jobid = int(jobid)
-        if self.currJobs and (jobid in self.currJobs):
-           return self.currJobs[jobid]['start_time']
-        job   = SlurmCmdQuery.sacct_getJobReport(jobid)[0]
-        if job and job['Start']!='Unknown':
-           return MyTool.str2ts(job['Start'])
+    #req_fld is to make sure the fields are there. default is the nature result
+    def getJob (self, jobid, req_fields=[]):
+        if self.pyslurmJobs and (jobid in self.pyslurmJobs):
+           job = self.pyslurmJobs[jobid]
         else:
-           return None
+           job = PyslurmQuery.getSlurmDBJob (jobid, req_fields=['start_time'])
+        return job
 
     def getSunburstData(self):
         #prepare required information in data_dash

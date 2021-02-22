@@ -158,6 +158,38 @@ class BrightRestClient:
 
         return dict(rlt)
 
+    # get last hours data for node_list
+    def getNodesGPU_Mem (self, node_list, start, gpu_list=[], max_gpu_id=3, msec=True):
+        if not gpu_list:
+           gpu_list = list(range(max_gpu_id+1))
+        mea_list  = ['gpu_utilization', 'gpu_fb_used']
+        req_str   = self.getNodeGPURequest (node_list, gpu_list, mea_list, start)
+        r         = requests.get(req_str, verify=False, cert=self.cert)
+        d         = r.json()['data']   #[{'entity': 'workergpu16', 'measurable': 'gpu_utilization:gpu0', 'raw': 0.3096027944984667, 'time': 1584396000000, 'value': '31.0%'}, 
+        rlt       = {}
+        for m in mea_list:
+            rlt[m] = defaultdict(list)                #{'workergpu16.gpu0':[[ts,val],]
+        for item in d:
+            m,gid  =item['measurable'].split(':')
+            ts     =item['time'] if msec else int(item['time']/1000)
+            rlt[m]['{}.{}'.format(item['entity'],gid)].append([ts, item['raw']])
+        # check the start, stop time
+        for m in mea_list:
+            for seq in rlt[m].values():
+                start_ts = start * 1000 if msec else start_ts
+                if seq[0][0]<start_ts:                # smaller means the same value last
+                   seq[0][0] = start_ts
+
+        return dict(rlt)
+
+    
+    def getNodeGPURequest (self, node_list, gpu_list, measure_list, start):
+        entities = ','.join(node_list)
+        lst      = [','.join(['{}:gpu{}'.format(m,i) for i in gpu_list]) for m in measure_list]
+        measures = ','.join(lst)
+        q_str    = '{}/dump?entity={}&measurable={}&start={}&epoch=1'.format(self.base_url,entities,measures,start)
+        return q_str
+
 def test1():
     client = BrightRestClient()
 
@@ -202,9 +234,15 @@ def test6():
     d = client.getAllGPU_raw (node_list)
     print(d)
 
+def test7():
+    client = BrightRestClient()
+    node_list = ['workergpu46']
+    d      = client.getNodeGPU_Mem (node_list, 1)
+    print(d)
+
 def main():
     t1=time.time()
-    test6 ()
+    test7 ()
     #if len(sys.argv) < 3:
     #   test5(int(sys.argv[1]), False)
     #else:

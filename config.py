@@ -68,7 +68,7 @@ def addHttpLog (url):
     logger.addHandler (http_handler)
     #h=logging.handlers.HTTPHandler("scclin011:8126", "/log", method='GET', secure=False, credentials=None, context=None)
 
-logger        = MyTool.getFileLogger(APP_NAME, logging.INFO) 
+logger        = MyTool.getFileLogger(APP_NAME, logging.DEBUG) 
 readConfigFile('config/config.json')        #default config file
 addHttpLog    ('localhost:{}'.format(APP_CONFIG["port"]))
 
