@@ -137,8 +137,8 @@
           .innerRadius(d => d.y0 * radius)
           .outerRadius(d => Math.max(d.y0 * radius, d.y1 * radius - 1));
         var margin = {top: 60, right: 30, bottom: 60, left: 30};
-        var width = 1100 - margin.left - margin.right;
-        var height = 800 - margin.top - margin.bottom;
+        var width = 960 - margin.left - margin.right;
+        var height = 700 - margin.top - margin.bottom;
         var radius = width / 6;
         var format = d3.format(",d");
         var tooltip = d3.select("body").append("div")
@@ -217,6 +217,7 @@
           .on('change', function() {
             console.log('Change viz');
             var newData = eval(d3.select(this).property('value'));
+            swapData(newData);
           });
 
         function swapData(newData) {
