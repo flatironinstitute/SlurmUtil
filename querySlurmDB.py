@@ -8,7 +8,7 @@ import config,MyTool
 from datetime import datetime, date, timedelta
 
 logger           = config.logger
-SLURM_STATE_DICT = {0:'PENDING', 1:'RUNNING', 3:'COMPLETED', 4:'CANCELED', 5:'FAILED', 6:'TIMEOUT', 7:'NODE_FAIL', 8:'PREEMPTED', 11:'OUT_OF_MEM', 8192:'RESIZING'}
+SLURM_STATE_DICT = {0:'PENDING', 1:'RUNNING', 3:'COMPLETED', 4:'CANCELED', 5:'FAILED', 6:'TIMEOUT', 7:'NODE_FAIL', 8:'PREEMPTED', 11:'OUT_OF_MEM', 8192:'RESIZING'}# missing 2, 16384
 CSV_DIR          = "/mnt/home/yliu/projects/slurm/utils/data/"
 CEPH_DIR         = "/mnt/home/yliu/ceph/projects/slurm/utils/"
 LOG_BUCKET       = {10.0:10000000000} 
@@ -36,7 +36,7 @@ class SlurmDBQuery:
         #read file time, if updated from last time, reset the value
         f_name        = "{}/{}_{}".format(CSV_DIR, cluster, "job_table.csv")
         df            = pandas.read_csv(f_name, usecols=fld_lst, index_col=index_col)
-        if start or stop:
+        if time_col and (start or stop):
            start,stop,df = MyTool.getDFBetween (df, time_col, start, stop)
 
         return start, stop, df
@@ -115,13 +115,89 @@ class SlurmDBQuery:
     
     # return time_col, value_cols
     def getTimeIndexValue (self, df, time_col, value_cols):
-        df_time = df[[time_col] +  value_cols]
-        values  = ['value' + str(i) for i in range(len(value_cols))]
+        df_time         = df[[time_col] +  value_cols]
+        values          = ['value' + str(i) for i in range(len(value_cols))]
         df_time.columns = ['time'] + values
-        df_time = df_time.groupby('time').agg(dict.fromkeys(values, sum))   #sum the value with the same time
+        df_time         = df_time.groupby('time').agg(dict.fromkeys(values, sum))   #sum the value with the same time
 
         return df_time
 
+    def df_col_div (df, col_name, ratio):
+        df[col_name]=df[col_name]/ratio
+        df[col_name]=df[col_name].astype(int)
+
+    #TODO: check other readJobTable calling to see if time_col makes sense
+    def getClusterJobHistory (cluster, start='', stop='', ratio=600):
+        fields        = ['time_eligible', 'time_start', 'time_end', 'cpus_req', 'tres_alloc','nodes_alloc','tres_req']
+        start,stop,df = SlurmDBQuery.readJobTable (cluster, start, stop, fld_lst=fields, time_col=None)
+        # reduce time unit, otherwise two many points and make the highchart really slow
+        for col_name in ['time_eligible', 'time_start', 'time_end']:
+            SlurmDBQuery.df_col_div (df, col_name, ratio=ratio)
+
+        jobRequest          = SlurmDBQuery.countJobHistory(df, 'time_eligible', 'time_end', ratio)
+        jobExecute          = SlurmDBQuery.countJobHistory(df, 'time_start',    'time_end', ratio)
+        jobAllReqCPU        = SlurmDBQuery.countJobHistory(df, 'time_eligible', 'time_end', ratio, 'cpus_req')
+        jobReqCPU           = SlurmDBQuery.countJobHistory(df, 'time_start',    'time_end', ratio, 'cpus_req')
+        df['cpus_alloc']    = df['tres_alloc'].map(MyTool.extract1)
+        jobAllocCPU         = SlurmDBQuery.countJobHistory(df, 'time_start',    'time_end', ratio, 'cpus_alloc')
+
+        df['nodes_req']     = df['tres_req'].map(MyTool.extract4)
+        jobAllReqNode       = SlurmDBQuery.countJobHistory(df, 'time_eligible', 'time_end', ratio, 'nodes_req')
+        jobReqNode          = SlurmDBQuery.countJobHistory(df, 'time_start',    'time_end', ratio, 'nodes_req')
+        jobAllocNode        = SlurmDBQuery.countJobHistory(df, 'time_start',    'time_end', ratio, 'nodes_alloc')
+        
+        for jobDf in [jobRequest, jobExecute, jobAllReqCPU, jobReqCPU, jobAllocCPU, jobAllReqNode, jobReqNode, jobAllocNode]:
+            jobDf['time']  = jobDf['time'] * ratio
+        dfs = []
+        for jobDf in [jobRequest, jobExecute, jobAllReqCPU, jobReqCPU, jobAllocCPU, jobAllReqNode, jobReqNode, jobAllocNode]:
+           if start:
+               jobDf  = jobDf[jobDf['time']    >= start]
+           if stop:
+               jobDf  = jobDf[jobDf['time']    <= stop]
+           dfs.append(jobDf)
+
+        return start, stop, dfs
+        
+    # return job request/alloc along time
+    def countJobHistory (df, time_eligible, time_end, ratio, count_col=None):
+        # count request during [time_eligible, time_end]
+        # count alloc   during [time_start,    time_end]
+
+        ts               = int(time.time()/ratio) +1
+        df1              = df[(df[time_eligible] > 0) & (df[time_eligible] < int(4294967295/ratio))]
+        df1[time_end]    = df1[time_end].mask(df1[time_end]==0, ts)    #replace 0 with ts
+        df1              = df1[df1[time_eligible]<df1[time_end]]       #avoid nan tres_alloc
+        if not count_col:
+           df1['inc_count'] = 1
+           df1['dec_count'] = -1
+        else:
+           df1['inc_count'] = df1[count_col]
+           df1['dec_count'] = -df1[count_col]
+
+
+        df2=df1[[time_eligible,'inc_count']]
+        df3=df1[[time_end,     'dec_count']]
+        df2=df2.rename(columns={time_eligible:'time', 'inc_count':'count'})
+        df3=df3.rename(columns={time_end:'time',      'dec_count':'count'})
+        df4=df2.append(df3)
+
+        df5=df4.groupby('time', sort=True).agg({'count':sum})
+        df5=df5[:-1]   #get rid of ts defined row
+
+        df6=df5.cumsum()
+  
+        return df6.reset_index()
+        #time_eligible=4294967295 (mostly canceleld)
+        #df2              = df[(df['time_start'] > 0)]
+        #time_start=0, time_end>0 (mostly cancelled and node_fail) 
+        #              time_end=0 (mostly pending)                 req:time_end=curr
+        #time_start>0, time_end=0 (running)                        req:time_end=curr
+        #              time_end=time_start (maybe cancelled and nan tres_alloc)
+       
+        
+        
+
+        
     # get job queue length for the cluster in the format of time, jobQueueLength, requestedCPUs
     def getClusterJobQueue (self, cluster, start='', stop='', qTime=0):
         fields        = ['cpus_req', 'time_eligible', 'time_start', 'time_end']
@@ -387,6 +463,11 @@ def test2():
     client = SlurmDBQuery()
     info = client.getClusterJobQueue()
 
+def test3():
+    st,stp=MyTool.getStartStopTS(days=30)
+    st, stp, df1, df2, df3, df4=SlurmDBQuery.getClusterJobHistory('slurm',st,stp)
+    print("{}-{}: df4={}".format(st,stp, df4))
+
 def test4():
     SlurmDBQuery.getJobCount('slurm_cluster','','')
 
@@ -399,4 +480,4 @@ if __name__=="__main__":
     #df = pandas.read_csv("./data/slurm_plus_day_cpuAllocDF.csv")
     #fname2 = "{}/{}_{}_{}".format(CSV_DIR, cluster, day_or_hour, "cpuAllocDF_{}.csv")
     #SlurmDBQuery.savAccountCPUAlloc('slurm_plus', 'day', './data/slurm_plus_day_cpuAllocDF_{}.csv', df)
-    test1()
+    test3()

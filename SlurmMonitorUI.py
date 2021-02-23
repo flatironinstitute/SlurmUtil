@@ -72,11 +72,6 @@ class SLURMMonitorUI(object):
         return htmlStr
 
     @cherrypy.expose
-    def test(self):
-        var = os.system("gnome-terminal -e 'pwd; sleep 10'")
-        return "hello {}".format(var)
-
-    @cherrypy.expose
     def partitionDetail(self, partition='gpu'):
         ins           = SlurmEntities.SlurmEntities()
         p_info, nodes = ins.getPartitionAndNodes (partition)
@@ -121,12 +116,12 @@ class SLURMMonitorUI(object):
             series.append (s)
 
         htmlTemp   = os.path.join(config.APP_DIR, 'CDFHC.html')
-        t1         = 'Cluster {}: CDF of Job Run Time'.format(cluster)
-        t2         = 'Cluster {}: CDF of Job CPU Time'.format(cluster)
+        t1         = 'Cluster {}: Distribution of Job Wall Time'.format(cluster)
+        t2         = 'Cluster {}: Distribution of Job CPU Time'.format(cluster)
         parameters = {'start': time.strftime('%Y-%m-%d', time.localtime(start)),
                       'stop':  time.strftime('%Y-%m-%d', time.localtime(stop)),
-                      'series': series[0], 'title': t1, 'xMax': int(cdfData['time_run_log']['upper_x']+10),'xLabel': 'Run Time',  'yLabel': 'Count',
-                      'series2':series[1], 'title2':t2, 'xMax2':int(cdfData['time_cpu_log']['upper_x'])+10,'xLabel2':'CPU Time',  'yLabel2':'Count'}
+                      'series': series[0], 'title': t1, 'xMax': int(cdfData['time_run_log']['upper_x']+10),'xLabel': 'Seconds',  'yLabel': 'Count',
+                      'series2':series[1], 'title2':t2, 'xMax2':int(cdfData['time_cpu_log']['upper_x'])+10,'xLabel2':'Seconds',  'yLabel2':'Count'}
         htmlStr    = open(htmlTemp).read().format(**parameters)
         return htmlStr
 
@@ -142,15 +137,16 @@ class SLURMMonitorUI(object):
             series.append (s)
 
         htmlTemp   = os.path.join(config.APP_DIR, 'CDFHC_3.html')
-        t1         = 'Cluster {}: CDF of Job Requested CPUs'.format(cluster)
-        t2         = 'Cluster {}: CDF of Job Allocated CPUs'.format(cluster)
-        t3         = 'Cluster {}: CDF of Job Allocated Nodes'.format(cluster)
+        t1         = 'Cluster {}: Distribution of Job Requested CPUs'.format(cluster)
+        t2         = 'Cluster {}: Distribution of Job Allocated CPUs'.format(cluster)
+        t3         = 'Cluster {}: Distribution of Job Requested Nodes'.format(cluster)
+        t4         = 'Cluster {}: Distribution of Job Allocated Nodes'.format(cluster)
         parameters = {'start': time.strftime('%Y-%m-%d', time.localtime(start)),
                       'stop':  time.strftime('%Y-%m-%d', time.localtime(stop)),
                       'series': series[0], 'title': t1, 'xMax': int(cdfData['cpus_req']['upper_x']+10),  'xLabel': 'Number of CPUs',  'yLabel': 'Count',
                       'series2':series[1], 'title2':t2, 'xMax2':int(cdfData['cpus_alloc']['upper_x'])+10,'xLabel2':'Number of CPUs',  'yLabel2':'Count',
                       'series3':series[2], 'title3':t3, 'xMax3':int(cdfData['nodes_req']['upper_x']+10),'xLabel3':'Number of Nodes','yLabel3':'Count',
-                      'series4':series[3], 'title4':t3, 'xMax4':int(cdfData['nodes_alloc']['upper_x']+10),'xLabel4':'Number of Nodes','yLabel4':'Count'}
+                      'series4':series[3], 'title4':t4, 'xMax4':int(cdfData['nodes_alloc']['upper_x']+10),'xLabel4':'Number of Nodes','yLabel4':'Count'}
         htmlStr    = open(htmlTemp).read().format(**parameters)
         return htmlStr
 
@@ -318,6 +314,34 @@ class SLURMMonitorUI(object):
                                                   series1=series1, title1='Cluster Job Queue Length', xlabel1='Queue Length',
                                                   other_reason=list(other_reason_set),
                                                   note=note)
+
+        return h
+
+    @cherrypy.expose
+    def jobHistory(self, cluster='slurm', start='', stop=''):
+        start, stop     = MyTool.getStartStopTS (start, stop, '%Y-%m-%d', days=30)     #default curr-30days, curr
+        start, stop, dfs = SlurmDBQuery.getClusterJobHistory (cluster, start, stop)
+        for df in dfs:
+            df['time'] = df['time'] * 1000
+        total_cpu  = 63096
+        total_node = 940
+        series1    = [{'data': dfs[0][['time', 'count']].values.tolist(),  'name': 'Total Job'},
+                      {'data': dfs[1][['time', 'count']].values.tolist(), 'name': 'Exec. Job'}]
+        series2    = [{'data': dfs[2][['time', 'count']].values.tolist(),  'name': 'Req CPUs'},
+                      {'data': dfs[3][['time','count']].values.tolist(),  'name': 'Req CPUs of Exec. Jobs'},
+                      {'data': dfs[4][['time', 'count']].values.tolist(),  'name': 'Alloc. CPUs'},
+                      {'data': [[start*1000,total_cpu], [stop*1000,total_cpu]], 'name': 'Total CPUs'}]
+        series3    = [{'data': dfs[5][['time', 'count']].values.tolist(),  'name': 'Req Nodes'},
+                      {'data': dfs[6][['time', 'count']].values.tolist(),  'name': 'Req Nodes of Exec. Jobs'},
+                      {'data': dfs[7][['time', 'count']].values.tolist(),  'name': 'Alloc. Nodes'},
+                      {'data': [[start*1000,total_node], [stop*1000,total_node]], 'name': 'Total Nodes'}]
+        htmlTemp = os.path.join(config.APP_DIR, 'jobHistory.html')
+        h = open(htmlTemp).read()%{
+                                   'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
+                                   'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
+                                   'series1': series1, 'title1': 'Cluster Job',   'xlabel1': '# Job', 'aseries1':[],
+                                   'series2': series2, 'title2': 'Cluster CPUs',  'xlabel2': '# CPU', 'aseries2':[],
+                                   'series3': series3, 'title3': 'Cluster Nodes', 'xlabel3': '# Node','aseries3':[]}
 
         return h
 
@@ -555,12 +579,6 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def test(self, page=None):
-        htmltemp = os.path.join(config.APP_DIR, 'tmp.html')
-        h = open(htmltemp).read()
-
-        return h
-    @cherrypy.expose
     def report(self, page=None):
         accounts = sorted(SlurmCmdQuery.getAccounts())
         htmltemp = os.path.join(config.APP_DIR, 'report.html')
@@ -663,8 +681,11 @@ class SLURMMonitorUI(object):
     def getLongrunLowUtilJobs (self):
         low_util, low_gpu, low_mem, long_period, job_width = self.getLUJSettings()
         long_period       = long_period * 3600          # hours -> seconds
+        jobs              = self.monData.getCurrLUJobs (low_util, long_period, job_width, low_mem)
+        #msgs              = BulletinBoard.getLowUtilJobMsg (jobs)
+        BulletinBoard.setLowUtilJobMsg (jobs)
 
-        return self.monData.getCurrLUJobs (low_util, long_period, job_width, low_mem)
+        return list(jobs.values())
 
     @cherrypy.expose
     def getUnbalancedJobs (self, job_cpu_avg_util=0.1, job_mem_util=0.3, job_io_bps=1000000):
@@ -1708,23 +1729,17 @@ class SLURMMonitorUI(object):
         htmlStr    = open(htmlTemp).read().format(users=userLst, jobs=jobLst, nodes=nodeLst, partitions=partLst)
         return htmlStr
 
-    def getLowUtilNodes (self):
-        # node with low resource utlization
-        return self.monData.getLowUtilNodes()
-
     @cherrypy.expose
     def bulletinboard(self):
         if self.monData.hasData():
+           ts_str     = MyTool.getTsString(self.monData.updateTS)
            low_util   = self.getLongrunLowUtilJobs()
-           msgs       = BulletinBoard.getLowUtilJobMsg (low_util)
-           low_util_ts= MyTool.getTsString(self.monData.updateTS)
-
            # node with low resource utlization
-           low_nodes  = self.getLowUtilNodes()
+           low_nodes  = self.monData.getLowUtilNodes()
         else:
-           msgs       = [{'id':'',   'msg':self.getWaitMsg()}]
-           low_util_ts= ''
-           low_nodes  = [{'name':'', 'msg':self.getWaitMsg()}]
+           ts_str     = ''
+           low_util   = [{'id':'', 'user':'',  'low_util_msg':self.getWaitMsg()}]
+           low_nodes  = [{'name':'', 'low_util_msg':self.getWaitMsg()}]
 
         SE_ins     = SlurmEntities.SlurmEntities()
         qos_relax  = SE_ins.relaxQoS()   # {uid:suggestion}
@@ -1732,8 +1747,8 @@ class SLURMMonitorUI(object):
         other      = self.monData.inMemLog.getAllLogs () #[{'source':'', 'ts':'','msg':''}]
 
         htmlTemp   = os.path.join(config.APP_DIR, 'bulletinboard.html')
-        htmlStr    = open(htmlTemp).read().format(low_util    =json.dumps(msgs),
-                                                  low_util_ts =low_util_ts,
+        htmlStr    = open(htmlTemp).read().format(low_util    =json.dumps(low_util),
+                                                  low_util_ts =ts_str,
                                                   low_node    =json.dumps(low_nodes),
                                                   qos_relax   =json.dumps(qos_relax),
                                                   qos_relax_ts=MyTool.getTsString(SE_ins.ts_job_dict),

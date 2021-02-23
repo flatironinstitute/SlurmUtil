@@ -24,12 +24,16 @@
           // populate date and time
           var startDate  = new Date();
           startDate.setMonth(startDate.getMonth() - 3);
+          var startDate1 = new Date();
+          startDate1.setMonth(startDate1.getMonth() - 1);
           var startDate2 = new Date();
           startDate2.setDate(startDate2.getDate() - 3);
+
           var currDate   = new Date();
           var curr_date  = getDateString(currDate)
           var curr_dtime = getDateTimeString(currDate)
           $("input.start_date").val(getDateString(startDate)); //yyyy-MM-dd
+          $("input.start_date1").val(getDateString(startDate1)); //yyyy-MM-dd
           $("input.stop_date").val (curr_date);
           $("input.start_time").val(getDateTimeString(startDate2)); //yyyy-MM-ddThh:mm
           $("input.stop_time").val (curr_dtime);
@@ -69,7 +73,7 @@
                 <option value="slurm">Slurm</option>
                 <option value="slurm_cluster">Slurm Cluster</option>
               </select>
-              Cluster Allocation from 
+              Cluster Resource Allocation from 
               <input name="start" type="date" class="start_date"/> to
               <input name="stop"  type="date" class="stop_date"/>
               <button class="button">Report</button>
@@ -78,7 +82,7 @@
               <select id="cluster" name="cluster">
                 <option value="slurm">Slurm</option>
                 <option value="slurm_cluster">Slurm Cluster</option>
-              </select> Cluster Account Allocation from 
+              </select> Cluster Resource Allocation by Account from 
               <input name="start" type="date" class="start_date"/> to
               <input name="stop"  type="date" class="stop_date"/> 
               <button class="button">Report</button>
@@ -89,7 +93,7 @@
                 <option value="slurm_cluster">Slurm Cluster</option>
               </select>
               Cluster Top 
-              <input name="top" class="small-input" id="top" size="2" value="5" type="number" /> Users Alloction of
+              <input name="top" class="small-input" id="top" size="2" value="5" type="number" /> Users from 
               <select id="acct" name="acct">
               </select> Account from 
               <input name="start" type="date" class="start_date"/> to
@@ -107,13 +111,13 @@
           <div class="section__div" id="daily">
             <form action="./fileReport_daily">
               Top 
-              <input name="top" class="small-input" id="top" size="2" value="5" type="number" /> Users File Count and Bytes Daily Usage on
+              <input name="top" class="small-input" id="top" size="2" value="5" type="number" /> Users of
               <select name="fs">
-                <option value="home">Home</option>
+                <option value="home">Home</option> 
                 <option value="ceph_users">Ceph Users</option>
                 <option value="ceph_full">Ceph Full</option>
                 <option value="xfs1">Xfs1</option>
-              </select> from 
+              </select> File System from 
               <input name="start" type="date" class="start_date"/> to
               <input name="stop"  type="date" class="stop_date"/> 
               <button class="button">Report</button>
@@ -124,7 +128,7 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
-            <h3>Pending Queue and CDF Report</h3>
+            <h3>Pending Queue and Job Report</h3>
           </div>
           <div class="section__div" id="secondly">
             <form action="./queueLengthReport">
@@ -132,17 +136,26 @@
                 <option value="slurm">Slurm</option>
                 <option value="slurm_cluster">Slurm Cluster</option>
               </select> Cluster Job Queue Length from 
-              <input name="start" type="date" class="start_date"/> to
+              <input name="start" type="date" class="start_date1"/> to
               <input name="stop"  type="date" class="stop_date"/>
               <button class="button">Report</button>
-              <br /> (counting jobs with wait time longer than
+              <br /> (counting jobs with waiting time longer than
               <input name="queueTime" class="small-input" id="queueTime" size="2" value="5" type="number" /> seconds)
+            </form>
+            <form action="./jobHistory">
+              <select id="cluster" name="cluster">
+                <option value="slurm">Slurm</option>
+                <option value="slurm_cluster">Slurm Cluster</option>
+              </select> Cluster Job from 
+              <input name="start" type="date" class="start_date1"/> to
+              <input name="stop"  type="date" class="stop_date"/>
+              <button class="button">Report</button>
             </form>
             <form action="./cdfReport">
               <select id="cluster" name="cluster">
                 <option value="slurm">Slurm</option>
                 <option value="slurm_cluster">Slurm Cluster</option>
-              </select> Cluster CDF of request/allocated CPUs/Nodes of ALLOCATED jobs from
+              </select> Cluster Allocated Jobs' Req. and Alloc. Resources Distribution from
               <input name="start" id="start" type="date" class="start_date"/> to
               <input name="stop"  id="stop"  type="date" class="stop_date"/> 
               <button class="button">Report</button>
@@ -151,10 +164,11 @@
               <select id="cluster" name="cluster">
                 <option value="slurm">Slurm</option>
                 <option value="slurm_cluster">Slurm Cluster</option>
-              </select> Cluster CDF of exec. time of jobs with execution time longer than 5 seconds from
+              </select> Cluster Executed Jobs' Exec. Time Distribution from
               <input name="start" id="start" type="date" class="start_date"/> to
               <input name="stop"  id="stop"  type="date" class="stop_date"/> 
               <button class="button">Report</button>
+              <br /> (counting jobs with exec. time longer than 5 seconds)
             </form>
           </div>
         </div>
@@ -167,8 +181,8 @@
           <div class="section__div" id="history">
             <form action="./jobGraph">
               Job 
-              <input type="text"  name="jobid"   id="jobid" size="10" required />'s resource usage 
-              <input type="radio" name="history" value="FULL" checked /> during its execution period, or
+              <input type="text"  name="jobid"   id="jobid" size="7" required />'s resource usage 
+              <input type="radio" name="history" value="FULL" checked /> during its exec. period, or
               <input type="radio" name="history" value="OTHER"        /> from 
               <input type="datetime-local"  name="start" class="start_time" /> to 
               <input type="datetime-local"  name="stop"  class="stop_time"  />
@@ -183,7 +197,7 @@
             </form>
             <form action="./userGraph">
               User 
-              <input type="text"  name="user"  id="user" size="12" required />'s resource usage from
+              <input type="text"  name="user"  id="user" size="13" required />'s resource usage from
               <input type="date"  name="start" class="start_date"/> to 
               <input type="date"  name="stop"  class="stop_date" />
               <button class="button">Report</button>

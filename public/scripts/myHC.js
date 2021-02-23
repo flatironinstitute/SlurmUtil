@@ -135,19 +135,9 @@ function graphSeries(dataSeries, chartTag, title, xType, xMax, xLabel, yLabel, p
 
 //series with x-Axis as time
 //aSeries is used to annote event
-function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit='', chart_type='area') {
-    function crtLabel (vx, vy, v) {
-                return {
-                      point: {
-                          xAxis: 0,
-                          yAxis: 0,
-                          x    : vx,
-                          y    : vy
-                      },
-                      text: v.toString().concat(aUnit) }
-    }
-
-    //console.log(series)
+function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit='', chart_type='area', yAxis_max=null) {
+    console.log(title, yAxis_max)
+    console.log(series)
     if ( aSeries.length > 0 ) {
                 cus_labels = aSeries.map(function(x) {return crtLabel(x[1], x[2], x[0])})
                 console.log(cus_labels)
@@ -184,7 +174,8 @@ function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit=
                  yAxis: {
                      title: {
                          text: yCap
-                     }
+                     },
+                     max: yAxis_max
                  },
                  legend: {
                      enabled: true
@@ -227,15 +218,15 @@ function timeSeriesScatterPlot(series, chartTag, title, yCap, aSeries, pf_func=p
 function timeSeriesColumnPlot(series, chartTag, title, yCap, aSeries, pf_func=pointFormat_func) {
    timeSeriesPlot(series, "column", chartTag, title, yCap, aSeries, pf_func)
 }
-function crtLabel (vx, vy, txt) {
+function crtLabel (vx, vy, txt, aUnit='') {
    return { point: { xAxis: 0,
                      yAxis: 0,
                      x    : vx,
                      y    : vy},
-            text: txt }
+            text: txt.toString().concat(aUnit) }
 }
 function timeSeriesPlot(series, chartType, chartTag, title, yCap, aSeries, pf_func=pointFormat_func) {
-   console.log('timeSeriesPlot series=', chartType, series)
+   console.log('timeSeriesPlot chartType=", chartType, ",series=', series)
    if ( aSeries.length > 0 ) {
                 baseY = series[0]['data'][0][1]
                 cus_labels = aSeries.map(function(x) {return crtLabel(x[0], baseY, x[1])})
@@ -249,7 +240,6 @@ function timeSeriesPlot(series, chartType, chartTag, title, yCap, aSeries, pf_fu
                 cus_anno = []
 
    if (pf_func == pointFormat_func_KB) {
-      console.log(pf_func)
       Highcharts.setOptions({
        lang: {
            numericSymbols: ['k KB', 'M KB', 'G KB', 'T KB', 'P KB', 'E KB']
@@ -288,9 +278,6 @@ function timeSeriesPlot(series, chartType, chartTag, title, yCap, aSeries, pf_fu
                      title: {
                          text: yCap 
                      },
-                     //labels: {
-                     //    format: '{value} KB'
-                     //}
                  },
                  legend: {
                      enabled: true
@@ -304,6 +291,11 @@ function timeSeriesPlot(series, chartType, chartTag, title, yCap, aSeries, pf_fu
                          jitter: {
                              x: 0.5,
                              y: 0
+                         },
+                     },
+                     line: {
+                         tooltip: {
+                             pointFormatter: pf_func
                          },
                      },
                  },
