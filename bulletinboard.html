@@ -26,14 +26,13 @@
 
 
       $(document).ready(() => {{
-          var j_title    = {{'id':'Job', 'msg':'Message'}};
-          var o_title    = {{'source':'Source', 'ts':'Time', 'msg':'Message'}};
-          var type       = {{'id':'JobAndStep', 'ts':'Time'}};
+          var j_title    = {{'job_id':'Job', 'user':'User', 'num_cpus':'#CPUs', 'low_util_msg':'Message'}};
+          var o_title    = {{'source':'Source', 'ts':'Time', 'low_util_msg':'Message'}};
+          var type       = {{'job_id':'JobAndStep', 'user':'User', 'ts':'Time'}};
 
           //create table job_table and part_table
           createTable  ({low_util},   j_title,  'low_util_table',  'low_util',  undefined, type)
           createTable  ({low_node},   {{'name':'Node', 'msg':'Message'}}, 'low_node_table',  'low_node',  undefined, {{'name':'Node'}})
-          createTable  ({qos_relax},  {{'user':'User', 'msg':'Message'}}, 'qos_relax_table', 'qos_relax', undefined, {{'user':'UserName'}})
           createTable  ({other},      o_title,  'other_table',     'other',     undefined, type)
           collapseTitle ();
       }});
@@ -48,8 +47,7 @@
             <div class="stickynav__logo">
               <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
             </div>
-            <!-- Todo: Add update time -->
-            <div class="stickynav__update">Updated:</div>
+            <div class="stickynav__update">Updated: {update_time}</div>
           </div>
         </div>
       </div>
@@ -59,7 +57,6 @@
           <div class="section__div">
             <h3 class="table__title">Running Jobs with Low Resource Utilization:</h3>
             <div class="table__subtitle" id="low_util">
-              <p><i>Update time: {low_util_ts}</i></p>
             </div>
           </div>
         </div>
@@ -69,17 +66,6 @@
           <div class="section__div">
             <h3 class="table_title">Alloc Nodes with Low Resource Utilization:</h3>
             <div class="table__subtitle" id="low_node">
-              <p><i>Update time: {low_util_ts}</i></p>
-            </div>
-          </div>
-        </div>
-      </section>
-      <section class="section">
-        <div class="section__inner section__inner--fullwidth">
-          <div class="section__div">
-            <h3 class="table__title">QoS Relaxation for Pending Jobs to Run:</h3>
-            <div class="table__subtitle" id="qos_relax">
-              <p><i>Update time: {qos_relax_ts}</i></p>
             </div>
           </div>
         </div>
@@ -89,8 +75,6 @@
           <div class="section__div">
             <h3>Other:</h3>
             <div class="table__subtitle" id="other">
-              <!-- TODO: Is there an update time here? -->
-              <p><i>Update time: </i></p>
             </div>
           </div>
         </div>
@@ -99,6 +83,7 @@
     <footer class="section section--footer">
       <div class="section__inner section__inner--footer">
         <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
+        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
       </div>
     </footer>
     <script>

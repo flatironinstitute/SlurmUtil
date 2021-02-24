@@ -1262,7 +1262,8 @@ class SLURMMonitorUI(object):
         t2 += '</tbody>\n<a href="%s/tymor?refresh=1">&#8635</a>\n'%cherrypy.request.base
 
         htmlTemp = os.path.join(config.APP_DIR, 'sparkline_std.html')
-        h = open(htmlTemp).read()%{'tablespark' : t, 'tablespark2' : t2 }
+        #h = open(htmlTemp).read()%{'tablespark' : t, 'tablespark2' : t2 }
+        h = open(htmlTemp).read()%{'tablespark' : t }
 
         return h
 
@@ -1622,7 +1623,7 @@ class SLURMMonitorUI(object):
            # node with low resource utlization
            low_nodes  = self.monData.getLowUtilNodes()
         else:
-           ts_str     = ''
+           ts_str     = MyTool.getTsString(int(time.time()))
            low_util   = [{'id':'', 'user':'',  'low_util_msg':self.getWaitMsg()}]
            low_nodes  = [{'name':'', 'low_util_msg':self.getWaitMsg()}]
 
@@ -1632,11 +1633,11 @@ class SLURMMonitorUI(object):
         other      = self.monData.inMemLog.getAllLogs () #[{'source':'', 'ts':'','msg':''}]
 
         htmlTemp   = os.path.join(config.APP_DIR, 'bulletinboard.html')
-        htmlStr    = open(htmlTemp).read().format(low_util    =json.dumps(low_util),
-                                                  low_util_ts =ts_str,
+        htmlStr    = open(htmlTemp).read().format(update_time =ts_str,
+                                                  low_util    =json.dumps(low_util),
                                                   low_node    =json.dumps(low_nodes),
-                                                  qos_relax   =json.dumps(qos_relax),
-                                                  qos_relax_ts=MyTool.getTsString(SE_ins.ts_job_dict),
+                                                  #qos_relax   =json.dumps(qos_relax),
+                                                  #qos_relax_ts=MyTool.getTsString(SE_ins.ts_job_dict),
                                                   other       =other)
         return htmlStr
 
