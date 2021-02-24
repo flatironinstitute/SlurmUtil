@@ -588,8 +588,8 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def getHeader(self, page=None):
-        pages =["index", "utilHeatmap", "pending", "sunburst", "usageGraph", "tymor2", "bulletinboard", "report",   "forecast", "settings"]
-        titles=["Summary", "Host Util.",  "Pending Jobs", "Sunburst Graph", "File Usage","Tymor", "Bulletin Board", "Report", "Forecast", "Settings"]
+        pages =["index", "utilHeatmap", "pending", "sunburst", "usageGraph", "bulletinboard", "report",   "forecast", "settings"]
+        titles=["Summary", "Host Util.",  "Pending Jobs", "Sunburst Graph", "File Usage", "Bulletin Board", "Report", "Forecast", "Settings"]
         result='<ul class="nav__inner">'
 
         for i in range (len(pages)):
@@ -1626,11 +1626,11 @@ class SLURMMonitorUI(object):
            ts_str     = MyTool.getTsString(int(time.time()))
            low_util   = [{'id':'', 'user':'',  'low_util_msg':self.getWaitMsg()}]
            low_nodes  = [{'name':'', 'low_util_msg':self.getWaitMsg()}]
-
-        SE_ins     = SlurmEntities.SlurmEntities()
-        qos_relax  = SE_ins.relaxQoS()   # {uid:suggestion}
-        qos_relax  = [ {'user':MyTool.getUser(uid), 'msg':s} for uid,s in qos_relax.items()]
         other      = self.monData.inMemLog.getAllLogs () #[{'source':'', 'ts':'','msg':''}]
+
+        #SE_ins     = SlurmEntities.SlurmEntities()
+        #qos_relax  = SE_ins.relaxQoS()   # {uid:suggestion}
+        #qos_relax  = [ {'user':MyTool.getUser(uid), 'msg':s} for uid,s in qos_relax.items()]
 
         htmlTemp   = os.path.join(config.APP_DIR, 'bulletinboard.html')
         htmlStr    = open(htmlTemp).read().format(update_time =ts_str,
