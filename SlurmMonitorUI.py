@@ -792,8 +792,9 @@ class SLURMMonitorUI(object):
         usageData_dict= fs2hc.gendata(yyyymmdd)
         for k,v in usageData_dict.items():
             v[2] = datetime.datetime.strptime(v[2],'%Y%m%d').strftime('%Y-%m-%d')
-        htmlTemp = 'fileCensus.html'
-        h = open(htmlTemp).read()%{'file_systems':fs2hc.FileSystems, 'yyyymmdd': 'yyyymmdd', 'data': usageData_dict}
+        update_time = MyTool.getTsString(int(time.time()))
+        htmlTemp    = 'fileCensus.html'
+        h           = open(htmlTemp).read().format(file_systems=fs2hc.FileSystems,data=usageData_dict, update_time=update_time)
 
         return h
 

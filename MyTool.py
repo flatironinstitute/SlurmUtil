@@ -50,7 +50,7 @@ def getUserStruct (uid=None, uname=None):
        if uname:
           p=pwd.getpwnam(uname)
     except KeyError:
-       print('ERROR: MyTool::getUser user with uid {} cannot be found.'.format(uid))
+       #print('ERROR: MyTool::getUser user with uid {} cannot be found.'.format(uid))
        return None
     return p
 

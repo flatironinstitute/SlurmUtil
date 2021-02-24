@@ -300,6 +300,81 @@ function timeSeriesPlot(series, chartType, chartTag, title, yCap, aSeries, pf_fu
                      },
                  },
                  series: series
-//             });
            }, addHideButton); 
+}
+function bubblePlot (series, container_id, title) {
+   console.log('bubblePlot", ",series=', series)
+
+   var chart = Highcharts.chart(container_id, {
+   //var chart = $(container_sel).highcharts({
+       bubble: {
+           minSize: 3,
+           maxSize: 10,
+       },
+       chart: {
+           type:     'bubble',
+           panKey:   'shift',
+           panning:  true,
+           zoomType: 'xy',
+           plotBorderWidth: 1
+       },
+       title: {
+           text: title,
+       },
+       credits: {
+           enabled: false,
+       },
+       subtitle: {
+           text: document.ontouchstart === undefined ?
+           'Click and drag in the plot area to zoom in. Shift-click to pan.' : 'Pinch the chart to zoom in'
+       },
+       xAxis: {
+           type: 'logarithmic',
+           title: {
+              text: 'Total bytes'
+           },
+           gridLineWidth: 1,
+       },
+       yAxis: {
+           type: 'logarithmic',
+           title: {
+              text: 'File count'
+           },
+           startOnTick: false,
+           endOnTick:   false,
+           maxPadding:  0.2,
+       },
+       legend: {
+           enabled: false,
+       },
+       tooltip: {
+           useHTML:        true,
+           headerFormat:   '<table>',
+           pointFormatter: function(){ return '<tr><th colspan="2"><h3>' + this.name + '</h3></th></tr>' +
+                                        '<tr><th>Bytes:</th><td>' + this.x.toExponential(3) + '</td></tr>' +
+                                        '<tr><th>Files:</th><td>' + this.y.toExponential(3) + '</td></tr>' +
+                                        '<tr><th>Delta bytes:</th><td>' + this.dfb.toExponential(3) + '</td></tr>' +
+                                        '<tr><th>Delta files:</th><td>' + this.dfc + '</td></tr>' } ,
+           footerFormat:   '</table>',
+           followPointer:  true
+       },
+       plotOptions: {
+           series: {
+             dataLabels: {
+                enabled: true,
+                format: '{point.name}'
+             },
+             events: {
+                click: function(event) { // double click to see the history
+                   location.replace("./user_fileReport?user="+event.point.name)
+                },
+             }
+           },
+       },
+       series: [{
+           data: series
+       }]
+   });
+   console.log("chart=", chart)
+   return chart
 }

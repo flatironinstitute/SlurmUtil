@@ -21,127 +21,51 @@
     <script type="text/javascript" src="static/scripts/highcharts.js"></script>
     <script type="text/javascript" src="static/scripts/highcharts-more.js"></script>
     <script type="text/javascript" src="static/scripts/exporting.js"></script>
+    <script type="text/javascript" src="static/scripts/myHC.js"></script>
 
     <script type="text/javascript">
       var chart;
+      var data = {data}
+      var fs   = {file_systems}
+      console.log(data)
       // What is this syntax?
-      var data = %(data)s
-      console.log (data)
-      $(function () {
-                 $("#navmenu").load("/getHeader?page=usageGraph");
-                 var thisPath = window.location.pathname;
-                $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
-                 fillOptions (%(file_systems)s)
-                 displayData (data['home'])
-             })
+      $(function () {{
+         $("#navmenu").load("/getHeader?page=usageGraph");
+         var thisPath = window.location.pathname;
+         $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
 
-             function displayData (fs_data) {
-                 console.log("displayData", fs_data[1])
-          var titleString = fs_data[0] + ': File Count and Bytes of Users on ' + fs_data[2];
-          chart = Highcharts.chart('container', {
-       bubble: {
-           minSize: 3,
-           maxSize: 10,
-       },
-       chart: {
-           panKey: 'shift',
-           panning: true,
-           plotBorderWidth: 1,
-           type: 'bubble',
-           zoomType: 'xy'
-       },
-       credits: {
-           enabled: false,
-       },
-       legend: {
-           enabled: false,
-       },
-       title: {
-           text: titleString,
-       },
-       xAxis: {
-           type: 'logarithmic',
-           gridLineWidth: 1,
-           title: {
-      	 text: 'Total bytes'
-           },
-       },
-       yAxis: {
-           type: 'logarithmic',
-           startOnTick: false,
-           endOnTick: false,
-           title: {
-      	 text: 'File count'
-           },
-           maxPadding: 0.2,
-       },
-       tooltip: {
-           useHTML: true,
-           headerFormat: '<table>',
-           pointFormatter: function(){ return '<tr><th colspan="2"><h3>' + this.name + '</h3></th></tr>' +
-      					'<tr><th>Bytes:</th><td>' + this.x.toExponential(3) + '</td></tr>' +
-      					'<tr><th>Files:</th><td>' + this.y.toExponential(3) + '</td></tr>' +
-      					'<tr><th>Delta bytes:</th><td>' + this.dfb.toExponential(3) + '</td></tr>' +
-      					'<tr><th>Delta files:</th><td>' + this.dfc + '</td></tr>' } ,
-           footerFormat: '</table>',
-           followPointer: true
-       },
-       plotOptions: {
-           series: {
-      	 dataLabels: {
-      	     enabled: true,
-      	     format: '{point.name}'
-      	 },
-                             events: {
-                               click: function(event) {
-                                  console.log("click username=", event.point.name)
-                                  location.replace("./user_fileReport?user="+event.point.name)
-                               },
-                             }
-           },
-       },
-       series: [{
-           data: fs_data[1]
-       }]
-
-          });
-          // Clone the highchart font family setting from the title element to use with the input label element.
-          hcff = $("tspan:contains('"+titleString+"')").css('font-family');
-          $('#usernameLabel').css('font-family', hcff);
-
-
-      }
-      function selectUser() {
-          var username = $('input[id=username]').val();
-          for (d of chart.series[0].data) {
-       if (username == d.name) {
-           chart.xAxis[0].setExtremes(d.x/4, d.x*4);
-           chart.yAxis[0].setExtremes(d.y/4, d.y*4);
-           chart.showResetZoom();
-           return false;
-       }
-          }
+         for (var i in fs) {{
+             $('#fsList').append ('<option value="' + i + '">' + fs[i][0] + '</option>');
+         }}
+         // init display
+         $("#fsList").val("home");
+         displayData (data['home'])
+         // fsList behavior
+         $("#fsList").change(function() {{
+            var val=$(this).val();
+            displayData(data[val])
+            console.log("Changed to ", val)
+         }})
+         //userSelect behavior is set in form
+      }})
+      function displayData (fs_data) {{
+            var titleString = fs_data[0] + ': File Count and Bytes of Users on ' + fs_data[2];
+            chart=bubblePlot(fs_data[1], 'container', titleString)  
+      }}
+      function selectUser() {{
+          var username = $('input#username').val();
+          for (d of chart.series[0].data) {{
+              if (username == d.name) {{
+                 chart.xAxis[0].setExtremes(d.x/4, d.x*4);
+                 chart.yAxis[0].setExtremes(d.y/4, d.y*4);
+                 chart.showResetZoom();
+                 return false;
+              }}
+          }}
           alert('Did not find user: '+ username);
           return false
-      }
+      }}
 
-             // file_systems is dict of value:[description,...]
-             function fillOptions (fs) {
-                console.log (fs)
-                d3.select("#fsList").selectAll("option")
-                  .data(Object.keys(fs))
-                  .enter()
-                  .append("option")
-                  .attr("value", function (d) {return d})
-                  .text(function (d) {return fs[d][0]})
-
-                $("#fsList").val("home");
-                $("#fsList").change(function() {
-                   var val=$("#fsList option:selected").attr("value");
-                   displayData(data[val])
-                   console.log("Changed to ", val)
-                })
-             }
     </script>
   </head>
   <body>
