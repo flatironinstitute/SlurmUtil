@@ -14,44 +14,48 @@
         <title>Forecast</title>
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
         <script>
+                function displayCluster (cluster, acct) {{
+                      console.log(cluster, acct)
+                      if (acct == 'ALL') 
+                          aName='_'
+                      else
+                          aName='_'+acct+'_'
+                      $("#fc_img").attr     ({{SRC: "static/images/" + cluster +"_cpuAllocDF" + aName + "forecast.png"}});
+                      $("#fc_comp_img").attr({{SRC: "static/images/" + cluster +"_cpuAllocDF" + aName + "forecastComp.png"}});
+                      $("#fc_cv_img").attr  ({{SRC: "static/images/" + cluster +"_cpuAllocDF" + aName + "forecastCV.png"}});
+                }}
                 $(document).ready(function(){{
-                        var thisPath = window.location.pathname;
-                        $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
-                        $('#navmenu').load('/getHeader?page=forecast');
+                    var thisPath = window.location.pathname;
+                    $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+                    $('#navmenu').load('/getHeader?page=forecast');
 
-                //init data
-                var accounts = {accounts};
-                var clusters = {clusters};
-                for (var i = 0; i < clusters.length; i++) {{
-                $('#cluster').append     ('<option value="' + clusters[i] + '">' + clusters[i] + '</option>');
-                }}
-                accounts.unshift('ALL')
-                for (var i = 0; i < accounts.length; i++) {{
-                        if ( i == 0)
-                        $('#acct').append     ('<option value="_" selected>' + accounts[i] + '</option>');
-                        else
-                        $('#acct').append     ('<option value="_' + accounts[i] + '_">' + accounts[i] + '</option>');
-                }}
+                   //init data
+                   var accounts = {accounts};
+                   var clusters = {clusters};
+                   var curr_cluster;
+                   for (var i = 0; i < clusters.length; i++) {{  // fill cluster select option
+                      $('#cluster').append     ('<option value="' + clusters[i] + '">' + clusters[i] + '</option>');
+                   }}
+                   accounts.unshift('ALL')
+                   for (var i = 0; i < accounts.length; i++) {{  // fill account select option
+                        $('#acct').append     ('<option value="' + accounts[i] + '">' + accounts[i] + '</option>');
+                   }}
 
-                cluster=clusters[0]
-                $("#fc_img").attr     ({{SRC: "static/images/" + cluster +"_cpuAllocDF_forecast.png"}});
-                $("#fc_comp_img").attr({{SRC: "static/images/" + cluster +"_cpuAllocDF_forecastComp.png"}});
-                $("#fc_cv_img").attr  ({{SRC: "static/images/" + cluster +"_cpuAllocDF_forecastCV.png"}});
-                $("#cluster").change(function() {{
-                cluster = $(this).val();
-                console.log("cluster " + cluster)
-                $("#acct").val('_')
-                $("#fc_img").attr     ({{SRC: "static/images/" + cluster +"_cpuAllocDF_forecast.png"}});
-                $("#fc_comp_img").attr({{SRC: "static/images/" + cluster +"_cpuAllocDF_forecastComp.png"}});
-                $("#fc_cv_img").attr  ({{SRC: "static/images/" + cluster +"_cpuAllocDF_forecastCV.png"}});
-                }});
-                $("#acct").change(function() {{
-                console.log(accounts)
-                val = $(this).val();
-                $("#fc_img").attr     ({{SRC: "static/images/" + cluster +"_cpuAllocDF" + val + "forecast.png"}});
-                $("#fc_comp_img").attr({{SRC: "static/images/" + cluster +"_cpuAllocDF" + val + "forecastComp.png"}});
-                $("#fc_cv_img").attr  ({{SRC: "static/images/" + cluster +"_cpuAllocDF" + val + "forecastCV.png"}});
-                }});
+                   // init display
+                   $("#cluster").val(clusters[0])
+                   $("#acct").val   (accounts[0])
+                   displayCluster   (clusters[0], accounts[0])
+                   // select behavior
+                   $("#cluster").change(function() {{
+                      var cluster = $(this).val();
+                      var acct    = $("#acct").find(":selected").text()
+                      displayCluster (cluster, acct)
+                   }});
+                   $("#acct").change(function() {{
+                      var acct     = $(this).val();
+                      var cluster = $("#cluster").find(":selected").text()
+                      displayCluster (cluster, acct)
+                   }});
                 }});
          </script>
     </head>
