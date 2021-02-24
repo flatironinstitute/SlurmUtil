@@ -367,10 +367,15 @@ class SlurmEntities:
   #TODO: consider OverPartQOS
   #return nodeLimit, cpuLimit, gresLimit
   def getJobQoSTresLimit (self, job, p_name, tres_attribute, OverPartQOS=False):
-      partition                       = self.partition_dict[p_name]
-      tres_str                        = self.qos_dict[partition['qos_char']][tres_attribute]
-      node_lmt,   cpu_lmt,   gpu_lmt  = None, None, None
-      j_node_lmt, j_cpu_lmt, j_gpu_lmt= MAX_LIMIT,MAX_LIMIT,MAX_LIMIT
+      partition                     = self.partition_dict[p_name]
+      #preempty partition qos_char is None
+      if partition['qos_char']:
+         tres_str                   = self.qos_dict[partition['qos_char']].get(tres_attribute, None)
+      else:
+         tres_str                   = None
+
+      node_lmt,  cpu_lmt,  gpu_lmt  = [None] *3
+      j_node_lmt,j_cpu_lmt,j_gpu_lmt= [MAX_LIMIT] * 3
       if tres_str:  #partitio QoS
          node_lmt, cpu_lmt, gpu_lmt = SlurmEntities.getQoSTresLimit (tres_str, defaultValue=0)
       if not (node_lmt and cpu_lmt and gpu_lmt): #partition QoS override Job QoS
