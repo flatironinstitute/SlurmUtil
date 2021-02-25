@@ -6,7 +6,7 @@ import MyTool
 from collections import defaultdict
 from datetime    import timedelta
 
-MSG_LOW_UTIL  ="User {}'s Job {} has run for {} with a low resource usage, average CPU utilization is {:.2f} and MEM utilization is {:.2f}, on node {} with a total of {} cpus."
+MSG_LOW_UTIL  ="Job has run for {} on node {} with a low resource usage. Average CPU utilization is {:.2f} and MEM utilization is {:.2f}."
 
 # a bulletin board 
 class BulletinBoard:
@@ -15,10 +15,10 @@ class BulletinBoard:
    
    # low util jobs that are evaluated at ts
    def addLowUtilJobNotice (self, ts, jobs):
-      print('--addLowUtilJobNotice {}'.format(jobs.keys()))
+      #print('--addLowUtilJobNotice {}'.format(jobs.keys()))
       for jid, job in jobs.items():
-        msg = MSG_LOW_UTIL.format(MyTool.getUser(job['user_id']), job['job_id'], timedelta(seconds=ts - int(job['start_time'])), job.get('job_avg_util',-1), job.get('job_mem_util',-1), job.get('nodes',''), job.get('num_cpus',-1))
-        self._store.append(ts, msg, jid)
+          msg =  MSG_LOW_UTIL.format(timedelta(seconds=int(time.time()) - int(job['start_time'])), job.get('nodes',''), job.get('job_avg_util',-1), job.get('job_mem_util',-1))
+          self._store.append(ts, msg, jid)
 
    def getLatest (self):
       return self._store.latest()
@@ -26,10 +26,10 @@ class BulletinBoard:
    def get (self, latestN):
       return self._store.get(latestN)
    
-   def getLowUtilJobMsg (job_dict):
-       msg = [{'id': jid, 'msg': MSG_LOW_UTIL.format(job['user'], job['job_id'], timedelta(seconds=int(time.time()) - int(job['start_time'])), job.get('job_avg_util',-1), job.get('job_mem_util',-1), job.get('nodes',''), job.get('num_cpus',-1))} for jid, job in job_dict.items()]
-       return msg
-
+   def setLowUtilJobMsg (job_dict):
+      for jid, job in job_dict.items():
+          job['low_util_msg'] =  MSG_LOW_UTIL.format(timedelta(seconds=int(time.time()) - int(job['start_time'])), job.get('nodes',''), job.get('job_avg_util',-1), job.get('job_mem_util',-1))
+       
    
 # save message in in-mem cache with size, flushed to file from time to time 
 class MessageCache:
