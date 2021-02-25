@@ -786,13 +786,15 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def usageGraph(self, yyyymmdd=''):
+        ts          = int(time.time())
+        update_time = MyTool.getTsString(int(time.time()))
         if not yyyymmdd:
-            # only have census date up to yesterday, so we use that as the default.
-            yyyymmdd = (datetime.date.today() + datetime.timedelta(days=-1)).strftime('%Y%m%d')
+            # in general, only have census date up to yesterday, if not availabe, return the latest date
+            #yyyymmdd = (datetime.date.today() + datetime.timedelta(days=-1)).strftime('%Y%m%d')
+            yyyymmdd = MyTool.getTS_strftime(ts, '%Y%m%d')
         usageData_dict= fs2hc.gendata(yyyymmdd)
         for k,v in usageData_dict.items():
-            v[2] = datetime.datetime.strptime(v[2],'%Y%m%d').strftime('%Y-%m-%d')
-        update_time = MyTool.getTsString(int(time.time()))
+            v[2] = '{}-{}-{}'.format(v[2][0:4], v[2][4:6], v[2][6:8]) #convert from '%Y%m%d' to '%Y-%m-%d'
         htmlTemp    = 'fileCensus.html'
         h           = open(htmlTemp).read().format(file_systems=fs2hc.FileSystems,data=usageData_dict, update_time=update_time)
 
@@ -1156,7 +1158,7 @@ class SLURMMonitorUI(object):
         return htmlStr
 
     @cherrypy.expose
-    def tymor2(self,**args):
+    def tymor(self,**args):
         if not self.monData.hasData():
            return self.getNoDataPage('Tymor', 'tymor2') # error of some sort.
 

@@ -9,7 +9,7 @@ from math     import log
 logger = config.logger
 
 FileSystems = {
-    # Label displayed in web page, path to directory with summary data, suffix for appropriate summary data file
+    # name: Label, path to directory, suffix for summary data file, uid_idx, filecount_idx, bytecount_idx, filename_regular_exp
     'ceph_users': ['Ceph Users', '/mnt/xfs1/home/carriero/projects/fileCensus/cephdata', '_full.sum', 0, 3, 4, '(\d{8})_full.sum'],
     'ceph_full':  ['Ceph Full',  '/mnt/xfs1/home/carriero/projects/fileCensus/cephdata', '_full.sum', 0, 1, 2, '(\d{8})_full.sum'],
     'home':       ['Home',       '/mnt/xfs1/home/carriero/projects/fileCensus/data',     '_full.sum', 0, 3, 4, '(\d{8})_.*_full.sum'],
@@ -117,62 +117,92 @@ def gendata_all(fs, start='', stop='', topN=5):
         
     return uid2seq1, uid2seq2
 
+#return {fs_name: data}
 def gendata(yyyymmdd, anon=False):
     rlt = {}
     for fs in FileSystems.keys():
         rlt[fs] = gendata_fs(yyyymmdd, fs, anon)
     return rlt
 
+def extract (line, key_idx, idx_lst):
+    lst    = line.split('\t')
+    values = [int(lst[idx]) for idx in idx_lst]
+    return (int(lst[key_idx]), values)
+ 
+def read_file (filename, key_idx, idx_lst):
+    with open(filename) as f:
+         d = dict([extract(line.rstrip(), key_idx, idx_lst) for line in f])
+    return d
+
+def minus_list (lst1, lst2):
+    if not lst1:
+       return [-v for v in lst2]
+    if not lst2:
+       return lst1
+    return [lst1[i]-lst2[i] for i in range(len(lst1))]
+
+#return data for a specific filesystem fs
 def gendata_fs(yyyymmdd, fs, anon=False):
-    if fs not in FileSystems: return 'Unknown file system: "%s"'%fs, ''
+    if fs not in FileSystems: 
+       return 'Unknown file system: {}'.format(fs)
+
     label, dataDir, suffix, uidx, fcx, bcx, rge = FileSystems[fs]
-    ff = sorted(glob.glob(dataDir+'/2*'+suffix))
-    me = 0
+    ff  = sorted(glob.glob(dataDir+'/2*'+suffix))
+    idx = 0
     for x, f in enumerate(ff):
-        if yyyymmdd in f:
-            me = x
+        if yyyymmdd in os.path.basename(f):  #filename without dir
+            idx = x
             break
     else: 
-        me = len(ff)-1
-        logger.warning('gendata WARNING: Date {}:{} not found. Use most recent {} instead.'.format(fs, yyyymmdd, ff[me]))
-        yyyymmdd = getDateFromFilename(dataDir, rge, ff[me])
+        idx = len(ff)-1
+        logger.warning('Date {}:{} not found. Use most recent {} instead.'.format(fs, yyyymmdd, ff[-1]))
+        yyyymmdd = getDateFromFilename(dataDir, rge, ff[-1])
 
-    u2s = {}
-    tdfc, tdfb = 0, 0  # total dfc(delta file count), dfb(delta file bytes)
-    for x, f in enumerate(ff[me-1:me+1]):
-        for l in open(f):
-            ff = l[:-1].split('\t')
-            uid, fc, bytes = [int(ff[x]) for x in [uidx, fcx, bcx]]
-            old = u2s.get(uid, [0, 0, fc, bytes])
-            dfc, dfb = fc - old[2], bytes - old[3]
-            tdfc += dfc
-            tdfb += dfb
-            u2s[uid] = [dfc, dfb, fc, bytes]
+    pre   = read_file (ff[idx-1], uidx, [fcx,bcx])
+    curr  = read_file (ff[idx],   uidx, [fcx,bcx])
+    delta = { k:minus_list(curr.get(k,None),pre.get(k, None))+curr.get(k,[0,0]) for k in (set(pre) | set(curr))}  #uid: [delta_fc, delta_bc, curr_fc, curr_bc]
+    t_dfc = sum([v[0] for v in delta.values()])
+    t_dbc = sum([v[1] for v in delta.values()])
+
+    #u2s = {}
+    #tdfc, tdfb = 0, 0  # total dfc(delta file count), dfb(delta file bytes)
+    #for x, f in enumerate(ff[idx-1:idx+1]):
+    #    for l in open(f):
+    #        ff = l[:-1].split('\t')
+    #        uid, fc, bytes = [int(ff[x]) for x in [uidx, fcx, bcx]]
+    #        old = u2s.get(uid, [0, 0, fc, bytes])
+    #        dfc, dfb = fc - old[2], bytes - old[3]
+    #        tdfc += dfc
+    #        tdfb += dfb
+    #        u2s[uid] = [dfc, dfb, fc, bytes]
 
     # find N50 wrt file count.
     s = 0
     uid2x = {}
     cutoff = None
-    for x, (dfc, uid) in enumerate(sorted([(dfc, uid) for uid, [dfc, d, d, d] in u2s.items()], reverse=True)):
+    for x, (dfc, uid) in enumerate(sorted([(dfc, uid) for uid, [dfc, d, d, d] in delta.items()], reverse=True)):
         s += dfc 
-        if 2*s > tdfc: cutoff = x
+        if 2*s > t_dfc: cutoff = x
         uid2x[uid] = x
-
-    if 4*x > len(u2s): cutoff = 2
+    if 4*x > len(delta): cutoff = 2
 
     r=[]
-    for uid, v in u2s.items():
-        if uid < 1000: continue
-        uname = MyTool.getUser(uid, True)
-
-        if anon: uname = anonimize(uname)
-
-        if 0 == v[2] or 0 == v[3]:
-            # non-home user, skip
+    for uid, v in delta.items():
+        if uid < 1000:               # skip 
+            continue       
+        if 0 == v[2] or 0 == v[3]:   # non-home user, skip
             continue
-        #r +=  '\t{ x: %d, y: %d, z: %d, dfb: %d, dfc: %d, name: "%s"%s},\n' %(v[3], v[2], log(max(2**20, v[1]), 2)-19, v[1], v[0], uname, marker)
-        if cutoff and uid2x[uid] <= cutoff:
-           r.append({'x':v[3], 'y':v[2], 'z':log(max(2**20, v[1]),2)-19, 'dfb':v[1], 'dfc':v[0], 'name':'{}'.format(uname), 'marker':{'fillColor': 'rgba(236,124,181,0.5)'}})
+
+        uname = MyTool.getUser(uid, False)
+        if anon:
+           if uname: 
+              uname = anonimize(uname)
+            
+        if not uname:
+           uname = "User_{}".format(uid)
+           r.append({'x':v[3], 'y':v[2], 'z':log(max(2**20, v[1]),2)-19, 'dfb':v[1], 'dfc':v[0], 'name':'{}'.format(uname), 'marker':{'fillColor': 'rgba(255,225,0,0.5)'}})
+        elif cutoff and uid2x[uid] <= cutoff:
+           r.append({'x':v[3], 'y':v[2], 'z':log(max(2**20, v[1]),2)-19, 'dfb':v[1], 'dfc':v[0], 'name':'{}'.format(uname), 'marker':{'fillColor': 'rgba(236,124,181,0.9)'}})
         else:
            r.append({'x':v[3], 'y':v[2], 'z':log(max(2**20, v[1]),2)-19, 'dfb':v[1], 'dfc':v[0], 'name':'{}'.format(uname)})
 
@@ -189,10 +219,14 @@ def test2():
     fcSer, bcSer = gendata_all('home', start, stop, 5)
     print("fcSer={} \n\n bcSer={}".format(fcSer, bcSer))
 
+def test3():
+    yyyymmdd='20210224'
+    gendata(yyyymmdd)
+
 if '__main__' == __name__:
     #print (gendata(*sys.argv[1:]))
     #print (gendata_all(*sys.argv[1:], 2))
     #print (gendata_user(*sys.argv[1:]))
     #test1 (sys.argv[1])
-    test2 ()
+    test3 ()
 

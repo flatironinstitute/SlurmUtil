@@ -368,6 +368,8 @@ function bubblePlot (series, container_id, title) {
                 click: function(event) { // double click to see the history
                    location.replace("./user_fileReport?user="+event.point.name)
                 },
+             },
+             marker: {
              }
            },
        },
@@ -375,6 +377,5 @@ function bubblePlot (series, container_id, title) {
            data: series
        }]
    });
-   console.log("chart=", chart)
    return chart
 }
