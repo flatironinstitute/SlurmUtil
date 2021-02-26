@@ -133,9 +133,6 @@ body {
   padding: 2rem;
   margin: 0 auto 2rem auto;
 }
-.not-flex {
-  display: block;
-}
 .flex {
   display: flex;
   flex-direction: row;
@@ -156,7 +153,7 @@ body {
   align-items: center;
 }
 .flex__sunburst {
-  align-items: flex-start;
+  display: block !important;
   max-width: 900px;
   margin: 0 auto;
 }
