@@ -133,6 +133,9 @@ body {
   padding: 2rem;
   margin: 0 auto 2rem auto;
 }
+.not-flex {
+  display: block;
+}
 .flex {
   display: flex;
   flex-direction: row;
