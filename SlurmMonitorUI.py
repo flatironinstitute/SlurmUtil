@@ -410,10 +410,6 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def getNodeData(self):
-        return repr(self.moData.data)
-
-    @cherrypy.expose
     def getAllJobData(self):
         return '({},{})'.format(self.monData.updateTS, self.monData.allJobs)
 
@@ -955,7 +951,7 @@ class SLURMMonitorUI(object):
                 if v == SlurmEntities.MAX_LIMIT: p[k]='n/a'
         if self.monData.hasData():
            note       = ''
-           userworker = self.getUserNodeData(user)
+           userworker = self.monData.getUserNodeData(user)
            core_cnt   = sum([val[0] for val in userworker.values()])
            proc_cnt   = sum([val[1] for val in userworker.values()])
         else:
@@ -991,18 +987,6 @@ class SLURMMonitorUI(object):
         # Currently, running jobs & pending jobs of the user processes in the worker nodes
         # Future, QoS and resource restriction
         # Past,   finished or cancelled jobs for the last 3 days
-
-    #return dict (workername, workerinfo)
-    def getUserNodeData (self, user):
-        if type(self.data) == str: return {} # error of some sort.
-
-        result = {}
-        for node, d in self.data.items():
-            if len(d) < USER_INFO_IDX: continue   # no user info
-            for user_name, uid, alloc_core_cnt, proc_cnt, t_cpu, t_rss, t_vms, procs, t_io, *etc in d[USER_INFO_IDX:]:
-                if user_name == user:
-                   result[node]= [alloc_core_cnt, proc_cnt, t_cpu, t_rss, t_vms, procs, t_io]
-        return result
 
     @cherrypy.expose
     def jobByName(self, name='script', curr_jid=None):
@@ -1586,17 +1570,27 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def sunburst(self):
-        if not self.monData.hasData(): return self.getWaitMsg()# error of some sort.
+        if not self.monData.hasData():
+           return self.getNoDataPage ('Tabular Summary', 'sunburst')
+        d_core, d_cpu_util, d_rss_K, d_io_bps, d_state = self.monData.test()
 
-        data_dfload, data_dfvms, data_dfrss, data_dfstate, list_usernames_flatn = self.monData.getSunburstData()
-        d_load    = MyTool.createNestedDict("load",  ["partition","user","job","node"],          data_dfload,  "load")
-        json_load = json.dumps(d_load,  sort_keys=False, indent=2)
-        d_vms     = MyTool.createNestedDict("VMS",   ["partition","user","job","node"],          data_dfvms,   "vms")
-        json_vms  =json.dumps(d_vms, sort_keys=False,indent=2)
-        d_rss     = MyTool.createNestedDict("RSS",   ["partition","user","job","node"],          data_dfrss,   "rss")
-        json_rss  =json.dumps(d_rss, sort_keys=False, indent=2)
-        d_state   = MyTool.createNestedDict("state", ["partition","user","job","state", "node"], data_dfstate, "load")
-        json_state= json.dumps(d_state, sort_keys=False, indent=2)
+        htmltemp = os.path.join(config.APP_DIR, 'sunburst2.html')
+        h = open(htmltemp).read()%{'update_time': datetime.datetime.fromtimestamp(self.monData.updateTS).ctime(), 
+                                   'data1':json.dumps(d_core),
+                                   'data2':json.dumps(d_cpu_util), 'data3' : json.dumps(d_rss_K), 
+                                   'data4' : json.dumps(d_io_bps), 'data5':json.dumps(d_state)}
+        return h
+
+    @cherrypy.expose
+    def sunburst_old(self):
+        if not self.monData.hasData():
+           return self.getNoDataPage ('Tabular Summary', 'sunburst')
+
+        d_load, d_vms, d_rss, d_state, list_usernames_flatn = self.monData.getSunburstData()
+        json_load = json.dumps(d_load,  sort_keys=False)
+        json_vms  = json.dumps(d_vms, sort_keys=False)
+        json_rss  = json.dumps(d_rss, sort_keys=False)
+        json_state= json.dumps(d_state, sort_keys=False)
 
         #get all the usernames
         set_usernames = sorted(set(list_usernames_flatn))
@@ -1604,8 +1598,6 @@ class SLURMMonitorUI(object):
         htmltemp = os.path.join(config.APP_DIR, 'sunburst2.html')
         h = open(htmltemp).read()%{'update_time': datetime.datetime.fromtimestamp(self.monData.updateTS).ctime(), 'data1' : json_load, 'data2' : json_state, 'data3' : json_vms, 'data4' : json_rss, 'users':set_usernames}
         return h
-
-    sunburst.exposed = True
 
     @cherrypy.expose
     def inputSearch(self):

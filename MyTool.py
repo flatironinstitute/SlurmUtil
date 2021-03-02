@@ -194,15 +194,69 @@ def getStartStopTS (start='', stop='', formatStr='%Y%m%d', days=3):
 
     return int(start), int(stop)
 
+def func1 (df):
+    return df[['user','job','load']].groupby('user').apply(func2)
+
+def func2 (df):
+    df.groupby('partition').apply(lambda x: x[['user','job','node','load']].to_dict(orient='record'))
+    df.groupby('partition').apply(lambda x: x.groupby('user').apply(lambda y: y.groupby('job').apply(lambda z: z.to_dict(orient='record'))))
+    df.groupby(['partition', 'user', 'job']).apply(lambda x: x[['node','load']].to_dict(orient='record'))
+    d = {k: f.groupby('user')['job', 'node', 'load'].apply(lambda x: x.to_dict(orient='record')).to_dict() for k, f in df.groupby('partition')}
+
+    return df.groupby('job').apply(func3)
+    
+def func3 (df):
+    return df[['node','load']].to_dict(orient='record')
+
+# createNestedDict
+def list2nestedDict (rootSysname, data_lst, level_lst, val_idx):
+    #Find element in children list if exists or return none
+    def find_element(children_list,name):
+            for i in children_list:
+                if i["name"] == name:
+                    return i
+            #If not found return None
+            return None
+
+    def add_node(path, value, parent):
+            """
+            The path is a list.  Each element is a name that corresponds 
+            to a level in the final nested dictionary.  
+            """
+            #Get first name from path
+            this_name = path.pop(0)
+            while (not this_name) and (len(path)>0):  # skip the None value in path
+               this_name = path.pop(0)
+            #Does the element exist already?
+            element   = find_element(parent["children"], this_name)
+
+            #If the element exists, we can use it, otherwise we need to create a new one
+            if not element:
+               if len(path)>0:
+                  element = {"name": this_name, "children":[]}
+               else:
+                  element = {"name": this_name, "value":value}
+               parent["children"].append(element)
+            if len(path)>0:
+               add_node(path,value, element)
+
+    root   = {"name": "root", "sysname":rootSysname, "children": []}
+    for row in data_lst:
+        value = row[val_idx]
+        path  = [row[i] for i in level_lst]
+        add_node (path, value, root)
+    return root
+
+
 def createNestedDict (rootSysname, levels, data_df, valColname):
         def find_element(children_list,name):
             """
             Find element in children list
             if exists or return none
             """
-            for i in children_list:
-                if i["name"] == name:
-                    return i
+            for e in children_list:
+                if e["name"] == name:
+                    return e
             #If not found return None
             return None
 
@@ -219,12 +273,10 @@ def createNestedDict (rootSysname, levels, data_df, valColname):
 
             #If the element exists, we can use it, otherwise we need to create a new one
             if element:
-
                 if len(path)>0:
                     add_node(path,value, element, level+1)
                     #Else it does not exist so create it and return its children
             else:
-
                 if len(path) == 0:
                     #TODO: Hack, Replace when we've redesigned the data representation.
                     url = ''
@@ -241,10 +293,8 @@ def createNestedDict (rootSysname, levels, data_df, valColname):
                         url = 'userDetails?user=' + this_name
                     #Add new element
                     nest["children"].append({"name": this_name, 'url': url, "children":[]})
-
                     #Get added element 
                     element = nest["children"][-1]
-
                     #Still elements of path left so recurse
                     add_node(path,value, element, level+1)
 

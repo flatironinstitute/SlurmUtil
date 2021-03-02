@@ -6,65 +6,71 @@ from functools import reduce
 import pandas
 
 from EmailSender     import JobNoticeSender
-from querySlurm      import PyslurmQuery
+from querySlurm      import PyslurmQuery, SlurmCmdQuery
 
 import config
 import MyTool
 import inMemCache
 
 # Directory where processed monitoring data lives.
-USER_INFO_IDX      = 3
-USER_PROC_IDX      = 7
+USER_INFO_IDX      = 3  # incoming data and self.data {node: [status, delta, ts, procsByUser, ...]...}
+USER_PROC_IDX      = 7  # in procsByUser [uname, uid, user_alloc_cores, proc_cnt, totCPURate, totRSS, totVMS, procs, totIO, totCPU]
+PROC_JID_IDX       = 9  # in procs [[pid, intervalCPUtimeAvg, create_time, user_time, system_time, mem_rss, mem_vms, cmdline, intervalIOByteAvg, jid],...]
 ONE_HOUR_SECS      = 3600
 ONE_DAY_SECS       = 86400
 logger             = config.logger
 DELAY_SECS         = 60
 
+def logTest (msg, pre_ts):
+        with open("tmp.log", "a") as f:
+             f.write("Took {}:{}\n".format(time.time()-pre_ts, msg))
+        return time.time()
+
 @cherrypy.expose
 class SLURMMonitorData(object):
     def __init__(self):
         self.updateTS          = time.time()
-        self.rawData           = {}                   #not used
-        self.data              = 'No data received yet. Please wait a minute and come back.'
-        self.pyslurmJobs           = {}
+        self.data              = {}                   #'No data received yet. Please wait a minute and come back.'
         self.currJobs          = {}                   #re-created in updateMonData
         self.node2jids         = {}                   #{node:[jid...]} {node:{jid: {'proc_cnt','cpu_util','rss','iobps'}}}
         self.uid2jid           = {}                   #
-        self.pyslurmNodes       = {}
-        self.jobNode2ProcRecord= defaultdict(lambda: defaultdict(lambda: (0, defaultdict(lambda: defaultdict(int))))) # jid: node: (ts, pid: cpu_time)
+        self.pyslurmJobs       = {}
+        self.pyslurmNodes      = {}
+        self.jobNode2ProcRecord= defaultdict(lambda: defaultdict(lambda: (0, defaultdict(lambda: defaultdict(int))))) # jid: node: (ts, {pid: cpu_time})
                                                       # one 'ts' kept for each pid
                                                       # modified through updateJobNode2ProcRecord only
         self.inMemCache        = inMemCache.InMemCache()
         self.inMemLog          = inMemCache.InMemLog()
 
     def hasData (self):
-        return self.rawData!={}
+        return self.data!={}
 
     def getNode2Jobs (self, node):
         return [self.currJobs[jid] for jid in self.node2jids.get(node, []) if jid in self.currJobs]
 
     # add proesses info of jid, modify self.jobNode2ProcRecord
     # TODO: it is in fact userNodeHistory
-    def updateJobNode2ProcRecord (self, ts, jobid, node, processes):
+    def updateJobNode2ProcRecord (self, ts, jobid, node, job_procs, currJobs):
         ts              = int(ts)
         savTs, savProcs = self.jobNode2ProcRecord[jobid][node]
         if ( ts > savTs ):  #only update when the message is newer
-           if processes:
-             for p in processes:   # pid, intervalCPUtimeAvg, create_time, user_time, system_time, mem_rss, mem_vms, cmdline, intervalIOByteAvg, jid
+           if job_procs:
+             for p in job_procs:   # pid, intervalCPUtimeAvg, create_time, user_time, system_time, mem_rss, mem_vms, cmdline, intervalIOByteAvg, jid
                # 09/09/2019 add jid
                pid = p[0]
                assert (savProcs[pid]['cpu_time'] <= p[3] + p[4])        #increasing
+               
                savProcs[pid]['cpu_time']     = p[3] + p[4]
                savProcs[pid]['mem_rss_K']    = int(p[5]/1024)
                savProcs[pid]['io_bps_curr']  = p[8]                    #bytes per sec
                savProcs[pid]['cpu_util_curr']= p[1]                    #bytes per sec
-               savProcs[pid]['jid']          = p[9]
+               savProcs[pid]['jid']          = p[PROC_JID_IDX]
            else:
-             logger.warning("{}: no proc for job {} on node {}".format(ts, jobid, node))
+             logger.debug("{}: no proc for job {} on node {}".format(ts, jobid, node))
              savProcs = defaultdict(lambda: defaultdict(int))
            self.jobNode2ProcRecord[jobid][node] = (ts, savProcs)  # modify self.jobNode2ProcRecord
            #remove done job
-           done_job = [jid for jid, jinfo in self.currJobs.items() if jinfo['job_state'] not in ['RUNNING', 'PENDING', 'PREEMPTED']]
+           done_job = [jid for jid, jinfo in currJobs.items() if jinfo['job_state'] not in ['RUNNING', 'PENDING', 'PREEMPTED']]
            for jid in done_job:
                self.jobNode2ProcRecord.pop(jid, {})
 
@@ -95,7 +101,7 @@ class SLURMMonitorData(object):
             if ( jinfo.get('user_id',-1) == uid ): stime.append(jinfo.get('start_time', 0))
         return stime
 
-    def createNode2Jids (self, jobData):
+    def createNode2Jids (jobData):
         node2jobs = defaultdict(list)  #nodename: joblist
         for jid, jinfo in jobData.items():
             for nodename in jinfo.get('cpus_allocated', {}).keys():
@@ -122,7 +128,7 @@ class SLURMMonitorData(object):
               logger.error("User {} has {} record on {}. Ignore".format(job_uid, len(user_proc), node))
               return None, None, None, None, None, None
 
-           job_proc = [proc for proc in user_proc[0][7] if proc[9]==jid]
+           job_proc = [proc for proc in user_proc[0][7] if proc[PROC_JID_IDX]==jid]
            # summary data in job_proc
            # [pid, CPURate, 'create_time', 'user_time', 'system_time', 'rss', vms, cmdline, IOBps, jid]
            cpuUtil  = sum([proc[1]         for proc in job_proc])
@@ -294,15 +300,11 @@ class SLURMMonitorData(object):
         return min_start, rlt
 
     @cherrypy.expose
-    def getRawData (self):
-        l = [(w, len(info)) for w, info in self.rawData.items() if len(info)>3]
-        return "{}\n{}".format(l, self.rawData)
-
-    @cherrypy.expose
     def getJobNode2ProcRecord (self, jid):
         return "{}".format(self.jobNode2ProcRecord[int(jid)])
 
-    def addJobsAttr (self, ts, jobs={}, low_util=0.01, long_period=ONE_DAY_SECS, job_width=1, low_mem=0.3):
+    # add attributes to jobs
+    def addJobsAttr (self, ts, jobs, pyslurmNodes, low_util=0.01, long_period=ONE_DAY_SECS, job_width=1, low_mem=0.3):
         #check self.currJobs and locate those jobs in question
         #TODO: 09/09/2019: add jid
         for jid, job in jobs.items():
@@ -336,7 +338,7 @@ class SLURMMonitorData(object):
                    job['node_io_bps_curr'][node]  = node_io_bps_curr
                    job['node_cpu_util_curr'][node]= node_cpu_util_curr
 
-                   node_tres           = MyTool.getTresDict(self.pyslurmNodes[node]['tres_fmt_str'])
+                   node_tres           = MyTool.getTresDict(pyslurmNodes[node]['tres_fmt_str'])
                    if 'mem' in node_tres:   # memory is shared
                       prop             = job['cpus_allocated'][node] / node_tres['cpu'] if 'cpu' in node_tres else 1
                       total_node_mem  += MyTool.convert2K(node_tres['mem']) * prop
@@ -358,7 +360,7 @@ class SLURMMonitorData(object):
                 #print('WARNING: Job {} does not have proc on nodes {}'.format(jid, job['nodes']))
                 job['job_avg_util'] = 0
                 job['job_mem_util'] = 0
-            job['gpus_allocated'] = SLURMMonitorData.getJobAllocGPU(job, self.pyslurmNodes)
+            job['gpus_allocated'] = SLURMMonitorData.getJobAllocGPU(job, pyslurmNodes)
 
         return jobs
 
@@ -460,43 +462,48 @@ class SLURMMonitorData(object):
     def updateSlurmData(self, **args):
         #updated the data
         d =  cherrypy.request.body.read()
-        self.updateTS, self.pyslurmJobs, hn2info, self.pyslurmNodes = cPickle.loads(zlib.decompress(d))
-        self.updateTS = int(self.updateTS)
-        self.currJobs = dict([(jid,job) for jid, job in self.pyslurmJobs.items() if job['job_state'] in ['RUNNING', 'CONFIGURING']])
-        self.rawData  = hn2info
-        self.node2jids= self.createNode2Jids (self.currJobs)
+        self.updateTS, self.data, self.pyslurmJobs, self.pyslurmNodes, self.currJobs, self.node2jids = self.extractSlurmData(d)
+        logger.info("self.data={}".format(self.data))
+        self.inMemCache.append(self.data, self.updateTS, self.pyslurmJobs)
+        
 
-        # update self.data
-        if type(self.data) != dict: self.data = {}  #may have old data from last round
+    def extractSlurmData (self, d):
+        updateTS, pyslurmJobs, hn2info, pyslurmNodes = cPickle.loads(zlib.decompress(d))
+        logger.info("hn2info={}".format(hn2info))
+        updateTS  = int(updateTS)
+        currJobs  = dict([(jid,job) for jid, job in pyslurmJobs.items() if job['job_state'] in ['RUNNING', 'CONFIGURING']])
+        node2jids = SLURMMonitorData.createNode2Jids (currJobs)
+
+        nodeData  = {}
         for node,nInfo in hn2info.items():
-            if self.updateTS - int(nInfo[2]) > 600: # Ignore data
+            if updateTS - int(nInfo[2]) > 600: # Ignore data
                logger.debug("ignore old data of node {} at {}.".format(node, MyTool.getTsString(nInfo[2])))
                continue
-            if node not in self.pyslurmNodes:
+            if node not in pyslurmNodes:
                logger.info("ignore no slurm node {}.".format(node))
                continue
 
             #set the value of self.data
-            self.data[node] = nInfo                      #nInfo: status, delta, ts, procsByUser
-            if 'ALLOCATED' in nInfo[0] or 'MIXED' in nInfo[0]: # no proc information reported
+            nodeData[node] = nInfo                      #nInfo: status, delta, ts, procsByUser
+            if 'ALLOCATED' in nInfo[0] or 'MIXED' in nInfo[0]: # allocated node 
                jid2proc        = defaultdict(list)          #jid: [proc]
                if len(nInfo) > USER_INFO_IDX and nInfo[USER_INFO_IDX]:
-                  for procsByUser in nInfo[USER_INFO_IDX:]: #worker may has multiple users, [user_name, uid, hn2uid2allocated.get(hostname, {}).get(uid, -1), len(pp), totIUA, totRSS, totVMS, procs, totIO, totCPU])
+                  for procsByUser in nInfo[USER_INFO_IDX:]: #worker may has multiple users, 
+                                                            #[uname, uid, alloc_cores, proc_cnt, totIUA, totRSS, totVMS, procs, totIO, totCPU])
                      if len(procsByUser) > USER_PROC_IDX and procsByUser[USER_PROC_IDX]:
                         #09/09/2019, add jid to proc
                         for proc in procsByUser[USER_PROC_IDX]:
-                            jid2proc[proc[9]].append(proc)    #proc[9] is jid
+                            jid2proc[proc[PROC_JID_IDX]].append(proc)    #proc[9] is jid
                #else:
                #   logger.info("{}({}), no proc information for allocated node with jobs {}".format(node, nInfo[0], self.node2jids[node]))
-               for jid in self.node2jids[node]:
-                  self.updateJobNode2ProcRecord (nInfo[2], jid, node, jid2proc[jid])  #nInfo[2] is ts
+               for jid in node2jids[node]:
+                  self.updateJobNode2ProcRecord (nInfo[2], jid, node, jid2proc[jid], currJobs)  #nInfo[2] is ts
                #update the latest cpu_time for each proc
-            elif len(nInfo) > USER_INFO_IDX and nInfo[USER_INFO_IDX]:
+            elif len(nInfo) > USER_INFO_IDX and nInfo[USER_INFO_IDX]:  # no-allocated node has proc
                u_lst = [procsByUser[0] for procsByUser in nInfo[USER_INFO_IDX:]]
-               logger.error("{}-{}: User {} has proc running on the node.".format(node, nInfo[0], u_lst))
+               logger.warning("{}-{}: User {} has proc running on the node.".format(node, nInfo[0], u_lst))
 
-        self.addJobsAttr      (self.updateTS, self.currJobs)          #add attribute job_avg_util, job_mem_util, job_io_bps
-        self.inMemCache.append(self.data, self.updateTS, self.pyslurmJobs)
+        self.addJobsAttr      (updateTS, currJobs, pyslurmNodes)          #add attribute job_avg_util, job_mem_util, job_io_bps
 
         #check for long run low util jobs and send notice
         #low_util = self.getLongrunLowUtilJobs(self.updateTS, self.currJobs)
@@ -508,6 +515,8 @@ class SLURMMonitorData(object):
         #BulletinBoard
         #self.bulletinBoard.addLowUtilJobNotice (self.updateTS, low_util)
         #TODO: synchorize update to jobNoticeSender and BulletinBoard
+        logger.info("nodeData={}".format(nodeData))
+        return updateTS, nodeData, pyslurmJobs, pyslurmNodes, currJobs, node2jids
 
     def getNodeProc (self, node):
         if node not in self.data:
@@ -526,7 +535,7 @@ class SLURMMonitorData(object):
         newNode['procCnt']  = 0
         for user in sorted(self.data[node][USER_INFO_IDX:]):
             for proc in user[7]:                          #user, uid, cpuCnt, procCnt, totCPURate, totRSS, totVMS, procs, totIOBps, totCPUTime
-                newNode['jobProc'][proc[9]]['procs'].append([proc[i] for i in [0,1,5,6,8,7]])  #[pid(0), CPURate/1, create_time, user_time, system_time, rss/5, 'vms'/6, cmdline/7, IOBps/8, jid, read_bytes, write_bytes]
+                newNode['jobProc'][proc[PROC_JID_IDX]]['procs'].append([proc[i] for i in [0,1,5,6,8,7]])  #[pid(0), CPURate/1, create_time, user_time, system_time, rss/5, 'vms'/6, cmdline/7, IOBps/8, jid, read_bytes, write_bytes]
                 newNode['procCnt'] += 1
 
         if -1 in newNode['jobProc']:  #TODO: deal with -1 jodid
@@ -613,14 +622,10 @@ class SLURMMonitorData(object):
            job = PyslurmQuery.getSlurmDBJob (jobid, req_fields=['start_time'])
         return job
 
-    def getSunburstData(self):
-        #prepare required information in data_dash
+    def getSunburstData1 (self):
         more_data    = {k:v[0:USER_INFO_IDX] + v[USER_INFO_IDX][0:7] for k,v in self.data.items() if len(v)>USER_INFO_IDX } #flatten hostdata
         less_data    = {k:v[0:USER_INFO_IDX]                         for k,v in self.data.items() if len(v)<=USER_INFO_IDX }
         hostdata_flat= dict(more_data,**less_data)
-        #print("more_data=" + repr(more_data))
-        #print("less_data=" + repr(less_data))
-        #print("hostdata_flat={}".format(hostdata_flat))
 
         keys_id      =(u'job_id',u'user_id',u'qos', u'num_nodes', u'num_cpus')
         data_dash    ={jid:{k:jinfo[k] for k in keys_id} for jid,jinfo in self.currJobs.items()} #extract set of keys
@@ -628,7 +633,144 @@ class SLURMMonitorData(object):
         for jid, jinfo in self.currJobs.items():
             data_dash[jid]["node_info"] = {n: hostdata_flat.get(n,[]) for n in jinfo.get(u'cpus_allocated').keys()}
 
-        #print("data_dash=" + repr(data_dash))
+        if len(data_dash) == 0:
+            return EMPTYPROCDATA_MSG + '\n\n' + repr(self.data)
+        for jid, jinfo in sorted(data_dash.items()):
+            username = MyTool.getUser(jinfo[u'user_id'])
+            data_dash[jid]['cpu_list'] = [jinfo['node_info'][i][5] for i in jinfo['node_info'].keys() if len(jinfo['node_info'][i])>=7]
+            if not data_dash[jid]['cpu_list']:
+                #print ('Pruning:', repr(jinfo), file=sys.stderr)
+                data_dash.pop(jid)
+                continue
+        
+    def sunburst_node_func (df, val_col):  # return [{'name':worker0000,'value':33}]
+        return df[['node',val_col]].rename(columns={'node':'name',val_col:'value'}).to_dict(orient='record')
+
+    def sunburst_job_func(df, val_col):  # return [{'name': 932005, 'children': [{'name': 'worke...
+        return df[['job','node',val_col]].groupby(['job']).apply(lambda x: {'name':str(x.name), 'children':SLURMMonitorData.sunburst_node_func(x, val_col)}).to_list()
+
+    def df2nested(df, value_col):
+        d = []
+        for p, d1 in df.groupby(['partition']):
+            children=d1[['user','job','node',value_col]].groupby(['user']).apply(lambda x: {'name':x.name, 'children':SLURMMonitorData.sunburst_job_func(x, value_col)}).to_list()
+            d.append({'name':p, 'children':children})
+        return d
+
+    # return a df with columns [jid, node, cpu, rss, io]
+    def getJobNodeValueDF (self):
+        cols = ['node', 'user', 'jid', 'cpu', 'rss', 'io']
+        lst  = []
+        for node, nodeInfo in self.data.items():
+            for userInfo in nodeInfo[USER_INFO_IDX:]:    # multiple users
+                for procs in userInfo[PROC_JID_IDX]:     
+                    item = [node, jid]
+
+    def getJobNodeProcUtil (self, jid, nodes):
+        rlt = []
+        cpu_lst, mem_lst, io_lst=[], [], []
+        if jid in self.jobNode2ProcRecord:
+           for node in nodes:
+               ts, procs = self.jobNode2ProcRecord[jid].get(node, (0, []))
+               if procs:
+                  j_cpu_util  = sum([p['cpu_util_curr'] for p in procs.values()])
+                  j_mem_rss_K = sum([p['mem_rss_K']     for p in procs.values()])
+                  j_io_bps    = sum([p['io_bps_curr']   for p in procs.values()])
+                  cpu_lst.append (j_cpu_util)
+                  mem_lst.append (j_mem_rss_K)
+                  io_lst.append  (j_io_bps)
+               else:     # no record of proces
+                  cpu_lst.append (0)
+                  mem_lst.append (0)
+                  io_lst.append  (0)
+           return cpu_lst, mem_lst, io_lst
+        else:
+           logger.info("Job {} not in self.jobNode2ProcRecord".format(jid))
+           lst = [0] * len(nodes)
+           return lst, lst, lst 
+                 
+    def test1(self):  #took 2.1 sec
+        #TODO: synchronize the mod/get of core data structure
+        ts           = time.time()
+        user2acct    = SlurmCmdQuery.getAllUserAssoc()
+
+        jobs_df      = pandas.DataFrame()
+        job_keys     = ['user', 'user_id', 'job_id', 'partition', 'qos']
+        for jid, jinfo in self.currJobs.items():
+            job_nodes     = list(jinfo['cpus_allocated'])
+            job_node_cpu  = list(jinfo['cpus_allocated'].values())
+            l1,l2,l3      = self.getJobNodeProcUtil (jid, job_nodes)
+            #job_df        = pandas.DataFrame(zip(job_nodes, job_node_cpu,l1,l2,l3), columns=['node','num_cpus','cpu_util','mem_rss_K','io_bps'])
+            #for key in job_keys:
+            #    job_df[key] = jinfo[key]
+            #job_df['account'] = user2acct.get(jinfo['user'],{}).get('Def Acct','undefined')
+            #jobs_df       = jobs_df.append(job_df)
+        ts = logTest("jobs_df={}".format(jobs_df), ts)
+        
+    def test(self):
+        #TODO: synchronize the mod/get of core data structure
+        #self.getSunburstData ()
+        ts           = time.time()
+
+        user2acct    = SlurmCmdQuery.getAllUserAssoc()
+
+        job_keys     = ['user', 'user_id', 'job_id', 'partition', 'qos']
+        jobs_lst     = []           # nested list
+        for jid, jinfo in self.currJobs.items():
+            job_flds      = [jinfo[key] for key in job_keys]
+            acct          = user2acct.get(jinfo['user'],{}).get('Def Acct','undefined')
+            l1,l2,l3      = self.getJobNodeProcUtil (jid, list(jinfo['cpus_allocated']))
+            idx           = 0
+            for node, cpu_count in jinfo['cpus_allocated'].items():
+                n_state   = self.data.get(node, ['unknown'])[0]
+                if 'ALLOCATED' in n_state:
+                   n_state = 'ALLOCATED'
+                elif 'MIXED' in n_state:
+                   n_state = 'MIXED'
+                curr_lst  = job_flds + [acct, node, n_state, cpu_count, l1[idx], l2[idx], l3[idx]]
+                jobs_lst.append (curr_lst)
+                idx      += 1
+
+        mapping       = dict(zip(['user', 'user_id', 'job', 'partition', 'qos', 'acct', 'node', 'node_state', 'num_cpus','cpu_util','mem_rss_K','io_bps'],range(12)))
+        # acct, user, job, node, num_cpus
+        idx_lst         = [mapping[key] for key in ['acct', 'user', 'job', 'node']]
+        num_cpus_dict   = MyTool.list2nestedDict ("num_cpus",   jobs_lst, idx_lst,  mapping["num_cpus"])
+        cpu_util_dict   = MyTool.list2nestedDict ("cpu_util",   jobs_lst, idx_lst,  mapping["cpu_util"])
+        rss_K_dict      = MyTool.list2nestedDict ("mem_rss",    jobs_lst, idx_lst,  mapping["mem_rss_K"])
+        io_bps_dict     = MyTool.list2nestedDict ("io_bps",     jobs_lst, idx_lst,  mapping["io_bps"])
+
+        # state
+        idx_lst1        = [mapping[key] for key in ['node_state', 'acct', 'user', 'job', 'node']]
+        for n_name, node in self.pyslurmNodes.items():
+            if ('ALLOCATED' not in node['state']) and ('MIXED' not in node['state']):
+               n_state = node['state']
+               if 'IDLE' in node['state']:
+                  n_state = 'IDLE'
+               elif ('DOWN' in n_state) or ('MAINT' in n_state) or ('REBOOT' in n_state):
+                  n_state = 'DOWN/MAINT...'
+               jobs_lst.append([None, 'Not_allocated', None, 'Not_allocated', 'Not_allocated', 'Not_allocated', n_name, n_state, node['cpus'], 0, 0, 0])
+        state_ncpu_dict = MyTool.list2nestedDict ("state",      jobs_lst, idx_lst1, mapping["num_cpus"])
+        ts = logTest("Done", ts)
+
+        # acct, user, job, node, alloc_mem
+        # acct, user, job, node, cpu_util
+        # acct, user, job, node, mem_rss_K
+        # acct, user, job, node, io_bps
+        return num_cpus_dict, cpu_util_dict, rss_K_dict, io_bps_dict, state_ncpu_dict
+        
+
+    def getSunburstData(self):
+        #prepare required information in data_dash
+        ts = time.time()
+        more_data    = {k:v[0:USER_INFO_IDX] + v[USER_INFO_IDX][0:7] for k,v in self.data.items() if len(v)>USER_INFO_IDX } #flatten hostdata
+        less_data    = {k:v[0:USER_INFO_IDX]                         for k,v in self.data.items() if len(v)<=USER_INFO_IDX }
+        hostdata_flat= dict(more_data,**less_data)
+
+        keys_id      =(u'job_id',u'user_id',u'qos', u'num_nodes', u'num_cpus')
+        data_dash    ={jid:{k:jinfo[k] for k in keys_id} for jid,jinfo in self.currJobs.items()} #extract set of keys
+        #this appends a dictionary for all of the node information to the job dataset
+        for jid, jinfo in self.currJobs.items():
+            data_dash[jid]["node_info"] = {n: hostdata_flat.get(n,[]) for n in jinfo.get(u'cpus_allocated').keys()}
+
         if len(data_dash) == 0:
             return EMPTYPROCDATA_MSG + '\n\n' + repr(self.data)
         for jid, jinfo in sorted(data_dash.items()):
@@ -649,30 +791,30 @@ class SLURMMonitorData(object):
             data_dash[jid]['list_VMS']   =[jinfo['node_info'][i][9]          if len(jinfo['node_info'][i])>=7 else 0           for i in nodes]
 
             num_nodes = jinfo[u'num_nodes']
-            data_dash[jid]['list_jobid']   =[jid]          * num_nodes
-            data_dash[jid]['list_username']=[username]     * num_nodes
-            data_dash[jid]['list_qos']     =[jinfo[u'qos']]* num_nodes
+            data_dash[jid]['list_jobid']   =[jid]                             * num_nodes
+            data_dash[jid]['list_username']=[username]                        * num_nodes
+            data_dash[jid]['list_qos']     =[jinfo[u'qos']]                   * num_nodes
             data_dash[jid]['list_group']   =[MyTool.getUserOrgGroup(username)]* num_nodes
 
         #need to filter data_dash so that it no longer contains users that are "None"->this was creating sunburst errors
         #open('/tmp/sunburst.tmp', 'w').write(repr(data_dash))
 
         # get flat list corresponding to each node
-        list_nodes_flat=reduce((lambda x,y: x+y), [v['list_nodes'] for v in data_dash.values()])
-        list_loads_flat=reduce((lambda x,y: x+y), [v['list_load']  for v in data_dash.values()])
-        list_cpus_flat =reduce((lambda x,y: x+y), [v['cpu_list']   for v in data_dash.values()])
-        list_RSS_flat  =reduce((lambda x,y: x+y), [v['list_RSS']   for v in data_dash.values()])
-        list_VMS_flat  =reduce((lambda x,y: x+y), [v['list_VMS']   for v in data_dash.values()])
-        list_job_flatn =reduce((lambda x,y: x+y), [v['list_jobid'] for v in data_dash.values()])
-        list_part_flatn=reduce((lambda x,y: x+y), [v['list_qos']   for v in data_dash.values()])
-        list_usernames_flatn=reduce((lambda x,y: x+y), [v['list_username']   for v in data_dash.values()])
-        list_group_flatn    =reduce((lambda x,y: x+y), [v['list_group']   for v in data_dash.values()])
+        list_nodes_flat     =reduce((lambda x,y: x+y), [v['list_nodes']    for v in data_dash.values()])
+        list_loads_flat     =reduce((lambda x,y: x+y), [v['list_load']     for v in data_dash.values()])
+        list_cpus_flat      =reduce((lambda x,y: x+y), [v['cpu_list']      for v in data_dash.values()])
+        list_RSS_flat       =reduce((lambda x,y: x+y), [v['list_RSS']      for v in data_dash.values()])
+        list_VMS_flat       =reduce((lambda x,y: x+y), [v['list_VMS']      for v in data_dash.values()])
+        list_job_flatn      =reduce((lambda x,y: x+y), [v['list_jobid']    for v in data_dash.values()])
+        list_part_flatn     =reduce((lambda x,y: x+y), [v['list_qos']      for v in data_dash.values()])
+        list_usernames_flatn=reduce((lambda x,y: x+y), [v['list_username'] for v in data_dash.values()])
+        list_group_flatn    =reduce((lambda x,y: x+y), [v['list_group']    for v in data_dash.values()])
 
         # merge above list into nested list
         listn  =[[list_group_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_loads_flat[i]] for i in range(len(list_nodes_flat))]
-        listrss=[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_RSS_flat[i]]   for i in range(len(list_nodes_flat))]
-        listvms=[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_VMS_flat[i]]   for i in range(len(list_nodes_flat))]
-        listns =[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i]]                    for i in range(len(list_nodes_flat))]
+        listrss=[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_RSS_flat[i]]    for i in range(len(list_nodes_flat))]
+        listvms=[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_VMS_flat[i]]    for i in range(len(list_nodes_flat))]
+        listns =[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i]]                     for i in range(len(list_nodes_flat))]
         #print("listn=" + repr(listn))
 
         data_dfload =pandas.DataFrame(listn,   columns=['partition','user','job','node','load'])
@@ -693,15 +835,16 @@ class SLURMMonitorData(object):
         data_dfstate=data_dfstate[order]
 
         d_load    = MyTool.createNestedDict("load",  ["partition","user","job","node"],          data_dfload,  "load")
-        json_load = json.dumps(d_load,  sort_keys=False, indent=2)
         d_vms     = MyTool.createNestedDict("VMS",   ["partition","user","job","node"],          data_dfvms,   "vms")
-        json_vms  =json.dumps(d_vms, sort_keys=False,indent=2)
         d_rss     = MyTool.createNestedDict("RSS",   ["partition","user","job","node"],          data_dfrss,   "rss")
-        json_rss  =json.dumps(d_rss, sort_keys=False, indent=2)
         d_state   = MyTool.createNestedDict("state", ["partition","user","job","state", "node"], data_dfstate, "load")
-        json_state= json.dumps(d_state, sort_keys=False, indent=2)
 
-        return data_dfload, data_dfvms, data_dfrss, data_dfstate, list_usernames_flatn
+        d_load  = {'name':'root', 'sysname':'load',  'children':SLURMMonitorData.df2nested(data_dfload, 'load')}
+        d_vms   = {'name':'root', 'sysname':'VMS',   'children':SLURMMonitorData.df2nested(data_dfvms,  'vms')}
+        d_rss   = {'name':'root', 'sysname':'RSS',   'children':SLURMMonitorData.df2nested(data_dfrss,  'rss')}
+        
+        ts = logTest("Done", ts)
+        return d_load, d_vms, d_rss, d_state, list_usernames_flatn
 
     @cherrypy.expose
     def getLowResourceJobs (self, job_length_secs=ONE_DAY_SECS, job_width_cpus=1, job_cpu_avg_util=0.1, job_mem_util=0.3):
@@ -725,7 +868,7 @@ class SLURMMonitorData(object):
               logger.warning("User {} has {} record on {}. Ignore".format(uid, len(user_proc), n_name))
               return None, None, None, None, None, None
 
-           job_proc = [proc for proc in user_proc[0][7] if proc[9]==jid]
+           job_proc = [proc for proc in user_proc[0][7] if proc[PROC_JID_IDX]==jid]
            # summary data in job_proc
            # [pid, CPURate, 'create_time', 'user_time', 'system_time', 'rss', vms, cmdline, IOBps, jid]
            cpuUtil  = sum([proc[1]         for proc in job_proc])

@@ -1,3 +1,5 @@
+var account_color = {'cca':'rgb(206, 50,50)', 'ccb':'rgb(129, 173, 74)', 'ccm':'rgb(246, 134, 45)', 'ccn':'rgb(0, 128, 158)', 'ccq':'rgb(132, 91, 142)', 'scc':'rgb(143, 143, 143)', 'ib':'rgb(255, 194, 0)', 'default':'rgb(83, 146, 195)'}
+
 function formatNumber (d) {
         return d
 }
@@ -42,7 +44,8 @@ function sunburst(data) {
           .data(root.descendants().slice(1))
           .join("path")
           .attr("fill", d => {
-            while (d.depth > 1) d = d.parent;
+            // cca, ccq is not always at depth 1
+            while ((d.depth > 1) && (account_color[d.data.name]==undefined) ) d = d.parent;
             var color = account_color[d.data.name]
             if (color == undefined )
                color = account_color['default']
@@ -82,8 +85,8 @@ function sunburst(data) {
             sysname=data.sysname
             tooltip.text(d.name + " " + sysname+ ": " + formatNumber(d.value))
           .style("opacity", 0.9)
-          .style("left", (d3.event.pageX) + 20 + "px")
-          .style("top", (d3.event.pageY) - 20 + "px");
+          //.style("left", (d3.event.pageX) + 20 + "px")
+          //.style("top", (d3.event.pageY) - 20 + "px");
         })
         .on("mouseout", function(d) {
             tooltip.style("opacity", 0);

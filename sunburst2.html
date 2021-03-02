@@ -62,11 +62,15 @@
               <div class="flex flex__left flex-gap">
                 <p>Select a Graph Type:</p>
                 <select id="optionsList">
-                  <option value="load_data"> Load Graph</option>
-                  <option value="vms_data">  VMS Graph</option>
-                  <option value="rss_data">  RSS Graph</option>
-                  <option value="state_data">State Graph</option>
+                  <option value="graph1"> Alloc Graph </option>
+                  <option value="graph2"> Util Graph </option>
+                  <option value="graph3"> RSS Graph  </option>
+                  <option value="graph4"> IO Graph   </option>
+                  <option value="graph5"> State Graph</option>
                 </select>
+              </div>
+              <div class="flex flex__left flex-gap">
+                <p>Click a node to zoom in, or the center to zoom out. </p>
               </div>
             </div>
           </div>
@@ -91,21 +95,19 @@
     </script>
     <script type="text/javascript">
 
-      var users      = %(users)s
-      var load_data  = %(data1)s
-      var state_data = %(data2)s
-      var vms_data   = %(data3)s
-      var rss_data   = %(data4)s
-      var account_color = {'cca':'rgb(206, 50,50)', 'ccb':'rgb(129, 173, 74)', 'ccm':'rgb(246, 134, 45)', 'ccn':'rgb(0, 128, 158)', 'ccq':'rgb(132, 91, 142)', 'scc':'rgb(143, 143, 143)', 'ib':'rgb(255, 194, 0)', 'default':'rgb(83, 146, 195)'}
-      console.log("users=", users);
+      var graph1 = %(data1)s
+      var graph2 = %(data2)s
+      var graph3 = %(data3)s
+      var graph4 = %(data4)s
+      var graph5 = %(data5)s
 
       $(document).ready(function(){
-        sunburst(load_data);
-        $("#optionsList").change(function() {{
+        sunburst(graph1);
+        $("#optionsList").change(function() {
            var option= $(this).val();
            $('#sunburst').empty();
            sunburst(eval(option));
-        }});
+        });
       });
       
     </script>
