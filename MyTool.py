@@ -1,4 +1,4 @@
-import sys
+import csv, sys
 import re
 import collections
 import time
@@ -10,7 +10,7 @@ import os.path
 from datetime import datetime, timezone, timedelta
 from logging.handlers import RotatingFileHandler
 
-THREE_DAYS_SEC     = 3*24*3600
+THREE_DAYS_SEC    = 3*24*3600
 ONEDAY_SECS       = 24*3600
 
 LOCAL_TZ   = timezone(timedelta(hours=-4))
@@ -20,17 +20,24 @@ def getAllUsers():
     lst = pwd.getpwall()
     return [p[0] for p in lst]
 
+def getAnsibleUsers(d):
+    with open (os.path.join(d, "users.csv")) as f:
+         r        = csv.reader(f)
+         next(r)        #skip head
+         user2uid = dict((int(rows[0]),rows[3]) for rows in r)
+    return user2uid
+
 def getUid (user):
     p = getUserStruct(uname=user)
     if p:
        return p.pw_uid
     return None
 
-def getUser (uid, returnName=True):
+def getUser (uid, fakeName=True):
     p = getUserStruct(int(uid))
     if p:
        return p.pw_name
-    if returnName:
+    if fakeName:
        return "User_{}".format(uid)
     return None
 
@@ -680,6 +687,11 @@ def getTimeSeqAvg (seq, startTS, stopTS):
            idx   += 1
         #print("---total={},avg={},seq={}".format(total, total / (stopTS - startTS), seq[savIdx:]))
         return total / (stopTS - startTS)
+
+def logTmp (msg, pre_ts):
+        with open("tmp.log", "a") as f:
+             f.write("Took {}:{}\n".format(time.time()-pre_ts, msg))
+        return time.time()
 
 def test1():
     level = logging.DEBUG

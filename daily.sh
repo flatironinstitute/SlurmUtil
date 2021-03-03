@@ -4,10 +4,10 @@
 . /etc/profile.d/modules.sh
 module add slurm gcc/10.1.0 python3
 
-LOG=daily_$(date +%Y-%m-%d).log
+LOG=daily_$(date +%Y-%m-%d_%H).log   #the same name as log file used by daily.py
 
 cd /mnt/home/yliu/projects/slurm/utils/
-. env_slurm18_python37/bin/activate
+. env_slurm20_python37/bin/activate
 
 #clusters=`/cm/shared/apps/slurm/current/bin/sacctmgr -nP list cluster format=Cluster`
 #slurm_cluster is replaced by slurm
@@ -22,9 +22,10 @@ clusters='slurm'
 #generate csv and default forecast image files, default influx history
 python daily.py -c $clusters >> ${LOG} 2>&1
 
+/cm/shared/apps/slurm/current/bin/sacctmgr list user -P -s >& ./data/sacctmgr_assoc.csv
 
-
-/cm/shared/apps/slurm/current/bin/sacctmgr list user -P -s >& /mnt/home/yliu/projects/slurm/utils/data/sacctmgr_assoc.csv
+#get users.csv from scc-ansible github repo
+wget -O ./data/users.csv https://raw.githubusercontent.com/flatironinstitute/scc-ansible/master/users.csv?token=AFMF3P2HEFVO75KW5DIIIJ3AI7X4U
 
 echo "DONE" >> ${LOG}
 deactivate

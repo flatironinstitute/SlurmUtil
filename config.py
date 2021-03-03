@@ -6,6 +6,7 @@ import MyTool
 APP_DIR           = os.path.dirname(os.path.realpath(sys.argv[0]))
 APP_NAME          = os.path.basename(sys.argv[0]).split('.')[0]
 APP_CONFIG        = {}
+CSV_DIR           = "./data/"
 SUMMARY_TABLE_COL = ['node', 'status', 'delay', 'node_mem_M', 'job', 'user', 'alloc_cpus', 'run_time', 'proc_count', 'cpu_util', 'avg_cpu_util', 'rss', 'vms', 'io', 'fds', 'alloc_gpus', 'gpu_util', 'avg_gpu_util']
 
 
@@ -15,7 +16,7 @@ def fillDefSettings (conf):
     settings = conf["settings"]
        
     if "low_util_job"  not in settings:  #percentage
-       settings["low_util_job"]      = {"cpu":1, "gpu":10, "mem":30, "run_time_hour":24, "alloc_cpus":2, "email":False}
+       settings["low_util_job"]      = {"cpu":1, "gpu":10, "mem":30, "run_time_hour":24, "alloc_cpus":20, "email":False}
     if "low_util_node" not in settings:
        settings["low_util_node"]     = {"cpu":1, "gpu":10, "mem":30, "alloc_time_min":60}
     if "summary_column" not in settings:

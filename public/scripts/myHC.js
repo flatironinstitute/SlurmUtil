@@ -366,7 +366,7 @@ function bubblePlot (series, container_id, title) {
              },
              events: {
                 click: function(event) { // double click to see the history
-                   location.replace("./user_fileReport?user="+event.point.name)
+                   location.replace("./user_fileReport?uid="+event.point.id)
                 },
              },
              marker: {

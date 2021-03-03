@@ -786,7 +786,6 @@ class SLURMMonitorUI(object):
         update_time = MyTool.getTsString(int(time.time()))
         if not yyyymmdd:
             # in general, only have census date up to yesterday, if not availabe, return the latest date
-            #yyyymmdd = (datetime.date.today() + datetime.timedelta(days=-1)).strftime('%Y%m%d')
             yyyymmdd = MyTool.getTS_strftime(ts, '%Y%m%d')
         usageData_dict= fs2hc.gendata(yyyymmdd)
         for k,v in usageData_dict.items():
@@ -797,16 +796,16 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def user_fileReport(self, user, start='', stop='', days=180):
+    def user_fileReport(self, uid, start='', stop='', days=180):
         # click from File Usage
         start, stop   = MyTool.getStartStopTS (start, stop, '%Y-%m-%d', int(days))
-        fc_seq,bc_seq = fs2hc.gendata_user(user, start, stop)
+        fc_seq,bc_seq = fs2hc.gendata_user(int(uid), start, stop)
 
         htmlTemp = os.path.join(config.APP_DIR, 'userFile.html')
         h        = open(htmlTemp).read()%{
                                    'start':   time.strftime(DATE_DISPLAY_FORMAT, time.localtime(start)),
                                    'stop':    time.strftime(DATE_DISPLAY_FORMAT, time.localtime(stop)),
-                                   'spec_title': user,
+                                   'spec_title': MyTool.getUser(uid),
                                    'series1': json.dumps(fc_seq),
                                    'series2': json.dumps(bc_seq)}
         return h
@@ -975,6 +974,7 @@ class SLURMMonitorUI(object):
 
         htmlTemp   = os.path.join(config.APP_DIR, 'userDetail.html')
         htmlStr    = open(htmlTemp).read().format(user        =MyTool.getUserFullName(uid),
+                                                  uid         =uid,
                                                   uname       =user,
                                                   user_assoc  = userAssoc,
                                                   update_time = MyTool.getTsString(ins.ts_job_dict),

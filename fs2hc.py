@@ -1,4 +1,4 @@
-import glob, os, re, sys, time
+import csv, glob, os, re, sys, time
 import pandas
 import config, MyTool
 
@@ -43,19 +43,18 @@ def getFilehead (uidx, fcx, bcx):
     fhead[bcx] ='bc'
     return fhead
 
-def getDateFromFilename (dataDir, rge, fname):
-    x = dataDir + '/' + rge
-    mo = re.match(x, fname)
-    if mo:
-       return mo[1]
+def getDateFromFileName (rge, fname):
+    m = re.match(rge, fname)
+    if m:
+       return m[1]
     else:
        return None
 
+
 #get data of a specific user
 #[{name:fs,data[[day,fc],],},]
-def gendata_user(user, start='', stop=''):
+def gendata_user(uid, start='', stop=''):
     fc_rlt, bc_rlt = [],[]  # {filesystem: data, ...}
-    uid = MyTool.getUid(user)
     for fs in FileSystems:
         fs_dict          = gendata_fs_history(fs, start, stop)
         fc_list, bc_list = [],[]
@@ -119,9 +118,11 @@ def gendata_all(fs, start='', stop='', topN=5):
 
 #return {fs_name: data}
 def gendata(yyyymmdd, anon=False):
+    users = MyTool.getAnsibleUsers(config.CSV_DIR)
+    MyTool.logTmp ("usrs={}".format(users), time.time())
     rlt = {}
     for fs in FileSystems.keys():
-        rlt[fs] = gendata_fs(yyyymmdd, fs, anon)
+        rlt[fs] = gendata_fs(yyyymmdd, fs, users, anon=anon)
     return rlt
 
 def extract (line, key_idx, idx_lst):
@@ -142,7 +143,7 @@ def minus_list (lst1, lst2):
     return [lst1[i]-lst2[i] for i in range(len(lst1))]
 
 #return data for a specific filesystem fs
-def gendata_fs(yyyymmdd, fs, anon=False):
+def gendata_fs(yyyymmdd, fs, ansible_users={}, anon=False):
     if fs not in FileSystems: 
        return 'Unknown file system: {}'.format(fs)
 
@@ -154,27 +155,16 @@ def gendata_fs(yyyymmdd, fs, anon=False):
             idx = x
             break
     else: 
-        idx = len(ff)-1
-        logger.warning('Date {}:{} not found. Use most recent {} instead.'.format(fs, yyyymmdd, ff[-1]))
-        yyyymmdd = getDateFromFilename(dataDir, rge, ff[-1])
+        idx      = len(ff)-1
+        logger.info('Date {}:{} not found. Use most recent {} instead.'.format(fs, yyyymmdd, ff[-1]))
+        yyyymmdd = getDateFromFileName(rge, os.path.basename(ff[-1]))
 
+    #calculate delta and cut_off
     pre   = read_file (ff[idx-1], uidx, [fcx,bcx])
     curr  = read_file (ff[idx],   uidx, [fcx,bcx])
     delta = { k:minus_list(curr.get(k,None),pre.get(k, None))+curr.get(k,[0,0]) for k in (set(pre) | set(curr))}  #uid: [delta_fc, delta_bc, curr_fc, curr_bc]
     t_dfc = sum([v[0] for v in delta.values()])
     t_dbc = sum([v[1] for v in delta.values()])
-
-    #u2s = {}
-    #tdfc, tdfb = 0, 0  # total dfc(delta file count), dfb(delta file bytes)
-    #for x, f in enumerate(ff[idx-1:idx+1]):
-    #    for l in open(f):
-    #        ff = l[:-1].split('\t')
-    #        uid, fc, bytes = [int(ff[x]) for x in [uidx, fcx, bcx]]
-    #        old = u2s.get(uid, [0, 0, fc, bytes])
-    #        dfc, dfb = fc - old[2], bytes - old[3]
-    #        tdfc += dfc
-    #        tdfb += dfb
-    #        u2s[uid] = [dfc, dfb, fc, bytes]
 
     # find N50 wrt file count.
     s = 0
@@ -186,25 +176,32 @@ def gendata_fs(yyyymmdd, fs, anon=False):
         uid2x[uid] = x
     if 4*x > len(delta): cutoff = 2
 
+    #non_home_user = [(uid, MyTool.getUser(uid)) for uid, v in delta.items() if v[2]==0 or v[3]==0]
+    #MyTool.logTmp("{} non_home_user={}".format(fs, non_home_user), time.time())
     r=[]
     for uid, v in delta.items():
         if uid < 1000:               # skip 
             continue       
-        if 0 == v[2] or 0 == v[3]:   # non-home user, skip
+        if 0 == v[2] or 0 == v[3]:   # curr_f==0 or curr_bc ==0, skip
             continue
 
-        uname = MyTool.getUser(uid, False)
-        if anon:
-           if uname: 
-              uname = anonimize(uname)
-            
-        if not uname:
-           uname = "User_{}".format(uid)
-           r.append({'x':v[3], 'y':v[2], 'z':log(max(2**20, v[1]),2)-19, 'dfb':v[1], 'dfc':v[0], 'name':'{}'.format(uname), 'marker':{'fillColor': 'rgba(255,225,0,0.5)'}})
-        elif cutoff and uid2x[uid] <= cutoff:
-           r.append({'x':v[3], 'y':v[2], 'z':log(max(2**20, v[1]),2)-19, 'dfb':v[1], 'dfc':v[0], 'name':'{}'.format(uname), 'marker':{'fillColor': 'rgba(236,124,181,0.9)'}})
+        d     = {'x':v[3], 'y':v[2], 'z':log(max(2**20, v[1]),2)-19, 'dfb':v[1], 'dfc':v[0], 'id':uid}
+        uname = MyTool.getUser(uid, fakeName=False)   # slurm user name
+        if not uname:                                 # cannot user
+           uname       = ansible_users.get(uid, None)       # ansilbe user name
+           uname       = "User_{}".format(uid) if not uname else uname
+           d['name']   = anonimize(uname)      if anon      else uname
+           d['marker'] = {'fillColor': 'rgba(255,225,0,0.5)'}
+           r.append(d)
+           #r.append({'x':v[3], 'y':v[2], 'z':log(max(2**20, v[1]),2)-19, 'dfb':v[1], 'dfc':v[0], 'name':'{}'.format(uname), 'id':uid, 'marker':{'fillColor': 'rgba(255,225,0,0.5)'}})
         else:
-           r.append({'x':v[3], 'y':v[2], 'z':log(max(2**20, v[1]),2)-19, 'dfb':v[1], 'dfc':v[0], 'name':'{}'.format(uname)})
+           d['name']   = anonimize(uname)      if anon      else uname
+           if cutoff and uid2x[uid] <= cutoff:
+              d['marker'] = {'fillColor': 'rgba(236,124,181,0.9)'}
+              #r.append({'x':v[3], 'y':v[2], 'z':log(max(2**20, v[1]),2)-19, 'dfb':v[1], 'dfc':v[0], 'name':'{}'.format(uname), 'marker':{'fillColor': 'rgba(236,124,181,0.9)'}})
+           #else:
+              #r.append({'x':v[3], 'y':v[2], 'z':log(max(2**20, v[1]),2)-19, 'dfb':v[1], 'dfc':v[0], 'name':'{}'.format(uname)})
+           r.append(d)
 
     return [label, r, yyyymmdd]
 
