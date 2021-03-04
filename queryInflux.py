@@ -366,25 +366,25 @@ class InfluxQueryClient:
        
     # query autogen.slurm_pending and return {ts_in_sec:{state_reason:count}], ...}  
     def getPendingCount (self, st, et):
-        # data before is not reliable, add tres_per_node after 06/04/3019 11:59AM
-        st = max (int(st), 1550868105)
+        # data before is not reliable, add tres_per_node after 06/04/2019 11:59AM
+        # switch from tres_per_node to tres_req_str after 06/28/2019
+        st = max (int(st), 1561766400)
 
         query   = "select * from autogen.slurm_pending where time >= {}000000000 and time <= {}000000000".format(st,et)
         results = self.query(query, 'ms')
-        points  = list(results.get_points())                   #for some reason, must use list
-        jidSet  = set([point['job_id'] for point in points])   #use set to remove duplicate ids
+        #points  = list(results.get_points())                   #use list before points has been iterate multiple times
 
         tsReason2jobCnt = defaultdict(lambda:defaultdict(int))
         tsState2cpuCnt  = defaultdict(lambda:defaultdict(int))
         tsPart2noPri    = defaultdict(lambda:defaultdict(list))   # sav partition-points
         tsPart2pri      = defaultdict(lambda:defaultdict(list))                       # sav Priority points
-        for point in points:
+        for point in results.get_points():
             ts           = point['time']
             state_reason = point['state_reason']
 
             if state_reason and ('Resources' in state_reason):
-              tres = point.get('tres_per_node','')
-              if (tres and 'gpu' in tres):
+              tres = point['tres_req_str']
+              if ('gpu' in tres):  #'cpu=40,mem=720000M,node=1,billing=40,gres/gpu=4'
                  tsReason2jobCnt[ts]['{}_GPU'.format(state_reason)] += 1
               else:
                  tsReason2jobCnt[ts][state_reason] += 1
@@ -409,7 +409,7 @@ class InfluxQueryClient:
                 else:
                    tsReason2jobCnt[ts][None] += pri_count
                 
-        return tsReason2jobCnt, jidSet
+        return tsReason2jobCnt 
         
     #return information of hostname
     #return all uid sequence of a node, {uid: {ts: [cpu, io, mem] ... }, ...}
@@ -519,9 +519,15 @@ def test2(jid):
     app        = InfluxQueryClient()
     points     = app.queryJidMonData (jid)
 
+def test3():
+    app         = InfluxQueryClient()
+    start, stop = MyTool.getStartStopTS(days=3) 
+    rlt         = app.getPendingCount(start, stop)
+    print(rlt)
+
 def main():
     t1=time.time()
-    test2(927525)
+    test3()
     #start, stop = MyTool.getStartStopTS(days=3) 
     #start, stop, rlt   = app.getNodeJobProcData('worker1006',469406)
     #s1, e1, d1=app.getSlurmJobData(465261)
@@ -530,7 +536,6 @@ def main():
     #app.getUserProc ('dhofmann', ['worker1031'], 1568554418, 1568908041)
     #rlt   = app.getSlurmJobRuntimeHistory(346864, 1566727264, 1567159264)
     #print('{}'.format(rlt))
-    #app.getPendingCount(start, stop)
     #app.getJobRequestHistory(start, stop)
     #point = app.getSlurmJobInfo('105179')
     #if point:

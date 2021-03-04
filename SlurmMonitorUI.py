@@ -284,7 +284,7 @@ class SLURMMonitorUI(object):
         start, stop  = MyTool.getStartStopTS (start, stop, days)
 
         influxClient = InfluxQueryClient(self.config['influxdb']['host'])
-        tsReason2Cnt, jidSet = influxClient.getPendingCount(start, stop)
+        tsReason2Cnt = influxClient.getPendingCount(start, stop)
         reasons      = [set(reasons.keys()) for ts, reasons in tsReason2Cnt.items()]
         reasons      = set([i2 for item in reasons for i2 in item])  # the unique reasons
         reason2cate  = dict([(reason, self.getReason2Cate(reason)) for reason in reasons])
