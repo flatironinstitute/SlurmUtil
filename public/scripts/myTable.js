@@ -68,11 +68,12 @@ function createMultiTitle (data_dict, parent_id, job_id) {
 }
 
 //data_dict is a dictionary of a fixed format
-function createMultiTable (data_dict, parent_id, table_title_list, job_id) {
+function createMultiTable (data_dict, parent_id, table_title_list, job_id, no_head=false) {
    console.log("createMultiTable: data_dict=", data_dict, ", table_title_list=", table_title_list)
    var pas    = createMultiTitle (data_dict, parent_id, job_id)
    var tables = pas.append('table').property('id', function(d) {return d+'_proc'}).attr('class','noborder')
-   var theads = tables.append('thead')
+   if (!no_head)
+      var theads = tables.append('thead')
                      .append('tr')
                      .selectAll('th')
                      .data(table_title_list)
@@ -662,5 +663,49 @@ function getExpandCol (sortCol) {
    var expCol      = SUMMARY_EXPAND_COL[sortCol]
    if (expCol) return expCol
    else        return "job"
+}
+
+//q3 data binding need to arrays
+////return [[key, value],...]
+//
+function filterDict2NestList (data_dict, req_fields)
+{
+    if (!req_fields)   // empty req_fields will return all fields
+       return Object.entries(data_dict)   //TODO:
+    var f      = req_fields.filter(function (k) {return data_dict.hasOwnProperty(k) && data_dict[k]})  //keep the order in fields
+    return f.map(function (k) { return [k, data_dict[k]] })
+}
+DISPLAY_FUNC={'User': getUserDetailHtml, "time_sec":getTS_LString, "partition_list": getPartitionListHtml, "MB":getDisplay_MB}
+//table without header, 1st column is key, 2nd column is value
+//input: data_dict is a dictionary with {key: value}, 
+//       disp_dict is a dictionary {display_key: display_text}, 
+//       type_dict is {key: display_type}
+function createNoHeaderTable (data_dict, disp_dict, type_dict, parent_id, table_id, prepare_data_func=filterDict2NestList){
+    console.log(DISPLAY_FUNC)
+    console.log('createList: data_dict=', data_dict, ',disp_dict=', disp_dict, ",type_dict=", type_dict)
+    var data  = prepare_data_func(data_dict, Object.keys(disp_dict))
+    var table = d3.select(parent_id).append('table').property('id', table_id)
+                                                    .attr('class', 'no_header');
+    var trs   = table.append('tbody').selectAll('tr')
+                                     .data(data).enter()
+                                     .append('tr')
+    var tds   = trs.selectAll('td')
+                   .data(function (d, i) {
+                           console.log(i, d)
+                           return [d[0], {'key':d[0], 'value':d[1]}];
+                        }).enter()
+                   .append('td')
+                   .html(function (d, i) {
+                        if (i==0)
+                           return disp_dict[d];
+                        if (i==1) {
+                           var func = DISPLAY_FUNC[type_dict[d.key]]
+                           if (func) {
+                              console.log("value=", d.value)
+                              return func(d.value)
+                           }
+                           return d.value;
+                        }
+                        return d; })
 }
 

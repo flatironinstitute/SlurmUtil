@@ -923,16 +923,15 @@ class SLURMMonitorUI(object):
         if nodeData['jobProc']:
            nodeDisplay['running_jobs'] = list(nodeData['jobProc'].keys())
 
-        nodeReport  = SlurmCmdQuery.sacct_getNodeReport(node, days=3)
+        nodeReport     = SlurmCmdQuery.sacct_getNodeReport(node, days=3)
         array_het_jids = [ job['JobID'] for job in nodeReport if '_' in job['JobID'] or '+' in job['JobID']]
-
-        htmlTemp   = os.path.join(config.APP_DIR, 'nodeDetail.html')
-        htmlStr    = open(htmlTemp).read().format(update_time      = MyTool.getTsString(nodeData['updateTS']),
-                                                  node_name        = node,
-                                                  node_data        = nodeData,
-                                                  node_display_data= json.dumps(nodeDisplay),
-                                                  array_het_jids   = array_het_jids,
-                                                  node_report      = nodeReport)
+        htmlTemp       = os.path.join(config.APP_DIR, 'nodeDetail.html')
+        htmlStr        = open(htmlTemp).read().format(update_time    = MyTool.getTsString(nodeData['updateTS']),
+                                                      node_name      = node,
+                                                      node_data      = nodeData,
+                                                      node_info      = json.dumps(nodeDisplay),
+                                                      array_het_jids = array_het_jids,
+                                                      node_report    = nodeReport)
         return htmlStr
 
     @cherrypy.expose
