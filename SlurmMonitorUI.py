@@ -75,6 +75,11 @@ class SLURMMonitorUI(object):
     def partitionDetail(self, partition='gpu'):
         ins           = SlurmEntities.SlurmEntities()
         p_info, nodes = ins.getPartitionAndNodes (partition)
+        if 'gres/gpu' in p_info['tres_fmt_str']:
+           p_info['avail_tres_fmt_str']='cpu={},node={},gres/gpu={}'.format(p_info.get('avail_cpus_cnt',0),p_info.get('avail_nodes_cnt',0),p_info.get('avail_gpus_cnt',0))
+        else:
+           p_info['avail_tres_fmt_str']='cpu={},node={}'.format(p_info.get('avail_cpus_cnt',0),p_info.get('avail_nodes_cnt',0))
+
         htmlTemp      = os.path.join(config.APP_DIR, 'partitionDetail.html')
         htmlStr       = open(htmlTemp).read().format(update_time=MyTool.getTsString(ins.ts_node_dict),
                                                      p_detail   =json.dumps(p_info),

@@ -675,7 +675,7 @@ function filterDict2NestList (data_dict, req_fields)
     var f      = req_fields.filter(function (k) {return data_dict.hasOwnProperty(k) && data_dict[k] && data_dict[k]!="None"})  //keep the order in fields
     return f.map(function (k) { return [k, data_dict[k]] })
 }
-DISPLAY_FUNC={'user': getUserDetailHtml, "timestamp":getTS_LString, 'partition':getPartDetailHtml,'qos':getQoSDetailHtml,"partition_list": getPartitionListHtml, "M":getDisplayM,'job_list':getJobListHtml}
+DISPLAY_FUNC={'user': getUserDetailHtml, "timestamp":getTS_LString, 'partition':getPartDetailHtml,'qos':getQoSDetailHtml,"partition_list": getPartitionListHtml, "M":getDisplayM,'job_list':getJobListHtml,'job_list_summary':getJobListSummaryHtml}
 //table without header, 1st column is key, 2nd column is value
 //input: data_dict is a dictionary with {key: value}, 
 //       disp_dict is a dictionary {display_key: display_text}, 
@@ -691,7 +691,6 @@ function createNoHeaderTable (data_dict, disp_dict, type_dict, parent_id, table_
                                      .append('tr')
     var tds   = trs.selectAll('td')
                    .data(function (d, i) {
-                           console.log(i, d)
                            return [d[0], {'key':d[0], 'value':d[1]}];
                         }).enter()
                    .append('td')
@@ -701,7 +700,6 @@ function createNoHeaderTable (data_dict, disp_dict, type_dict, parent_id, table_
                         if (i==1) {
                            var func = DISPLAY_FUNC[type_dict[d.key]]
                            if (func) {
-                              console.log("value=", d.value)
                               return func(d.value)
                            }
                            return d.value;

@@ -17,7 +17,6 @@
     <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
     <script type="text/javascript" src="static/scripts/myFunc.js"></script>
     <script type="text/javascript" src="static/scripts/myTable.js"></script>
-    <script type="text/javascript" src="static/scripts/myList.js"></script>
     <script type="text/javascript">
 
       $(document).ready(function(){{
@@ -29,15 +28,17 @@
           var part       = {p_detail};
           var nodes      = {p_nodes};
           var node_title_dict = {{'name':'Node', 'state':'State', 'tres_fmt_str':'TRES', 'features':'Features', 'alloc_cpus':'Alloc CPU','alloc_mem':'Alloc Mem(MB)', 'cpu_load':'CPU Load', 'running_jobs':'Run Job'}}
-          var part_list_title = {{'allow_accounts':'Allow Accounts','qos_char':'QoS','nodes':'Nodes','tres_fmt_str':'TRES','flag_shared':'Sharable', 'default_time_str':'Default Job Time', 'def_mem_per_cpu':'Default Mem/CPU','avail_nodes_cnt':'Avail Nodes','avail_cpus_cnt':'Avail CPUs','avail_gpus_cnt':'Avail GPUs','running_jobs':'Running Jobs', 'pending_jobs':'Pending Jobs'}}
+          var part_list_title = {{'allow_accounts':'Allow Accounts','qos_char':'QoS','flag_shared':'Sharable','tres_fmt_str':'TRES','default_time_str':'Default Job Time', 'def_mem_per_cpu':'Default Mem/CPU','nodes':'<a href="#div_node">Nodes</a>',
+                  'avail_tres_fmt_str':'Avail TRES','running_jobs':'Running Jobs', 'pending_jobs':'Pending Jobs'}}
 
           $("#part_name").text(part.name)
-          createList  (part,   part_list_title, '#details', {{'tres_fmt_str':'TresShort','running_jobs':'JobArray','pending_jobs':'JobArray', 'qos_char':'QoS','def_mem_per_cpu':'M'}});
+          //createList  (part,   part_list_title, '#details', {{'tres_fmt_str':'TresShort','running_jobs':'JobArray','pending_jobs':'JobArray', 'qos_char':'QoS','def_mem_per_cpu':'M'}});
+          createNoHeaderTable (part, part_list_title, {{'qos_char':'qos','running_jobs':'job_list_summary','pending_jobs':'job_list_summary', 'def_mem_per_cpu':'M'}}, '#div_part_info', 'part_info')
           if (part['total_gpus']>0)
              node_title_dict = {{'name':'Node', 'state':'State', 'tres_fmt_str':'TRES', 'features':'Features', 'alloc_cpus':'Alloc CPU','alloc_gpus':'Alloc GPU', 'alloc_mem':'Alloc Mem(MB)', 'cpu_load':'CPU Load', 'running_jobs':'Run Job'}}
 
           // partition node list
-          createTable (nodes,  node_title_dict,  'table_nodes', 'nodes', undefined, {{'name':'Node','running_jobs':'JobArray'}})
+          createTable (nodes,  node_title_dict,  'table_nodes', 'div_node', undefined, {{'name':'Node','running_jobs':'JobArray'}})
       }});
     </script>
   </head>
@@ -61,17 +62,14 @@
               Partition <span id="part_name"></span>
               <small> </small>
             </h3>
-          </div>
-          <div class="section__div">
-            <div id="details"></div>
+            <div id="div_part_info"></div>
           </div>
         </div>
       </section>
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
-          <div class="section__div section__div--nobottom">
-            <h3>Partition Nodes</h3>
-            <div id="nodes"></div>
+          <div class="section__div section__div--nobottom" id="div_node">
+              <h3>Partition Nodes</h3>
           </div>
         </div>
       </section>

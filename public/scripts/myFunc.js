@@ -8,6 +8,12 @@ function getJobListHtml(lst) {
     var html_list = lst.map( function(p) {return getJobDetailHtml(p);} )
     return html_list.join(',')
 }
+function getJobListSummaryHtml(lst) {
+    var detail_lst = (lst.length>10) ? lst.slice(0,10) : lst
+    var html_list = detail_lst.map( function(p) {return getJobDetailHtml(p);} )
+    var html_str  = html_list.join(',')
+    return (lst.length>10) ? html_str + '... total ' + lst.length + ' jobs' : html_str
+}
 function getUserDetailHtml (user) {
     return '<a href=./userDetails?user=' + user + '>' + user + '</a>'
 };
