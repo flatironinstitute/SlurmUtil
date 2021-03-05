@@ -217,7 +217,7 @@ function getTypedValueHtml (d_value, d_type)
       if (d_type == 'Partition')
                        return getPartDetailHtml(d_value)
       else if (d_type == 'Time')
-                       return getTS_string(d_value)
+                       return getTS_LString(d_value)
       else if (d_type == 'TresShort')
                        return getTres_short(d_value)
       else if (d_type == 'JobList') {
@@ -672,10 +672,10 @@ function filterDict2NestList (data_dict, req_fields)
 {
     if (!req_fields)   // empty req_fields will return all fields
        return Object.entries(data_dict)   //TODO:
-    var f      = req_fields.filter(function (k) {return data_dict.hasOwnProperty(k) && data_dict[k]})  //keep the order in fields
+    var f      = req_fields.filter(function (k) {return data_dict.hasOwnProperty(k) && data_dict[k] && data_dict[k]!="None"})  //keep the order in fields
     return f.map(function (k) { return [k, data_dict[k]] })
 }
-DISPLAY_FUNC={'User': getUserDetailHtml, "time_sec":getTS_LString, "partition_list": getPartitionListHtml, "MB":getDisplay_MB}
+DISPLAY_FUNC={'user': getUserDetailHtml, "timestamp":getTS_LString, 'partition':getPartDetailHtml,'qos':getQoSDetailHtml,"partition_list": getPartitionListHtml, "M":getDisplayM,'job_list':getJobListHtml}
 //table without header, 1st column is key, 2nd column is value
 //input: data_dict is a dictionary with {key: value}, 
 //       disp_dict is a dictionary {display_key: display_text}, 

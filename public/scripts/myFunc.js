@@ -4,6 +4,10 @@ function getTresWithoutBilling(tres) {
 function getJobDetailHtml (jid) {
     return '<a href=./jobDetails?jid=' + jid + '>' + jid + '</a>'
 };
+function getJobListHtml(lst) {
+    var html_list = lst.map( function(p) {return getJobDetailHtml(p);} )
+    return html_list.join(',')
+}
 function getUserDetailHtml (user) {
     return '<a href=./userDetails?user=' + user + '>' + user + '</a>'
 };
@@ -17,7 +21,6 @@ function getPartDetailHtml (pid) {
     return '<a href=./partitionDetail?partition=' + pid +'>' + pid + '</a>'
 }
 function getPartitionListHtml(p_list) {
-    console.log("===", p_list)
     var html_list = p_list.map( function(p) {return getPartDetailHtml(p);} )
     return html_list.join(',')
 }
@@ -54,20 +57,9 @@ function getDisplayN (n) {
 function getDisplayK (n) {
    if (typeof (n) != 'Number')
       n = parseFloat (n)
-   if (n < 1024) {
-      if (Number.isInteger(n))
-         return n.toString() + ' K'
-      else
-         return n.toFixed(2) + ' K'
-   }
+   if (n < 1024) return getDisplayF(n) + 'K'
    n /= 1024
-   if (n < 1024)
-      return n.toFixed(2) + ' M'
-   n /= 1024
-   if (n < 1024)
-      return n.toFixed(2) + ' G'
-   n = n / 1024
-   return n.toFixed(2) + ' T'
+   return getDisplayM(n)
 }
 function getDisplay_MB (n) {
    return getDisplayM (n) + 'B'
@@ -77,9 +69,9 @@ function getDisplayM (n) {
       n = parseFloat(n)
    if (n < 1024) return getDisplayF(n) + 'M'
    n /= 1024
-   if (n < 1024) return getDisplayF(n) + ' G'
+   if (n < 1024) return getDisplayF(n) + 'G'
    n = n / 1024
-   return getDisplayF(n) + ' T'
+   return getDisplayF(n) + 'T'
 }
 function getDisplayF (n) {
    if (Number.isInteger(n))

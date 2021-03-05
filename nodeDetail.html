@@ -17,7 +17,6 @@
     <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
     <script type="text/javascript" src="static/scripts/myFunc.js"></script>
     <script type="text/javascript" src="static/scripts/myTable.js"></script>
-    <script type="text/javascript" src="static/scripts/myList.js"></script>
     <script type="text/javascript">
 
       $(document).ready(function(){{
@@ -46,7 +45,7 @@
           //createList        (node_info, {{'features':'Features','partitions':'Partitions','tres_fmt_str':'TRES','gres':'GRES','boot_time':'Boot Time','alloc_cpus':'Alloc CPUs','alloc_mem':'Alloc Mem','alloc_gpus':'Alloc GPUs','running_jobs':'Running Jobs'}}, '#div_node_info', {{'boot_time':'Time','alloc_mem':'Mem_MB'}})
           createNoHeaderTable (node_info, 
                  {{'features':'Features','partitions':'Partitions','tres_fmt_str':'TRES','gres':'GRES','boot_time':'Boot Time','alloc_cpus':'Alloc CPUs','alloc_mem':'Alloc Mem','alloc_gpus':'Alloc GPUs','running_jobs':'Running Jobs'}}, 
-                 {{'boot_time':'time_sec','alloc_mem':'MB', 'partitions':'partition_list'}}, 
+                 {{'boot_time':'timestamp','alloc_mem':'M', 'partitions':'partition_list'}}, 
                  '#div_node_info', 'node_info')
 
           // running job 
@@ -84,8 +83,6 @@
               {node_name} : <span id="node_state"></span>
               <small>(<a href="nodeGraph?node={node_name}">Last 3 Days' Usage Graph</a><span id="gpu_link"></span>)</small>
             </h3>
-          </div>
-          <div class="section__div">
             <div id="div_node_info"></div>
           </div>
         </div>

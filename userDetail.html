@@ -17,7 +17,6 @@
     <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
     <script type="text/javascript" src="static/scripts/myFunc.js"></script>
     <script type="text/javascript" src="static/scripts/myTable.js"></script>
-    <script type="text/javascript" src="static/scripts/myList.js"></script>
     <script type="text/javascript">
 
       $(document).ready(function(){{
@@ -42,7 +41,7 @@
           var part_type_dict = {{'name':'Partition'}}
           var job_type_dict  = {{'JobName':'JobName', 'name':'JobName', 'submit_time':'Time','start_time':'Time', 'tres_req_str':'TresShort', 'tres_alloc_str':'TresShort'}}
           var jr_type_dict   = {{'JobID':'JobAndStep', 'JobIDRaw':'JobAndStep'}}
-          var u_fields_title = {{'uid':'User ID', 'Account':'Account', 'MaxSubmit':'Max Submit', 'MaxJobs':'Max Jobs', 'MaxNodes':'Max Nodes', 'MaxCPUs':'Max CPUs', 'MaxWall':'Max Wall Time', 'MaxCPUMins':'Max CPU min', 'alloc_nodes':'Alloc Nodes', 'alloc_cpus':'Alloc CPUs', 'alloc_gpus':'Alloc GPUs','alloc_mem':'Alloc Mem'}}
+          var u_fields_title = {{'uid':'User ID', 'Account':'Account', 'MaxSubmit':'Max Submit', 'MaxJobs':'Max Jobs', 'MaxNodes':'Max Nodes', 'MaxCPUs':'Max CPUs', 'MaxWall':'Max Wall Time', 'MaxCPUMins':'Max CPU min', 'alloc_nodes':'Alloc Nodes', 'alloc_cpus':'Alloc CPUs', 'alloc_gpus':'Alloc GPUs','alloc_mem':'Alloc Mem', 'partitions':'<a href="#div_partition">Avail Partitions</a>','running_jobs':'<a href="#div_running_job">Running Jobs<a>','pending_jobs':'<a href="#div_pending_job">Pending Jobs<a>'}}
           var running_jobs   = {running_jobs}
           var pending_jobs   = {pending_jobs}
           var part_info      = {part_info}
@@ -50,14 +49,15 @@
           var user_assoc     = {user_assoc}
           var array_het_jids = {array_het_jids}
 
-          createList (user_assoc, u_fields_title, '#user_assoc')
+          //createList (user_assoc, u_fields_title, '#div_user_info')
+          createNoHeaderTable (user_assoc, u_fields_title, {{'partitions':'partition_list','running_jobs':'job_list','pending_jobs':'job_list'}}, '#div_user_info', 'job_info')
           if (running_jobs.length >0) {{
-             createTable (running_jobs, r_j_titles, 'run_job_table',  'running_jobs', undefined, job_type_dict);
+             createTable (running_jobs, r_j_titles, 'run_job_table',  'div_running_job', undefined, job_type_dict);
           }}
           if (pending_jobs.length >0) {{
-             createTable (pending_jobs, p_j_titles, 'pend_job_table',  'pending_jobs',undefined, job_type_dict);
+             createTable (pending_jobs, p_j_titles, 'pend_job_table', 'div_pending_job',undefined, job_type_dict);
           }}
-          createTable (part_info,     part_titles,  'part_table',        'qos_part', undefined, part_type_dict)
+          createTable (part_info,     part_titles,  'part_table',     'div_partition', undefined, part_type_dict)
           // add one extra line to category table headers
           $('#part_table thead').prepend('<tr><th colspan="2"></th><th colspan="3">User Lmt</th><th colspan="3">User Alloc</th><th colspan="3">User Avail</th><th colspan="3">Grp Lmt</th><th colspan="3">Grp Alloc</th><th colspan="3">Part. Total</th><th colspan="3">Part. Avail</th></tr>')
           if (array_het_jids) {{
@@ -109,30 +109,27 @@
                 <a href="user_fileReport?uid={uid}&days=30">File Usage Report</a>
               </small>
             </h3>
-            <p><i>Update time: {update_time}</i></p>
-          </div>
-          <div class="section__div">
-            <div id="user_assoc"></div>
+            <div id="div_user_info"></div>
           </div>
         </div>
       </section>
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
-          <div class="section__div" id="qos_part">
+          <div class="section__div" id="div_partition">
             <h3 class="table_title">Total <span id="part_len"></span> Available Partitions</h3>
           </div>
         </div>
       </section>
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
-          <div class="section__div" id="running_jobs">
+          <div class="section__div" id="div_running_job">
             <h3 class="table_title">Total <span id="running_jobs_len"></span> Running Jobs</h3>
           </div>
         </div>
       </section>
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
-          <div class="section__div" id="pending_jobs">
+          <div class="section__div" id="div_pending_job">
             <h3 class="table_title">Total <span id="pending_jobs_len"></span> Pending Jobs</h3>
           </div>
         </div>

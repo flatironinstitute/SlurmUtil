@@ -965,7 +965,9 @@ class SLURMMonitorUI(object):
         tres_alloc    = [MyTool.getTresDict(j['tres_alloc_str']) for j in running_jobs]
         userAssoc['uid']        = uid
         userAssoc['partitions'] = [p['name'] for p in part]
-        userAssoc['runng_jobs'] = [j['job_id'] for j in running_jobs]
+        userAssoc['running_jobs'] = [j['job_id'] for j in running_jobs]
+        if pending_jobs:
+           userAssoc['pending_jobs'] = [j['job_id'] for j in pending_jobs]
         userAssoc['alloc_cpus'] = sum([t['cpu']  for t in tres_alloc])
         userAssoc['alloc_nodes']= sum([t['node'] for t in tres_alloc])
         userAssoc['alloc_gpus'] = sum([t.get('gres/gpu',0) for t in tres_alloc])
@@ -1105,7 +1107,7 @@ class SLURMMonitorUI(object):
            proc_disp_field, worker2proc = self.getDoneJobProc(jid, job_report)   #get result from influx
            if not worker2proc:
               msg_note = proc_disp_field
-        else:                                                                    #job's proc is in self.data
+        else:                                                                    #running job's proc is in self.data
            job_name    = job['name']
            if job['job_state'] == 'RUNNING':
               if not self.monData.hasData():
