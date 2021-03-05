@@ -17,12 +17,13 @@ logger   = config.logger
 #MyTool.getFileLogger('SlurmEntities', logging.DEBUG)  # use module name
 
 PEND_EXP={
-    'QOSMaxCpuPerUserLimit': 'Will exceed QoS User CPU  limit ({max_cpu_user}). User {user} already alloc {curr_cpu_user}  CPUs in {partition}.', # QOS MaxTRESPerUser exceeded (CPU) 
-    'QOSMaxNodePerUserLimit':'Will exceed QoS User Node limit ({max_node_user}). User {user} already alloc {curr_node_user} Nodes in {partition}.',	                         # QOS MaxTRESPerUser exceeded (Node)
+    'QOSMaxCpuPerUserLimit': 'Will exceed QoS user CPU  limit ({max_cpu_user}). User {user} already alloc {curr_cpu_user}  CPUs in {partition}.', # QOS MaxTRESPerUser exceeded (CPU) 
+    'QOSMaxNodePerUserLimit':'Will exceed QoS user Node limit ({max_node_user}). User {user} already alloc {curr_node_user} Nodes in {partition}.',	                         # QOS MaxTRESPerUser exceeded (Node)
+    'QOSMaxJobsPerUserLimit':'Will exceed QoS user Job limit ({max_job_user}). User {user} already execute {curr_job_user} jobs in {partition}.',
+    'QOSMaxGRESPerUser':     'Will exceed QoS user GPU limit ({max_gpu_user}). User {user} already alloc {curr_gpu_user} GPUs in {partition}.',
     'QOSGrpNodeLimit':       'Will exceed QoS Group Node limit ({max_node_grp}). Group already alloc {curr_node_grp} Nodes in {partition}.', # QOS GrpTRES exceeded (Node)
     'QOSGrpCpuLimit':        'Will exceed QoS Group CPU limit  ({max_cpu_grp}). Group already alloc {curr_cpu_grp}  CPUs in {partition}.',
     'QOSMaxWallDurationPerJobLimit': 'Job time {job_time_limit} exceed QoS {qos}\'s MaxWallDurationPerJob limit ({qos_limit}).',
-    'QOSMaxGRESPerUser':     'Will exceed QoS User GPU limit ({max_gpu_user}). User {user} already alloc {curr_gpu_user} GPUs in {partition}.',
     'QOSMinGRES':            'QOS MinTRESPerJob not reached (CPU).',
     'QOSMaxNodePerJobLimit': 'Exceed QOS Job TRES limit ({max_tres_pj}).',
     'Dependency':            'Job dependencies ({dependency}) not satisfied.', #/* dependent job has not completed */
@@ -364,16 +365,29 @@ class SlurmEntities:
   def getPartitions(self):
     return [self.partition_dict[name] for name in sorted(self.partition_dict.keys())]
 
-  #TODO: consider OverPartQOS
-  #return nodeLimit, cpuLimit, gresLimit
-  def getJobQoSTresLimit (self, job, p_name, tres_attribute, OverPartQOS=False):
-      partition                     = self.partition_dict[p_name]
+  def getPartitionQoS (self, p_name):
+      partition   = self.partition_dict[p_name]
       #preempty partition qos_char is None
       if partition['qos_char']:
-         tres_str                   = self.qos_dict[partition['qos_char']].get(tres_attribute, None)
+         return self.qos_dict[partition['qos_char']]
       else:
-         tres_str                   = None
+         return None
 
+  def getJobQoSValue (self, job, p_name, attr):
+      part_qos = self.getPartitionQoS (p_name)
+      value    = part_qos.get(attr, None) if part_qos else None
+      if value:
+         return value
+      #job qos
+      job_qos  = self.getPartitionQoS(job['qos']) if 'qos' in job else None
+      value    = job_qos.get(attr, None)  if job_qos  else None
+      return value
+
+  #TODO: consider OverPartQOS
+  #return nodeLimit, cpuLimit, gresLimit
+  def getJobQoSTresLimit (self, job, part_qos, tres_attribute, OverPartQOS=False):
+      #part_qos                      = self.getPartitionQoS (p_name)
+      tres_str                      = part_qos.get(tres_attribute, None) if part_qos else None
       node_lmt,  cpu_lmt,  gpu_lmt  = [None] *3
       j_node_lmt,j_cpu_lmt,j_gpu_lmt= [MAX_LIMIT] * 3
       if tres_str:  #partitio QoS
@@ -420,52 +434,64 @@ class SlurmEntities:
              res_nodes.extend  (MyTool.nl2flat(job['sched_nodes']))
       return pending
 
+  def exp_QOSMaxJobsPerUserLimit (self, job, p_name, higherJobs=None):
+      state_exp  = PEND_EXP['QOSMaxJobsPerUserLimit']
+      uid        = job['user_id']
+      u_job      = sum([1 for j in self.job_dict.values() if j['job_state']=='RUNNING' and j['user_id']==uid and j['partition']==p_name ])
+      state_exp  = state_exp.format(user=MyTool.getUser(uid), max_job_user=self.getJobQoSValue(job, p_name, 'max_jobs_pu'), curr_job_user=u_job, partition=p_name)
+
+      return state_exp
+
+  def exp_Resources (self, job, p_name, higherJobs):
+      state_exp  = PEND_EXP['Resources']
+      pa_node, pa_cpu, pa_node_lst, features, conflict_res = self.getPartitionAvailNodeCPU (p_name, job, higherPending=higherJobs)
+      pa_node_str                                          = '{}'.format(pa_node)
+      if pa_node:
+         pa_node_str = '{} ({})'.format(pa_node,['<a href=./nodeDetails?node={node_name}>{node_name}</a>'.format(node_name=node) for node in sorted(pa_node_lst)])
+      state_exp      = state_exp.format(partition=p_name, avail_node=pa_node_str, avail_cpu=pa_cpu, feature='({0})'.format(features))
+      if job.get('state_reason_desc',None): #modify pyslurm to add state_reason_desc 02/27/2020
+         state_exp   = '{} ({}). {} '.format(job['state_reason_desc'].replace('_',' '), [res['job_id'] for res in conflict_res], state_exp)
+      return state_exp
+
+  EXPLAIN_FUNC = {'QOSMaxJobsPerUserLimit':exp_QOSMaxJobsPerUserLimit, 'Resources':exp_Resources}
   def explainPendingJob(self, job, p_name, higherJobs, reserved_nodes):
       job['user']    = MyTool.getUser(job['user_id'])  # will be used in html
       if '_' in job['state_reason']:
          # mod in pyslurm not working anymore, workaround 02/05/2021
          job['state_reason_desc'] = job['state_reason']
          job['state_reason']      = 'Resources'
-      state_exp      = PEND_EXP.get(job['state_reason'], '')
 
-      if job['state_reason'] == 'QOSMaxWallDurationPerJobLimit':
+      state_exp      = PEND_EXP.get(job['state_reason'], '')
+      p_qos          = self.getPartitionQoS (p_name)
+      if job['state_reason'] in SlurmEntities.EXPLAIN_FUNC:
+         state_exp   = SlurmEntities.EXPLAIN_FUNC[job['state_reason']](self, job, p_name, higherJobs)
+      elif job['state_reason'] == 'QOSMaxWallDurationPerJobLimit':
          qos, lmt       = self.getMaxWallPJ(job)
          state_exp      = state_exp.format(job_time_limit=job.get('time_limit_str'), qos=qos, qos_limit=lmt)
       elif job['state_reason'] == 'QOSMinGRES':
          state_exp      = 'A job need to request at least 1 GPU in partition {}'.format(p_name)     
       elif 'PerUser' in job['state_reason']:
-         u_node_qos, u_cpu_qos, u_gpu_qos = self.getJobQoSTresLimit (job, p_name, 'max_tres_pu')
+         u_node_qos, u_cpu_qos, u_gpu_qos = self.getJobQoSTresLimit (job, p_qos, 'max_tres_pu')
          u_node,     u_cpu,     u_gpu     = SlurmEntities.getUserAllocInPartition(job['user_id'], p_name, self.job_dict)
          if job['state_reason'] == 'QOSMaxCpuPerUserLimit':
             state_exp      = state_exp.format(user=job['user'], max_cpu_user=u_cpu_qos, curr_cpu_user=u_cpu, partition=p_name)
             u_cpu_avail    = u_cpu_qos - u_cpu
             if job['shared']!= 'OK' and (u_cpu_avail >0) and (MyTool.getTresDict(job['tres_req_str'])['cpu']) <= u_cpu_avail:
                    state_exp   = '{} {}'.format(state_exp, 'Job request exclusive nodes and may allocate more CPUs than requested.')
-         elif job['state_reason'] == 'QOSMaxGRESPerUser':
-            state_exp      = state_exp.format(user=job['user'], max_gpu_user=u_gpu_qos, curr_gpu_user=u_gpu, partition=p_name)
          elif job['state_reason'] == 'QOSMaxNodePerUserLimit':
             state_exp      = state_exp.format(user=job['user'], max_node_user=u_node_qos, curr_node_user=u_node, partition=p_name)
+         elif job['state_reason'] == 'QOSMaxGRESPerUser':
+            state_exp      = state_exp.format(user=job['user'], max_gpu_user =u_gpu_qos,  curr_gpu_user=u_gpu, partition=p_name)
       elif job['state_reason'] == 'QOSGrpNodeLimit':
-         a_node_qos, a_cpu_qos, etc    = self.getJobQoSTresLimit (job, p_name, 'grp_tres')
+         a_node_qos, a_cpu_qos, etc    = self.getJobQoSTresLimit (job, p_qos, 'grp_tres')
          j_account                     = self.user_assoc_dict[MyTool.getUser(job['user_id'])]['Account']
          a_node,     a_cpu,     etc    = SlurmEntities.getAllAllocInPartition(p_name, self.job_dict)
-         #a_ex_node,a_sh_node,a_cpu     = self.getAccountAllocInPartition(p_name, j_account)  #Grp limit seems to address all accounts
          state_exp                     = state_exp.format(max_node_grp=a_node_qos, curr_node_grp=a_node, partition=p_name)
       elif job['state_reason'] == 'QOSGrpCpuLimit':
-         a_node_qos, a_cpu_qos, etc    = self.getJobQoSTresLimit (job, p_name, 'grp_tres')
+         a_node_qos, a_cpu_qos, etc    = self.getJobQoSTresLimit (job, p_qos, 'grp_tres')
          j_account                     = self.user_assoc_dict[MyTool.getUser(job['user_id'])]['Account']
          a_node,     a_cpu,     etc    = SlurmEntities.getAllAllocInPartition(p_name, self.job_dict)
-         #a_ex_node,a_sh_node,a_cpu     = self.getAccountAllocInPartition(p_name, j_account)
          state_exp                     = state_exp.format(max_cpu_grp=a_cpu_qos, curr_cpu_grp=a_cpu, partition=p_name)
-      elif job['state_reason'] == 'Resources':
-         pa_node, pa_cpu, pa_node_lst, features, conflict_res = self.getPartitionAvailNodeCPU (p_name, job, higherPending=higherJobs)
-         pa_node_str                                          = '{}'.format(pa_node)
-         if pa_node:
-            pa_node_str = '{} ({})'.format(pa_node,['<a href=./nodeDetails?node={node_name}>{node_name}</a>'.format(node_name=node) for node in sorted(pa_node_lst)])
-         state_exp      = state_exp.format(partition=p_name, avail_node=pa_node_str, avail_cpu=pa_cpu, feature='({0})'.format(features))
-         if job.get('state_reason_desc',None): #modify pyslurm to add state_reason_desc 02/27/2020
-            #pa_node_lst = list( set(pa_node_lst) - set(reserved_nodes) )
-            state_exp   = '{} ({}). {} '.format(job['state_reason_desc'].replace('_',' '), [res['job_id'] for res in conflict_res], state_exp)
       elif job['state_reason'] == 'Priority':
          earlierJobs    = self.getSmallerJobIDs(job['job_id'], self.partition_dict[p_name].get('pending_jobs',[]))
          state_exp      = state_exp.format(partition=p_name, higher_job=earlierJobs)
@@ -544,8 +570,8 @@ class SlurmEntities:
 
   # get user+partion
   def getUserAllocInPartition( uid, pname, job_dict):
-      jobLst     = [ job for job in job_dict.values() if job['job_state']=='RUNNING' and job['user_id'] == uid and job['partition'] == pname ]
-      return SlurmEntities.getJobAlloc(jobLst, True)
+      jobLst    = [ job for job in job_dict.values() if job['job_state']=='RUNNING' and job['user_id'] == uid and job['partition'] == pname ]
+      return SlurmEntities.getJobAlloc(jobLst, gpu_flag=True)
 
   def getJobAlloc( jobLst, gpu_flag=False):
     tres     = [MyTool.getTresDict(job['tres_alloc_str']) for job in jobLst]
@@ -651,12 +677,13 @@ class SlurmEntities:
         uid = job['user'] if 'user' in job else job['user_id']
         if 'QOS' in job['state_reason'] and uid not in rlt.keys():  # if pending for QOS reason
            p_name = job['partition'].split(',')[0]
+           p_qos  = self.getPartitionQoS (p_name)
            if self.partition_dict[p_name]['avail_cpus_cnt']:
               if self.partHasJobResource(job, p_name):
                  suggestion   = ''
                  #take action, sacctmgr or send email
-                 u_node_qos,  u_cpu_qos,  u_gpu_qos   = self.getJobQoSTresLimit (job, p_name, 'max_tres_pu')  #qos limit for user
-                 g_node_qos,  g_cpu_qos,  g_gpu_qos   = self.getJobQoSTresLimit (job, p_name, 'grp_tres')     #qos limit for grp
+                 u_node_qos,  u_cpu_qos,  u_gpu_qos   = self.getJobQoSTresLimit (job, p_qos, 'max_tres_pu')  #qos limit for user
+                 g_node_qos,  g_cpu_qos,  g_gpu_qos   = self.getJobQoSTresLimit (job, p_qos, 'grp_tres')     #qos limit for grp
                  u_node_alloc,u_cpu_alloc,u_gpu_alloc = SlurmEntities.getUserAllocInPartition(job['user_id'], p_name, self.job_dict)  #user allocation
                  g_node_alloc,g_cpu_alloc,g_gpu_alloc = SlurmEntities.getAllAllocInPartition(p_name, self.job_dict)  #all allocation in part, seems the where the grp limit applied
                  j_gpu                                = MyTool.getTresDict(job['tres_req_str']).get('gres/gpu',0)

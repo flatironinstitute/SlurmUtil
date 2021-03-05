@@ -50,7 +50,7 @@
           var array_het_jids = {array_het_jids}
 
           //createList (user_assoc, u_fields_title, '#div_user_info')
-          createNoHeaderTable (user_assoc, u_fields_title, {{'partitions':'partition_list','running_jobs':'job_list','pending_jobs':'job_list'}}, '#div_user_info', 'job_info')
+          createNoHeaderTable (user_assoc, u_fields_title, {{'partitions':'partition_list','running_jobs':'job_list_summary','pending_jobs':'job_list'}}, '#div_user_info', 'job_info')
           if (running_jobs.length >0) {{
              createTable (running_jobs, r_j_titles, 'run_job_table',  'div_running_job', undefined, job_type_dict);
           }}
