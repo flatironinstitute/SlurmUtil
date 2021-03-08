@@ -109,9 +109,9 @@ function createMultiTitle2 (data_dict, parent_id, node) {
                   if (("gpus_allocated" in job) && (node in job["gpus_allocated"]))
                      str += ', ' + job["gpus_allocated"][node].length + ' GPUs'
                   if (data_dict[d]["procs"] != undefined)
-		     str += ', running processes ' + data_dict[d]["procs"].length +'<a href="./nodeJobProcGraph?node=' + node + '&jid=' + d + '"> (Proc Usage Graph) </a>'
+		     str += ', have ' + data_dict[d]["procs"].length +' processes. <a href="./nodeJobProcGraph?node=' + node + '&jid=' + d + '"> (Proc Usage Graph) </a>'
                   else
-		     str += ', no running processes.'
+		     str += ', have no running processes.'
                }
                return str; })
     return pas
@@ -636,6 +636,7 @@ function prepareData_pending (data) {
    data.forEach (function (d) {
       group = d.user+d.partition+d.qos;   // will collapse onto same group in the pending table
                                           // identical user ID, partition name, account, and QOS -> identical user ID, parition name
+      group = group.replace(",", "_");            // fix the bug with multiple partition request
       if ( group != savGName) {
          // group changed, deal with saved ones
          savGroup.forEach(function (d) {
