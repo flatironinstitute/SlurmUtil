@@ -50,7 +50,7 @@ class InfluxQueryClient:
         return point
         
     #return nodelist's time series of the a uid, {hostname: {ts: [cpu, io, mem] ... }, ...}
-    def getNodeProcData (self, node, jid, start_time='', stop_time=''):
+    def getNodeProcData (self, node, jid, start_time, stop_time=''):
         t1=time.time()
 
         #prepare query
@@ -113,28 +113,42 @@ class InfluxQueryClient:
         logger.info("INFO: getSlurmUidMonData take time " + str(time.time()-t1))
         return node2seq
 
-    #return the query result list of dict {pid: (ts, cpu, mem, io_r, io_w) ... }, ...}, NOT USED YET
-    def getNodeJobProcData (self, node, jid, start_time='', stop_time=''):
+    #return the query result list of dict {pid: [(ts, cpu, mem, io_r, io_w) ... ]}, ...}, NOT USED YET
+    def getNodeJobProcData (self, node, jid, start_time, stop_time=''):
+        t1      = time.time()
         query   = "select * from autogen.node_proc_mon where hostname='" + node + "' and jid=" + str(jid)   #jid is int type in node_proc_mon
-        if start_time:
-           query += " and time >= " + str(int(start_time)) + "000000000"
-        if stop_time:
-           query += " and time <= " + str(int(stop_time)+1) + "000000000"
-
+        query   = self.extendQuery(query, start_time, stop_time)
         results = self.query(query)
         if not results:
            return None, None, None
+        logger.info("Influx query take time {}".format(time.time()-t1))
 
-        points     = list(results.get_points()) # lists of dictionaries
-        first_time = points[0]['time']
-        last_time  = points[len(points)-1]['time']
-        pids       = set([p['pid'] for p in points])
-        rlt        = {}
-        for pid in pids:
-            rlt[pid]= [ (point['time'], MyTool.getDictNumValue(point, 'cpu_system_time') + MyTool.getDictNumValue(point, 'cpu_user_time'),
-                               MyTool.getDictNumValue(point, 'mem_rss'),
-                               MyTool.getDictNumValue(point, 'io_read_bytes'),
-                               MyTool.getDictNumValue(point, 'io_write_bytes')) for point in points if point['pid']==pid] 
+        rlt        = defaultdict(list)
+        first_time = None
+        count      = 0
+        for point in results.get_points():
+            if not first_time:   first_time = point['time']
+            pid    = point['pid']
+            rlt[pid].append ((point['time'], 
+                              MyTool.getDictNumValue(point, 'cpu_system_time') + MyTool.getDictNumValue(point, 'cpu_user_time'),
+                              MyTool.getDictNumValue(point, 'mem_rss'),      #KB
+                              MyTool.getDictNumValue(point, 'io_read_bytes'),
+                              MyTool.getDictNumValue(point, 'io_write_bytes')))
+            count += 1
+        last_time = point['time'] 
+        
+            
+        #points     = list(results.get_points()) # lists of dictionaries
+        #first_time = points[0]['time']
+        #last_time  = points[len(points)-1]['time']
+        #pids       = set([p['pid'] for p in points])
+        #rlt        = {}
+        #for pid in pids:
+        #    rlt[pid]= [ (point['time'], MyTool.getDictNumValue(point, 'cpu_system_time') + MyTool.getDictNumValue(point, 'cpu_user_time'),
+        #                       MyTool.getDictNumValue(point, 'mem_rss'),
+        #                       MyTool.getDictNumValue(point, 'io_read_bytes'),
+        #                       MyTool.getDictNumValue(point, 'io_write_bytes')) for point in points if point['pid']==pid] 
+        logger.info("Data transform take time {} and return {} points".format(time.time()-t1, count))
 
         return first_time, last_time, rlt
 
@@ -200,7 +214,7 @@ class InfluxQueryClient:
         return points
 
     #return the query result list of dictionaries
-    def queryUidMonData (self, uid, start_time='', stop_time='', nodelist=[]):
+    def queryUidMonData (self, uid, start_time, stop_time='', nodelist=[]):
         query   = "select * from autogen.cpu_uid_mon where uid='{}'".format(uid)
         query   = self.extendQuery (query, start_time, stop_time, nodelist)
         results = self.query(query)
@@ -370,46 +384,54 @@ class InfluxQueryClient:
         # switch from tres_per_node to tres_req_str after 06/28/2019
         st = max (int(st), 1561766400)
 
-        query   = "select * from autogen.slurm_pending where time >= {}000000000 and time <= {}000000000".format(st,et)
+        query   = "select * from autogen.slurm_pending where "
+        query   = self.extendQuery(query, st, et, first_flag=True)
         results = self.query(query, 'ms')
-        #points  = list(results.get_points())                   #use list before points has been iterate multiple times
 
         tsReason2jobCnt = defaultdict(lambda:defaultdict(int))
         tsState2cpuCnt  = defaultdict(lambda:defaultdict(int))
         tsPart2noPri    = defaultdict(lambda:defaultdict(list))   # sav partition-points
         tsPart2pri      = defaultdict(lambda:defaultdict(list))                       # sav Priority points
+        first_ts        = None
         for point in results.get_points():
             ts           = point['time']
+            if not first_ts:
+               first_ts = ts/1000
             state_reason = point['state_reason']
 
             if state_reason and ('Resources' in state_reason):
-              tres = point['tres_req_str']
-              if ('gpu' in tres):  #'cpu=40,mem=720000M,node=1,billing=40,gres/gpu=4'
+              if ('gpu' in point['tres_req_str']):  #'cpu=40,mem=720000M,node=1,billing=40,gres/gpu=4'
                  tsReason2jobCnt[ts]['{}_GPU'.format(state_reason)] += 1
               else:
                  tsReason2jobCnt[ts][state_reason] += 1
             else:
               tsReason2jobCnt[ts][state_reason] += 1
 
-            # Priority reduce to resources most of the time
-            if state_reason and ('Priority' in state_reason):
-              tsPart2pri[ts][point['partition']].append (point)
-            else:
-              tsPart2noPri[ts][point['partition']].append(point)  #non-priority is saved by parition
+            # Priority reduce to the same reason as the job before it
+            # divide the reason the same into two dict
+            #if not state_reason:
+            #  tsPart2pri[ts][point['partition']].append (point)
+            #elif 'Priority' in state_reason:
+            #  tsPart2pri[ts][point['partition']].append (point)
+            #else:
+            #  tsPart2noPri[ts][point['partition']].append(point)  #non-priority is saved by parition
+        last_ts = point['time']/1000
              
-        for ts, part2pri in tsPart2pri.items():
-            for part_name, pri_lst in part2pri.items():
-                pri_min_jid     = min([point['job_id'] for point in pri_lst])
-                noPri_lst       = tsPart2noPri[ts][part_name]
-                pri_count       = min(10, len(pri_lst))
-                if noPri_lst:
+        # for each Priority or None job, check the jobs(same user and partition) before it
+        #for ts, part2pri in tsPart2pri.items():
+        #    for part_name, pri_lst in part2pri.items():
+        #        pri_min_jid     = min([point['job_id'] for point in pri_lst])   # first job of priority or none
+        #        noPri_lst       = tsPart2noPri[ts][part_name]
+                #pri_count       = min(10, len(pri_lst))                         # ???
+        #        pri_count       = len(pri_lst)
+        #        if noPri_lst:
                    #the job with a max jid smaller than pri_min_jid
-                   noPri_pre_point = max([point for point in noPri_lst if point['job_id'] < pri_min_jid], default={'state_reason':None}, key=operator.itemgetter('job_id'))
-                   tsReason2jobCnt[ts][noPri_pre_point['state_reason']] += pri_count
-                else:
-                   tsReason2jobCnt[ts][None] += pri_count
+        #           noPri_pre_point = max([point for point in noPri_lst if point['job_id'] < pri_min_jid], default={'state_reason':None}, key=operator.itemgetter('job_id'))
+        #           tsReason2jobCnt[ts][noPri_pre_point['state_reason']] += pri_count
+        #        else:
+        #           tsReason2jobCnt[ts][None] += pri_count
                 
-        return tsReason2jobCnt 
+        return first_ts, last_ts, tsReason2jobCnt 
         
     #return information of hostname
     #return all uid sequence of a node, {uid: {ts: [cpu, io, mem] ... }, ...}
@@ -525,33 +547,21 @@ def test3():
     rlt         = app.getPendingCount(start, stop)
     print(rlt)
 
+def test4():
+    app         = InfluxQueryClient()
+    start, stop = MyTool.getStartStopTS(days=3) 
+    rlt         = app.getNodeJobProcData ('worker5186', 950983, start)
+    print (rlt)
+
+def test5():
+    app         = InfluxQueryClient()
+    start, stop = MyTool.getStartStopTS(days=3, setStop=False) 
+    rlt         = app.getPendingCount (start, stop)
+    print (rlt)
+
 def main():
     t1=time.time()
-    test3()
-    #start, stop = MyTool.getStartStopTS(days=3) 
-    #start, stop, rlt   = app.getNodeJobProcData('worker1006',469406)
-    #s1, e1, d1=app.getSlurmJobData(465261)
-    #s2, e2, d2=app.getSlurmJobData(465262)
-    #d3=app.getSlurmUidMonData(1012, ['workergpu30'], s1, e1)
-    #app.getUserProc ('dhofmann', ['worker1031'], 1568554418, 1568908041)
-    #rlt   = app.getSlurmJobRuntimeHistory(346864, 1566727264, 1567159264)
-    #print('{}'.format(rlt))
-    #app.getJobRequestHistory(start, stop)
-    #point = app.getSlurmJobInfo('105179')
-    #if point:
-    #   nodelist = MyTool.convert2list(point['nodes'])
-    #   start    = point['start_time']
-    #   user_id  = point['user_id']
-    #   if 'end_time' in point:
-    #       stop     = point['end_time']
-    #   print("user_id=" + user_id + ",nodelist="+repr(nodelist)+", " + repr(start) + "," + repr(stop))
-    #   for ndname in nodelist:
-    #       print(ndname)    
-    #       app.getSlurmNodeMon(ndname, point['user_id'], point['start_time'], point['end_time'])
-    #app.getSlurmUidMonData (point['user_id'], point['nodes'], point['start_time'], point['end_time'])
-
-    #endtime = datetime.now()
-    #starttime = endtime - timedelta(seconds=259200)          # 3 days=259200 seconds
+    test5()
  
     print("main take time " + str(time.time()-t1))
 

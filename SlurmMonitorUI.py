@@ -286,10 +286,10 @@ class SLURMMonitorUI(object):
     def pending_history(self, start='', stop='', days=''):
         note         = ''
         days         = int(days) if days else 7
-        start, stop  = MyTool.getStartStopTS (start, stop, days)
+        start, stop  = MyTool.getStartStopTS (start, stop, days, setStop=False)
 
         influxClient = InfluxQueryClient(self.config['influxdb']['host'])
-        tsReason2Cnt = influxClient.getPendingCount(start, stop)
+        start, stop, tsReason2Cnt = influxClient.getPendingCount(start, stop)
         reasons      = [set(reasons.keys()) for ts, reasons in tsReason2Cnt.items()]
         reasons      = set([i2 for item in reasons for i2 in item])  # the unique reasons
         reason2cate  = dict([(reason, self.getReason2Cate(reason)) for reason in reasons])
@@ -312,7 +312,8 @@ class SLURMMonitorUI(object):
         #note = '{}'.format(sav_set)
 
         cate2title = {'Resource':'Queued by Resource', 'GPU':'Queued by GPU Resource', 'QoSGrp':'Queued by Group QoS', 'QoS':'Queued by User QoS', 'Sched':'Queued by Job Defination', 'Other':'Queued by Other'}  #order matters
-        series1    = [{'name':cate2title[cate], 'data':cate2ts_cnt[cate]} for cate in cates]
+        cates_sort = [cate for cate in cate2title.keys() if cate in cates]
+        series1    = [{'name':cate2title[cate], 'data':cate2ts_cnt[cate]} for cate in cates_sort]
         htmlTemp   = os.path.join(config.APP_DIR, 'pendingJobReport.html')
         h          = open(htmlTemp).read().format(start=time.strftime(DATE_DISPLAY_FORMAT, time.localtime(start)),
                                                   stop =time.strftime(DATE_DISPLAY_FORMAT, time.localtime(stop)),
@@ -1361,7 +1362,7 @@ class SLURMMonitorUI(object):
     def nodeJobProcGraph_file(self, node, jobid):
         return None
 
-    def nodeJobProcGraph_influx(self, node, jobid, start=''):
+    def nodeJobProcGraph_influx(self, node, jobid, start):
         influxClient     = InfluxQueryClient()
         first, last, seq = influxClient.getNodeJobProcData(node, jobid, start)  #{pid: [(ts,cpu, mem, io_r, io_w) ... ]}
         if not seq:
@@ -1419,7 +1420,7 @@ class SLURMMonitorUI(object):
         note  = 'cache'
         if not msg:
            logger.info('Job {}: no data in cache'.format(jobid))
-           msg = self.nodeJobProcGraph_influx(node, jobid)
+           msg = self.nodeJobProcGraph_influx(node, jobid, job['start_time'])
            note= 'influx'
         if not msg:
            logger.info('Job {}: no data returned from influx'.format(jobid))

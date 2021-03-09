@@ -15,9 +15,10 @@
 	</script>
 
         <p> Note:
-        <p> (Job queued by Priority is counted towards the queued reason of the job pending on the same partition prior to it)
+        <!--<p> (Job queued by Priority is counted towards the queued reason of the job pending on the same partition prior to it)
+        -->
         <ul>
-        <li>Queued by Resource: [Resources(other than GPU), ReqNodeNotAvail*, Nodes_required_for_job_are_DOWN]
+        <li>Queued by Resource: [Resources(other than GPU), ReqNodeNotAvail*, Nodes_required_for_job_are_DOWN, Priority]
         <li>Queued by GPU Resource: [Resources(with unsatisfied GPU request)]
         <li>Queued by Group QoS: [QOSGrp*]
         <li>Queued by User QoS: [QOS*(other than QOSGrp*)]

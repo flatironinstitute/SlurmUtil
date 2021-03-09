@@ -188,18 +188,23 @@ def getDictNumValue (d, key):
 def getTS (t, formatStr='%Y%m%d'):
     return int(time.mktime(time.strptime(t, formatStr)))
     
-def getStartStopTS (start='', stop='', formatStr='%Y%m%d', days=3):
+def getStartStopTS (start='', stop=None, formatStr='%Y%m%d', days=3, setStop=True):
     if stop:
-        stop = time.mktime(time.strptime(stop, formatStr))
-    else:
-        stop = time.time()
+        if isinstance (stop, str):
+           stop = time.mktime(time.strptime(stop, formatStr))
+        #else: stop is ts
+    elif setStop:
+        stop = int(time.time())+1
+    # else: stop remains as None
+
     if start:
         if isinstance (start, str):
            start = time.mktime(time.strptime(start, formatStr))
+        #else: start is ts
     else:
-        start = max(0, int(stop - days * ONEDAY_SECS))
+        start = max(0, int(time.time()) - days * ONEDAY_SECS)
 
-    return int(start), int(stop)
+    return start, stop
 
 def func1 (df):
     return df[['user','job','load']].groupby('user').apply(func2)
