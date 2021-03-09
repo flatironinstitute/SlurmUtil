@@ -463,8 +463,9 @@ class PyslurmReader (threading.Thread):
         # pending_job
         if item['job_state'] == 'PENDING':
            pendpoint          = {'measurement':'slurm_pending', 'time': ts} 
-           pendpoint['tags']  = MyTool.sub_dict_exist (item, ['job_id', 'state_reason'])
-           pendpoint['fields']= MyTool.sub_dict_exist (item, ['submit_time', 'user_id', 'account', 'qos', 'partition', 'tres_req_str', 'last_sched_eval', 'time_limit', 'start_time']) #switch from tres_per_node to tres_req_str 06/28/2019
+           # changes that fix the bug from 03/08/2021
+           pendpoint['tags']  = MyTool.sub_dict       (item, ['job_id', 'state_reason'])
+           pendpoint['fields']= MyTool.sub_dict       (item, ['submit_time', 'user_id', 'account', 'qos', 'partition', 'tres_req_str', 'last_sched_eval', 'time_limit', 'start_time']) #switch from tres_per_node to tres_req_str 06/28/2019
            points.append(pendpoint)
 
         # slurm_job_mon: ts, job_id
