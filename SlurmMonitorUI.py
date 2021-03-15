@@ -1075,7 +1075,7 @@ class SLURMMonitorUI(object):
 
     def getDoneJobProc (self, jid, job_report):
         if job_report['End'] == 'Unknown':
-           return 'Can not find End time for a non-running job', {}
+           return {}, [], 'Can not find end time for a finished job'
 
         influxClient = InfluxQueryClient(self.config['influxdb']['host'])
         node2procs   = influxClient.queryJobProc (jid, MyTool.nl2flat(job_report['NodeList']), MyTool.str2ts(job_report['Start']), MyTool.str2ts(job_report['End']))
@@ -1088,18 +1088,17 @@ class SLURMMonitorUI(object):
             for proc in procs:
                 worker2proc[node][5].append([proc['pid'], '{:.2f}'.format(proc['avg_util']), MyTool.getDisplayKB(proc.get('mem_rss_K',0)), MyTool.getDisplayKB(proc.get('mem_vms_K',0)), MyTool.getDisplayBps(proc.get('avg_io',0)), proc['cmdline']])
 
-        return ['PID', 'Avg CPU Util', 'RSS',  'VMS', 'IO Rate', 'Command'], worker2proc
+        return ['PID', 'Avg CPU Util', 'RSS',  'VMS', 'IO Rate', 'Command'], worker2proc, ''
 
     @cherrypy.expose
     def jobDetails(self, jid):
-        if ',' in jid:
-           jid         = jid.split(',')[0]
+        if ',' in jid: jid         = jid.split(',')[0]
         jid            = int(jid)
         ts             = int(time.time())
 
         jobstep_report = SlurmCmdQuery.sacct_getJobReport(jid)
         if not jobstep_report:
-           return "Cannot find job {}".format(jid)
+           return "Cannot find job {} from sacct.".format(jid)
         job_report     = jobstep_report[0]
         job            = PyslurmQuery.getCurrJob(jid)
         if not job:
@@ -1108,11 +1107,11 @@ class SLURMMonitorUI(object):
         msg_note       = ''
         worker2proc    = {}
         proc_disp_field= []
-        if not job or (job['job_state'] not in ['RUNNING','PENDING']):           #job is not running or pending
+        if not job:
+           msg_note    = "Cannot find job {} from slurmdb.".format(jid)
+        elif job['job_state'] not in ['RUNNING','PENDING']:           #job is not running or pending
            job_name    = job_report['JobName']
-           proc_disp_field, worker2proc = self.getDoneJobProc(jid, job_report)   #get result from influx
-           if not worker2proc:
-              msg_note = proc_disp_field
+           proc_disp_field, worker2proc, msg_note = self.getDoneJobProc(jid, job_report)   #get result from influx
         else:                                                                    #running job's proc is in self.data
            job_name    = job['name']
            if job['job_state'] == 'RUNNING':
@@ -1261,8 +1260,8 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def jobGraph(self, jobid, history="FULL", start="", stop=""):
-        jobid = int(jobid)
+    def jobGraph(self, jid, history="FULL", start="", stop=""):
+        jobid = int(jid)
         if history != "FULL":
            start, stop = MyTool.getStartStopTS(start, stop, formatStr='%Y-%m-%dT%H:%M')
         else:
