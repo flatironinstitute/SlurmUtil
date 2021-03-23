@@ -708,5 +708,20 @@ function createJobHistoryTable (job_history, array_het_jids, job_history_table_i
    if (excludeGPU)
       delete j_h_titles.AllocGPUS
    createTable (job_history, j_h_titles,  job_history_table_id, parent_id, undefined, {'JobID':'job_step', 'JobIDRaw':'job_step'})
+}
 
+function createUserPartTable (part_info, part_table_id, parent_id) {
+   const part_titles    = {'name': 'Part.', 'flag_shared':'Sharable',
+                           'user_avail_nodes':'Node', 'user_avail_cpus':'CPU', 'user_avail_gpus': 'GPU',
+                           'user_lmt_nodes'  :'Node', 'user_lmt_cpus'  :'CPU', 'user_lmt_gpus'  :'GPU',
+                           'user_alloc_nodes':'Node', 'user_alloc_cpus':'CPU', 'user_alloc_gpus':'GPU',
+                           'grp_lmt_nodes'   :'Node', 'grp_lmt_cpus'   :'CPU', 'grp_lmt_gpus'   :'GPU',
+                           'grp_alloc_nodes' :'Node', 'grp_alloc_cpus' :'CPU', 'grp_alloc_gpus' :'GPU',
+                           'total_nodes'     :'Node', 'total_cpus'     :'CPU', 'total_gpus'     :'GPU',
+                           'avail_nodes_cnt' :'Node', 'avail_cpus_cnt' :'CPU', 'avail_gpus_cnt' :'GPU',
+                          }
+
+   createTable (part_info, part_titles, part_table_id, parent_id, undefined, {'name':'partition'})
+   // add one extra line to category table headers
+   $('#' + part_table_id + ' thead').prepend('<tr><th colspan="2"></th><th colspan="3">User Avail</th><th colspan="3">User Lmt</th><th colspan="3">User Alloc</th><th colspan="3">Grp Lmt</th><th colspan="3">Grp Alloc</th><th colspan="3">Part. Total</th><th colspan="3">Part. Avail</th></tr>')
 }

@@ -49,18 +49,9 @@ class SLURMMonitorUI(object):
         self.data            = 'No data received yet. Please wait a minute and come back.'
         self.pyslurmNode     = None
 
-    def getDFBetween(self, df, field, start, stop):
-        if start:
-            start = time.mktime(time.strptime(start, '%Y-%m-%d'))
-            df    = df[df[field] >= start]
-        if stop:
-            stop  = time.mktime(time.strptime(stop,  '%Y-%m-%d'))
-            df    = df[df[field] <= stop]
-        if not df.empty:
-            start = df.iloc[0][field]
-            stop  = df.iloc[-1][field]
-
-        return start, stop, df
+    @cherrypy.expose
+    def default(self, user):
+        return self.userDetails(user)
 
     @cherrypy.expose
     def qosDetail(self, qos='gpu'):
@@ -630,6 +621,7 @@ class SLURMMonitorUI(object):
     def index(self, **args):
         if not self.monData.hasData():
            return self.getNoDataPage ('Tabular Summary', 'index')
+        logger.info("index args={}".format(args))
 
         column      = [key for key, val in self.getSummaryColumn().items() if val]
         gpudata     = None
