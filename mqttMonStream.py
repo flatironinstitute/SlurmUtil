@@ -114,8 +114,10 @@ class FileWebUpdater(threading.Thread):
                logger.warning("The time period betweeen {} and {} is too small, use 1 to calculate IOBps".format(msg_ts, pre_ts))
                d = 1
             IOBps   = int((proc['io']['read_bytes']+proc['io']['write_bytes'] - i0)/d)
+
             #add jid 12/09/2019, add io_read, write 12/13/2019
-            uid2procs[proc['uid']].append([pid, CPURate, proc['create_time'], proc['cpu']['user_time'], proc['cpu']['system_time'], proc['mem']['rss'], proc['mem']['vms'], proc['cmdline'], IOBps, proc['jid'], proc['num_fds'], proc['io']['read_bytes'], proc['io']['write_bytes']])
+            proc_lst = [pid, CPURate, proc['create_time'], proc['cpu']['user_time'], proc['cpu']['system_time'], proc['mem']['rss'], proc['mem']['vms'], proc['cmdline'], IOBps, proc['jid'], proc['num_fds'], proc['io']['read_bytes'], proc['io']['write_bytes'], proc['uid']]
+            uid2procs[proc['uid']].append(proc_lst)
 
         # get summary over processes of uid
         for uid, procs in uid2procs.items():  # proc: [pid, CPURate, create_time, user_time, system_time, rss, vms, cmdline, IOBps]
@@ -124,7 +126,7 @@ class FileWebUpdater(threading.Thread):
             totRSS     = sum([proc[5]         for proc in procs])
             totVMS     = sum([proc[6]         for proc in procs])
             totIOBps   = sum([proc[8]         for proc in procs])
-            procsByUser.append ([MyTool.getUser(uid), uid, uid2cpuCnt.get(uid, -1), len(procs), totCPURate, totRSS, totVMS, procs, totIOBps, totCPUTime])
+            procsByUser.append ([MyTool.getUser(uid), uid, uid2cpuCnt.get(uid,0), len(procs), totCPURate, totRSS, totVMS, procs, totIOBps, totCPUTime])
             
         return procsByUser
 
@@ -157,9 +159,9 @@ class FileWebUpdater(threading.Thread):
                      pre_ts   = pre_msg['hdr']['msg_ts']
                      pre_procs= dict([(proc['pid'], proc) for proc in pre_msg['processes']]) 
 
-               delta      = 0.0 if -1.0 == pre_ts else msg_ts - pre_ts
-               procsByUser= self.getProcsByUser (hostname, msg_ts, msg_procs, pre_ts, pre_procs, node2uid2cpuCnt.get(hostname, {}))
-               nodeUserProcs[hostname]   = [slurmNode.get('state', '?STATE?'), delta, msg_ts] + procsByUser
+               delta                   = 0.0 if -1.0 == pre_ts else msg_ts - pre_ts
+               procsByUser             = self.getProcsByUser (hostname,msg_ts,msg_procs,pre_ts,pre_procs,node2uid2cpuCnt.get(hostname,{}))
+               nodeUserProcs[hostname] = [slurmNode.get('state', '?STATE?'), delta, msg_ts] + procsByUser
                # upate savNode2TsProcs
                self.savNode2TsProcs[hostname] = (msg_ts, msg_procs, nodeUserProcs[hostname])
 

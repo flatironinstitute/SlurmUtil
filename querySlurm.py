@@ -29,22 +29,37 @@ class SlurmStatus:
 
 class SlurmCmdQuery:
     TS_ASSOC     = 0
-    DICT_ASSOC   = {}
+    DICT_ASSOC   = {}  # {'user':'account'}
     SET_ACCT     = set()
 
     def __init__(self):
         pass
 
     @staticmethod
-    def sacct_getUserJobReport (user, days=3, output='JobID,JobIDRaw,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End', skipJobStep=True):
-        return SlurmCmdQuery.sacct_getReport(['-u', user], days, output, skipJobStep)
+    def getUserJobReport (user, days=3, output='JobID,JobIDRaw,JobName,AllocCPUS,AllocTRES,State,ExitCode,User,NodeList,Start,End'):
+        job_list = SlurmCmdQuery.sacct_getReport(['-u', user], days, output, skipJobStep=True)
+        for job in job_list:
+            if job['State']=='RUNNING':
+               continue
+            eff = SlurmCmdQuery.seff_cmd(job['JobID'])
+            eff.pop("State")
+            job.update(eff)
+        return job_list
+
+    @staticmethod
+    def getNodeJobReport (node, days=3, output='JobID,JobIDRaw,JobName,AllocCPUS,AllocTRES,State,ExitCode,User,NodeList,Start,End'):
+        job_list = SlurmCmdQuery.sacct_getReport(['-N', node], days, output, skipJobStep=True)
+        for job in job_list:
+            if job['State']=='RUNNING':
+               continue
+            eff = SlurmCmdQuery.seff_cmd(job['JobID'])
+            eff.pop("State")
+            job.update(eff)
+        return job_list
 
     @staticmethod
     def sacct_getNodeReport (nodeName, days=3, output = 'JobID,JobIDRaw,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocTRES', skipJobStep=True):
         jobs = SlurmCmdQuery.sacct_getReport(['-N', nodeName], days, output, skipJobStep)
-        if 'AllocTRES' in output:
-           for job in jobs:
-               job['AllocGPUS']=MyTool.getTresGPUCount(job['AllocTRES'])
         return jobs
  
     @staticmethod
@@ -56,7 +71,7 @@ class SlurmCmdQuery:
            return None
         return jobs
 
-    # return {jid:jinfo, ...}
+    # return [jid:jinfo, ...}
     @staticmethod
     def sacct_getReport (criteria, days=3, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End', skipJobStep=True):
         #print('sacct_getReport {} {} {}'.format(criteria, days, skipJobStep))
@@ -91,6 +106,10 @@ class SlurmCmdQuery:
             job = dict(zip(keys, ff))
             jobs.append(job)
 
+        if 'AllocTRES' in output:
+           for job in jobs:
+               job['AllocGPUS']=MyTool.getTresGPUCount(job['AllocTRES'])
+
         return jobs
 
     @staticmethod
@@ -105,6 +124,22 @@ class SlurmCmdQuery:
             return 'Command "%s" returned %d with output %s.<br>'%(' '.join(cmd), e.returncode, repr(e.output))
         fields, *rlt = d.decode('utf-8').splitlines()
         return fields, rlt
+
+    @staticmethod
+    def seff_cmd (jid):
+        #has problem with constrains such as skylank|broadwell
+        cmd = ['seff', str(jid)]
+        #print('{}'.format(cmd)) 
+        try:
+            #TODO: capture standard error separately?
+            d = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            return 'Command "%s" returned %d with output %s.<br>'%(' '.join(cmd), e.returncode, repr(e.output))
+        rlt = {}
+        for line in d.decode('utf-8').splitlines():
+            key, value = line.split(': ',1)
+            rlt[key] = value
+        return rlt
 
     @staticmethod
     def updateAssoc ():
@@ -262,7 +297,7 @@ class PyslurmQuery():
     #only in job: ['accrue_time', 'admin_comment', 'alloc_node', 'alloc_sid', 'assoc_id', 'batch_flag', 'batch_features', 'batch_host', 'billable_tres', 'bitflags', 'boards_per_node', 'burst_buffer', 'burst_buffer_state', 'command', 'comment', 'contiguous', 'core_spec', 'cores_per_socket', 'cpus_per_task', 'cpus_per_tres', 'cpu_freq_gov', 'cpu_freq_max', 'cpu_freq_min', 'dependency', 'eligible_time', 'end_time', 'exc_nodes', 'exit_code', 'features', 'group_id', 'job_id', 'job_state', 'last_sched_eval', 'licenses', 'max_cpus', 'max_nodes', 'mem_per_tres', 'name', 'network', 'nice', 'ntasks_per_core', 'ntasks_per_core_str', 'ntasks_per_node', 'ntasks_per_socket', 'ntasks_per_socket_str', 'ntasks_per_board', 'num_cpus', 'num_nodes', 'num_tasks', 'mem_per_cpu', 'min_memory_cpu', 'mem_per_node', 'min_memory_node', 'pn_min_memory', 'pn_min_cpus', 'pn_min_tmp_disk', 'power_flags', 'profile', 'qos', 'reboot', 'req_nodes', 'req_switch', 'requeue', 'resize_time', 'restart_cnt', 'run_time', 'run_time_str', 'sched_nodes', 'shared', 'show_flags', 'sockets_per_board', 'sockets_per_node', 'start_time', 'state_reason', 'std_err', 'std_in', 'std_out', 'submit_time', 'suspend_time', 'system_comment', 'time_limit', 'time_limit_str', 'time_min', 'threads_per_core', 'tres_bind', 'tres_freq', 'tres_per_job', 'tres_per_node', 'tres_per_socket', 'tres_per_task', 'user_id', 'wait4switch', 'gres_detail', 'cpus_allocated', 'cpus_alloc_layout']
     #only in db_job: ['alloc_gres', 'alloc_nodes', 'associd', 'blockid', 'cluster', 'derived_es', 'elapsed', 'eligible', 'end', 'exitcode', 'gid', 'jobid', 'jobname', 'lft', 'qosid', 'req_cpus', 'req_gres', 'req_mem', 'requid', 'resvid', 'show_full', 'start', 'state', 'state_str', 'stats', 'steps', 'submit', 'suspended', 'sys_cpu_sec', 'sys_cpu_usec', 'timelimit', 'tot_cpu_sec', 'tot_cpu_usec', 'track_steps', 'uid', 'used_gres', 'user', 'user_cpu_sec', 'wckeyid']
     COMMON_FLD  = ['account', 'array_job_id', 'array_task_id', 'array_task_str', 'array_max_tasks', 'derived_ec', 'nodes', 'partition', 'priority', 'resv_name', 'tres_alloc_str', 'tres_req_str', 'wckey', 'work_dir']
-    MAP_JOB2DBJ = {'submit_time':'submit', 'start_time':'start','end_time':'end', 'exitcode':'exit_code', 'jobid':'job_id', 'user_id':'uid', 'job_state':'state_str'}
+    MAP_JOB2DBJ = {'submit_time':'submit', 'start_time':'start','end_time':'end', 'exitcode':'exit_code', 'jobid':'job_id', 'job_state':'state_str'}
     DEF_REQ_FLD = COMMON_FLD + list(MAP_JOB2DBJ.keys())
     @staticmethod
     def getSlurmDBJob (jid, req_fields=DEF_REQ_FLD):
@@ -270,6 +305,7 @@ class PyslurmQuery():
         if not job:   # cannot find
            return None
 
+        job['user_id']=MyTool.getUid(job['user'])
         for f in req_fields:
             if f in job:
                continue
@@ -283,6 +319,10 @@ class PyslurmQuery():
             else:                 # cannot be converted
                logger.error("Cannot find/map reqested job field {} in job {}".format(f, job))
         return job
+
+def test1():
+    rlt=SlurmCmdQuery.seff_cmd (964648)
+    print("rlt={}".format(rlt))
 
 def test2():
     client = SlurmDBQuery()
@@ -313,7 +353,7 @@ def main():
     #print(SlurmStatus.getStatusID('running1'))
     #print(SlurmStatus.getStatus(1))
     #info = client.test()
-    test4()
+    test1()
     print("main take time " + str(time.time()-t1))
 
 if __name__=="__main__":

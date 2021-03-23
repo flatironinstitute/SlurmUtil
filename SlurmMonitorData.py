@@ -463,13 +463,12 @@ class SLURMMonitorData(object):
         #updated the data
         d =  cherrypy.request.body.read()
         self.updateTS, self.data, self.pyslurmJobs, self.pyslurmNodes, self.currJobs, self.node2jids = self.extractSlurmData(d)
-        logger.info("self.data={}".format(self.data))
         self.inMemCache.append(self.data, self.updateTS, self.pyslurmJobs)
         
 
     def extractSlurmData (self, d):
         updateTS, pyslurmJobs, hn2info, pyslurmNodes = cPickle.loads(zlib.decompress(d))
-        logger.info("hn2info={}".format(hn2info))
+        #logger.info("hn2info={}".format(hn2info))
         updateTS  = int(updateTS)
         currJobs  = dict([(jid,job) for jid, job in pyslurmJobs.items() if job['job_state'] in ['RUNNING', 'CONFIGURING']])
         node2jids = SLURMMonitorData.createNode2Jids (currJobs)
@@ -515,7 +514,6 @@ class SLURMMonitorData(object):
         #BulletinBoard
         #self.bulletinBoard.addLowUtilJobNotice (self.updateTS, low_util)
         #TODO: synchorize update to jobNoticeSender and BulletinBoard
-        logger.info("nodeData={}".format(nodeData))
         return updateTS, nodeData, pyslurmJobs, pyslurmNodes, currJobs, node2jids
 
     def getNodeProc (self, node):
@@ -589,18 +587,18 @@ class SLURMMonitorData(object):
             for user_name, uid, alloc_core_cnt, proc_cnt, t_cpu, t_rss, t_vms, procs, t_io, *etc in d[USER_INFO_IDX:]:
                 if user_name == user:
                    #procs[[pid, intervalCPUtimeAvg, create_time, 'user_time', 'system_time, 'rss', 'vms', 'cmdline', intervalIOByteAvg],...]
-                   
                    job_procs = []
                    job_cpu   = 0
                    # 09/09/2019 add jid
                    for pid, intervalCPUtimeAvg, create_time, user_time, system_time, rss, vms, cmdline, intervalIOByteAvg, jid, num_fds, *etc in procs:
                        if jid == job_info['job_id']:
-                          proc_avg_cpu = (user_time+system_time) / (ts-job_start) if job_start > 0 else 0
-                          job_procs.append ([pid, '{:.2f}'.format(intervalCPUtimeAvg), '{:.2f}'.format(proc_avg_cpu), MyTool.getDisplayB(rss), MyTool.getDisplayB(vms), MyTool.getDisplayBps(intervalIOByteAvg), num_fds, ' '.join(cmdline)])
-                          job_cpu     += proc_avg_cpu
+                          #proc_avg_cpu = (user_time+system_time) / (ts-job_start) if job_start > 0 else 0  # job_start != proc_start
+                          #job_procs.append ([pid, '{:.2f}'.format(intervalCPUtimeAvg), '{:.2f}'.format(proc_avg_cpu), MyTool.getDisplayB(rss), MyTool.getDisplayB(vms), MyTool.getDisplayBps(intervalIOByteAvg), num_fds, ' '.join(cmdline)])
+                          job_procs.append ([pid, '{:.2f}'.format(intervalCPUtimeAvg), MyTool.getDisplayB(rss), MyTool.getDisplayB(vms), MyTool.getDisplayBps(intervalIOByteAvg), num_fds, ' '.join(cmdline)])
+                          job_cpu     += intervalCPUtimeAvg
                    #TODO: t_rss, t_vms, t_io incorrect, should do similar thing as job_cpu
-                   node2job[node_name]= [int(job_info['cpus_allocated'][node_name]), len(job_procs), job_cpu, t_rss, t_vms, job_procs, t_io]
-        return ['PID', 'Inst CPU Util', 'Avg CPU Util', 'RSS', 'VMS', 'IO Rate', 'Num Fds', 'Command'], node2job
+                   node2job[node_name]= [int(job_info['cpus_allocated'][node_name]), len(job_procs), job_cpu/len(job_procs), t_rss, t_vms, job_procs, t_io]
+        return ['PID', 'Inst CPU Util', 'RSS', 'VMS', 'IO Rate', 'Num Fds', 'Command'], node2job
 
     def getUserData(self):
         hostdata   = {host:v for host,v  in self.data.items()}

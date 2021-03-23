@@ -30,19 +30,14 @@
           var node_info       = {node_info}
           var proc_title      = ['PID', 'Avg CPU Util', 'RSS', 'VMS','IO Rate', 'Command']
           var proc_type       = [null,  'Float',        'B',   'B',  'Bps',      null]
-          var j_h_titles      = {{'JobIDRaw':'Job ID', 'JobID':'Job ID(Report)','JobName':'Name','User':'User','AllocCPUS':'Alloc CPU','AllocGPUS':'Allc GPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
-          var j_h_type_dict   = {{'JobID':'JobAndStep','JobIDRaw':'JobAndStep','User':'User'}}
           var array_het_jids  = {array_het_jids}
 
           // title line
           $("#node_state").text(node_data["state"])
           if (node_data["gpus"])
              $("#gpu_link").html(", <a href='nodeGPUGraph?node=" + node_data["name"] + "'>GPU Graph</a>")
-          else
-             delete j_h_titles.AllocGPUS   // do not display empty AllocGPUs in job table
 
           // node information
-          //createList        (node_info, {{'features':'Features','partitions':'Partitions','tres_fmt_str':'TRES','gres':'GRES','boot_time':'Boot Time','alloc_cpus':'Alloc CPUs','alloc_mem':'Alloc Mem','alloc_gpus':'Alloc GPUs','running_jobs':'Running Jobs'}}, '#div_node_info', {{'boot_time':'Time','alloc_mem':'Mem_MB'}})
           createNoHeaderTable (node_info, 
                  {{'features':'Features','partitions':'Partitions','tres_fmt_str':'TRES','gres':'GRES','boot_time':'Boot Time','alloc_cpus':'Alloc CPUs','alloc_mem':'Alloc Mem','alloc_gpus':'Alloc GPUs','running_jobs':'Running Jobs'}}, 
                  {{'boot_time':'timestamp','alloc_mem':'M', 'partitions':'partition_list'}}, 
@@ -56,9 +51,11 @@
           createMultiTable2 (node_data["jobProc"], '#div_job', proc_title, node_data["name"], proc_type)
 
           // job history
-          if (!array_het_jids.length)
-             delete j_h_titles.JobID
-          createTable       ({node_report}, j_h_titles,  'node_history_table', 'div_sacct_report', undefined, j_h_type_dict)
+          if (node_data["gpus"])
+             exclude_gpu = false
+          else
+             exclude_gpu = true
+          createJobHistoryTable ({node_report}, array_het_jids, 'node_history_table', 'div_sacct_report', exclude_gpu)
       }});
     </script>
   </head>

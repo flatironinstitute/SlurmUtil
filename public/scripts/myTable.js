@@ -61,7 +61,7 @@ function createMultiTitle (data_dict, parent_id, job_id) {
                var procLink = '<a href="./nodeJobProcGraph?node=' + d + '&jid=' + job_id + '"> (Proc Usage Graph) </a>'
                var rlt      = '<a href="./nodeDetails?node=' + d + '">' + d + '</a>: ' + data_dict[d][1] + ' processes'
                if (data_dict[d][0]>0)
-                  rlt  = rlt + ' on ' + data_dict[d][0] + ' CPUs, avg CPU util ' + data_dict[d][2].toFixed(2)
+                  rlt  = rlt + ' on ' + data_dict[d][0] + ' CPUs, Avg Inst. CPU util ' + data_dict[d][2].toFixed(2)
                rlt          = rlt + procLink
                return rlt})
    return pas
@@ -201,8 +201,14 @@ function getSummaryHtml (d, key, summary_type, sortCol)
    }
 }
 
+DISPLAY_FUNC={'user': getUserDetailHtml, "timestamp":getTS_LString, 'partition':getPartDetailHtml,'qos':getQoSDetailHtml,"partition_list": getPartitionListHtml, "M":getDisplayM,
+              'job':getJobDetailHtml,'job_name':getJobNameHtml,'job_step':getJob_StepHtml,'job_list':getJobListHtml,'job_list_summary':getJobListSummaryHtml}
 function getTypedHtml (d, type_dict)
 {
+   var func = DISPLAY_FUNC[type_dict[d.key]]
+   //                        if (func) {
+   //                           return func(d.value)
+   //                        }
    if (d.value && type_dict)
       return getTypedValueHtml (d.value, type_dict[d.name]);
    else
@@ -364,28 +370,7 @@ function createSummaryTbody (tbody, allData, sortCol, titles_dict, type_dict, su
                       .html(function(d) {
                                return d.html});
    //console.log(rows)
-/*
-   rows.selectAll('td')
-       .data(function (d) {
-                // if d summary or detail
-                if (d.type=='summary')
-                   return Object.keys(titles_dict).map(function (k) {
-                                                       if (d[k]!=undefined) return { 'value': getSummaryHtml(d,k,summary_type,sortCol), 'name': k, 'type':'summary'};
-                                                       else      return { 'value': '',   'name': k};
-                                                    });
-                else
-                   return Object.keys(titles_dict).map(function (k) {
-                                                       if (d[k]!=undefined) return { 'value': d[k], 'name': k};
-                                                       else      return { 'value': '',   'name': k};
-                                                    });
-       }).enter()
-       .append('td')
-            .attr('class', function(d) { if (d.type=='summary' && d.name==expCol) return "expand";
-                                         else                                     return type_dict[d.name];})
-            .html(         function(d) { if (d.type=='summary') return d.value;
-                                         //else                   return getTypedHtml(d, type_dict) });
-                                         else                   return d.value });
-*/
+   //use d3 to generate rows are slow
    // set up behavor
    // sortCol of summary row has class "expand", on click triggle display detail rows, then toggle class
    //
@@ -619,7 +604,13 @@ function createTable (data, titles_dict, table_id, parent_id, pre_data_func, typ
             .attr('group-cnt', function (d) {
                         if (d.group_cnt) return d.group_cnt; })
             .html(function (d) {
-                 return getTypedHtml (d, type_dict)
+                 if (type_dict) {
+                    var func = DISPLAY_FUNC[type_dict[d.name]]
+                    if (func) {
+                       return func(d.value);
+                    } 
+                 }
+                 return d.value;
             });
         createTableHeader(table, titles_dict, rows)
 };
@@ -676,7 +667,7 @@ function filterDict2NestList (data_dict, req_fields)
     var f      = req_fields.filter(function (k) {return data_dict.hasOwnProperty(k) && data_dict[k] && data_dict[k]!="None"})  //keep the order in fields
     return f.map(function (k) { return [k, data_dict[k]] })
 }
-DISPLAY_FUNC={'user': getUserDetailHtml, "timestamp":getTS_LString, 'partition':getPartDetailHtml,'qos':getQoSDetailHtml,"partition_list": getPartitionListHtml, "M":getDisplayM,'job_list':getJobListHtml,'job_list_summary':getJobListSummaryHtml}
+//DISPLAY_FUNC={'user': getUserDetailHtml, "timestamp":getTS_LString, 'partition':getPartDetailHtml,'qos':getQoSDetailHtml,"partition_list": getPartitionListHtml, "M":getDisplayM,'job_list':getJobListHtml,'job_list_summary':getJobListSummaryHtml}
 //table without header, 1st column is key, 2nd column is value
 //input: data_dict is a dictionary with {key: value}, 
 //       disp_dict is a dictionary {display_key: display_text}, 
@@ -708,3 +699,14 @@ function createNoHeaderTable (data_dict, disp_dict, type_dict, parent_id, table_
                         return d; })
 }
 
+function createJobHistoryTable (job_history, array_het_jids, job_history_table_id, parent_id, excludeGPU=false) {
+   if (array_het_jids.length)
+      tmp = {'JobIDRaw':'Job ID', 'JobID':'Job ID(Report)'}
+   else 
+      tmp = {'JobID':'Job ID'}
+   const j_h_titles = Object.assign(tmp, {'JobName':'Name','State':'State','NodeList':'Alloc Node','AllocCPUS':'Alloc CPU','AllocGPUS':'Alloc GPU','Start':'Start Time','End':'End Time','Job Wall-clock time':'Wall-clock time','CPU Efficiency':'CPU Efficiency','Memory Efficiency':'Memory Efficiency'})
+   if (excludeGPU)
+      delete j_h_titles.AllocGPUS
+   createTable (job_history, j_h_titles,  job_history_table_id, parent_id, undefined, {'JobID':'job_step', 'JobIDRaw':'job_step'})
+
+}

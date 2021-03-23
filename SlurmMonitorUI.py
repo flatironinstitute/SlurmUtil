@@ -929,7 +929,7 @@ class SLURMMonitorUI(object):
         if nodeData['jobProc']:
            nodeDisplay['running_jobs'] = list(nodeData['jobProc'].keys())
 
-        nodeReport     = SlurmCmdQuery.sacct_getNodeReport(node, days=3)
+        nodeReport     = SlurmCmdQuery.getNodeJobReport(node, days=3)
         array_het_jids = [ job['JobID'] for job in nodeReport if '_' in job['JobID'] or '+' in job['JobID']]
         htmlTemp       = os.path.join(config.APP_DIR, 'nodeDetail.html')
         htmlStr        = open(htmlTemp).read().format(update_time    = MyTool.getTsString(nodeData['updateTS']),
@@ -963,7 +963,7 @@ class SLURMMonitorUI(object):
            userworker = {}
            core_cnt   = 0
            proc_cnt   = 0
-        past_job      = SlurmCmdQuery.sacct_getUserJobReport(user, days=int(days))
+        past_job      = SlurmCmdQuery.getUserJobReport(user, days=int(days))
         array_het_jids= [job['JobID'] for job in past_job if '_' in job['JobID'] or '+' in job['JobID']]  # array of heterogenour job
 
         running_jobs  = userjob.get('RUNNING',[])
@@ -1368,14 +1368,41 @@ class SLURMMonitorUI(object):
            return None
 
         cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes  = [],[],[],[]  ##[{'data': [[1531147508, value]...], 'name':'workerXXX'}, ...]
-        for pid, pidSeq in seq.items():
-            if start and (start < first):
-               pidSeq.insert(0, (start, 0, 0, 0, 0))
+        # deal with too many sequence
+        pid_list = sorted(list(seq))
+        cut      = 140
+        if len(seq) > cut:  # too many sequence
+            pid_summary = pid_list[:-cut]
+            ts_sum      = defaultdict(lambda: defaultdict(int))        # ts: {cpu: mem, io_r, io_w}
+            for pid in pid_summary:
+                pidSeq  = seq[pid]
+                logger.info("pidSeq={}".format(pidSeq))
+                for p in pidSeq:
+                    ts      = p[0]
+                    ts_sum[ts]['cpu']  += p[1] 
+                    ts_sum[ts]['mem']  += p[2] 
+                    ts_sum[ts]['io_r'] += p[3] 
+                    ts_sum[ts]['io_w'] += p[4] 
+                    ts_sum[ts]['cnt']  += 1
+
+            logger.info("ts_sum={}".format(ts_sum))
+            summary_cnt = len(seq)-cut
+            summary_pid = "Avg {}...{} tot {} procs".format(pid_list[0], pid_list[-cut-1], summary_cnt)
+            summary_seq = [(ts, d['cpu']/d['cnt'], d['mem']/d['cnt'], d['io_r']/d['cnt'], d['io+w']/d['cnt']) for ts, d in ts_sum.items()]
+            logger.info("summary={}:{}".format(summary_pid, summary_seq))
+                
+            pid_list    = [summary_pid] + pid_list[-cut:]
+            seq[summary_pid] = summary_seq
+        
+        for pid in pid_list:
+            pidSeq = seq[pid]
+            #if start and (start < first):
+            #   pidSeq.insert(0, (start, 0, 0, 0, 0))
             #convert cpu seconds to cpu util
-            cpu_all_nodes.append  ({'name': pid, 'data': MyTool.getSeqDeri_x(pidSeq, 0, 1)})
+            cpu_all_nodes.append  ({'name': pid, 'data': MyTool.getSeqDeri_x(pidSeq, 0, 1, True)})
             mem_all_nodes.append  ({'name': pid, 'data': [[item[0], item[2]] for item in pidSeq]})
-            io_r_all_nodes.append ({'name': pid, 'data': MyTool.getSeqDeri_x(pidSeq, 0, 3)})
-            io_w_all_nodes.append ({'name': pid, 'data': MyTool.getSeqDeri_x(pidSeq, 0, 4)})
+            io_r_all_nodes.append ({'name': pid, 'data': MyTool.getSeqDeri_x(pidSeq, 0, 3, True)})
+            io_w_all_nodes.append ({'name': pid, 'data': MyTool.getSeqDeri_x(pidSeq, 0, 4, True)})
 
         return first, last, cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes
 

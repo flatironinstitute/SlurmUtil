@@ -14,6 +14,15 @@ function getJobListSummaryHtml(lst) {
     var html_str  = html_list.join(',')
     return (lst.length>10) ? html_str + '... total ' + lst.length + ' jobs' : html_str
 }
+function getJobNameHtml(name) {
+    return '<a href=./jobByName?name=' + name + '>' + name + '</a>'
+}
+function getJob_StepHtml(d_value) {
+    if ((d_value.toString().indexOf('.') == -1) && (d_value.toString().indexOf('_')==-1))   // not jobstep
+       return '<a href=./jobDetails?jid=' + d_value+'>' + d_value + '</a>'
+    return d_value
+}
+
 function getUserDetailHtml (user) {
     return '<a href=./userDetails?user=' + user + '>' + user + '</a>'
 };
