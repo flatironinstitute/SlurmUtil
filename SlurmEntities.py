@@ -16,6 +16,7 @@ from querySlurm import SlurmCmdQuery
 logger   = config.logger
 #MyTool.getFileLogger('SlurmEntities', logging.DEBUG)  # use module name
 
+#TODO: job['num_tasks'] what is it
 PEND_EXP={
     'QOSMaxCpuPerUserLimit': 'Will exceed QoS user CPU  limit ({max_cpu_user}). User {user} already alloc {curr_cpu_user}  CPUs in {partition}.', # QOS MaxTRESPerUser exceeded (CPU) 
     'QOSMaxNodePerUserLimit':'Will exceed QoS user Node limit ({max_node_user}). User {user} already alloc {curr_node_user} Nodes in {partition}.',	                         # QOS MaxTRESPerUser exceeded (Node)
@@ -432,6 +433,7 @@ class SlurmEntities:
           if job['sched_nodes']:
              higherJobs.append (job)
              res_nodes.extend  (MyTool.nl2flat(job['sched_nodes']))
+          logger.info("{}:{} pending expl: {}".format(job['job_id'], job['state_reason'], exp)) 
       return pending
 
   def exp_QOSMaxJobsPerUserLimit (self, job, p_name, higherJobs=None):

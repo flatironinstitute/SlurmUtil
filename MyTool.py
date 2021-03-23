@@ -132,6 +132,8 @@ def sub_dict_exist(somedict, somekeys):
     return dict([ (k, somedict[k]) for k in somekeys if (k in somedict) and (somedict[k])])
 def sub_dict_exist_remove(somedict, somekeys):
     return dict([ (k, somedict.pop(k)) for k in somekeys if (k in somedict) and (somedict[k])])
+def sub_dict_nonempty(somedict, somekeys):
+    return dict([ (k, somedict[k]) for k in somekeys if (k in somedict) and (not emptyValue(somedict[k]))])
 
 def flatten(d, parent_key='', sep='_'):
     items = []
@@ -154,7 +156,7 @@ def emptyValue (v):
 
 #assume remove_dict_empty has been called before
 #update fields who are dict or other to string
-def update_dict_value2string (d):
+def dict_complex2str (d):
     for k, v in d.items():
         if not isinstance (v, (int, float, str, bool)):
            d[k] = repr(v)
@@ -477,20 +479,23 @@ def getFileLogger (name, level=logging.WARNING, file_name=None, rotate=True):
 
     return logger
 
-def getSeqDiff (seq, idx):
+def getSeqDiff (seq, idx, no_neg=False):
     x1    = [ item[idx] for item in seq ]
     x2    = x1[0:len(x1)-1]
     x1.pop(0)
-    return list(map(operator.sub, x1, x2))
+    rlt   = list(map(operator.sub, x1, x2))
+    if no_neg:
+       rlt = [max(0,i) for i in rlt]
+    return rlt
 
 #get derivative of seq 
-def getSeqDeri (seq, xIdx, yIdx):
+def getSeqDeri (seq, xIdx, yIdx, no_neg=False):
     xDiff = getSeqDiff (seq, xIdx)
-    yDiff = getSeqDiff (seq, yIdx)
+    yDiff = getSeqDiff (seq, yIdx, no_neg)
     return list(map(operator.truediv, yDiff, xDiff))
 
-def getSeqDeri_x (seq, xIdx, yIdx):
-    deri = getSeqDeri(seq, xIdx, yIdx)
+def getSeqDeri_x (seq, xIdx, yIdx, no_neg=False):
+    deri = getSeqDeri(seq, xIdx, yIdx, no_neg)
     x    = [ item[xIdx] for item in seq ]
     x.pop(0)
     return [[item[0], item[1]] for item in zip(x,deri)]
