@@ -188,6 +188,7 @@ class BrightRestClient:
         lst      = [','.join(['{}:gpu{}'.format(m,i) for i in gpu_list]) for m in measure_list]
         measures = ','.join(lst)
         q_str    = '{}/dump?entity={}&measurable={}&start={}&epoch=1'.format(self.base_url,entities,measures,start)
+        logger.debug ("query={}".format(q_str))
         return q_str
 
 def test1():

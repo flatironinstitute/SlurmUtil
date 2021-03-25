@@ -26,15 +26,16 @@
 
 
       $(document).ready(() => {{
-          var j_title    = {{'job_id':'Job', 'user':'User', 'num_cpus':'#CPUs', 'low_util_msg':'Message'}};
-          var o_title    = {{'source':'Source', 'ts':'Time', 'low_util_msg':'Message'}};
-          var type       = {{'job_id':'JobAndStep', 'user':'User', 'ts':'Time'}};
+          var j_title    = {{'job_id':'Job', 'name':'Job Name','user':'User', 'account':'Account','run_time_str':'Wall-clock Time','time_limit_str':'Wall-clock Limit','nodes':'Nodes','num_cpus':'#CPUs', 'job_avg_util':'Avg CPU Util', 'job_mem_util':'Mem Util','job_io_bps':'Avg I/O bps'}};
+          var o_title    = {{'source':'Source', 'ts':'Time', 'msg':'Message'}};
+          var type       = {{'job_id':'job_step', 'user':'user', 'ts':'timestamp', 'job_avg_util':'float','job_mem_util':'float'}};
 
           //create table job_table and part_table
           createTable  ({low_util},   j_title,  'low_util_table',  'low_util',  undefined, type)
-          createTable  ({low_node},   {{'name':'Node', 'msg':'Message'}}, 'low_node_table',  'low_node',  undefined, {{'name':'Node'}})
+          createTable  ({low_node},   {{'name':'Node', 'msg':'Message'}}, 'low_node_table',  'low_node',  undefined, {{'name':'node'}})
           createTable  ({other},      o_title,  'other_table',     'other',     undefined, type)
-          collapseTitle ();
+          expandTitle ();
+          //collapseTitle ();
       }});
     </script>
   </head>
@@ -55,7 +56,7 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
-            <h3 class="table__title">Running Jobs with Low Resource Utilization:</h3>
+            <h3 class="table_title">Running Jobs with Low Resource Utilization:</h3>
             <div class="table__subtitle" id="low_util">
             </div>
           </div>
@@ -73,7 +74,7 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
-            <h3>Other:</h3>
+            <h3 class="table_title">Other:</h3>
             <div class="table__subtitle" id="other">
             </div>
           </div>

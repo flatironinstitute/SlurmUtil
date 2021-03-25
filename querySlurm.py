@@ -39,7 +39,7 @@ class SlurmCmdQuery:
     def getUserJobReport (user, days=3, output='JobID,JobIDRaw,JobName,AllocCPUS,AllocTRES,State,ExitCode,User,NodeList,Start,End'):
         job_list = SlurmCmdQuery.sacct_getReport(['-u', user], days, output, skipJobStep=True)
         for job in job_list:
-            if job['State']=='RUNNING':
+            if job['State'] in ['RUNNING','PENDING'] :   # seff not available for pending jobs and not accurate for running jobs
                continue
             eff = SlurmCmdQuery.seff_cmd(job['JobID'])
             eff.pop("State")

@@ -94,9 +94,11 @@ class IndexedHostData(object):
         cpu_all_seq, mem_all_seq, io_all_seq = [], [], []
         for node in nodes:
             lst = self.queryData (node, start, end, uname)
-            if lst:
+            if lst[0]['data']:
                cpu_all_seq.append(lst[0])
+            if lst[1]['data']:
                mem_all_seq.append(lst[1])
+            if lst[2]['data']:
                io_all_seq.append (lst[2])
         return cpu_all_seq, mem_all_seq, io_all_seq
 

@@ -209,7 +209,7 @@ class SLURMMonitorData(object):
                jobInfo   = self.currJobs[jid]
                gpu_alloc = [ 'gpu{}'.format(gpu_idx) for gpu_idx in jobInfo['gpus_allocated'].get(node_name,[])]
                if node_name not in gpudata[gpu_name]:
-                  logger.error("gpudata not including {} -{}".format(node_name, gpudata[gpu_name]))
+                  logger.error("gpudata not including {}:{}".format(node_name, gpu_name))
                if node_name not in jobInfo['cpus_allocated']:
                   logger.error("jobInfo not including {} -{}".format(node_name, jobInfo['cpus_allocated']))
                # sometimes, queryBright cannot get some gpu's data, in that case, use 0

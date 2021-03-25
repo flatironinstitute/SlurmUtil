@@ -115,6 +115,8 @@ class InfluxQueryClient:
     #return the query result suitable for highchart
     def getJobMonData_hc (self, jid, start_time=None, stop_time=None):
         d        = self.getJobMonData(jid, start_time, stop_time)
+        if not d:
+           return None
 
         # save data suitable for highchart
         cpu_rlt,mem_rlt,ior_rlt,iow_rlt = [], [], [], []

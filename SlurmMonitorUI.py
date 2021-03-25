@@ -86,8 +86,6 @@ class SLURMMonitorUI(object):
         partLst    = ins.getPartitions ()
         partS      = config.getSetting("part_avail")
         for p in partLst:
-            p['running_jobs'] = ' '.join(str(e) for e in p['running_jobs'])
-            p['pending_jobs'] = ' '.join(str(e) for e in p['pending_jobs'])
             if p['total_nodes'] and p['total_cpus'] and p['total_gpus']:
                if p['avail_nodes_cnt']*100/p['total_nodes'] > partS['node'] or p['avail_cpus_cnt']*100/p['total_cpus'] > partS['cpu'] or (p['total_gpus'] and p['avail_gpus_cnt']*100/p['total_gpus'] > partS['gpu']):
                   p['display_class'] = 'inform'
@@ -1009,27 +1007,31 @@ class SLURMMonitorUI(object):
         uid                     = MyTool.getUid (user)
         jobs_gpu_alloc,jobs_gpu = SLURMMonitorUI.getUserAllocGPU(uid, pyslurm.node().get())  #{'workergpu01':[0,1]
         if not jobs_gpu_alloc:                            #TODO: done jobs
-           return "User {} does not have jobs using GPU.".format(user)
+           return "User {} does not have running jobs using GPU.".format(user)
 
         start_ts     = min([job['start_time'] for job in jobs_gpu])
-        brightClient = BrightRestClient()
         max_gpu_id   = max([i for id_lst in jobs_gpu_alloc.values() for i in id_lst])
-        gpu_dict     = brightClient.getGPU (list(jobs_gpu_alloc.keys()), start_ts, max_gpu_id=max_gpu_id)
+        d            = BrightRestClient().getNodesGPU_Mem(list(jobs_gpu_alloc.keys()), start_ts, max_gpu_id=max_gpu_id, msec=True)
+        gpu_dict     = d['gpu_utilization']
+        mem_dict     = d['gpu_fb_used']
+
         series       = []
+        series2      = []
         idx          = 0
         for node,gpu_list in jobs_gpu_alloc.items():
             for gpu_id in gpu_list:
-                name = '{}.gpu{}'.format(node, gpu_id)
-                if gpu_dict[name][0][0] < (start_ts - 600) * 1000:
-                   gpu_dict[name][0][0] = start_ts * 1000
-                series.append ({'name':'{} ({})'.format(jobs_gpu[idx]['job_id'], name), 'data':gpu_dict[name]})
+                gpu_name = '{}.gpu{}'.format(node, gpu_id)
+                name     = '{} ({})'.format (jobs_gpu[idx]['job_id'], gpu_name)
+                series.append  ({'name':name, 'data':gpu_dict[gpu_name]})
+                series2.append ({'name':name, 'data':mem_dict[gpu_name]})
             idx +=1
 
-        htmltemp = os.path.join(config.APP_DIR, 'nodeGPUGraph.html')
+        htmltemp = os.path.join(config.APP_DIR, 'gpuGraph.html')
         h = open(htmltemp).read()%{'spec_title': ' of User {}'.format(user),
                                    'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(start_ts)),
                                    'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(int(time.time()))),
-                                   'series'    : json.dumps(series)}
+                                   'series'    : json.dumps(series),
+                                   'series2'   : json.dumps(series2)}
         return h
 
     @cherrypy.expose
@@ -1057,7 +1059,7 @@ class SLURMMonitorUI(object):
                 series.append  ({'name':name, 'data':gpu_dict[name]})
                 series2.append ({'name':name, 'data':mem_dict[name]})
 
-        htmltemp = os.path.join(config.APP_DIR, 'nodeGPUGraph.html')
+        htmltemp = os.path.join(config.APP_DIR, 'gpuGraph.html')
         h = open(htmltemp).read()%{'spec_title': ' of Job {}'.format(jid),
                                    'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(job_start)),
                                    'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(int(time.time()))),
@@ -1303,7 +1305,7 @@ class SLURMMonitorUI(object):
               job['user'] = MyTool.getUser(job['user_id'])
         else:
            job = PyslurmQuery.getSlurmDBJob (jobid, req_fields=['start_time', 'end_time', 'user', 'nodes'])
-        logger.info("job={}".format(job))
+        #logger.info("job={}".format(job))
         if not job:
            return ["No data in file for job {}:{}".format(jobid, job)]
 
@@ -1418,7 +1420,7 @@ class SLURMMonitorUI(object):
         for node_gpu,s in mem_data.items():
             series2.append({'name':node_gpu, 'data':s})
 
-        htmltemp = os.path.join(config.APP_DIR, 'nodeGPUGraph.html')
+        htmltemp = os.path.join(config.APP_DIR, 'gpuGraph.html')
         h = open(htmltemp).read()%{'spec_title': ' on {}'.format(node),
                                    'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(start)),
                                    'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(stop)),
