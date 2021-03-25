@@ -220,11 +220,11 @@ class SlurmEntities:
   def nodeWithGPU (self, pyslurm_node, job_tres_per_node):
       lst = job_tres_per_node.split(',')
       if len(lst) > 1:
-         print ('WARNING: tres_per_node of job have more than one value. TODO: change the code')
+         logger.debug ('WARNING: tres_per_node of job have more than one value. TODO: change the code')
 
       lst = lst[0].split(':')
       if lst[0] != 'gpu':   
-         print ('WARNING: tres_per_node of job change format and have new key.')
+         logger.debug ('WARNING: tres_per_node of job change format and have new key.')
          return True
       if 'gpus' in pyslurm_node:  # no gpu on the node
          gpuAvail = pyslurm_node['gpus'] - pyslurm_node['alloc_gpus']
@@ -281,19 +281,19 @@ class SlurmEntities:
       conflict_res = []
       # partition available
       avail_nodes         = self.partition_dict[p_name]['avail_nodes']
-      print('---Job {} init avail_nodes={}'.format(job['job_id'], avail_nodes))
+      logger.debug('---Job {} init avail_nodes={}'.format(job['job_id'], avail_nodes))
 
       # exclude reserved nodes
       if avail_nodes and self.res_future:
          avail_nodes, conflict_res = self.getConflictResNodes(job, avail_nodes, self.res_future, node_field='node_list')
          #avail_nodes          = [node for node in avail_nodes if node not in res_nodes]
-         print('---reservation avail_nodes={}'.format(avail_nodes))
+         logger.debug('---reservation avail_nodes={}'.format(avail_nodes))
 
       # avail_nodes - reserved_nodes_for_higherPending
       if avail_nodes and higherPending:
          avail_nodes, conflict_res = self.getConflictResNodes(job, avail_nodes, higherPending, node_field='sched_nodes')
          #avail_nodes          = [node for node in avail_nodes if node not in res_nodes]
-         print('---higher_pending, avail_nodes={}'.format(avail_nodes))
+         logger.debug('---higher_pending, avail_nodes={}'.format(avail_nodes))
          
       # exclude nodes by job request
       if avail_nodes and job.get('exc_nodes',[]):
@@ -301,38 +301,38 @@ class SlurmEntities:
          for item in job['exc_nodes']:
              exc_nodes.extend (MyTool.nl2flat(item))
          avail_nodes      = list(set(avail_nodes).difference(set(exc_nodes)))
-         print('---exc_nodes avail_nodes={}'.format(avail_nodes))
+         logger.debug('---exc_nodes avail_nodes={}'.format(avail_nodes))
 
       # restrain nodes with required features
       features            = job.get('features',[])
       if avail_nodes and features:        
          avail_nodes      = [n for n in avail_nodes if set(self.node_dict[n]['features_active'].split(',')).intersection(features)]
-         print('---feature ({}), avail_nodes={}'.format(features, avail_nodes))
+         logger.debug('---feature ({}), avail_nodes={}'.format(features, avail_nodes))
 
       # restrain nodes if job cannot share 
       if avail_nodes and job['shared']=='0':
          avail_nodes      = [n for n in avail_nodes if self.node_dict[n]['state']=='IDLE']
          features.append ('exclusive')
-         print('---shared avail_nodes={}'.format(avail_nodes))
+         logger.debug('---shared avail_nodes={}'.format(avail_nodes))
 
       # restrain nodes with gpu 
       gpu_per_node        = job['tres_per_node']    #'gpu:v100-32gb:01' or 'gpu:4'
       if avail_nodes and gpu_per_node:
          avail_nodes      = [n for n in avail_nodes if self.nodeWithGPU (self.node_dict[n], gpu_per_node)]  #'gpu:v100-32gb:01' or 'gpu:4'
          features.append (gpu_per_node)
-         print('---gpu avail_nodes={}'.format(avail_nodes))
+         logger.debug('---gpu avail_nodes={}'.format(avail_nodes))
 
       # restrain nodes with cpu      
       if avail_nodes and job['ntasks_per_node']:
          avail_nodes      = [n for n in avail_nodes if (self.node_dict[n]['cpus']-self.node_dict[n]['alloc_cpus'])>=job['ntasks_per_node']]
          features.append ('{} tasks'.format(job['ntasks_per_node']))
-         print('---ntask_per_node ({}), avail_nodes={}'.format(job['ntasks_per_node'], avail_nodes))
+         logger.debug('---ntask_per_node ({}), avail_nodes={}'.format(job['ntasks_per_node'], avail_nodes))
 
       # restrain nodes with min memory 
       if avail_nodes and job['mem_per_node'] and job['pn_min_memory']:  
          avail_nodes      = [n for n in avail_nodes if (self.node_dict[n]['real_memory'] - self.node_dict[n]['alloc_mem']) >= job['pn_min_memory']]
          features.append ('{}MB mem_per_node'.format(job['pn_min_memory']))
-         print('---mem_per_node ({}), avail_nodes={}'.format(job['pn_min_memory'], avail_nodes))
+         logger.debug('---mem_per_node ({}), avail_nodes={}'.format(job['pn_min_memory'], avail_nodes))
 
       # restrain nodes with cpu level
       # sum of cpu
@@ -346,7 +346,7 @@ class SlurmEntities:
             min_cpu_per_node = job['num_cpus'] - (job['num_nodes']-1) * max_cpu_per_node
             if min_cpu_per_node > 0:
                avail_nodes   = [n for n in avail_nodes if (self.node_dict[n]['cpus']-self.node_dict[n]['alloc_cpus'])>=min_cpu_per_node]
-      print('---sum_of_cpu avail_nodes={}'.format(avail_nodes))
+      logger.debug('---sum_of_cpu avail_nodes={}'.format(avail_nodes))
 
       avail_cpus_cnt,lst1 = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
       if avail_nodes and job['mem_per_cpu'] and job['min_memory_cpu']:
@@ -358,7 +358,7 @@ class SlurmEntities:
          lst1             = [avail_cpus[n] for n in avail_nodes]
          avail_cpus_cnt   = sum(lst1)
          features.append ('{}MB mem_per_cpu'.format (job['min_memory_cpu']))
-         print('---mem_per_cpu avail_nodes={}'.format(avail_nodes))
+         logger.debug('---mem_per_cpu avail_nodes={}'.format(avail_nodes))
 
       return len(avail_nodes), avail_cpus_cnt, avail_nodes, features, conflict_res
       
@@ -433,7 +433,7 @@ class SlurmEntities:
           if job['sched_nodes']:
              higherJobs.append (job)
              res_nodes.extend  (MyTool.nl2flat(job['sched_nodes']))
-          logger.info("{}:{} pending expl: {}".format(job['job_id'], job['state_reason'], exp)) 
+          logger.debug("{}:{} pending expl: {}".format(job['job_id'], job['state_reason'], exp)) 
       return pending
 
   def exp_QOSMaxJobsPerUserLimit (self, job, p_name, higherJobs=None):
@@ -545,18 +545,18 @@ class SlurmEntities:
         if len(self.node_dict) > 0:
             idle    = SlurmEntitites.findNodeInState(self.node_dict, 'IDLE')
             mixed   = SlurmEntitites.findNodeInState(self.node_dict, 'MIXED')
-            #print("Nodes in IDLE state - {0}".format(idle))
-            #print("Nodes in MIXED state - {0}".format(mixed))
-            #print()
+            #logger.debug("Nodes in IDLE state - {0}".format(idle))
+            #logger.debug("Nodes in MIXED state - {0}".format(mixed))
+            #logger.debug()
 
             total1,lst1 = SlurmEntities.getIdleCores (self.node_dict, idle)
             total2,lst2 = SlurmEntities.getIdleCores (self.node_dict, mixed)
-            print("Total {0} nodes: {1} IDLE nodes ({2} cpus) and {3} MIXED nodes ({4} cpus)".format(len(self.node_dict), len(idle), total1, len(mixed), total2))
+            logger.debug("Total {0} nodes: {1} IDLE nodes ({2} cpus) and {3} MIXED nodes ({4} cpus)".format(len(self.node_dict), len(idle), total1, len(mixed), total2))
         else:
-            print("No Nodes found !")
+            logger.debug("No Nodes found !")
 
     except ValueError as e:
-        print("Error - {0}".format(e.args[0]))
+        logger.debug("Error - {0}".format(e.args[0]))
 
   # return jobs of a user {'RUNNING':[], 'otherstate':[]}
   def getUserJobsByState (self, uid):
@@ -665,6 +665,52 @@ class SlurmEntities:
     #max_cpus = sum([ self.node_dict[node]['cpus'] - self.node_dict[node]['alloc_cpus'] for node in node_lst[:num_node]])
     return min_cpus, max_cpus
     
+  def relaxJob_Part (self, job, p_name):
+      if not self.partition_dict[p_name]['avail_cpus_cnt']:   # no resource
+         return ''
+      p_node_avail,p_cpu_avail,p_node_avail_lst,features,conflict_res= self.getPartitionAvailNodeCPU (p_name, job, strictFlag=True) 
+      if p_node_avail==0:
+         return ''
+
+      logger.debug("Job {} can run on {}:{} nodes len={} cpu={} features={}".format(job['job_id'], p_name, p_node_avail_lst, p_node_avail, p_cpu_avail, features))
+      job['qos_relax_nodes'] = p_node_avail_lst
+      p_qos                  = self.getPartitionQoS (p_name)
+      suggestion             = ''
+      #take action, sacctmgr or send email
+      u_node_qos,  u_cpu_qos,  u_gpu_qos   = self.getJobQoSTresLimit (job, p_qos, 'max_tres_pu')  #qos limit for user
+      g_node_qos,  g_cpu_qos,  g_gpu_qos   = self.getJobQoSTresLimit (job, p_qos, 'grp_tres')     #qos limit for grp
+      u_node_alloc,u_cpu_alloc,u_gpu_alloc = SlurmEntities.getUserAllocInPartition(job['user_id'], p_name, self.job_dict)  #user allocation
+      g_node_alloc,g_cpu_alloc,g_gpu_alloc = SlurmEntities.getAllAllocInPartition(p_name, self.job_dict)  #all allocation in part, seems the where the grp limit applied
+      j_gpu                                = MyTool.getTresDict(job['tres_req_str']).get('gres/gpu',0)
+      if job['shared']=='OK' and self.partition_dict[p_name]['flag_shared'] == 'YES':
+         j_min_cpus, j_max_cpus            = job['num_cpus'], job['num_cpus']
+      else:
+         j_min_cpus, j_max_cpus            = self.getAvailCPURange (job['qos_relax_nodes'], job['num_nodes'],job['num_cpus'])
+      nu_NodeAlloc,nu_CPUAlloc_min,nu_CPUAlloc_max,nu_GPUAlloc = u_node_alloc+job['num_nodes'],u_cpu_alloc+j_min_cpus,u_cpu_alloc+j_max_cpus,u_gpu_alloc+j_gpu
+      ng_NodeAlloc,ng_CPUAlloc_min,ng_CPUAlloc_max,ng_GPUAlloc = g_node_alloc+job['num_nodes'],g_cpu_alloc+j_min_cpus,g_cpu_alloc+j_max_cpus,g_gpu_alloc+j_gpu
+      if nu_NodeAlloc > u_node_qos:
+         logger.debug('---Increase User Node Limit to {}'.format (nu_NodeAlloc))
+         suggestion += 'Increase User Node Limit to {}. '.format (nu_NodeAlloc)
+      if nu_CPUAlloc_min  > u_cpu_qos:
+         logger.debug('---Increase User CPU Limit to {}'.format  (nu_CPUAlloc_min))
+         if nu_CPUAlloc_min == nu_CPUAlloc_max:
+            suggestion += 'Increase User CPU Limit to {}. '.format (nu_CPUAlloc_min)
+         else:
+            suggestion += 'Increase User CPU Limit to [{},{}]. '.format (nu_CPUAlloc_min,nu_CPUAlloc_max)
+      if u_gpu_qos and nu_GPUAlloc  > u_gpu_qos:
+         logger.debug('---Increase User GPU Limit to {}'.format (nu_GPUAlloc))
+         suggestion += 'Increase User GPU Limit to {}. '.format (nu_GPUAlloc)
+      if ng_NodeAlloc > g_node_qos:
+         logger.debug('---Increase Group Node Limit to {}'.format(ng_NodeAlloc))
+         suggestion += 'Increase Group Node Limit to {}. '.format (ng_NodeAlloc)
+      if ng_CPUAlloc_min  > g_cpu_qos:
+         logger.debug('---Increase Group CPU Limit to {}'.format (ng_CPUAlloc_min))
+         if ng_CPUAlloc_min == ng_CPUAlloc_max:
+            suggestion += 'Increase Group CPU Limit to {}. '.format (ng_CPUAlloc_min)
+         else:
+            suggestion += 'Increase Group CPU Limit to [{},{}]. '.format (ng_CPUAlloc_min, ng_CPUAlloc_max)
+      return suggestion
+
   # can the job be scheduled if QoS is relaxed
   # assume that job is the first in the queue for its partition
   # return a suggestion
@@ -674,56 +720,23 @@ class SlurmEntities:
     higherJobs   = []
     rlt          = {}
     for jid in pendingJids:
-        #print('---relaxQoS Job {}'.format(jid))
-        job = self.job_dict[jid]
-        uid = job['user'] if 'user' in job else job['user_id']
-        if 'QOS' in job['state_reason'] and uid not in rlt.keys():  # if pending for QOS reason
-           p_name = job['partition'].split(',')[0]
-           p_qos  = self.getPartitionQoS (p_name)
-           if self.partition_dict[p_name]['avail_cpus_cnt']:
-              if self.partHasJobResource(job, p_name):
-                 suggestion   = ''
-                 #take action, sacctmgr or send email
-                 u_node_qos,  u_cpu_qos,  u_gpu_qos   = self.getJobQoSTresLimit (job, p_qos, 'max_tres_pu')  #qos limit for user
-                 g_node_qos,  g_cpu_qos,  g_gpu_qos   = self.getJobQoSTresLimit (job, p_qos, 'grp_tres')     #qos limit for grp
-                 u_node_alloc,u_cpu_alloc,u_gpu_alloc = SlurmEntities.getUserAllocInPartition(job['user_id'], p_name, self.job_dict)  #user allocation
-                 g_node_alloc,g_cpu_alloc,g_gpu_alloc = SlurmEntities.getAllAllocInPartition(p_name, self.job_dict)  #all allocation in part, seems the where the grp limit applied
-                 j_gpu                                = MyTool.getTresDict(job['tres_req_str']).get('gres/gpu',0)
-                 if job['shared']=='OK' and self.partition_dict[p_name]['flag_shared'] == 'YES':
-                    j_min_cpus, j_max_cpus            = job['num_cpus'], job['num_cpus']
-                 else:
-                    j_min_cpus, j_max_cpus            = self.getAvailCPURange (job['qos_relax_nodes'], job['num_nodes'],job['num_cpus'])
-                 nu_NodeAlloc,nu_CPUAlloc_min,nu_CPUAlloc_max,nu_GPUAlloc = u_node_alloc+job['num_nodes'],u_cpu_alloc+j_min_cpus,u_cpu_alloc+j_max_cpus,u_gpu_alloc+j_gpu
-                 ng_NodeAlloc,ng_CPUAlloc_min,ng_CPUAlloc_max,ng_GPUAlloc = g_node_alloc+job['num_nodes'],g_cpu_alloc+j_min_cpus,g_cpu_alloc+j_max_cpus,g_gpu_alloc+j_gpu
-                 if nu_NodeAlloc > u_node_qos:
-                    print('---Increase User Node Limit to {}'.format (nu_NodeAlloc))
-                    suggestion += 'Increase User Node Limit to {}. '.format (nu_NodeAlloc)
-                 if nu_CPUAlloc_min  > u_cpu_qos:
-                    print('---Increase User CPU Limit to {}'.format  (nu_CPUAlloc_min))
-                    if nu_CPUAlloc_min == nu_CPUAlloc_max:
-                       suggestion += 'Increase User CPU Limit to {}. '.format (nu_CPUAlloc_min)
-                    else:
-                       suggestion += 'Increase User CPU Limit to [{},{}]. '.format (nu_CPUAlloc_min,nu_CPUAlloc_max)
-                 if ng_NodeAlloc > g_node_qos:
-                    print('---Increase Group Node Limit to {}'.format(ng_NodeAlloc))
-                    suggestion += 'Increase Group Node Limit to {}. '.format (ng_NodeAlloc)
-                 if ng_CPUAlloc_min  > g_cpu_qos:
-                    print('---Increase Group CPU Limit to {}'.format (ng_CPUAlloc_min))
-                    if ng_CPUAlloc_min == ng_CPUAlloc_max:
-                       suggestion += 'Increase Group CPU Limit to {}. '.format (ng_CPUAlloc_min)
-                    else:
-                       suggestion += 'Increase Group CPU Limit to [{},{}]. '.format (ng_CPUAlloc_min, ng_CPUAlloc_max)
-                 delayJobs = self.mayDelayPending(job, higherJobs)
-                 if delayJobs:
-                    suggestion += 'QoS relax of the job may delay highe priority pending jobs {}'.format([job['job_id'] for job in delayJobs])
-                 print('---May delay jobs {} in {}'.format([job['job_id'] for job in delayJobs], [job['job_id'] for job in higherJobs]))
-                 if suggestion:
-                    suggestion = 'To run job {} in partition {} with candidate nodes {}, the following relaxation of QoS {} will be recommended. '.format(jid,p_name, job['qos_relax_nodes'], self.partition_dict[p_name]['qos_char']) + suggestion
-                    rlt[uid]= suggestion
+        #logger.debug('---relaxQoS Job {}'.format(jid))
+        job  = self.job_dict[jid]
+        user = job['user'] if 'user' in job else job['user_id']
+      
+        if ('QOS' in job['state_reason']) and (user not in rlt):    # QOS pending job and no previous suggestion for the user
+           p_name = job['partition'].split(',')[0] # only consider first partition
+           suggestion = self.relaxJob_Part(job, p_name)
+           if suggestion:
+              delayJobs = self.mayDelayPending(job, higherJobs)
+              if delayJobs:
+                 suggestion += 'QoS relax of the job may delay highe priority pending jobs {}'.format([job['job_id'] for job in delayJobs])
+                 logger.debug('---May delay jobs {} in {}'.format([job['job_id'] for job in delayJobs], [job['job_id'] for job in higherJobs]))
+              suggestion = 'To run job {} in partition {} with candidate nodes {}, the following relaxation of QoS {} will be recommended. '.format(jid,p_name, job['qos_relax_nodes'], self.partition_dict[p_name]['qos_char']) + suggestion
+              rlt[user]= suggestion
  
         if job['start_time']:   # see if will influce other jobs
            higherJobs.append(job)
-    #print ('---Jobs with start_time={}'.format([(job['job_id'],job['state_reason']) for job in higherJobs]))
     return rlt
 
   # if job's running will influce other pending jobs's start time
@@ -740,17 +753,17 @@ class SlurmEntities:
       if p_node_avail==0:
          return False
       job['qos_relax_nodes']=p_node_avail_lst
-      print("partHasJobResource {} {} {} {}".format(p_node_avail, p_cpu_avail, p_node_avail_lst, features))
+      logger.debug("partHasJobResource {} {} {} {}".format(p_node_avail, p_cpu_avail, p_node_avail_lst, features))
       return True
 
   def test1():
       ins = SlurmEntities()
       rlt = ins.getNodesWithCPUs(['worker0044', 'worker3001', 'worker4007','workergpu01'], 3, 30)
-      print (rlt)
+      logger.debug (rlt)
   def test2():
       ins = SlurmEntities()
       rlt = ins.relaxQoS()
-      print (rlt)
+      logger.debug (rlt)
 
 if __name__ == "__main__":
     SlurmEntities.test2()

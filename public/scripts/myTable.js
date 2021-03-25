@@ -91,9 +91,8 @@ function createMultiTable (data_dict, parent_id, table_title_list, job_id, no_he
          .attr('class', function(d,i) {return 'noborder ' + table_title_list[i]})
          .text(function (d) {return d}) //TODO: change to createMultiTable2 style
 
-   console.log("--done createMutliTable")
    collapseTitle ()
-}
+} // createMultiTable
 
 function createMultiTitle2 (data_dict, parent_id, node) {
    var pas = d3.select(parent_id).selectAll('p')
@@ -126,6 +125,13 @@ function collapseTitle () {
       $(this).toggleClass('table_title_collapse')
       $(this).next().toggleClass('hide')
    });
+}
+
+function expandTitle () {
+   $('.table_title').click(function(event) {
+       $(this).toggleClass('table_title_collapse')
+       $(this).next().toggleClass('hide')
+       });
 }
 
 //data_dict is a dictionary of a fixed format
@@ -164,7 +170,7 @@ function createMultiTable2 (data_dict, parent_id, table_title_list, node, type_l
    
    // collapse behavior
    collapseTitle ()
-}
+} //createMultiTable2
 
 //titles_dict define display fields
 function getSummaryTRHtml (d, titles_dict, summary_type, sortCol) {
@@ -201,8 +207,11 @@ function getSummaryHtml (d, key, summary_type, sortCol)
    }
 }
 
-DISPLAY_FUNC={'user': getUserDetailHtml, "timestamp":getTS_LString, 'partition':getPartDetailHtml,'qos':getQoSDetailHtml,"partition_list": getPartitionListHtml, "M":getDisplayM,
-              'job':getJobDetailHtml,'job_name':getJobNameHtml,'job_step':getJob_StepHtml,'job_list':getJobListHtml,'job_list_summary':getJobListSummaryHtml}
+DISPLAY_FUNC={'user': getUserDetailHtml, 
+              "timestamp":getTS_LString, 'float':getDisplayF,
+              'partition':getPartDetailHtml,'qos':getQoSDetailHtml,"partition_list": getPartitionListHtml, "M":getDisplayM,
+              'job':getJobDetailHtml,'job_name':getJobNameHtml,'job_step':getJob_StepHtml,'job_list':getJobListHtml,'job_list_summary':getJobListSummaryHtml,
+              'node':getNodeDetailHtml}
 function getTypedHtml (d, type_dict)
 {
    var func = DISPLAY_FUNC[type_dict[d.key]]

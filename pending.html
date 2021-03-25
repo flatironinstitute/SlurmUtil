@@ -29,7 +29,8 @@
           //create table job_table and part_table
           var j_titles     = {{'job_id':'Job', 'submit_time':'Submit Time', 'num_nodes':'Req Node', 'num_cpus':'Req CPU', 'user':'User', 'account':'Account', 'partition':'Req Part.', 'state_reason':'Pending Reason', 'state_exp':'Note'}}
           var p_titles     = {{'name':'Name', 'flag_shared':'Share', 'total_nodes':'Total Node', 'total_cpus':'Total CPU', 'total_gpus':'Total GPU', 'avail_nodes_cnt':'Avail Node', 'avail_cpus_cnt':'Avail CPU','avail_gpus_cnt':'Avail GPU', 'pending_jobs':'PENDING JOB', 'running_jobs':'RUNNING JOB'}}
-          var type         = {{'job_id':'JobAndStep','user':'User','partition':'Partition','name':'Partition', 'pending_jobs':'JobList', 'running_jobs':'JobList', 'submit_time':'Time'}}
+          var type         = {{'job_id':'job','user':'user','partition':'partition','name':'partition', 
+                               'pending_jobs':'job_list', 'running_jobs':'job_list', 'submit_time':'timestamp'}}
           createTable ({pending_jobs_input}, j_titles, 'job_table',  'pending_jobs', prepareData_pending, type);
           createTable ({partitions_input},   p_titles, 'part_table', 'partitions',   undefined, type);  //undefined will use default value
           createList  ({note},               null,     '#note')
@@ -91,7 +92,6 @@
     <footer class="section section--footer">
       <div class="section__inner section__inner--footer">
         <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
-        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
       </div>
     </footer>
   </body>

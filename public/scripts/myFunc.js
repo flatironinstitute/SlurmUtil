@@ -6,7 +6,7 @@ function getJobDetailHtml (jid) {
 };
 function getJobListHtml(lst) {
     var html_list = lst.map( function(p) {return getJobDetailHtml(p);} )
-    return html_list.join(',')
+    return html_list.join(', ')
 }
 function getJobListSummaryHtml(lst) {
     var detail_lst = (lst.length>10) ? lst.slice(0,10) : lst
