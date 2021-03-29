@@ -318,6 +318,7 @@ class SLURMMonitorData(object):
             job['node_rss_util']     = {}
             job['node_io_bps_curr']  = {}
             job['node_cpu_util_curr']= {}
+            job['num_proc']          = {}
             job['user']              = MyTool.getUser(job['user_id'])
 
             for node in job['cpus_allocated']:
@@ -337,6 +338,7 @@ class SLURMMonitorData(object):
                    job['node_rss_util'][node]     = node_rss
                    job['node_io_bps_curr'][node]  = node_io_bps_curr
                    job['node_cpu_util_curr'][node]= node_cpu_util_curr
+                   job['num_proc'][node]          = len(procs)
 
                    node_tres           = MyTool.getTresDict(pyslurmNodes[node]['tres_fmt_str'])
                    if 'mem' in node_tres:   # memory is shared

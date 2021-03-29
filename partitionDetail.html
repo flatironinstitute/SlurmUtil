@@ -41,7 +41,7 @@
              node_title_dict = {{'name':'Node', 'state':'State', 'tres_fmt_str':'TRES', 'features':'Features', 'alloc_cpus':'Alloc CPU','alloc_gpus':'Alloc GPU', 'alloc_mem':'Alloc Mem(MB)', 'cpu_load':'CPU Load', 'running_jobs':'Run Job'}}
 
           // partition node list
-          createTable (nodes,  node_title_dict,  'table_nodes', 'div_node', undefined, {{'name':'Node','running_jobs':'JobArray'}})
+          createTable (nodes,  node_title_dict,  'table_nodes', 'div_node', undefined, {{'name':'node','running_jobs':'job_list'}})
       }});
     </script>
   </head>

@@ -26,7 +26,7 @@ def anonimize(s):
     return ns
 
 #return {date: filenames, ...} sorted by date
-def getFilenames(dataDir, rge):
+def getFileDate(dataDir, rge):
     rlt = {}
     for fname in os.listdir(dataDir):
         match = re.fullmatch(rge, fname)
@@ -69,21 +69,43 @@ def gendata_user(uid, start='', stop=''):
         
     return fc_rlt, bc_rlt
 
+def gendata_user_latest(uid, file_systems=None):
+    rlt = {}
+    if not file_systems:
+       file_systems = FileSystems
+    for fs in file_systems:
+        label, dataDir, suffix, uidx, fcx, bcx, rge = FileSystems[fs]
+        fsDict  = getFileDate (dataDir, rge)
+        d       = list(sorted(fsDict))[-1]
+        df      = pandas.read_csv(fsDict[d], sep='\t', header=None, usecols=[uidx,fcx,bcx])        
+        df      = df.sort_values(by=[2],ascending=False,ignore_index=True)
+        u_df    = df.loc[df[0]==uid]
+        if not u_df.empty:
+           values = u_df.values.tolist()[0]
+           idx    = u_df.index.tolist()[0]
+           rlt[fs] = [values[1], values[2], idx]
+        else:
+           rlt[fs] = [0,0,-1]
+    return rlt
+
 #assume fs is valid
 def gendata_fs_history(fs, start='', stop=''):
     label, dataDir, suffix, uidx, fcx, bcx, rge = FileSystems[fs] #uidx is uid index in file
-    fsDict                                      = getFilenames (dataDir, rge)
-    # read files one by one to save the data in u2s
+    fsDict  = getFileDate (dataDir, rge)
     dDict   = {}
-    for d, fname in fsDict.items():
-        flag = True
-        if start: flag &= ( d>=start)
-        if stop:  flag &= ( d<= stop)
-        if flag:
-           #0: uid, 3: fc(filecount), 4: bc(byte_count)
-           df            = pandas.read_csv(fname, sep='\t', header=None, usecols=[uidx,fcx,bcx])
-           df.columns    = ['uid', 'fc', 'bc']
-           dDict[d*1000]      = df  #?really need to *1000
+    for d in sorted(fsDict):
+        if start and d<start:
+           continue
+        if stop and d>stop:
+           break
+        fname = fsDict[d]
+        #flag = True
+        #if start: flag &= ( d>=start)
+        #if stop:  flag &= ( d<= stop)
+        #if flag:
+        df            = pandas.read_csv(fname, sep='\t', header=None, usecols=[uidx,fcx,bcx])
+        df.columns    = ['uid', 'fc', 'bc']
+        dDict[d*1000]      = df  #?really need to *1000
     return dDict
 
 def gendata_all(fs, start='', stop='', topN=5):
@@ -119,7 +141,6 @@ def gendata_all(fs, start='', stop='', topN=5):
 #return {fs_name: data}
 def gendata(yyyymmdd, anon=False):
     users = MyTool.getAnsibleUsers(config.CSV_DIR)
-    MyTool.logTmp ("usrs={}".format(users), time.time())
     rlt = {}
     for fs in FileSystems.keys():
         rlt[fs] = gendata_fs(yyyymmdd, fs, users, anon=anon)
@@ -207,7 +228,9 @@ def gendata_fs(yyyymmdd, fs, ansible_users={}, anon=False):
 
 def test1(user):
     print("Test user {}'s history".format(user))
-    print (gendata_user(user))
+    start, stop = MyTool.getStartStopTS(days=30)
+    uid = MyTool.getUid(user)
+    print (gendata_user(uid, start, stop))
    
 def test2():
     print("Test all's past 3 days history")
@@ -224,6 +247,6 @@ if '__main__' == __name__:
     #print (gendata(*sys.argv[1:]))
     #print (gendata_all(*sys.argv[1:], 2))
     #print (gendata_user(*sys.argv[1:]))
-    #test1 (sys.argv[1])
-    test3 ()
+    test1 (sys.argv[1])
+    #test3 ()
 

@@ -798,12 +798,12 @@ class SLURMMonitorUI(object):
         fc_seq,bc_seq = fs2hc.gendata_user(int(uid), start, stop)
 
         htmlTemp = os.path.join(config.APP_DIR, 'userFile.html')
-        h        = open(htmlTemp).read()%{
-                                   'start':   time.strftime(DATE_DISPLAY_FORMAT, time.localtime(start)),
-                                   'stop':    time.strftime(DATE_DISPLAY_FORMAT, time.localtime(stop)),
-                                   'spec_title': MyTool.getUser(uid),
-                                   'series1': json.dumps(fc_seq),
-                                   'series2': json.dumps(bc_seq)}
+        h        = open(htmlTemp).read().format(
+                                   start = time.strftime(DATE_DISPLAY_FORMAT, time.localtime(start)),
+                                   stop  = time.strftime(DATE_DISPLAY_FORMAT, time.localtime(stop)),
+                                   spec_title = MyTool.getUser(uid),
+                                   file_count = json.dumps(fc_seq),
+                                   byte_count = json.dumps(bc_seq))
         return h
 
     @cherrypy.expose
@@ -820,8 +820,8 @@ class SLURMMonitorUI(object):
         h        = open(htmlTemp).read()%{
                                    'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
-                                   'series1': json.dumps(fcSer), 'title1': 'File count daily report', 'xlabel1': 'File Count', 'aseries1':[],
-                                   'series2': json.dumps(bcSer), 'title2': 'Byte count daily report', 'xlabel2': 'Byte Count',   'aseries2':[]}
+                                   'series1': json.dumps(fcSer), 'title1': 'File count daily report', 'ylabel1': 'File Count', 
+                                   'series2': json.dumps(bcSer), 'title2': 'Byte count daily report', 'ylabel2': 'Byte Count'}
         return h
 
     @cherrypy.expose
@@ -919,7 +919,7 @@ class SLURMMonitorUI(object):
         if nodeData['jobProc']:
            nodeDisplay['running_jobs'] = list(nodeData['jobProc'].keys())
 
-        nodeReport     = SlurmCmdQuery.getNodeJobReport(node, days=3)
+        nodeReport     = SlurmCmdQuery.getNodeDoneJobReport(node, days=3)
         array_het_jids = [ job['JobID'] for job in nodeReport if '_' in job['JobID'] or '+' in job['JobID']]
         htmlTemp       = os.path.join(config.APP_DIR, 'nodeDetail.html')
         htmlStr        = open(htmlTemp).read().format(update_time    = MyTool.getTsString(nodeData['updateTS']),
@@ -953,22 +953,29 @@ class SLURMMonitorUI(object):
            userworker = {}
            core_cnt   = 0
            proc_cnt   = 0
-        past_job      = SlurmCmdQuery.getUserJobReport(user, days=int(days))
+        past_job      = SlurmCmdQuery.getUserDoneJobReport(user, days=int(days))
         array_het_jids= [job['JobID'] for job in past_job if '_' in job['JobID'] or '+' in job['JobID']]  # array of heterogenour job
 
-        running_jobs  = userjob.get('RUNNING',[])
-        pending_jobs  = userjob.get('PENDING',[])
-        tres_alloc    = [MyTool.getTresDict(j['tres_alloc_str']) for j in running_jobs]
+        running_jobs            = userjob.get('RUNNING',[])
+        pending_jobs            = userjob.get('PENDING',[])
         userAssoc['uid']        = uid
-        userAssoc['partitions'] = [p['name'] for p in part]
+        userAssoc['partitions'] = [" {}(cpu={},node={},gpu={})".format(p['name'],p['user_avail_cpus'],p['user_avail_nodes'],p['user_avail_gpus']) for p in part if p['user_avail_cpus']>0 or p['user_avail_gpus']>0]
         userAssoc['running_jobs'] = [j['job_id'] for j in running_jobs]
         if pending_jobs:
            userAssoc['pending_jobs'] = [j['job_id'] for j in pending_jobs]
-        userAssoc['alloc_cpus'] = sum([t['cpu']  for t in tres_alloc])
-        userAssoc['alloc_nodes']= sum([t['node'] for t in tres_alloc])
-        userAssoc['alloc_gpus'] = sum([t.get('gres/gpu',0) for t in tres_alloc])
-        userAssoc['alloc_mem']  = MyTool.sumOfListWithUnit([t['mem']  for t in tres_alloc if 'mem' in t])
 
+        tres_alloc              = [MyTool.getTresDict(j['tres_alloc_str']) for j in running_jobs]
+        alloc_cpus              = sum([t['cpu']  for t in tres_alloc])
+        alloc_nodes             = sum([t['node'] for t in tres_alloc])
+        alloc_gpus              = sum([t.get('gres/gpu',0) for t in tres_alloc])
+        alloc_mem               = MyTool.sumOfListWithUnit([t['mem']  for t in tres_alloc if 'mem' in t])
+        userAssoc['tres_alloc_str'] = "cpu={},node={},mem={}".format(alloc_cpus, alloc_nodes, alloc_mem)
+        if alloc_gpus:
+           userAssoc['tres_alloc_str'] = "{},gpu={}".format(userAssoc['tres_alloc_str'], alloc_gpus)
+
+        fs_data                 = fs2hc.gendata_user_latest(uid, file_systems=['ceph_full'])
+        userAssoc['file_usage']  = 'home={}, ceph={} (#{} top user)'.format(MyTool.df_cmd(user), MyTool.getDisplayN(fs_data['ceph_full'][1]), fs_data['ceph_full'][2]+1)
+    
         htmlTemp   = os.path.join(config.APP_DIR, 'userDetail.html')
         htmlStr    = open(htmlTemp).read().format(user        =MyTool.getUserFullName(uid),
                                                   uid         =uid,
@@ -1645,7 +1652,7 @@ class SLURMMonitorUI(object):
            low_nodes  = self.monData.getLowUtilNodes()
         else:
            ts_str     = MyTool.getTsString(int(time.time()))
-           low_util   = [{'id':'', 'user':'',  'low_util_msg':self.getWaitMsg()}]
+           low_util   = [{'name':self.getWaitMsg()}]
            low_nodes  = [{'name':'', 'low_util_msg':self.getWaitMsg()}]
         other      = self.monData.inMemLog.getAllLogs () #[{'source':'', 'ts':'','msg':''}]
 

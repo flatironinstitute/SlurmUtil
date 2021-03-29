@@ -218,6 +218,12 @@ function timeSeriesScatterPlot(series, chartTag, title, yCap, aSeries, pf_func=p
 function timeSeriesColumnPlot(series, chartTag, title, yCap, aSeries, pf_func=pointFormat_func) {
    timeSeriesPlot(series, "column", chartTag, title, yCap, aSeries, pf_func)
 }
+function timeSeriesLinePlot(series, chartTag, title, yCap, aSeries=[], pf_func=pointFormat_func) {
+   timeSeriesPlot(series, "line", chartTag, title, yCap, aSeries, pf_func)
+}
+function timeSeriesAreaPlot(series, chartTag, title, yCap, aSeries, pf_func=pointFormat_func) {
+   timeSeriesPlot(series, "area", chartTag, title, yCap, aSeries, pf_func)
+}
 function crtLabel (vx, vy, txt, aUnit='') {
    return { point: { xAxis: 0,
                      yAxis: 0,
@@ -226,7 +232,7 @@ function crtLabel (vx, vy, txt, aUnit='') {
             text: txt.toString().concat(aUnit) }
 }
 function timeSeriesPlot(series, chartType, chartTag, title, yCap, aSeries, pf_func=pointFormat_func) {
-   console.log('timeSeriesPlot chartType=", chartType, ",series=', series)
+   console.log('timeSeriesPlot chartType=", chartType, ",series=', series, ",aSeries=", aSeries)
    if ( aSeries.length > 0 ) {
                 baseY = series[0]['data'][0][1]
                 cus_labels = aSeries.map(function(x) {return crtLabel(x[0], baseY, x[1])})

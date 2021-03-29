@@ -2,7 +2,7 @@ import csv, sys
 import re
 import collections
 import time
-import operator, pwd,grp,logging
+import operator, pwd,grp,logging,subprocess
 import dateutil.parser
 import _pickle as cPickle
 import os.path
@@ -697,6 +697,32 @@ def getTimeSeqAvg (seq, startTS, stopTS):
            idx   += 1
         #print("---total={},avg={},seq={}".format(total, total / (stopTS - startTS), seq[savIdx:]))
         return total / (stopTS - startTS)
+
+def df_cmd (uname):
+        cmd = ['df', '-h', '/mnt/home/'+uname]
+        try:
+            d = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            return 'Command "%s" returned %d with output %s.<br>'%(' '.join(cmd), e.returncode, repr(e.output))
+        line = d.decode('utf-8').splitlines()[1]
+        lst  = line.split()  #gpfs-nfs:/mnt/home  1.0T   29G  996G   3% /mnt/home
+        return "{} ({} of {} quota)".format(lst[2], lst[4], lst[1])
+
+def getDisplayN (n):
+    if n < 1024:
+       return n
+    n = n / 1024
+    if n < 1024:
+       return "{:.2f}K".format(n)
+    n = n / 1024
+    if n < 1024:
+       return "{:.2f}M".format(n)
+    n = n / 1024
+    if n < 1024:
+       return "{:.2f}G".format(n)
+    n = n / 1024
+    if n < 1024:
+       return "{:.2f}T".format(n)
 
 def logTmp (msg, pre_ts):
         with open("tmp.log", "a") as f:

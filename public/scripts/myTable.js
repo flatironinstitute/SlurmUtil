@@ -211,7 +211,8 @@ DISPLAY_FUNC={'user': getUserDetailHtml,
               "timestamp":getTS_LString, 'float':getDisplayF,
               'partition':getPartDetailHtml,'qos':getQoSDetailHtml,"partition_list": getPartitionListHtml, "M":getDisplayM,
               'job':getJobDetailHtml,'job_name':getJobNameHtml,'job_step':getJob_StepHtml,'job_list':getJobListHtml,'job_list_summary':getJobListSummaryHtml,
-              'node':getNodeDetailHtml}
+              'node':getNodeDetailHtml,
+              'tres':getTresDisplay}
 function getTypedHtml (d, type_dict)
 {
    var func = DISPLAY_FUNC[type_dict[d.key]]
@@ -613,7 +614,7 @@ function createTable (data, titles_dict, table_id, parent_id, pre_data_func, typ
             .attr('group-cnt', function (d) {
                         if (d.group_cnt) return d.group_cnt; })
             .html(function (d) {
-                 if (type_dict) {
+                 if (type_dict && d.value!=undefined) {
                     var func = DISPLAY_FUNC[type_dict[d.name]]
                     if (func) {
                        return func(d.value);
@@ -673,7 +674,7 @@ function filterDict2NestList (data_dict, req_fields)
 {
     if (!req_fields)   // empty req_fields will return all fields
        return Object.entries(data_dict)   //TODO:
-    var f      = req_fields.filter(function (k) {return data_dict.hasOwnProperty(k) && data_dict[k] && data_dict[k]!="None"})  //keep the order in fields
+    var f      = req_fields.filter(function (k) {return data_dict.hasOwnProperty(k) && data_dict[k] && data_dict[k]!="None" && data_dict[k].toString()!=''})  //keep the order in fields
     return f.map(function (k) { return [k, data_dict[k]] })
 }
 //DISPLAY_FUNC={'user': getUserDetailHtml, "timestamp":getTS_LString, 'partition':getPartDetailHtml,'qos':getQoSDetailHtml,"partition_list": getPartitionListHtml, "M":getDisplayM,'job_list':getJobListHtml,'job_list_summary':getJobListSummaryHtml}

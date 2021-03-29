@@ -1,6 +1,17 @@
 function getTresWithoutBilling(tres) {
     return tres.replace(/billing=\d+,/,'')
 };
+function getTresDisplay(tres) {
+    //TRES_KEY_MAP={1:'cpu',2:'mem',4:'node',1001:'gpu'}
+    if (tres.search("1=") >= 0) {
+       tres = tres.replace("1=", "cpu=") 
+       tres = tres.replace("2=", "mem=") 
+       tres = tres.replace("4=", "node=") 
+       tres = tres.replace("5=", "billing=") 
+       tres = tres.replace("1001=", "gpu=") 
+    }
+    return tres.replace(/billing=\d+,/,'')
+};
 function getJobDetailHtml (jid) {
     return '<a href=./jobDetails?jid=' + jid + '>' + jid + '</a>'
 };

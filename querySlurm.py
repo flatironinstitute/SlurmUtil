@@ -36,26 +36,30 @@ class SlurmCmdQuery:
         pass
 
     @staticmethod
-    def getUserJobReport (user, days=3, output='JobID,JobIDRaw,JobName,AllocCPUS,AllocTRES,State,ExitCode,User,NodeList,Start,End'):
+    def getUserDoneJobReport (user, days=3, output='JobID,JobIDRaw,JobName,AllocCPUS,AllocTRES,State,ExitCode,User,NodeList,Start,End'):
         job_list = SlurmCmdQuery.sacct_getReport(['-u', user], days, output, skipJobStep=True)
+        rlt      = []
         for job in job_list:
             if job['State'] in ['RUNNING','PENDING'] :   # seff not available for pending jobs and not accurate for running jobs
                continue
             eff = SlurmCmdQuery.seff_cmd(job['JobID'])
             eff.pop("State")
             job.update(eff)
-        return job_list
+            rlt.append(job)
+        return rlt
 
     @staticmethod
-    def getNodeJobReport (node, days=3, output='JobID,JobIDRaw,JobName,AllocCPUS,AllocTRES,State,ExitCode,User,NodeList,Start,End'):
+    def getNodeDoneJobReport (node, days=3, output='JobID,JobIDRaw,JobName,AllocCPUS,AllocTRES,State,ExitCode,User,NodeList,Start,End'):
         job_list = SlurmCmdQuery.sacct_getReport(['-N', node], days, output, skipJobStep=True)
+        rlt      = []
         for job in job_list:
-            if job['State']=='RUNNING':
+            if job['State'] in ['RUNNING','PENDING']:
                continue
             eff = SlurmCmdQuery.seff_cmd(job['JobID'])
             eff.pop("State")
             job.update(eff)
-        return job_list
+            rlt.append(job)
+        return rlt
 
     @staticmethod
     def sacct_getNodeReport (nodeName, days=3, output = 'JobID,JobIDRaw,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocTRES', skipJobStep=True):

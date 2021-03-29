@@ -26,9 +26,9 @@
 
 
       $(document).ready(() => {{
-          var j_title    = {{'job_id':'Job', 'name':'Job Name','user':'User', 'account':'Account','run_time_str':'Wall-clock Time','time_limit_str':'Wall-clock Limit','nodes':'Nodes','num_cpus':'#CPUs', 'job_avg_util':'Avg CPU Util', 'job_mem_util':'Mem Util','job_io_bps':'Avg I/O bps'}};
+          var j_title    = {{'job_id':'Job', 'name':'Job Name','user':'User', 'partition':'Partition','run_time_str':'Wall-clock Time','time_limit_str':'Wall-clock Limit','nodes':'Nodes','num_cpus':'#CPUs', 'job_avg_util':'Avg CPU Util', 'job_mem_util':'Mem Util','job_io_bps':'Avg I/O bps'}};
           var o_title    = {{'source':'Source', 'ts':'Time', 'msg':'Message'}};
-          var type       = {{'job_id':'job_step', 'user':'user', 'ts':'timestamp', 'job_avg_util':'float','job_mem_util':'float'}};
+          var type       = {{'job_id':'job_step', 'user':'user', 'ts':'timestamp', 'job_avg_util':'float','job_mem_util':'float', 'partition':'partition'}};
 
           //create table job_table and part_table
           createTable  ({low_util},   j_title,  'low_util_table',  'low_util',  undefined, type)

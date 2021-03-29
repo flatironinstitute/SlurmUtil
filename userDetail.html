@@ -29,7 +29,10 @@
           var r_j_titles     = {{'job_id':'Job ID', 'name':'Job Name', 'partition':'Partition', 'nodes':'Nodes', 'submit_time':'Submit Time', 'start_time':'Start Time', 'tres_req_str':'Tres Req', 'tres_alloc_str':'Tres Alloc', 'command':'Command'}}
           var p_j_titles     = {{'job_id':'Job ID', 'partition':'Partition', 'name':'Job Name', 'submit_time':'Submit Time', 'tres_req_str':'Tres Req', 'state_reason':'Pending Reason'}}
           var job_type_dict  = {{'job_id':'job', 'partition':'partition','name':'job_name', 'submit_time':'timestamp','start_time':'timestamp', 'tres_req_str':'TresShort', 'tres_alloc_str':'TresShort'}}
-          var u_fields_title = {{'uid':'User ID', 'Account':'Account', 'MaxSubmit':'Max Submit', 'MaxJobs':'Max Jobs', 'MaxNodes':'Max Nodes', 'MaxCPUs':'Max CPUs', 'MaxWall':'Max Wall Time', 'MaxCPUMins':'Max CPU min', 'alloc_nodes':'Alloc Nodes', 'alloc_cpus':'Alloc CPUs', 'alloc_gpus':'Alloc GPUs','alloc_mem':'Alloc Mem', 'partitions':'<a href="#div_partition">Avail Partitions</a>','running_jobs':'<a href="#div_running_job">Running Jobs<a>','pending_jobs':'<a href="#div_pending_job">Pending Jobs<a>'}}
+          var u_fields_title = {{'uid':'User ID', 'Account':'Account', 'MaxSubmit':'Max Submit', 'MaxJobs':'Max Jobs', 'MaxNodes':'Max Nodes', 'MaxCPUs':'Max CPUs', 'MaxWall':'Max Wall Time', 'MaxCPUMins':'Max CPU min', 
+                                 'tres_alloc_str':'Alloc TRES', 
+                                 'file_usage':'<a href="user_fileReport?uid={uid}&days=30">File Usage</a>', 
+                                 'partitions':'<a href="#div_partition">Avail Partitions</a>','running_jobs':'<a href="#div_running_job">Running Jobs<a>','pending_jobs':'<a href="#div_pending_job">Pending Jobs<a>'}}
           var running_jobs   = {running_jobs}
           var pending_jobs   = {pending_jobs}
           var part_info      = {part_info}
@@ -38,7 +41,7 @@
           var array_het_jids = {array_het_jids}
           console.log("array_het_jids=", array_het_jids)
 
-          createNoHeaderTable (user_assoc, u_fields_title, {{'partitions':'partition_list','running_jobs':'job_list_summary','pending_jobs':'job_list_summary'}}, '#div_user_info', 'job_info')
+          createNoHeaderTable (user_assoc, u_fields_title, {{'running_jobs':'job_list_summary','pending_jobs':'job_list_summary'}}, '#div_user_info', 'job_info')
           if (running_jobs.length >0) {{
              createTable (running_jobs, r_j_titles, 'run_job_table',  'div_running_job', undefined, job_type_dict);
           }}
@@ -86,10 +89,7 @@
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
             <h3>
-              {user} ({uname}):
-              <small>
-                <a href="user_fileReport?uid={uid}&days=30">File Usage Report</a>
-              </small>
+              {user}:
             </h3>
             <div id="div_user_info"></div>
           </div>
@@ -115,14 +115,14 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="div_partition">
-            <h3 class="table_title">Total <span id="part_len"></span> Available Partitions</h3>
+            <h3 class="table_title">Total <span id="part_len"></span> Partitions</h3>
           </div>
         </div>
       </section>
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="past_job">
-            <h3 class="table_title">Total <span id="job_history_len"></span> Jobs during Last {day_cnt} Days</h3>
+            <h3 class="table_title">Total <span id="job_history_len"></span> Finished Jobs during Last {day_cnt} Days</h3>
             <!-- <p>You can change the number of days by adding/changing the parameter "days" in the address such as http://scclin011:8126/userDetails?user=uname<span color="green">&days=7</span> -->
           </div>
         </div>
@@ -131,7 +131,6 @@
     <footer class="section section--footer">
       <div class="section__inner section__inner--footer">
         <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
-        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
       </div>
     </footer>
   </body>
