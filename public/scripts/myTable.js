@@ -212,7 +212,7 @@ DISPLAY_FUNC={'user': getUserDetailHtml,
               'partition':getPartDetailHtml,'qos':getQoSDetailHtml,"partition_list": getPartitionListHtml, "M":getDisplayM,
               'job':getJobDetailHtml,'job_name':getJobNameHtml,'job_step':getJob_StepHtml,'job_list':getJobListHtml,'job_list_summary':getJobListSummaryHtml,
               'node':getNodeDetailHtml,
-              'tres':getTresDisplay}
+              'tres':getTresDisplay, 'tres_usage':getTresUsageString}
 function getTypedHtml (d, type_dict)
 {
    var func = DISPLAY_FUNC[type_dict[d.key]]

@@ -67,6 +67,37 @@ function getTresReplaceInteger(tres_str) {
     tres_str = tres_str.replace(/2=(\d+)000/, 'mem=$1G')
     return     tres_str.replace('1=',         'cpu=')
 }
+function getPeriodDisplay(secs){
+    var d   = new Date(secs * 1000)
+    var hms = d.toISOString().substr(11, 8)  //00:00:00
+    var day = Math.floor(secs / (24*3600))
+    if (day > 0)
+       return day + '-' + hms;
+    else
+       return hms;
+}
+
+function getTresUsage_1(dict) {
+    console.log("getTresUsage_1 dict=", dict)
+    alloc_sec  = dict['alloc_secs']
+    alloc_hour = alloc_sec / 3600
+    rank       = dict['rank']
+    return getPeriodDisplay(alloc_hour) + " (#" + rank + " top user)";
+}
+
+function getTresUsageString(tres_dict) {
+    if ((!tres_dict) || Object.keys(tres_dict).length==0)
+       return ''
+    cpu_str  = "cpu="  + getTresUsage_1(tres_dict[1])
+    node_str = "node=" + getTresUsage_1(tres_dict[4])
+    mem_str =  "mem(MB)="  + getTresUsage_1(tres_dict[2])
+    if (1001 in tres_dict) {
+       gpu_str =  "gpu="  + getTresUsage_1(tres_dict[1001])
+       return cpu_str+", " + node_str+", " + mem_str+", " + gpu_str
+    } else
+       return cpu_str+", " + node_str+", " + mem_str
+}
+
 function getDisplayN (n) {
    //console.log('getDisplayN', n)
    if (typeof (n) != 'Number')
