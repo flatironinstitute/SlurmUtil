@@ -177,16 +177,14 @@ class SLURMMonitorUI(object):
            acct = None
         start, stop, tresSer  = SlurmDBQuery.getUserReport_hourly(cluster, start, stop, int(top), acct)
 
-        #cpuLst   = tresSer[1]
-        #start    = min(cpuLst, key=(lambda item: (item['data'][0][0])))['data'][0][0]  /1000
-        #stop     = max(cpuLst, key=(lambda item: (item['data'][-1][0])))['data'][-1][0]/1000
-        htmlTemp = os.path.join(config.APP_DIR, 'scatterHC.html')
-        h = open(htmlTemp).read()%{
-                                   'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
-                                   'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
-                                   'series1': tresSer[1], 'title1': "{}: Top Users' CPU Allocation".format(cluster), 'xlabel1': 'CPU', 'aseries1':[],
-                                   'series2': tresSer[2], 'title2': "{}: Top Users' Mem Allocation".format(cluster), 'xlabel2': 'MEM MB',   'aseries2':[],
-                                   'series3': tresSer[4], 'title3': "{}: Top Users' Node Allocation".format(cluster),'xlabel3': 'Node', 'aseries3':[]}
+        htmlTemp = os.path.join(config.APP_DIR, 'timeSeriesHC.html')
+        h = open(htmlTemp).read().format(
+                                   start = time.strftime('%Y-%m-%d', time.localtime(start)),
+                                   stop  = time.strftime('%Y-%m-%d', time.localtime(stop)),
+                                   s1    = tresSer[1],    title1="{}: Top Users' CPU Allocation".format(cluster), ylabel1='CPU',
+                                   s2    = tresSer[1001], title2="{}: Top Users' GPU Allocation".format(cluster), ylabel2='GPU',
+                                   s3    = tresSer[2],    title3="{}: Top Users' Mem Allocation".format(cluster), ylabel3='Mem MB',
+                                   s4    = tresSer[4],    title4="{}: Top Users' Node Allocation".format(cluster),ylabel4='Node')
 
         return h
 
@@ -792,6 +790,25 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
+    def user_tresReport(self, uname):
+        # click from File Usage
+        tresSer       = SlurmDBQuery.getUserTresHistory(uname)
+        stop          = time.time()
+        start         = stop - 365*24*3600
+
+        if 1001 not in tresSer:
+           tresSer[1001] = []
+        htmlTemp = os.path.join(config.APP_DIR, 'timeSeriesHC.html')
+        h = open(htmlTemp).read().format(
+                                   start = time.strftime('%Y-%m-%d', time.localtime(start)),
+                                   stop  = time.strftime('%Y-%m-%d', time.localtime(stop)),
+                                   s1    = [tresSer[1]],    title1="slurm_plus: User {}' Daily CPU Allocation Hours".format(uname),  ylabel1='CPU Hour',
+                                   s2    = [tresSer[1001]], title2="slurm_plus: User {}' Daily GPU Allocation Hours".format(uname),  ylabel2='GPU Hour',
+                                   s3    = [tresSer[2]],    title3="slurm_plus: User {}' Daily Mem Allocation Hours".format(uname),  ylabel3='MEM MB Hour',
+                                   s4    = [tresSer[4]],    title4="slurm_plus: Users {}' Daily Node Allocation Hours".format(uname),ylabel4='Node Hour')
+        return h
+
+    @cherrypy.expose
     def user_fileReport(self, uid, start='', stop='', days=180):
         # click from File Usage
         start, stop   = MyTool.getStartStopTS (start, stop, '%Y-%m-%d', int(days))
@@ -959,7 +976,7 @@ class SLURMMonitorUI(object):
         running_jobs            = userjob.get('RUNNING',[])
         pending_jobs            = userjob.get('PENDING',[])
         userAssoc['uid']        = uid
-        userAssoc['partitions'] = [" {}(cpu={},node={},gpu={})".format(p['name'],p['user_avail_cpus'],p['user_avail_nodes'],p['user_avail_gpus']) for p in part if p['user_avail_cpus']>0 or p['user_avail_gpus']>0]
+        userAssoc['partitions'] = [" {} (cpu={},node={},gpu={})".format(p['name'],p['user_avail_cpus'],p['user_avail_nodes'],p['user_avail_gpus']) for p in part if p['user_avail_cpus']>0 or p['user_avail_gpus']>0]
         userAssoc['running_jobs'] = [j['job_id'] for j in running_jobs]
         if pending_jobs:
            userAssoc['pending_jobs'] = [j['job_id'] for j in pending_jobs]
@@ -974,7 +991,8 @@ class SLURMMonitorUI(object):
            userAssoc['tres_alloc_str'] = "{},gpu={}".format(userAssoc['tres_alloc_str'], alloc_gpus)
 
         fs_data                 = fs2hc.gendata_user_latest(uid, file_systems=['ceph_full'])
-        userAssoc['file_usage']  = 'home={}, ceph={} (#{} top user)'.format(MyTool.df_cmd(user), MyTool.getDisplayN(fs_data['ceph_full'][1]), fs_data['ceph_full'][2]+1)
+        userAssoc['file_usage']  = 'home={}, ceph={} (#{} top user)'.format(MyTool.df_cmd(user), MyTool.getDisplayN(fs_data['ceph_full'][1]), fs_data['ceph_full'][2])
+        userAssoc['tres_usage'] = SlurmDBQuery.getUserTresUsage(user)
     
         htmlTemp   = os.path.join(config.APP_DIR, 'userDetail.html')
         htmlStr    = open(htmlTemp).read().format(user        =MyTool.getUserFullName(uid),

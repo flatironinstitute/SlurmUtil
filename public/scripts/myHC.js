@@ -231,7 +231,7 @@ function crtLabel (vx, vy, txt, aUnit='') {
                      y    : vy},
             text: txt.toString().concat(aUnit) }
 }
-function timeSeriesPlot(series, chartType, chartTag, title, yCap, aSeries, pf_func=pointFormat_func) {
+function timeSeriesPlot(series, chartType, chartTag, title, yCap, aSeries=[], pf_func=pointFormat_func) {
    console.log('timeSeriesPlot chartType=", chartType, ",series=', series, ",aSeries=", aSeries)
    if ( aSeries.length > 0 ) {
                 baseY = series[0]['data'][0][1]

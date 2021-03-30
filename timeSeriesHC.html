@@ -15,9 +15,11 @@
 	<hr>
 	<div id="chart3" style="min-width: 1000px; height: 400px; margin: 0 auto"></div>
 	<hr>
+	<div id="chart4" style="min-width: 1000px; height: 400px; margin: 0 auto"></div>
 	<script>
-	 timeSeriesScatterPlot(%(series1)s, "chart1",  "%(title1)s from %(start)s to %(stop)s", "%(xlabel1)s",  %(aseries1)s);
-	 timeSeriesScatterPlot(%(series2)s, "chart2",  "%(title2)s from %(start)s to %(stop)s", "%(xlabel2)s",  %(aseries2)s);
-	 timeSeriesScatterPlot(%(series3)s, "chart3",  "%(title3)s from %(start)s to %(stop)s", "%(xlabel3)s",  %(aseries3)s);
+	 timeSeriesPlot({s1}, "line", "chart1",  "{title1} from {start} to {stop}", "{ylabel1}");
+	 timeSeriesPlot({s2}, "line", "chart2",  "{title2} from {start} to {stop}", "{ylabel2}");
+	 timeSeriesPlot({s3}, "line", "chart3",  "{title3} from {start} to {stop}", "{ylabel3}");
+	 timeSeriesPlot({s4}, "line", "chart4",  "{title4} from {start} to {stop}", "{ylabel4}");
 	</script>
 </html>

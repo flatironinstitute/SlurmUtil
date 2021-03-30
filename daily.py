@@ -5,6 +5,7 @@ from prophet      import MyProphet
 from queryInflux  import InfluxQueryClient
 
 #Also in MyTool
+#Not import MyTool to avoid collpase
 def getTS_strftime (ts, fmt='%Y/%m/%d'):
     d = datetime.fromtimestamp(ts)
     return d.strftime(fmt)
@@ -25,7 +26,6 @@ if __name__=="__main__":
    print(args)
 
    # sav old files by day
-   
    clusters = args.clusters + ['slurm_plus']
    if not args.use_file: 
        #slurm_plus = slurm + slurm_cluster_mod (before slurm part)
@@ -44,6 +44,8 @@ if __name__=="__main__":
        # generate pickle file
        print("--- Query influx")
        influxPickle()
+   # generate summary usage file
+   SlurmDBQuery.sum_assoc_usage_day('slurm_plus')
 
    # generate new prophet and figure
    for cluster in clusters:

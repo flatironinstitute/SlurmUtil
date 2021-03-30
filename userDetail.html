@@ -31,7 +31,7 @@
           var job_type_dict  = {{'job_id':'job', 'partition':'partition','name':'job_name', 'submit_time':'timestamp','start_time':'timestamp', 'tres_req_str':'TresShort', 'tres_alloc_str':'TresShort'}}
           var u_fields_title = {{'uid':'User ID', 'Account':'Account', 'MaxSubmit':'Max Submit', 'MaxJobs':'Max Jobs', 'MaxNodes':'Max Nodes', 'MaxCPUs':'Max CPUs', 'MaxWall':'Max Wall Time', 'MaxCPUMins':'Max CPU min', 
                                  'tres_alloc_str':'Alloc TRES', 
-                                 'tres_usage':'TRES YTD Time',
+                                 'tres_usage':'<a href="user_tresReport?uname={uname}">TRES YTD Time</a>',
                                  'file_usage':'<a href="user_fileReport?uid={uid}&days=30">File Usage</a>', 
                                  'partitions':'<a href="#div_partition">Avail Partitions</a>','running_jobs':'<a href="#div_running_job">Running Jobs<a>','pending_jobs':'<a href="#div_pending_job">Pending Jobs<a>'}}
           var running_jobs   = {running_jobs}

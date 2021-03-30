@@ -94,6 +94,7 @@ class SlurmDBQuery:
         cpuIdx      = sumDf.loc[(1,)].nlargest(top, 'alloc_secs').index
         memIdx      = sumDf.loc[(2,)].nlargest(top, 'alloc_secs').index
         nodeIdx     = sumDf.loc[(4,)].nlargest(top, 'alloc_secs').index
+        gpuIdx      = sumDf.loc[(1001,)].nlargest(top, 'alloc_secs').index
 
         #refine top users' data using hour_table
         fname2      = "{}/{}_{}".format(CSV_DIR, cluster, "assoc_usage_hour_table.csv")
@@ -101,9 +102,9 @@ class SlurmDBQuery:
         st, stp, df = MyTool.getDFBetween (df, 'time_start', start, stop)
         # get top users data only
         dfg         = df.groupby(['id_tres','id'])
-        tresSer     = {1:[],     2:[],     4:[]} # {1: [{'data': [[ms,value],...], 'name': uid},...], 2:...} 
-        idxSer      = {1:cpuIdx, 2:memIdx, 4:nodeIdx}
-        for tres in [1,2,4]:
+        tresSer     = {1:[],     2:[],     4:[],      1001:[]} # {1: [{'data': [[ms,value],...], 'name': uid},...], 2:...} 
+        idxSer      = {1:cpuIdx, 2:memIdx, 4:nodeIdx, 1001:gpuIdx}
+        for tres in [1,2,4,1001]:
             for uid in idxSer[tres]:
                 topDf                = dfg.get_group((tres,uid))
                 topDf['ts_ms']       = topDf['time_start'] * 1000
@@ -459,7 +460,7 @@ class SlurmDBQuery:
         fname1      = "{}/{}_{}".format(CSV_DIR, cluster, "assoc_table.csv")
         userDf      = pandas.read_csv(fname1, usecols=['id_assoc','user','acct'], index_col=0)
         rlt         = df.join(userDf, on='id')
-        rlt.to_csv ("{}/{}_{}".format(CSV_DIR, cluster, "assoc_usage_day_combine_table.csv"), index=False)
+        rlt.to_csv ("{}/{}_{}".format(CSV_DIR, cluster, "assoc_usage_day_1year_combine_table.csv"), index=False)
 
         # get summary data
         rlt         = rlt[['id_tres','user', 'alloc_secs']]
@@ -477,7 +478,7 @@ class SlurmDBQuery:
         sum_df.to_csv ("{}/{}_{}".format(CSV_DIR, cluster, "assoc_usage_day_1year_sum_table.csv"), index=False)
 
     # return {1: {'user': 'jnattila', 'alloc_secs': 68769792092, 'rank': 1}, 2:
-    def getUserUsage (uname, cluster='slurm_plus'):
+    def getUserTresUsage (uname, cluster='slurm_plus'):
         fname       = "{}/{}_{}".format(CSV_DIR, cluster, "assoc_usage_day_1year_sum_table.csv")
         df          = pandas.read_csv(fname, dtype={'alloc_secs':int})
         user_df     = df[df['user']==uname]
@@ -487,6 +488,19 @@ class SlurmDBQuery:
            user_df  = user_df.set_index('id_tres')
            return user_df.to_dict(orient='index')
             
+    # return {1: {'user': 'jnattila', 'alloc_secs': 68769792092, 'rank': 1}, 2:
+    def getUserTresHistory (uname, cluster='slurm_plus'):
+        fname       = "{}/{}_{}".format(CSV_DIR, cluster, "assoc_usage_day_1year_combine_table.csv")
+        df          = pandas.read_csv(fname, dtype={'alloc_secs':int})
+        user_df     = df[df['user']==uname]
+        dfg         = user_df.groupby(['id_tres'])
+        rlt         = {}
+        for name, grp in dfg:
+            grp       = grp[['time_start','alloc_secs']]
+            grp_d     = grp.to_dict('list')
+            rlt[name] = {'name':uname, 'data': [[grp_d['time_start'][i]*1000, grp_d['alloc_secs'][i]/3600] for i in range(len(grp_d['time_start']))]}
+        return rlt
+ 
 #one time calling 
 def truncUsageFiles():
     ts     = 1604786400        #head slurm_usage_hour_table 
@@ -512,7 +526,8 @@ def test4():
 
 def test5():
     SlurmDBQuery.sum_assoc_usage_day('slurm_plus')
-    SlurmDBQuery.getUserUsage       ('jnattila')
+    SlurmDBQuery.getUserTresUsage       ('jnattila')
+    SlurmDBQuery.getUserTresHistory     ('jnattila')
 
 def main():
     t1=time.time()
