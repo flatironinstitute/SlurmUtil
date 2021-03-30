@@ -83,7 +83,7 @@ def gendata_user_latest(uid, file_systems=None):
         if not u_df.empty:
            values = u_df.values.tolist()[0]
            idx    = u_df.index.tolist()[0]
-           rlt[fs] = [values[1], values[2], idx]
+           rlt[fs] = [values[1], values[2], idx+1]  # third one is the n-th top user
         else:
            rlt[fs] = [0,0,-1]
     return rlt
