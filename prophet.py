@@ -13,6 +13,7 @@ from fbprophet.diagnostics import cross_validation
 from fbprophet.diagnostics import performance_metrics
 
 IMG_DIR          = "./public/images/"
+CSV_DIR          = "./data/"
 
 #maintaince time, 'eventname':[start,end,real_ned]'
 maintenance = {
@@ -163,14 +164,23 @@ class MyProphet:
            plt.title  ('CPU Seconds Forecast MAPE (mean absolute percent error)')
            plt.savefig(IMG_DIR + name + '_forecastCV.png')
 
+def daily (clusters):
+    for cluster in clusters:
+       print("--- Cluseter {} ---".format(cluster))
+       fname1 = "{}/{}_day_{}".format(CSV_DIR, cluster, "cpuAllocDF.csv")
+       fname2 = "{}/{}_day_{}".format(CSV_DIR, cluster, "cpuAllocDF_*.csv")
+       inst   = MyProphet(years=3)                      # use up to 2 years of hisotry
+       inst.clusterUsage_forecast (fname1, days=14)   # predict 2 weeks
+       inst.accountUsage_forecast (fname2, days=14)
+
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description='Make prediction of cluster and account usage.')
     parser.add_argument('-y', '--years',     type=int, default=3,   help='years of history used to make prediction')
     parser.add_argument('-d', '--future',    type=int, default=30,  help='days in the future to predict')
-    #parser.add_argument('-c', '--clusters', nargs="+", default=['cluster'],   help='clusters')
+    parser.add_argument('-c', '--clusters', nargs="+", default=['slurm', 'slurm_plus'],   help='clusters')
     args = parser.parse_args()
-    #print(args)
+    daily(args.clusters)
 
     inst = MyProphet(args.years)
-    #inst.clusterUsage_forecast ("./data/slurm_plus_day_cpuAllocDF.csv",   days=args.future)
-    inst.accountUsage_forecast ("./data/slurm_plus_day_cpuAllocDF_*.csv", days=args.future)
+    inst.clusterUsage_forecast ("./data/slurm_plus_day_cpuAllocDF.csv",   days=args.future)
+    #inst.accountUsage_forecast ("./data/slurm_plus_day_cpuAllocDF_*.csv", days=args.future)

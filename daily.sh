@@ -25,7 +25,7 @@ python daily.py -c $clusters >> ${LOG} 2>&1
 /cm/shared/apps/slurm/current/bin/sacctmgr list user -P -s >& ./data/sacctmgr_assoc.csv
 
 #get users.csv from scc-ansible github repo
-wget -O ./data/users.csv https://raw.githubusercontent.com/flatironinstitute/scc-ansible/master/users.csv?token=AFMF3P2HEFVO75KW5DIIIJ3AI7X4U
+wget -O ./data/users.csv https://raw.githubusercontent.com/flatironinstitute/scc-ansible/master/users.csv?token=AFMF3PZFMSI7CH7FHKXRN6TAM6BX2
 
 echo "DONE" >> ${LOG}
 deactivate

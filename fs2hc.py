@@ -112,26 +112,27 @@ def gendata_all(fs, start='', stop='', topN=5):
     if fs not in FileSystems: 
        logger.warning("WARNING gendata_all: Unknown file system: {}".format(fs))
        return [], []
-    dDict   = gendata_fs_history (fs, start, stop)
+    dDict    = gendata_fs_history (fs, start, stop)
     if not dDict:
        return [], []
+    # get last ts, decide top users based on latest usage
+    last_ts  = list(sorted(dDict))[-1]
+    top_df   = dDict[last_ts].nlargest(5,["fc","bc"],keep='first')
+    top_uid1 = top_df['uid'].tolist()
+    top_df   = dDict[last_ts].nlargest(5,["bc","fc"],keep='first')
+    top_uid2 = top_df['uid'].tolist()
 
     df      = pandas.concat  (dDict, names=['ts','idx'])
     dfg     = df.groupby ('uid')
-    # loop over dfg to generate uid2seq
-    sumDf   = dfg.sum()
-    sumDf1  = sumDf.sort_values (['fc', 'bc'], ascending=False)
-    sumDf2  = sumDf.sort_values (['bc', 'fc'], ascending=False)
-
     # for each uid, dfg.get_group
     uid2seq1 = []  #{ uid: [(ts, value), ...], ...}
-    for uid in sumDf1.head(n=topN).index.values:
+    for uid in top_uid1:
         uidDf         = dfg.get_group(uid).reset_index()
         uname         = MyTool.getUser(uid, True)
         uid2seq1.append ({'name': uname, 'data': uidDf.loc[:,['ts','fc']].values.tolist()})
         
     uid2seq2 = []  #{ uid: [(ts, value), ...], ...}
-    for uid in sumDf2.head(n=topN).index.values:
+    for uid in top_uid2:
         uidDf         = dfg.get_group(uid).reset_index()
         uname         = MyTool.getUser(uid, True)
         uid2seq2.append ({'name': uname, 'data': uidDf.loc[:,['ts','bc']].values.tolist()})
@@ -236,7 +237,7 @@ def test2():
     print("Test all's past 3 days history")
     stop         = int(time.time())
     start        = stop - 7*24*60*60
-    fcSer, bcSer = gendata_all('home', start, stop, 5)
+    fcSer, bcSer = gendata_all('ceph_full', start, stop, 5)
     print("fcSer={} \n\n bcSer={}".format(fcSer, bcSer))
 
 def test3():
@@ -245,8 +246,7 @@ def test3():
 
 if '__main__' == __name__:
     #print (gendata(*sys.argv[1:]))
-    #print (gendata_all(*sys.argv[1:], 2))
     #print (gendata_user(*sys.argv[1:]))
-    test1 (sys.argv[1])
-    #test3 ()
+    #test1 (sys.argv[1])
+    test2 ()
 

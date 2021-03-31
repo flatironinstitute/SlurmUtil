@@ -127,7 +127,7 @@ class InMemCache:
             #   self.jobs[jid]['preempt_time'] = jobData[jid]['preempt_time']
             if jobData[jid]['resize_time']:
                self.jobs[jid]['resize_time']  = jobData[jid]['resize_time']
-            logger.debug("active jid {} done".format(jid))
+            #logger.debug("active jid {} done".format(jid))
             
         #remove data of not running jobs from self.job_node
         doneJob   = [jid for jid in jobData              if jid not in activeJob and jid in self.jobs]

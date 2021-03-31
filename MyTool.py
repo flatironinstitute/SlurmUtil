@@ -589,6 +589,21 @@ def getGPUAlloc_layout (node_iter, gpu_detail_iter):
 #'tres_req_str': 'cpu=400,node=10,billing=400'
 #'tres_fmt_str': 'cpu=1612,mem=28375G,node=43,billing=1612,gres/gpu=148'
 #mapKey=true, then for "1=40,2=700000", return {cpu:40,...}
+#+---------------+---------+------+----------------+------+
+#| creation_time | deleted | id   | type           | name |
+#+---------------+---------+------+----------------+------+
+#|    1505726834 |       0 |    1 | cpu            |      |
+#|    1505726834 |       0 |    2 | mem            |      |
+#|    1505726834 |       0 |    3 | energy         |      |
+#|    1505726834 |       0 |    4 | node           |      |
+#|    1544835407 |       0 |    5 | billing        |      |
+#|    1553370225 |       0 |    6 | fs             | disk |
+#|    1553370225 |       0 |    7 | vmem           |      |
+#|    1553370225 |       0 |    8 | pages          |      |
+#|    1536253094 |       1 | 1000 | dynamic_offset |      |
+#|    1559052921 |       0 | 1001 | gres           | gpu  |
+#+---------------+---------+------+----------------+------+
+#
 TRES_KEY_MAP={1:'cpu',2:'mem',4:'node',1001:'gpu'}
 def getTresDict (tres_str, mapKey=False):
     d  = {}
@@ -644,7 +659,7 @@ def getDisplayK (n):
    return '{:.2f}T'.format(n)
 
 #sum of ['123', '123K', '123M']
-def sumOfListWithUnit (lst):
+def sumOfListWithUnit_lst (lst):
     if not lst:   
        return '0'
     lst_D = list(filter(lambda x: str.isnumeric(x), lst))
@@ -664,7 +679,22 @@ def sumOfListWithUnit (lst):
     if lst_D:
        total   = sum([int(n)      for n in lst_D]) + total * 1024
        postfix = ''
-    return str(str(total) + postfix)
+    return total, postfix
+
+def sumOfListWithUnit (lst):
+    total, postfix = sumOfListWithUnit_lst(lst)
+    return str(total) + postfix
+    
+def convert2M (mem_unit):
+    mem,unit = int(mem_unit[:-1]),mem_unit[-1]
+    mem_MB   = mem
+    if unit == 'G':
+       mem_MB = mem * 1024
+    elif unit == 'K':
+       mem_MB = mem / 1024
+    elif unit == '':
+       mem_MB = mem / 1024 / 1024
+    return mem_MB
 
 #seq is a list [[time_msec, value], ....]
 #startTS and stopTS is ts

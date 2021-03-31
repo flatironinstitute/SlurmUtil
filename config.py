@@ -21,6 +21,7 @@ def fillDefSettings (conf):
        settings["low_util_node"]     = {"cpu":1, "gpu":10, "mem":30, "alloc_time_min":60}
     if "summary_column" not in settings:
        settings["summary_column"]    = dict(zip(SUMMARY_TABLE_COL, [True]*len(SUMMARY_TABLE_COL)))
+       settings["summary_column"]['delay']        = False  #delay not showing
        settings["summary_column"]['avg_gpu_util'] = False  #disable avg_gpu_util
     if "summary_low_util" not in settings:
        settings["summary_low_util"]  = {"cpu_util":1, "avg_cpu_util":1, "rss":1, "gpu_util":10, "avg_gpu_util":10, "type":"inform"}
