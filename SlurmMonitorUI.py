@@ -201,7 +201,7 @@ class SLURMMonitorUI(object):
     @cherrypy.expose
     def forecast(self):
         clusters = list(PyslurmQuery.getSlurmDBClusters())
-        clusters = ['slurm', 'slurm_plus_day']
+        clusters = ['slurm_day', 'slurm_plus_day']
         f_lst   = sorted(glob.glob('./public/images/{}_cpuAllocDF_*_forecast.png'.format(clusters[0])))
         f_lst   = [os.path.splitext(os.path.split(fname)[1])[0] for fname in f_lst]     #filename no dir no ext
         f_lst = [fname.split('_')[-2] for fname in f_lst]
@@ -426,8 +426,10 @@ class SLURMMonitorUI(object):
 
             #status display no extra
             status, delay, ts = nodeInfo[0], nodeInfo[1], nodeInfo[2]
-            if status.endswith(('@','+','$','#','~','*')):  #format status diaplay
+            if status.endswith(('@','+','$','#','~','*')):  #format status diaplay, sinfo explain 
                status = status[:-1]
+            if 'DOWN' in status:                            #or modify javascript equalOnCol 
+               status = 'DOWN'
             if ( node in node2jobs) and node2jobs[node]:  # node has running jobs
                for jid in node2jobs[node]:                # for each job on the node, add one item
                   job_user    = MyTool.getUser(jobData[jid]['user_id'])
@@ -792,9 +794,9 @@ class SLURMMonitorUI(object):
     @cherrypy.expose
     def user_tresReport(self, uname):
         # click from File Usage
-        tresSer       = SlurmDBQuery.getUserTresHistory(uname)
-        stop          = time.time()
-        start         = stop - 365*24*3600
+        start,stop,tresSer       = SlurmDBQuery.getUserTresHistory(uname)
+        #stop          = time.time()
+        #start         = stop - 365*24*3600
 
         if 1001 not in tresSer:
            tresSer[1001] = []
@@ -976,7 +978,7 @@ class SLURMMonitorUI(object):
         running_jobs            = userjob.get('RUNNING',[])
         pending_jobs            = userjob.get('PENDING',[])
         userAssoc['uid']        = uid
-        userAssoc['partitions'] = [" {} (cpu={},node={},gpu={})".format(p['name'],p['user_avail_cpus'],p['user_avail_nodes'],p['user_avail_gpus']) for p in part if p['user_avail_cpus']>0 or p['user_avail_gpus']>0]
+        userAssoc['partitions'] = [p for p in part if p['user_avail_cpus']>0 or p['user_avail_gpus']>0]
         userAssoc['running_jobs'] = [j['job_id'] for j in running_jobs]
         if pending_jobs:
            userAssoc['pending_jobs'] = [j['job_id'] for j in pending_jobs]
@@ -990,11 +992,10 @@ class SLURMMonitorUI(object):
         if alloc_gpus:
            userAssoc['tres_alloc_str'] = "{},gpu={}".format(userAssoc['tres_alloc_str'], alloc_gpus)
 
+        userAssoc['file_usage'] = {'home':MyTool.df_cmd(user)}
         fs_data                 = fs2hc.gendata_user_latest(uid, file_systems=['ceph_full'])
         if 'ceph_full' in fs_data:
-           userAssoc['file_usage']  = 'home={}, ceph={} (#{} top user)'.format(MyTool.df_cmd(user), MyTool.getDisplayN(fs_data['ceph_full'][1]), fs_data['ceph_full'][2])
-        else:
-           userAssoc['file_usage']  = 'home={}, ceph=0'.format(MyTool.df_cmd(user))
+           userAssoc['file_usage']['ceph'] = fs_data['ceph_full']
         
         userAssoc['tres_usage'] = SlurmDBQuery.getUserTresUsage(user)
     

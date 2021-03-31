@@ -40,6 +40,7 @@
 
           // populate accounts
           var accts   = {accounts}
+          console.log('accts=', accts)
           $('#acct').append     ('<option value="all">ALL</option>');
           for (var i = 0; i < accts.length; i++) {{
              $('#acct').append     ('<option value="' + accts[i] + '">' + accts[i].toUpperCase() + '</option>');
