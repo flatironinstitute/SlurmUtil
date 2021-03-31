@@ -22,24 +22,6 @@ function getDisplayI (n) {
    n = n / 1024
    return getDisplayK(n)
 }
-function getDisplayK (n) {
-   if (typeof (n) != 'Number')
-      n = parseFloat (n)
-   if (n < 1024) {
-      if (Number.isInteger(n))
-         return n.toString() + ' K'
-      else
-         return n.toFixed(2) + ' K'
-   }
-   n /= 1024
-   if (n < 1024)
-      return n.toFixed(2) + ' M'
-   n /= 1024
-   if (n < 1024)
-      return n.toFixed(2) + ' G'
-   n = n / 1024
-   return n.toFixed(2) + ' T'
-}
 function getDisplayFloat (n) {
    if (typeof (n) != 'Number')
       n = parseFloat (n)
@@ -167,7 +149,6 @@ function createMultiTable2 (data_dict, parent_id, table_title_list, node, type_l
              return d
          })
 
-   
    // collapse behavior
    collapseTitle ()
 } //createMultiTable2
@@ -208,11 +189,13 @@ function getSummaryHtml (d, key, summary_type, sortCol)
 }
 
 DISPLAY_FUNC={'user': getUserDetailHtml, 
-              "timestamp":getTS_LString, 'float':getDisplayF,
-              'partition':getPartDetailHtml,'qos':getQoSDetailHtml,"partition_list": getPartitionListHtml, "M":getDisplayM,
+              "timestamp":getTS_LString, 'float':getDisplayF, "M":getDisplayM,
+              'partition':getPartDetailHtml,'partition_list_avail':getPartListAvailString,"partition_list": getPartitionListHtml, 
+              'qos':getQoSDetailHtml, 
               'job':getJobDetailHtml,'job_name':getJobNameHtml,'job_step':getJob_StepHtml,'job_list':getJobListHtml,'job_list_summary':getJobListSummaryHtml,
               'node':getNodeDetailHtml,
-              'tres':getTresDisplay, 'tres_usage':getTresUsageString}
+              'tres':getTresDisplay, 'tres_usage':getTresUsageString, 
+              'file_usage':getFileUsageString}
 function getTypedHtml (d, type_dict)
 {
    var func = DISPLAY_FUNC[type_dict[d.key]]
@@ -683,8 +666,7 @@ function filterDict2NestList (data_dict, req_fields)
 //       disp_dict is a dictionary {display_key: display_text}, 
 //       type_dict is {key: display_type}
 function createNoHeaderTable (data_dict, disp_dict, type_dict, parent_id, table_id, prepare_data_func=filterDict2NestList){
-    console.log(DISPLAY_FUNC)
-    console.log('createList: data_dict=', data_dict, ',disp_dict=', disp_dict, ",type_dict=", type_dict)
+    console.log('createNoHeaderTable: data_dict=', data_dict, ',disp_dict=', disp_dict, ",type_dict=", type_dict)
     var data  = prepare_data_func(data_dict, Object.keys(disp_dict))
     var table = d3.select(parent_id).append('table').property('id', table_id)
                                                     .attr('class', 'no_header');

@@ -499,7 +499,7 @@ class SlurmDBQuery:
             grp       = grp[['time_start','alloc_secs']]
             grp_d     = grp.to_dict('list')
             rlt[name] = {'name':uname, 'data': [[grp_d['time_start'][i]*1000, grp_d['alloc_secs'][i]/3600] for i in range(len(grp_d['time_start']))]}
-        return rlt
+        return rlt[1]['data'][0][0]/1000,rlt[1]['data'][-1][0]/1000,rlt
  
 #one time calling 
 def truncUsageFiles():

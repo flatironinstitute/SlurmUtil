@@ -802,10 +802,10 @@ class SLURMMonitorUI(object):
         h = open(htmlTemp).read().format(
                                    start = time.strftime('%Y-%m-%d', time.localtime(start)),
                                    stop  = time.strftime('%Y-%m-%d', time.localtime(stop)),
-                                   s1    = [tresSer[1]],    title1="slurm_plus: User {}' Daily CPU Allocation Hours".format(uname),  ylabel1='CPU Hour',
-                                   s2    = [tresSer[1001]], title2="slurm_plus: User {}' Daily GPU Allocation Hours".format(uname),  ylabel2='GPU Hour',
-                                   s3    = [tresSer[2]],    title3="slurm_plus: User {}' Daily Mem Allocation Hours".format(uname),  ylabel3='MEM MB Hour',
-                                   s4    = [tresSer[4]],    title4="slurm_plus: Users {}' Daily Node Allocation Hours".format(uname),ylabel4='Node Hour')
+                                   s1    = [tresSer[1]],    title1="slurm_plus: Daily CPU Allocation Hours",  ylabel1='CPU Hour',
+                                   s2    = [tresSer[1001]], title2="slurm_plus: Daily GPU Allocation Hours",  ylabel2='GPU Hour',
+                                   s3    = [tresSer[2]],    title3="slurm_plus: Daily Mem Allocation Hours",  ylabel3='MEM MB Hour',
+                                   s4    = [tresSer[4]],    title4="slurm_plus: Daily Node Allocation Hours", ylabel4='Node Hour')
         return h
 
     @cherrypy.expose
@@ -991,7 +991,11 @@ class SLURMMonitorUI(object):
            userAssoc['tres_alloc_str'] = "{},gpu={}".format(userAssoc['tres_alloc_str'], alloc_gpus)
 
         fs_data                 = fs2hc.gendata_user_latest(uid, file_systems=['ceph_full'])
-        userAssoc['file_usage']  = 'home={}, ceph={} (#{} top user)'.format(MyTool.df_cmd(user), MyTool.getDisplayN(fs_data['ceph_full'][1]), fs_data['ceph_full'][2])
+        if 'ceph_full' in fs_data:
+           userAssoc['file_usage']  = 'home={}, ceph={} (#{} top user)'.format(MyTool.df_cmd(user), MyTool.getDisplayN(fs_data['ceph_full'][1]), fs_data['ceph_full'][2])
+        else:
+           userAssoc['file_usage']  = 'home={}, ceph=0'.format(MyTool.df_cmd(user))
+        
         userAssoc['tres_usage'] = SlurmDBQuery.getUserTresUsage(user)
     
         htmlTemp   = os.path.join(config.APP_DIR, 'userDetail.html')

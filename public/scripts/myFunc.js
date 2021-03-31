@@ -46,6 +46,18 @@ function getJobArrayDetail (jids_array) {
 function getPartDetailHtml (pid) {
     return '<a href=./partitionDetail?partition=' + pid +'>' + pid + '</a>'
 }
+function getPartAvailString(p) {
+    var str = p.name + " (cpu=" + p.user_avail_cpus + ",node=" + p.user_avail_nodes 
+    if (p.user_avail_gpus == 0)
+       return str + ")"
+    else
+       return str + ",gpu=" + p.user_avail_gpus + ")"
+}
+function getPartListAvailString (p_list) {
+    console.log("getPartListAvailString", p_list)
+    var str_list = p_list.map( function(p) {return getPartAvailString(p);} )
+    return str_list.join(', ')
+}
 function getPartitionListHtml(p_list) {
     var html_list = p_list.map( function(p) {return getPartDetailHtml(p);} )
     return html_list.join(',')
@@ -64,38 +76,60 @@ function getTS_LString (ts_sec) {
 function getTresReplaceInteger(tres_str) {
     tres_str = tres_str.replace('1001=',      'gres/gpu=')
     tres_str = tres_str.replace('4=',         'node=')
-    tres_str = tres_str.replace(/2=(\d+)000/, 'mem=$1G')
+    tres_str = tres_str.replace(/2=(\d+)/,    'mem=$1M')
     return     tres_str.replace('1=',         'cpu=')
 }
 function getPeriodDisplay(secs){
-    var d   = new Date(secs * 1000)
-    var hms = d.toISOString().substr(11, 8)  //00:00:00
     var day = Math.floor(secs / (24*3600))
-    if (day > 0)
-       return day + '-' + hms;
-    else
+    var rem = secs % (24*3600)
+    var d   = new Date(rem * 1000)
+    var hms = d.toISOString().substr(11, 8)  //00:00:00
+    if (day > 0) {
+       year = Math.floor(day / 365)
+       day  = day % 365
+       d_s  = day + '-' + hms
+       if (year > 0)
+          return year + "Y-" + d_s 
+       else
+          return d_s;
+    } else
        return hms;
 }
 
 function getTresUsage_1(dict) {
-    console.log("getTresUsage_1 dict=", dict)
-    alloc_sec  = dict['alloc_secs']
-    alloc_hour = alloc_sec / 3600
-    rank       = dict['rank']
-    return getPeriodDisplay(alloc_hour) + " (#" + rank + " top user)";
+    var alloc_sec  = dict['alloc_secs']
+    var rank       = dict['rank']
+    if (rank<=10)
+       return getPeriodDisplay(alloc_sec) + " (#" + rank + " top user)";
+    else
+       return getPeriodDisplay(alloc_sec);
 }
 
 function getTresUsageString(tres_dict) {
     if ((!tres_dict) || Object.keys(tres_dict).length==0)
        return ''
-    cpu_str  = "cpu="  + getTresUsage_1(tres_dict[1])
-    node_str = "node=" + getTresUsage_1(tres_dict[4])
-    mem_str =  "mem(MB)="  + getTresUsage_1(tres_dict[2])
+    var cpu_str  = "cpu="  + getTresUsage_1(tres_dict[1])
+    var node_str = "node=" + getTresUsage_1(tres_dict[4])
+    var mem_str =  "mem(MB)="  + getTresUsage_1(tres_dict[2])
     if (1001 in tres_dict) {
-       gpu_str =  "gpu="  + getTresUsage_1(tres_dict[1001])
+       var gpu_str =  "gpu="  + getTresUsage_1(tres_dict[1001])
        return cpu_str+", " + node_str+", " + mem_str+", " + gpu_str
     } else
        return cpu_str+", " + node_str+", " + mem_str
+}
+
+function getFileUsageString(usage_dict) {
+    console.log("usage_dict=", usage_dict)
+    var home_str = 'home=' + usage_dict['home']
+    if ('ceph' in usage_dict) {
+       var ceph_str = ', ceph=' + getDisplayN (usage_dict['ceph'][1])
+       var rank     = usage_dict['ceph'][2]
+       if (rank>10)
+          return home_str + ceph_str
+       else
+          return home_str + ceph_str + " (#" + rank + " top user)" 
+    } else
+       return home_str
 }
 
 function getDisplayN (n) {
