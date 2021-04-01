@@ -733,11 +733,17 @@ class SlurmEntities:
       p_node_avail,p_cpu_avail,p_node_avail_lst,features,conflict_res= self.getPartitionAvailNodeCPU (p_name, job, strictFlag=True) 
       if p_node_avail==0:
          return ''
-
+      # job has resource to run
       logger.debug("Job {} can run on {}:{} nodes len={} cpu={} features={}".format(job['job_id'], p_name, p_node_avail_lst, p_node_avail, p_cpu_avail, features))
       job['qos_relax_nodes'] = p_node_avail_lst
+
       p_qos                  = self.getPartitionQoS (p_name)
       suggestion             = ''
+      if job['state_reason'] == 'QOSMaxJobsPerUserLimit':
+         if p_qos:
+            job_limit        = p_qos['max_jobs_pu']
+            suggestion       = 'Increase User Job Limit from {} to {}. '.format (job_limit, job_limit+1)
+
       user_limit             = self.getJobQoSTresDict (job, p_qos, 'max_tres_pu')           #qos limit for user
       grp_limit              = self.getJobQoSTresDict (job, p_qos, 'grp_tres')              #qos limit for grp
       user_alloc             = SlurmEntities.sumUserAlloc_Partition (job['user_id'], p_name, self.job_dict)  #user allocation

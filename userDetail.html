@@ -26,8 +26,8 @@
           $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
 
           //create table job_table and part_table
-          var r_j_titles     = {{'job_id':'Job ID', 'name':'Job Name', 'partition':'Partition', 'nodes':'Nodes', 'submit_time':'Submit Time', 'start_time':'Start Time', 'tres_req_str':'Tres Req', 'tres_alloc_str':'Tres Alloc', 'command':'Command'}}
-          var p_j_titles     = {{'job_id':'Job ID', 'partition':'Partition', 'name':'Job Name', 'submit_time':'Submit Time', 'tres_req_str':'Tres Req', 'state_reason':'Pending Reason'}}
+          var r_j_titles     = {{'job_id':'Job ID', 'name':'Job Name', 'partition':'Partition', 'nodes':'Nodes', 'submit_time':'Submit Time', 'start_time':'Start Time', 'tres_req_str':'Tres Req', 'tres_alloc_str':'Tres Alloc'}}
+          var p_j_titles     = {{'job_id':'Job ID', 'name':'Job Name', 'partition':'Partition', 'submit_time':'Submit Time', 'tres_req_str':'Tres Req', 'state_reason':'Pending Reason'}}
           var job_type_dict  = {{'job_id':'job', 'partition':'partition','name':'job_name', 'submit_time':'timestamp','start_time':'timestamp', 'tres_req_str':'TresShort', 'tres_alloc_str':'TresShort'}}
           var u_fields_title = {{'uid':'User ID', 'Account':'Account', 'MaxSubmit':'Max Submit', 'MaxJobs':'Max Jobs', 'MaxNodes':'Max Nodes', 'MaxCPUs':'Max CPUs', 'MaxWall':'Max Wall Time', 'MaxCPUMins':'Max CPU min', 
                                  'tres_alloc_str':'Alloc Res.', 

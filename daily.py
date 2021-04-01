@@ -46,6 +46,7 @@ if __name__=="__main__":
        influxPickle()
    # generate summary usage file
    SlurmDBQuery.sum_assoc_usage_day('slurm_plus')
+   SlurmDBQuery.sum_job_step       ('slurm')
 
    # generate new prophet and figure
    prophet.daily()

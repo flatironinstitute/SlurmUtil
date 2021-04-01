@@ -206,7 +206,7 @@ def getStartStopTS (start='', stop=None, formatStr='%Y%m%d', days=3, setStop=Tru
     else:
         start = max(0, int(time.time()) - days * ONEDAY_SECS)
 
-    return start, stop
+    return int(start), int(stop)
 
 def func1 (df):
     return df[['user','job','load']].groupby('user').apply(func2)
@@ -661,7 +661,7 @@ def getDisplayK (n):
 #sum of ['123', '123K', '123M']
 def sumOfListWithUnit_lst (lst):
     if not lst:   
-       return '0'
+       return 0,''
     lst_D = list(filter(lambda x: str.isnumeric(x), lst))
     lst_K = list(filter(lambda x: x[-1]=='K', lst))
     lst_M = list(filter(lambda x: x[-1]=='M', lst))

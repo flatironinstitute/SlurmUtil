@@ -696,7 +696,7 @@ function createJobHistoryTable (job_history, array_het_jids, job_history_table_i
       tmp = {'JobIDRaw':'Job ID', 'JobID':'Job ID(Report)'}
    else 
       tmp = {'JobID':'Job ID'}
-   const j_h_titles = Object.assign(tmp, {'JobName':'Name','State':'State','NodeList':'Alloc Node','AllocCPUS':'Alloc CPU','AllocGPUS':'Alloc GPU','Start':'Start Time','End':'End Time','Job Wall-clock time':'Wall-clock time','CPU Efficiency':'CPU Efficiency','Memory Efficiency':'Memory Efficiency'})
+   const j_h_titles = Object.assign(tmp, {'JobName':'Job Name','State':'State','NodeList':'Alloc Node','AllocCPUS':'Alloc CPU','AllocGPUS':'Alloc GPU','Start':'Start Time','End':'End Time','Job Wall-clock time':'Wall-clock time','CPU Efficiency':'CPU Efficiency','Memory Efficiency':'Memory Efficiency'})
    if (excludeGPU)
       delete j_h_titles.AllocGPUS
    createTable (job_history, j_h_titles,  job_history_table_id, parent_id, undefined, {'JobID':'job_step', 'JobIDRaw':'job_step'})

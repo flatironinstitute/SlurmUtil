@@ -33,10 +33,10 @@ class SlurmDBQuery:
         subprocess.call('./mysqldump.sh')
 
     def readJobTable (cluster, start=None, stop=None, fld_lst=None, index_col=None, time_col='time_submit'):
-        #read file time, if updated from last time, reset the value
         f_name        = "{}/{}_{}".format(CSV_DIR, cluster, "job_table.csv")
         df            = pandas.read_csv(f_name, usecols=fld_lst, index_col=index_col)
         if time_col and (start or stop):
+           logger.debug("start={},stop={}".format(start,stop))
            start,stop,df = MyTool.getDFBetween (df, time_col, start, stop)
 
         return start, stop, df
@@ -276,7 +276,7 @@ class SlurmDBQuery:
         lst            = df.to_dict(orient='records')
         return lst
 
-    def readClusterTable (cluster, part_table_name, fld_lst, index_col=None):
+    def readClusterTable (cluster, part_table_name, fld_lst=None, index_col=None):
         f_name        = "{}/{}_{}.csv".format(CSV_DIR, cluster, part_table_name)
         df            = pandas.read_csv(f_name, usecols=fld_lst, index_col=index_col)
         return df
@@ -501,6 +501,19 @@ class SlurmDBQuery:
             rlt[name] = {'name':uname, 'data': [[grp_d['time_start'][i]*1000, grp_d['alloc_secs'][i]/3600] for i in range(len(grp_d['time_start']))]}
         return rlt[1]['data'][0][0]/1000,rlt[1]['data'][-1][0]/1000,rlt
  
+    def sum_job_step (cluster):
+        step_df = SlurmDBQuery.readClusterTable(cluster,'step_table', ['job_db_inx','id_step','user_sec','user_usec','sys_sec','sys_usec'])
+        dfg     = step_df.groupby('job_db_inx')
+        sum_df  = dfg.sum()
+        sum_df.insert(0,'total_cpu', sum_df.user_sec + sum_df.sys_sec + (sum_df.user_sec + sum_df.sys_sec)/1000000)
+        sum_df  = sum_df[['total_cpu']]
+        #sum_df  = sum_df.astype(int)     # will lost int with join because of missing data
+        #print("sum_df={}".format(sum_df))
+    
+        job_df  = SlurmDBQuery.readClusterTable(cluster,'job_table')
+        comb_df = job_df.join(sum_df,on='job_db_inx')
+        comb_df.to_csv ("{}/{}_{}".format(CSV_DIR, cluster, "job_combine_table.csv"), index=False)  # job_df is more than sum_df
+    
 #one time calling 
 def truncUsageFiles():
     ts     = 1604786400        #head slurm_usage_hour_table 
@@ -538,4 +551,4 @@ if __name__=="__main__":
     #df = pandas.read_csv("./data/slurm_plus_day_cpuAllocDF.csv")
     #fname2 = "{}/{}_{}_{}".format(CSV_DIR, cluster, day_or_hour, "cpuAllocDF_{}.csv")
     #SlurmDBQuery.savAccountCPUAlloc('slurm_plus', 'day', './data/slurm_plus_day_cpuAllocDF_{}.csv', df)
-    test5()
+    xxx('slurm')
