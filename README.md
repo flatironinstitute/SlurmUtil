@@ -101,7 +101,8 @@ By default, InfluxDB uses the following network ports:
     TCP port 8088 is used for the RPC service for backup and restore
 All port mappings can be modified through the configuration file, which is located at /etc/influxdb/influxdb.conf for default installations.
 
-### Python and etc
+## Environment setup
+### Python3 and etc
 You can use module to add needed packages and libraries in SF environment.
 ```
 module add slurm gcc/10.1.0 python3
@@ -109,17 +110,22 @@ Currently Loaded Modulefiles:
  1) slurm/20.02.5   2) gcc/10.1.0   3) python3/3.7.3  
 ```
 
-## Set up a python virutal environment:
+### Create a python virutal environment:
 ```
 cd <dir>
 python3 -m venv env_slurm20_python37
 source ./env_slurm20_python37/bin/activate
 ```
 
-#### Install pyslurm
-Download pyslurm 18.08.source from https://pypi.org/project/pyslurm/#history. Untar the downloaded zip file into <pyslurm_source_dir>.
+### Install pyslurm
+#### Download pyslurm source
+Check release information at https://pypi.org/project/pyslurm/#history and https://github.com/PySlurm/pyslurm/releases.
+```
+wget https://files.pythonhosted.org/packages/a6/c1/5c998931cf075be7426907d975499085d78c3d43b541ee1946d19dc6ee14/pyslurm-18.8.0.1.tar.gz
+tar -xzvf pyslurm-18.8.0.1.tar.gz
+```
 
-Modify pyslurm source (18.08.0):
+#### Modify pyslurm source (18.08.0):
 In pyslurm/pyslurm.pyx, changed line 1884 to:
 ```
         self._ShowFlags = slurm.SHOW_DETAIL | slurm.SHOW_DETAIL2 | slurm.SHOW_ALL
@@ -140,7 +146,7 @@ modify pyslurm to add state_reason_desc 02/27/2020
 2199                 Job_dict[u'pack_job_id_set'] = slurm.stringOrNone(self._record.pack_job_id_set, '')
 ```
 
-Build and Install pyslurm:
+#### Build and Install pyslurm:
 ```
 pip install Cython
 cd <pyslurm_source_dir>
@@ -153,6 +159,7 @@ source env_slurm20_python37/bin/activate
 python setup.py install
 Note: setup.py change slurm version
 
+### Install python packages
 #### Install fbprophet
 ```
 pip install -I pystan==2.18 --no-cache
