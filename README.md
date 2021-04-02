@@ -75,21 +75,23 @@ cd SlurmUtil
 ```  
 
 ## Getting Started
-### Prerequisites and Environment setup
-Slurm should be installed and slurm configuration file can be accessed at /etc/slurm/slurm.conf.
+### Prerequisites 
+The data sources of our monitoring tool are listed as the following and thus should be available to use.
+#### Slurm 
+Slurm configuration file can be accessed at /etc/slurm/slurm.conf.
 
-Bright should be installed and you should have certificates to access Bright api. The Bright configuration is in config/config.json under key "bright".
+#### Bright
+Birght certificates are stored under prometheus.cm/. Bright configuration is in config/config.json under key "bright".
 
-MQTT should be installed and the monitoring deamon (cluster_host_mon.py) should be installed on the nodes and report data to MQTT server. The access information is in config/config.json under key "mqtt".
+#### MQTT and cluster_host_mon.py
+MQTT configuration is in config/config.json under key "mqtt".
 
-You can use module to add needed packages and libraries in SF environment.
-```
-module add slurm gcc/10.1.0 python3
-Currently Loaded Modulefiles:
- 1) slurm/20.02.5   2) gcc/10.1.0   3) python3/3.7.3  
-```
+The host monitoring deamon (cluster_host_mon.py) should be installed on the nodes and report data to MQTT server.
 
-####Install InfluxDB
+
+We save history data in InfluxDB.
+
+#### Install InfluxDB
 For CentOS,
 ```
 wget https://dl.influxdata.com/influxdb/releases/influxdb-1.8.1.x86_64.rpm
@@ -102,6 +104,14 @@ By default, InfluxDB uses the following network ports:
     TCP port 8088 is used for the RPC service for backup and restore
 All port mappings can be modified through the configuration file, which is located at /etc/influxdb/influxdb.conf for default installations.
 
+#### Python and etc
+You can use module to add needed packages and libraries in SF environment.
+```
+module add slurm gcc/10.1.0 python3
+Currently Loaded Modulefiles:
+ 1) slurm/20.02.5   2) gcc/10.1.0   3) python3/3.7.3  
+```
+
 ### Set up a python virutal environment:
 ```
 cd <dir>
@@ -110,10 +120,10 @@ source ./env_slurm20_python37/bin/activate
 ```
 
 #### Install pyslurm
-Download pyslurm source from https://pypi.org/project/pyslurm/#history. Untar the downloaded zip file into <pyslurm_source_dir>.
+Download pyslurm 18.08.source from https://pypi.org/project/pyslurm/#history. Untar the downloaded zip file into <pyslurm_source_dir>.
 
-Modify pyslurm source:
-In pyslurm/pyslurm.pyx, changed line 1624 to:
+Modify pyslurm source (18.08.0):
+In pyslurm/pyslurm.pyx, changed line 1884 to:
 ```
         self._ShowFlags = slurm.SHOW_DETAIL | slurm.SHOW_DETAIL2 | slurm.SHOW_ALL
 ```
@@ -144,6 +154,7 @@ Note: need to
 module rm python3
 source env_slurm20_python37/bin/activate
 python setup.py install
+Note: setup.py change slurm version
 
 #### Install fbprophet
 ```
