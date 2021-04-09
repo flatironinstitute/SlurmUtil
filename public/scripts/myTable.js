@@ -195,7 +195,10 @@ DISPLAY_FUNC={'user': getUserDetailHtml,
               'job':getJobDetailHtml,'job_name':getJobNameHtml,'job_step':getJob_StepHtml,'job_list':getJobListHtml,'job_list_summary':getJobListSummaryHtml,
               'node':getNodeDetailHtml,
               'tres':getTresDisplay, 'tres_usage':getTresUsageString, 
-              'file_usage':getFileUsageString}
+              'gpu_type': getGRESType,
+              'file_usage':getFileUsageString,
+              'info_alarm':getInfoAlarmHtml,
+              'percent2str':percent2str}
 function getTypedHtml (d, type_dict)
 {
    var func = DISPLAY_FUNC[type_dict[d.key]]
@@ -699,7 +702,7 @@ function createJobHistoryTable (job_history, array_het_jids, job_history_table_i
    const j_h_titles = Object.assign(tmp, {'JobName':'Job Name','State':'State','NodeList':'Alloc Node','AllocCPUS':'Alloc CPU','AllocGPUS':'Alloc GPU','Start':'Start Time','End':'End Time','Job Wall-clock time':'Wall-clock time','CPU Efficiency':'CPU Efficiency','Memory Efficiency':'Memory Efficiency'})
    if (excludeGPU)
       delete j_h_titles.AllocGPUS
-   createTable (job_history, j_h_titles,  job_history_table_id, parent_id, undefined, {'JobID':'job_step', 'JobIDRaw':'job_step'})
+   createTable (job_history, j_h_titles,  job_history_table_id, parent_id, undefined, {'JobID':'job_step', 'JobIDRaw':'job_step','JobName':'job_name'})
 }
 
 function createUserPartTable (part_info, part_table_id, parent_id) {
@@ -716,4 +719,5 @@ function createUserPartTable (part_info, part_table_id, parent_id) {
    createTable (part_info, part_titles, part_table_id, parent_id, undefined, {'name':'partition'})
    // add one extra line to category table headers
    $('#' + part_table_id + ' thead').prepend('<tr><th colspan="2"></th><th colspan="3">User Avail</th><th colspan="3">User Lmt</th><th colspan="3">User Alloc</th><th colspan="3">Grp Lmt</th><th colspan="3">Grp Alloc</th><th colspan="3">Part. Total</th><th colspan="3">Part. Avail</th></tr>')
+   $('#' + part_table_id + ' td[data-th^="user_avail_"]').addClass("inform")
 }

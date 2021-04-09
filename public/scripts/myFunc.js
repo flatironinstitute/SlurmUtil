@@ -12,6 +12,19 @@ function getTresDisplay(tres) {
     }
     return tres.replace(/billing=\d+,/,'')
 };
+function getGRESType (gres_lst) {
+    rlt = ''
+    for (idx in gres_lst) {
+       rlt = rlt + gres_lst[idx].split(":")[1] + " "
+    }
+    return rlt
+};
+function percent2str(percent) {
+    return (percent/100).toFixed(2)
+};
+function getInfoAlarmHtml (str) {
+    return '<em class="inform">'+str+'</em>';
+};
 function getJobDetailHtml (jid) {
     return '<a href=./jobDetails?jid=' + jid + '>' + jid + '</a>'
 };
@@ -26,7 +39,10 @@ function getJobListSummaryHtml(lst) {
     return (lst.length>10) ? html_str + '... total ' + lst.length + ' jobs' : html_str
 }
 function getJobNameHtml(name) {
-    return '<a href=./jobByName?name=' + name + '>' + name + '</a>'
+    if (name.length > 41)
+       return '<a href=./jobByName?name=' + name + '>' + name.substr(0,40) + '+</a>'
+    else
+       return '<a href=./jobByName?name=' + name + '>' + name + '</a>'
 }
 function getJob_StepHtml(d_value) {
     if ((d_value.toString().indexOf('.') == -1) && (d_value.toString().indexOf('_')==-1))   // not jobstep
@@ -80,20 +96,22 @@ function getTresReplaceInteger(tres_str) {
     return     tres_str.replace('1=',         'cpu=')
 }
 function getPeriodDisplay(secs){
-    var day = Math.floor(secs / (24*3600))
-    var rem = secs % (24*3600)
-    var d   = new Date(rem * 1000)
-    var hms = d.toISOString().substr(11, 8)  //00:00:00
-    if (day > 0) {
-       year = Math.floor(day / 365)
-       day  = day % 365
-       d_s  = day + '-' + hms
-       if (year > 0)
-          return year + "Y-" + d_s 
-       else
-          return d_s;
-    } else
-       return hms;
+    var hours = secs/3600
+    return Math.round(hours) + ' Hours'
+    //var day = Math.floor(secs / (24*3600))
+    //var rem = secs % (24*3600)
+    //var d   = new Date(rem * 1000)
+    //var hms = d.toISOString().substr(11, 8)  //00:00:00
+    //if (day > 0) {
+    //   year = Math.floor(day / 365)
+    //   day  = day % 365
+    //   d_s  = day + '-' + hms
+    //   if (year > 0)
+    //      return year + "Y-" + d_s 
+    //   else
+    //      return d_s;
+    //} else
+    //   return hms;
 }
 
 function getTresUsage_1(dict) {

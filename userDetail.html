@@ -21,7 +21,7 @@
 
       $(document).ready(function(){{
           // Add menus
-          $("#navmenu").load("/getHeader?page=index");
+          $("#navmenu").load("/getHeader?page=inputSearch");
           var thisPath = window.location.pathname;
           $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
 
@@ -32,7 +32,7 @@
           var u_fields_title = {{'uid':'User ID', 'Account':'Account', 'MaxSubmit':'Max Submit', 'MaxJobs':'Max Jobs', 'MaxNodes':'Max Nodes', 'MaxCPUs':'Max CPUs', 'MaxWall':'Max Wall Time', 'MaxCPUMins':'Max CPU min', 
                                  'tres_alloc_str':'Alloc Res.', 
                                  'tres_usage':'<a href="user_tresReport?uname={uname}">Res YTD Time</a>',
-                                 'file_usage':'<a href="user_fileReport?uid={uid}&days=30">File Usage</a>', 
+                                 'file_usage':'<a href="user_fileReport?uid={uid}&days=30">File Systems</a>', 
                                  'partitions':'<a href="#div_partition">Avail Partitions</a>','running_jobs':'<a href="#div_running_job">Running Jobs<a>','pending_jobs':'<a href="#div_pending_job">Pending Jobs<a>'}}
           var running_jobs   = {running_jobs}
           var pending_jobs   = {pending_jobs}
