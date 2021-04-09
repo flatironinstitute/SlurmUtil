@@ -233,13 +233,13 @@ class SlurmEntities:
 
   #gpu_per_node is job['tres_per_node'] in format: 'gpu:v100-32gb:1' or 'gpu:4'
   def nodeWithGPU (self, pyslurm_node, job_tres_per_node):
-      lst = job_tres_per_node.split(',')
+      lst = job_tres_per_node.split(',')  #gpu:v100-32gb:2
       if len(lst) > 1:
-         logger.debug ('WARNING: tres_per_node of job have more than one value. TODO: change the code')
+         logger.warning ('tres_per_node of job have more than one value. TODO: change the code')
 
       lst = lst[0].split(':')
       if lst[0] != 'gpu':   
-         logger.debug ('WARNING: tres_per_node of job change format and have new key.')
+         logger.warning ('tres_per_node of job change format and have new key.')
          return True
       if 'gpus' in pyslurm_node:  # no gpu on the node
          gpuAvail = pyslurm_node['gpus'] - pyslurm_node['alloc_gpus']
@@ -248,7 +248,7 @@ class SlurmEntities:
                return True
             #check feature lst[1] with pyslurm_node['gres'], pyslurm_node['gres_used']
             #TODO: assuming the same type of GPU on one node
-            node_gpu_type = pyslurm_node['gres'][0].split(':')[1]
+            node_gpu_type = pyslurm_node['gres'][0].split(':')[1]  #gpu:v100s-32gb:4(S:0-1)
             if lst[1] == node_gpu_type:
                return True
       return False
@@ -624,7 +624,8 @@ class SlurmEntities:
 
   def sumJobAlloc(jobLst, gpu_flag=True, mem_flag=True):
     tres = [MyTool.getTresDict(job['tres_alloc_str']) for job in jobLst]
-    rlt  = {'cpu'  : sum([t['cpu']     for t in tres if 'cpu'      in t]), 
+    rlt  = {'job'  : len(jobLst),
+            'cpu'  : sum([t['cpu']     for t in tres if 'cpu'      in t]), 
             'node' : sum([t['node']    for t in tres if 'node'     in t])}
     if gpu_flag:
        rlt['gpu'] = sum([t['gres/gpu'] for t in tres if 'gres/gpu' in t])
@@ -737,16 +738,16 @@ class SlurmEntities:
       logger.debug("Job {} can run on {}:{} nodes len={} cpu={} features={}".format(job['job_id'], p_name, p_node_avail_lst, p_node_avail, p_cpu_avail, features))
       job['qos_relax_nodes'] = p_node_avail_lst
 
+      user_alloc             = SlurmEntities.sumUserAlloc_Partition (job['user_id'], p_name, self.job_dict)  #user allocation
       p_qos                  = self.getPartitionQoS (p_name)
       suggestion             = ''
       if job['state_reason'] == 'QOSMaxJobsPerUserLimit':
          if p_qos:
             job_limit        = p_qos['max_jobs_pu']
-            suggestion       = 'Increase User Job Limit from {} to {}. '.format (job_limit, job_limit+1)
+            suggestion       = 'Increase User Job Limit from {} to {}. '.format (job_limit, user_alloc['job']+1)
 
       user_limit             = self.getJobQoSTresDict (job, p_qos, 'max_tres_pu')           #qos limit for user
       grp_limit              = self.getJobQoSTresDict (job, p_qos, 'grp_tres')              #qos limit for grp
-      user_alloc             = SlurmEntities.sumUserAlloc_Partition (job['user_id'], p_name, self.job_dict)  #user allocation
       grp_alloc              = SlurmEntities.sumAllAlloc_Partition  (p_name, self.job_dict) #all allocation in part, seems where the grp limit applied
 
       job_tres_req                    = MyTool.getTresDict(job['tres_req_str'])
@@ -755,6 +756,7 @@ class SlurmEntities:
 
       # check node using job['num_nodes']
       logger.debug("user_limit={},user_alloc={},job_tres_req={},job_num_nodes={}".format(user_limit, user_alloc, job_tres_req, job['num_nodes']))
+      logger.debug("grp_limit={},grp_alloc={}".format(grp_limit, grp_alloc))
       if 'node' in user_limit:
          new_NodeAlloc                = user_alloc.get('node',0) + job['num_nodes'] 
          if new_NodeAlloc > user_limit['node']:
@@ -788,11 +790,11 @@ class SlurmEntities:
 
       # check gpu
       if 'gpu' in user_limit:
-         new_GPUAlloc                 = user_alloc.get('gres/gpu',0)+job_tres_req.get('gres/gpu',0)
+         new_GPUAlloc                 = user_alloc.get('gpu',0)+job_tres_req.get('gres/gpu',0)
          if new_GPUAlloc > user_limit['gpu']:   
             suggestion += 'Increase User GPU Limit from {} to {}. '.format (user_limit['gpu'], new_GPUAlloc)
       if 'gpu' in grp_limit:
-         new_GPUAlloc                 = grp_alloc.get('gres/gpu',0)+job_tres_req.get('gres/gpu',0)
+         new_GPUAlloc                 = grp_alloc.get('gpu',0)+job_tres_req.get('gres/gpu',0)
          if new_GPUAlloc > grp_limit['gpu']:
             suggestion += 'Increase Group GPU Limit from {} to {}. '.format (grp_limit['gpu'], new_GPUAlloc)
 
