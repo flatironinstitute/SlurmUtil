@@ -1,9 +1,8 @@
 //typeof(data) is object and thus pass by reference
 const     color_cnt   = 10
-          colors      = ["#0d0dff", "#0d97ff", "#0dffff", "#0dff87","0dff0d","87ff0d", "ffff0d", "#ff870d","#ff5b5b", "red"], 
+          colors      = ["#0d0dff", "#0d97ff", "#0dffff", "#0dff87","#0dff0d","#87ff0d", "#ffff0d", "#ff870d","#ff5b5b", "red"], 
           
           accounts    = ['cca', 'ccb', 'ccm', 'ccn', 'ccq', 'etc'],
-          //redColor    = ["#fff5f5","#ffd0d0","#ffb6b6","#ff9c9c","#ff8282","#ff6868","#ff4e4e","#ff2727","#f30000","#cf0000"], 
           redColor    = ["#fff5f5","#ffd0d0","#ffb6b6","#ff9c9c","#ff8282","#ff6868","#ff4e4e","#ff2727","#f30000","#800000"], 
           purpleColor = ["#f5edfc","#e8d0ff","#dbb6ff","#cf9cff","#c282ff","#b568ff","#a84eff","#9527ff","#7a00f3","#531a88"], 
           greenColor  = ["#eaffea","#d0ffd0","#b6ffb6","#9cff9c","#82ff82","#68ff68","#4eff4e","#27ff27","#00f300","#008f11"],
@@ -121,7 +120,8 @@ function createHeatMap(svg, data, acctColor, grpCnt, cntLine, gridSize, colorAtt
               .style("fill",  "gray");
           cards.transition().duration(1000)
               .style("fill", function(d) { var currColorS = getColorScale(d, acctColor)
-                                           console.log ('currColorS=', currColorS, 'd=', d);
+                                           if (d.name=="worker1006")
+                                              console.log ('currColorS=', currColorS, 'd=', d, "return=", currColorS(d[colorAttr]));
                                            if (d["stat"]==0) return "gray";
                                            else if (d["stat"]==-1) return "black";
                                            else return currColorS(d[colorAttr]); });
@@ -271,8 +271,9 @@ function getColorScale(d, useAccountColor) {
           else
               currColorS  = colorScales["etc"]
        }
-    }
-    return currColorS
+       return currColorS
+    } else
+       return colorScale
 };
 
 function createGPUHeatMap(svg, gpuData, acctColor, grpCnt, cntLine, gridSize) 

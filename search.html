@@ -36,24 +36,9 @@
           $("#partition").autocomplete({{
             source: {partitions},
           }});
-          //$("#user").change(function() {{
-          //  window.location.href = "./userDetails?user=" + $(this).val()
-          //}});
-          //$("#job").change(function() {{
-          //  window.location.href = "./jobDetails?jid=" + $(this).val()
-          //}});
-          //$("#node").change(function() {{
-          //  window.location.href = "./nodeDetails?node=" + $(this).val()
-          //}});
-          //$("#partition").change(function() {{
-          //  window.location.href = "./partitionDetail?partition=" + $(this).val()
-          //}});
-          //$("input").on('keydown', function(e) {{
-          //  if (e.which == 13) {{
-          //      console.log(e, this.id, this.tgt, this.value)
-                //window.location.href = "http://www.google.com"
-          //  }}
-          //}});
+          $("#qos").autocomplete({{
+            source: {qos},
+          }});
       }} );
     </script>
   </head>
@@ -78,25 +63,31 @@
           <div class="section__div section__div--nobottom">
             <form action="./userDetails">
               <label for="user" class="short">User: </label>
-              <input id="user" name="user" type="text" />
+              <input id="user" name="user" type="text" required/>
               <input type="submit" value="Submit" />
             </form>
             <p></p>
             <form action="./jobDetails">
               <label for="job" class="short">Job: </label>
-              <input id="job" name="jid" type="text" />
+              <input id="job" name="jid" type="text" required/>
               <input type="submit" value="Submit" />
             </form>
             <p></p>
             <form action="./nodeDetails">
               <label for="node" class="short">Node: </label>
-              <input id="node" name="node" type="text" />
+              <input id="node" name="node" type="text" required/>
               <input type="submit" value="Submit" />
             </form>
             <p></p>
             <form action="./partitionDetail">
               <label for="partition" class="short">Partition: </label>
-              <input id="partition" name="partition" type="text" />
+              <input id="partition" name="partition" type="text" required/>
+              <input type="submit" value="Submit" />
+            </form>
+            <p></p>
+            <form action="./qosDetail">
+              <label for="QoS" class="short">QoS: </label>
+              <input id="qos" name="qos" type="text" required/>
               <input type="submit" value="Submit" />
             </form>
           </div>

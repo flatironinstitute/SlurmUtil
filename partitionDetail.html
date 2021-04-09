@@ -27,7 +27,7 @@
         // Create partition node table
           var part       = {p_detail};
           var nodes      = {p_nodes};
-          var node_title_dict = {{'name':'Node', 'state':'State', 'tres_fmt_str':'TRES', 'features':'Features', 'alloc_cpus':'Alloc CPU','alloc_mem':'Alloc Mem(MB)', 'cpu_load':'CPU Load', 'running_jobs':'Run Job'}}
+          var node_title_dict = {{'name':'Node', 'state':'State', 'tres_fmt_str':'TRES', 'features':'Features', 'alloc_cpus':'Alloc CPU','alloc_mem':'Alloc Mem(MB)', 'running_jobs':'Run Job', 'cpu_load':'CPU Util'}}
           var part_list_title = {{'allow_accounts':'Allow Accounts','qos_char':'QoS',
                   'nodes':'<a href="#div_node">Nodes</a>', 'flag_shared':'Shareable Node',
                   'tres_fmt_str':'TRES','def_mem_per_cpu':'Default Mem/CPU',
@@ -38,10 +38,10 @@
           //createList  (part,   part_list_title, '#details', {{'tres_fmt_str':'TresShort','running_jobs':'JobArray','pending_jobs':'JobArray', 'qos_char':'QoS','def_mem_per_cpu':'M'}});
           createNoHeaderTable (part, part_list_title, {{'qos_char':'qos','running_jobs':'job_list_summary','pending_jobs':'job_list_summary', 'def_mem_per_cpu':'M'}}, '#div_part_info', 'part_info')
           if (part['total_gpus']>0)
-             node_title_dict = {{'name':'Node', 'state':'State', 'tres_fmt_str':'TRES', 'features':'Features', 'alloc_cpus':'Alloc CPU','alloc_gpus':'Alloc GPU', 'alloc_mem':'Alloc Mem(MB)', 'cpu_load':'CPU Load', 'running_jobs':'Run Job'}}
+             node_title_dict = {{'name':'Node', 'state':'State', 'tres_fmt_str':'TRES', 'gres':'GPU Type', 'features':'Features', 'alloc_cpus':'Alloc CPU','alloc_gpus':'Alloc GPU', 'alloc_mem':'Alloc Mem(MB)', 'running_jobs':'Run Job', 'cpu_load':'CPU Util' }}
 
           // partition node list
-          createTable (nodes,  node_title_dict,  'table_nodes', 'div_node', undefined, {{'name':'node','running_jobs':'job_list'}})
+          createTable (nodes,  node_title_dict,  'table_nodes', 'div_node', undefined, {{'name':'node','running_jobs':'job_list','gres':'gpu_type','cpu_load':'percent2str'}})
       }});
     </script>
   </head>
@@ -80,7 +80,6 @@
     <footer class="section section--footer">
       <div class="section__inner section__inner--footer">
         <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
-        <p class="hero__text hero__text--small">Updates every 10 minutes</p>
       </div>
     </footer>
   </body>

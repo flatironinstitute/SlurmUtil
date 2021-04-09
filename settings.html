@@ -140,17 +140,6 @@
     <div class="tab" id="tabmenu"></div>
     <div>
       <fieldset>
-        <legend>Bulletin Board Settings</legend>
-        <form id="low_util_job" action="./settings" method="post">
-          <label class="title">Low Resource Util Threshold for Running Job: </label>
-        </form>
-        <form id="low_util_node" action="./settings" method="post">
-          <label class="title">Low Resource Util Threshold for Alloc Node : </label>
-        </form>
-      </fieldset>
-    </div>
-    <div>
-      <fieldset>
         <legend>Table Summary Settings</legend>
         <form id="summary_column" action="./settings" method="post">
           <label class="title_short">Displayed Columns: </label>
@@ -181,6 +170,17 @@
         <form id="part_avail" action="./settings" method="post">
           <label class="title">Partition High Avail Display <em class="inform">&nbsp &nbsp</em>: </label>
         </form>
+      </fieldset>
+    </div>
+    <div>
+      <fieldset>
+        <legend>Bulletin Board Settings</legend>
+        <form id="low_util_job" action="./settings" method="post">
+          <label class="title">Low Resource Util Threshold for Running Job: </label>
+        </form>
+        <!--<form id="low_util_node" action="./settings" method="post">
+          <label class="title">Low Resource Util Threshold for Alloc Node : </label>
+        </form>-->
       </fieldset>
     </div>
     <script>

@@ -523,7 +523,8 @@ em.alarm,
 em.inform,
 .slurminfo td.inform,
 .slurminfo tr.alt td.inform,
-tr.inform {
+tr.inform,
+td.inform {
   background-color: var(--op-blue);
 }
 
