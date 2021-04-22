@@ -973,6 +973,7 @@ class SLURMMonitorUI(object):
            core_cnt   = 0
            proc_cnt   = 0
         past_job      = SlurmCmdQuery.getUserDoneJobReport(user, days=int(days))
+        #past_job      = SlurmDBQuery.getUserDoneJobReport(user, days=int(days))
         array_het_jids= [job['JobID'] for job in past_job if '_' in job['JobID'] or '+' in job['JobID']]  # array of heterogenour job
 
         running_jobs            = userjob.get('RUNNING',[])
@@ -1391,44 +1392,75 @@ class SLURMMonitorUI(object):
         if not seq:
            return None
 
-        cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes  = [],[],[],[]  ##[{'data': [[1531147508, value]...], 'name':'workerXXX'}, ...]
         # deal with too many sequence
-        pid_list = sorted(list(seq))
-        cut      = 140
-        if len(seq) > cut:  # too many sequence
-            pid_summary = pid_list[:-cut]
-            ts_sum      = defaultdict(lambda: defaultdict(int))        # ts: {cpu: mem, io_r, io_w}
-            for pid in pid_summary:
-                pidSeq  = seq[pid]
-                logger.info("pidSeq={}".format(pidSeq))
-                for p in pidSeq:
-                    ts      = p[0]
-                    ts_sum[ts]['cpu']  += p[1] 
-                    ts_sum[ts]['mem']  += p[2] 
-                    ts_sum[ts]['io_r'] += p[3] 
-                    ts_sum[ts]['io_w'] += p[4] 
-                    ts_sum[ts]['cnt']  += 1
+        #pid_list = sorted(list(seq))
+        #cut      = 140
+        #if len(seq) > cut:  # too many sequence
+        #    pid_summary = pid_list[:-cut]
+        #    ts_sum      = defaultdict(lambda: defaultdict(int))        # ts: {cpu: mem, io_r, io_w}
+        #    for pid in pid_summary:
+        #        pidSeq  = seq[pid]
+        #        logger.info("pidSeq={}".format(pidSeq))
+        #        for p in pidSeq:
+        #            ts      = p[0]
+        #            ts_sum[ts]['cpu']  += p[1] 
+        #            ts_sum[ts]['mem']  += p[2] 
+        #            ts_sum[ts]['io_r'] += p[3] 
+        #            ts_sum[ts]['io_w'] += p[4] 
+        #            ts_sum[ts]['cnt']  += 1
 
-            logger.info("ts_sum={}".format(ts_sum))
-            summary_cnt = len(seq)-cut
-            summary_pid = "Avg {}...{} tot {} procs".format(pid_list[0], pid_list[-cut-1], summary_cnt)
-            summary_seq = [(ts, d['cpu']/d['cnt'], d['mem']/d['cnt'], d['io_r']/d['cnt'], d['io+w']/d['cnt']) for ts, d in ts_sum.items()]
-            logger.info("summary={}:{}".format(summary_pid, summary_seq))
+        #   #logger.info("ts_sum={}".format(ts_sum))
+        #    summary_cnt = len(seq)-cut
+        #    summary_pid = "Avg {}...{} tot {} procs".format(pid_list[0], pid_list[-cut-1], summary_cnt)
+        #    summary_seq = [(ts, d['cpu']/d['cnt'], d['mem']/d['cnt'], d['io_r']/d['cnt'], d['io+w']/d['cnt']) for ts, d in ts_sum.items()]
+        #    logger.info("summary={}:{}".format(summary_pid, summary_seq))
                 
-            pid_list    = [summary_pid] + pid_list[-cut:]
-            seq[summary_pid] = summary_seq
+        #    pid_list    = [summary_pid] + pid_list[-cut:]
+        #    seq[summary_pid] = summary_seq
         
+        t1 = time.time()
+        pid_list = sorted(list(seq))
+        cpu_all_proc, mem_all_proc, io_r_all_proc, io_w_all_proc  = [],[],[],[]  ##[{'data': [[1531147508, value]...], 'name':'workerXXX'}, ...]
         for pid in pid_list:
             pidSeq = seq[pid]
             #if start and (start < first):
             #   pidSeq.insert(0, (start, 0, 0, 0, 0))
             #convert cpu seconds to cpu util
-            cpu_all_nodes.append  ({'name': pid, 'data': MyTool.getSeqDeri_x(pidSeq, 0, 1, True)})
-            mem_all_nodes.append  ({'name': pid, 'data': [[item[0], item[2]] for item in pidSeq]})
-            io_r_all_nodes.append ({'name': pid, 'data': MyTool.getSeqDeri_x(pidSeq, 0, 3, True)})
-            io_w_all_nodes.append ({'name': pid, 'data': MyTool.getSeqDeri_x(pidSeq, 0, 4, True)})
+            if len(pidSeq) > 1000:
+               reduce_ratio = int(len(pidSeq)/1000) + 1
+               pidSeq       = [val for idx,val in enumerate(pidSeq) if (idx % reduce_ratio)==0]
+            cpu_all_proc.append  ({'name': pid, 'data': MyTool.getSeqDeri_x(pidSeq, 0, 1, True)})
+            mem_all_proc.append  ({'name': pid, 'data': [[item[0], item[2]] for item in pidSeq]})
+            io_r_all_proc.append ({'name': pid, 'data': MyTool.getSeqDeri_x(pidSeq, 0, 3, True)})
+            io_w_all_proc.append ({'name': pid, 'data': MyTool.getSeqDeri_x(pidSeq, 0, 4, True)})
+        logger.debug("convert took {}".format(time.time()-t1))
 
-        return first, last, cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes
+        t1 = time.time()
+        cut      = 140
+        if len(pid_list) > cut:
+           SLURMMonitorUI.proc_sum (pid_list, cpu_all_proc, cut)
+           SLURMMonitorUI.proc_sum (pid_list, mem_all_proc, cut)
+           SLURMMonitorUI.proc_sum (pid_list, io_r_all_proc, cut)
+           SLURMMonitorUI.proc_sum (pid_list, io_w_all_proc, cut)
+        logger.debug("sum took {}".format(time.time()-t1))
+        return first, last, cpu_all_proc, mem_all_proc, io_r_all_proc, io_w_all_proc
+
+    def proc_sum (pid_list, seq, cut):
+        if len(seq) > cut:  # too many sequence
+            d_sum      = defaultdict(int)        # ts: sum
+            d_cnt      = defaultdict(int)        # ts: sum
+            for i in range(len(seq)-cut):
+                pidSeq  = seq.pop(0)['data']
+                for p in pidSeq:
+                    d_sum[p[0]] += p[1]
+                    d_cnt[p[0]] += 1
+            l_sum = [[ts, d_sum[ts]/d_cnt[ts]] for ts in d_sum]
+            if len(l_sum) > 1000:
+                reduce_ratio = int(len(l_sum)/1000) + 1
+                l_sum = [val for idx,val in enumerate(l_sum) if (idx%reduce_ratio)==0]
+            logger.info("l_sum length={}".format(len(l_sum)))
+            seq.insert (0, {'name':'Avg {}..{}'.format(pid_list[0],pid_list[-cut-1]), 'data': l_sum})
+        logger.info("length={}".format(len(seq)))
 
     @cherrypy.expose
     def nodeGPUGraph(self, node, hours=72):  #the GPU util for the node of last hours 
@@ -1459,9 +1491,10 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def nodeJobProcGraph(self, node, jid):
+    def nodeJobProcGraph(self, node, jid, days=3):
         jobid = int(jid)
         job   = self.monData.getJob (jobid, req_fields=['start_time'])
+        start,stop = MyTool.getStartStopTS(days=days)
         if not job:
            return 'Job {}: cannot find the job.'.format(jobid)
         if not job['start_time']:
@@ -1470,7 +1503,7 @@ class SLURMMonitorUI(object):
         note  = 'cache'
         if not msg:
            logger.info('Job {}: no data in cache'.format(jobid))
-           msg = self.nodeJobProcGraph_influx(node, jobid, job['start_time'])
+           msg = self.nodeJobProcGraph_influx(node, jobid, max(start,job['start_time']))
            note= 'influx'
         if not msg:
            logger.info('Job {}: no data returned from influx'.format(jobid))
@@ -1604,17 +1637,6 @@ class SLURMMonitorUI(object):
             io_all_nodes.append (io_node)
         ann_series = []
 
-        # highcharts
-        #if len(msg)==6: #from cache or influx, 'first_ts', 'last_ts', cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes
-        #   htmltemp = os.path.join(config.APP_DIR, 'nodeGraph_2.html')
-        #   h = open(htmltemp).read()%{'spec_title': ' of {}'.format(node),
-        #                           'note'      : note,
-        #                           'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(msg[0])),
-        #                           'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(msg[1])),
-        #                           'lseries'   : cpu_all_n,
-        #                           'mseries'   : msg[3],
-        #                           'iseries_rw' : msg[4],
-        #                           'iseries_w' : msg[5]}
         htmltemp = os.path.join(config.APP_DIR, 'nodeGraph_2.html')
         h = open(htmltemp).read()%{'spec_title': ' of user ' + uname,
                                    'note'      : 'data from influx',
@@ -1662,8 +1684,9 @@ class SLURMMonitorUI(object):
         jobLst     = [str(jid) for jid in sorted(pyslurm.job().get().keys())]
         nodeLst    = sorted(pyslurm.node().get().keys())
         partLst    = sorted(pyslurm.partition().get().keys())
+        qosLst     = sorted(pyslurm.qos().get().keys())
         htmlTemp   = os.path.join(config.APP_DIR, 'search.html')
-        htmlStr    = open(htmlTemp).read().format(users=userLst, jobs=jobLst, nodes=nodeLst, partitions=partLst)
+        htmlStr    = open(htmlTemp).read().format(users=userLst, jobs=jobLst, nodes=nodeLst, partitions=partLst,qos=qosLst)
         return htmlStr
 
     @cherrypy.expose
