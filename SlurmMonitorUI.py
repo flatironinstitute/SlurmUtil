@@ -1543,6 +1543,7 @@ class SLURMMonitorUI(object):
         jid2df    = {}
         jid2dsc   = {}   # jid description
         for job in jobs:
+            jid          = job['job_id']
             if job.get('num_nodes',-1) < 1 or not job.get('nodes', None):
                logger.warning("WARNING getUserJobbMeasurement:job does not have allocated nodes information {}".format(job))
                continue
@@ -1553,6 +1554,8 @@ class SLURMMonitorUI(object):
             # sum over hostname to get jobs data, PROBLEM: ts on different host is not synchornized
             df    = pandas.DataFrame (ld)
             if df.empty:
+                jid2df[jid]   = df
+                jid2dsc[jid]  = '{} ({}, {} CPUs)'.format(jid, job['nodes'], job['num_cpus'])
                 continue
             sumDf = pandas.DataFrame({})
             for name, group in df.groupby('hostname'):
@@ -1567,7 +1570,6 @@ class SLURMMonitorUI(object):
             sumDf['time'] = sumDf['time']/sumDf['count']
             #print ("sumDf=" + repr(sumDf.head()))
 
-            jid          = job['job_id']
             jid2df[jid]  = sumDf
             jid2dsc[jid] = '{} ({}, {} CPUs)'.format(jid, job['nodes'], job['num_cpus'])
             logger.info('getUserJobMeasurement reconstruct result takes {}'.format(time.time()-t1))
@@ -1579,7 +1581,7 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def userJobGraph(self,user,start='', stop=''):
-        if not self.monData.hasData(): return self.getWaitMsg()
+        #if not self.monData.hasData(): return self.getWaitMsg()
 
         #{jid: df, ...}
         uid                      = MyTool.getUid(user)
@@ -1589,12 +1591,17 @@ class SLURMMonitorUI(object):
         #{'name': jid, 'data':[[ts, value], ...]
         series       = {'cpu':[], 'mem':[], 'io':[]}
         for jid, df in jid2df.items():
-            df['cpu_time'] = df['cpu_system_util'] + df['cpu_user_util']
-            df['io_bytes'] = df['io_read_bytes']   + df['io_write_bytes']
-            df['time']     = df['time'] * 1000
-            series['cpu'].append({'name': jid2dsc[jid], 'data':df[['time','cpu_time']].values.tolist()})
-            series['mem'].append({'name': jid2dsc[jid], 'data':df[['time','mem_rss_K']].values.tolist()})
-            series['io'].append ({'name': jid2dsc[jid], 'data':df[['time','io_bytes']].values.tolist()})
+            if not df.empty:
+               df['cpu_time'] = df['cpu_system_util'] + df['cpu_user_util']
+               df['io_bytes'] = df['io_read_bytes']   + df['io_write_bytes']
+               df['time']     = df['time'] * 1000
+               series['cpu'].append({'name': jid2dsc[jid], 'data':df[['time','cpu_time']].values.tolist()})
+               series['mem'].append({'name': jid2dsc[jid], 'data':df[['time','mem_rss_K']].values.tolist()})
+               series['io'].append ({'name': jid2dsc[jid], 'data':df[['time','io_bytes']].values.tolist()})
+            else:
+               series['cpu'].append({'name': jid2dsc[jid], 'data':[]})
+               series['mem'].append({'name': jid2dsc[jid], 'data':[]})
+               series['io'].append ({'name': jid2dsc[jid], 'data':[]})
 
         #if len(msg)==6:
         htmltemp = os.path.join(config.APP_DIR, 'nodeGraph_2.html')
