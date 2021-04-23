@@ -196,9 +196,9 @@ class InfluxQueryClient:
             ts       = point['time']
             node     = point['hostname']
             node2seq[node][ts] = [ point['mean_cpu_system_util'] + point['mean_cpu_user_util'] if point['mean_cpu_system_util'] else 0, 
-                                   point['mean_mem_rss_K'],
-                                   point['mean_io_read_rate'], 
-                                   point['mean_io_write_rate'] ]
+                                   point['mean_mem_rss_K']     if point['mean_mem_rss_K']     else 0,
+                                   point['mean_io_read_rate']  if point['mean_io_read_rate']  else 0, 
+                                   point['mean_io_write_rate'] if point['mean_io_write_rate'] else 0]
         logger.debug("query {} return {} with total {}".format(query, count, total))
         return node2seq
 

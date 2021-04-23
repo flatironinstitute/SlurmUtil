@@ -53,7 +53,7 @@
           }}
 
           createUserPartTable   (part_info,   'part_table',     'div_partition')
-          createJobHistoryTable (job_history, array_het_jids, 'job_history_table', 'past_job')
+          createUserJobHistoryTable (job_history, array_het_jids, 'job_history_table', 'past_job')
 
           $("#running_jobs_len").text(running_jobs.length)
           $("#pending_jobs_len").text(pending_jobs.length)

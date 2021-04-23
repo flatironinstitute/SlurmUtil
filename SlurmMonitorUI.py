@@ -972,8 +972,22 @@ class SLURMMonitorUI(object):
            userworker = {}
            core_cnt   = 0
            proc_cnt   = 0
+        # get done job of the user
         past_job      = SlurmCmdQuery.getUserDoneJobReport(user, days=int(days))
-        #past_job      = SlurmDBQuery.getUserDoneJobReport(user, days=int(days))
+        past_jids     = [job['JobID'] for job in past_job]
+        logger.debug("past_jobs={}".format(past_jids))
+        py_jobs       = pyslurm.slurmdb_jobs().get(jobids=past_jids)
+        logger.debug("py_jobs={}".format(py_jobs))
+        for job in past_job:
+            job.update(py_jobs[int(job['JobID'])])
+            job['wall_clock'] = job['end']-job['start']
+            df                = pandas.DataFrame.from_dict(job['steps'], orient='index')        
+            cpu_time          = int(df['sys_cpu_sec'].sum() + df['user_cpu_sec'].sum() + (df['sys_cpu_sec'].sum() + df['user_cpu_sec'].sum())/1000000)
+            core_wallclock    = job['wall_clock'] * int(job['AllocCPUS'])
+            mem               = int(df['stats'].transform(lambda x: MyTool.extract2(x['tres_usage_in_tot'])).sum())
+            job['cpu_eff']    = {'cpu_time':cpu_time, 'core-wallclock':core_wallclock}
+            job['mem_eff']    = {'mem_KB':mem>>10, 'alloc_mem_MB':MyTool.extract2(job['tres_alloc_str']), 'alloc_nodes':job['alloc_nodes']}
+
         array_het_jids= [job['JobID'] for job in past_job if '_' in job['JobID'] or '+' in job['JobID']]  # array of heterogenour job
 
         running_jobs            = userjob.get('RUNNING',[])
@@ -1010,7 +1024,7 @@ class SLURMMonitorUI(object):
                                                   pending_jobs=json.dumps(pending_jobs),
                                                   worker_proc =json.dumps(userworker), note=note,
                                                   part_info   =json.dumps(part),
-                                                  array_het_jids=array_het_jids, job_history=past_job, day_cnt = days)
+                                                  array_het_jids=array_het_jids, job_history=json.dumps(past_job), day_cnt = days)
         return htmlStr
         # Currently, running jobs & pending jobs of the user processes in the worker nodes
         # Future, QoS and resource restriction
@@ -1630,7 +1644,8 @@ class SLURMMonitorUI(object):
         mem_all_nodes = []  ##[{'data': [[1531147508000(ms), value]...], 'name':'workerXXX'}, ...]
         cpu_all_nodes = []  ##[{'data': [[1531147508000, value]...], 'name':'workerXXX'}, ...]
         io_all_nodes  = []  ##[{'data': [[1531147508000, value]...], 'name':'workerXXX'}, ...]
-        for hostname, hostdict in node2seq.items():
+        for hostname in sorted(node2seq):
+            hostdict = node2seq[hostname]
             mem_node={'name': hostname}
             mem_node['data']= [[ts, hostdict[ts][1]] for ts in hostdict.keys()]
             mem_all_nodes.append (mem_node)

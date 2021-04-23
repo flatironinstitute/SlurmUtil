@@ -599,7 +599,11 @@ class SLURMMonitorData(object):
                           job_procs.append ([pid, '{:.2f}'.format(intervalCPUtimeAvg), MyTool.getDisplayB(rss), MyTool.getDisplayB(vms), MyTool.getDisplayBps(intervalIOByteAvg), num_fds, ' '.join(cmdline)])
                           job_cpu     += intervalCPUtimeAvg
                    #TODO: t_rss, t_vms, t_io incorrect, should do similar thing as job_cpu
-                   node2job[node_name]= [int(job_info['cpus_allocated'][node_name]), len(job_procs), job_cpu/len(job_procs), t_rss, t_vms, job_procs, t_io]
+                   num_procs = len(job_procs) 
+                   if num_procs:
+                      node2job[node_name]= [int(job_info['cpus_allocated'][node_name]), num_procs, job_cpu/num_procs, t_rss, t_vms, job_procs, t_io]
+                   else:
+                      node2job[node_name]= [int(job_info['cpus_allocated'][node_name]), 0,         0,                 t_rss, t_vms, job_procs, t_io]
         return ['PID', 'Inst CPU Util', 'RSS', 'VMS', 'IO Rate', 'Num Fds', 'Command'], node2job
 
     def getUserData(self):

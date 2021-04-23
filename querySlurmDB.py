@@ -7,6 +7,8 @@ import pandas
 import config,MyTool
 from datetime import datetime, date, timedelta
 
+ONE_DAY_SECS     = 86400
+
 logger           = config.logger
 SLURM_STATE_DICT = {0:'PENDING', 1:'RUNNING', 3:'COMPLETED', 4:'CANCELED', 5:'FAILED', 6:'TIMEOUT', 7:'NODE_FAIL', 8:'PREEMPTED', 11:'OUT_OF_MEM', 8192:'RESIZING'}# missing 2, 16384
 CSV_DIR          = "/mnt/home/yliu/projects/slurm/utils/data/"
@@ -501,8 +503,10 @@ class SlurmDBQuery:
             rlt[name] = {'name':uname, 'data': [[grp_d['time_start'][i]*1000, grp_d['alloc_secs'][i]/3600] for i in range(len(grp_d['time_start']))]}
         return rlt[1]['data'][0][0]/1000,rlt[1]['data'][-1][0]/1000,rlt
  
-    def sum_job_step (cluster):
-        step_df = SlurmDBQuery.readClusterTable(cluster,'step_table', ['job_db_inx','id_step','user_sec','user_usec','sys_sec','sys_usec'])
+    def sum_job_step (cluster, days=30):
+        start = int(time.time()) - days * ONE_DAY_SECS
+        step_df = SlurmDBQuery.readClusterTable(cluster,'step_table', ['job_db_inx','id_step','user_sec','user_usec','sys_sec','sys_usec','time_start'])
+        s1,s2,step_df = MyTool.getDFBetween (step_df, 'time_start', start)
         dfg     = step_df.groupby('job_db_inx')
         sum_df  = dfg.sum()
         sum_df.insert(0,'total_cpu', sum_df.user_sec + sum_df.sys_sec + (sum_df.user_sec + sum_df.sys_sec)/1000000)
@@ -511,9 +515,20 @@ class SlurmDBQuery:
         #print("sum_df={}".format(sum_df))
     
         job_df  = SlurmDBQuery.readClusterTable(cluster,'job_table')
+        s1,s2,job_df = MyTool.getDFBetween (job_df, 'time_start', start)
         comb_df = job_df.join(sum_df,on='job_db_inx')
-        comb_df.to_csv ("{}/{}_{}".format(CSV_DIR, cluster, "job_combine_table.csv"), index=False)  # job_df is more than sum_df
+        comb_df.to_csv ("{}/{}_{}".format(CSV_DIR, cluster, "job_step_sum_table.csv"), index=False)  # job_df is more than sum_df
     
+    def getUserDoneJobReport (uid, cluster='slurm', days=3, output='JobID,JobIDRaw,JobName,AllocCPUS,AllocTRES,State,ExitCode,User,NodeList,Start,End'):
+        if days > 30:      # only 30 days of history is saved
+           return None
+        job_df       = SlurmDBQuery.readClusterTable(cluster,'job_step_sum_table')
+        start        = int(time.time()) - days * ONE_DAY_SECS
+        s1,s2,job_df = MyTool.getDFBetween (job_df, 'time_start', start)
+       
+        user_job_df  = job_df[job_df['id_user'] == uid]
+        return user_job_df
+      
 #one time calling 
 def truncUsageFiles():
     ts     = 1604786400        #head slurm_usage_hour_table 
@@ -542,6 +557,10 @@ def test5():
     SlurmDBQuery.getUserTresUsage       ('jnattila')
     SlurmDBQuery.getUserTresHistory     ('jnattila')
 
+def test6():
+    rlt=SlurmDBQuery.getUserDoneJobReport(1654)
+    print(rlt)
+
 def main():
     t1=time.time()
 
@@ -551,4 +570,6 @@ if __name__=="__main__":
     #df = pandas.read_csv("./data/slurm_plus_day_cpuAllocDF.csv")
     #fname2 = "{}/{}_{}_{}".format(CSV_DIR, cluster, day_or_hour, "cpuAllocDF_{}.csv")
     #SlurmDBQuery.savAccountCPUAlloc('slurm_plus', 'day', './data/slurm_plus_day_cpuAllocDF_{}.csv', df)
-    xxx('slurm')
+    #SlurmDBQuery.sum_job_step('slurm')
+    test6()
+

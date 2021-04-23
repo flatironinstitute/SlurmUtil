@@ -198,7 +198,9 @@ DISPLAY_FUNC={'user': getUserDetailHtml,
               'gpu_type': getGRESType,
               'file_usage':getFileUsageString,
               'info_alarm':getInfoAlarmHtml,
-              'percent2str':percent2str}
+              'percent2str':percent2str,
+              'period':getPeriodDisplay,
+              'cpu_eff':getCPUEffDisplay, 'mem_eff':getMemEffDisplay}
 function getTypedHtml (d, type_dict)
 {
    var func = DISPLAY_FUNC[type_dict[d.key]]
@@ -703,6 +705,17 @@ function createJobHistoryTable (job_history, array_het_jids, job_history_table_i
    if (excludeGPU)
       delete j_h_titles.AllocGPUS
    createTable (job_history, j_h_titles,  job_history_table_id, parent_id, undefined, {'JobID':'job_step', 'JobIDRaw':'job_step','JobName':'job_name'})
+}
+
+function createUserJobHistoryTable (job_history, array_het_jids, job_history_table_id, parent_id, excludeGPU=false) {
+   if (array_het_jids.length)
+      tmp = {'JobIDRaw':'Job ID', 'JobID':'Job ID(Report)'}
+   else 
+      tmp = {'JobID':'Job ID'}
+   const j_h_titles = Object.assign(tmp, {'JobName':'Job Name','State':'State','NodeList':'Alloc Node','AllocCPUS':'Alloc CPU','AllocGPUS':'Alloc GPU','Start':'Start Time','End':'End Time','wall_clock':'Wall-clock time','cpu_eff':'CPU Efficiency','mem_eff':'Memory Efficiency'})
+   if (excludeGPU)
+      delete j_h_titles.AllocGPUS
+   createTable (job_history, j_h_titles,  job_history_table_id, parent_id, undefined, {'JobID':'job_step', 'JobIDRaw':'job_step','JobName':'job_name','wall_clock':'period', 'cpu_eff':'cpu_eff', 'mem_eff':'mem_eff'})
 }
 
 function createUserPartTable (part_info, part_table_id, parent_id) {

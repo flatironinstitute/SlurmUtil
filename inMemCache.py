@@ -112,7 +112,7 @@ class InMemCache:
 
         # deal with job data
         activeJob  = [jid for jid, job in jobData.items() if job['job_state'] in ['PENDING', 'RUNNING', 'PREEMPTED', 'SUSPENDED', 'RESIZING']]
-        logger.debug("active jobs {}".format(activeJob))
+        #logger.debug("active jobs {}".format(activeJob))
         for jid in activeJob:
             self.jobs[jid]['seq'].append((jobTS, jobData[jid]['job_state'], jobData[jid].get('job_inst_util',-1), jobData[jid].get('job_io_bps',-1), jobData[jid].get('job_mem_util',-1)))
             if not self.jobs[jid]['submit_time']:

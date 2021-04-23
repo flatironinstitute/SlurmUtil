@@ -42,9 +42,9 @@ class SlurmCmdQuery:
         for job in job_list:
             if job['State'] in ['RUNNING','PENDING'] :   # seff not available for pending jobs and not accurate for running jobs
                continue
-            eff = SlurmCmdQuery.seff_cmd(job['JobID'])
-            eff.pop("State")
-            job.update(eff)
+            #eff = SlurmCmdQuery.seff_cmd(job['JobID'])
+            #eff.pop("State")
+            #job.update(eff)
             rlt.append(job)
         return rlt
 

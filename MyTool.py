@@ -370,6 +370,12 @@ def extract1 (s):
     d = getTresDict(s)
     return d.get('1',0)
 
+def extract2 (s):
+    if not s:
+       return 0
+    d = getTresDict(s)
+    return d.get('2',0)
+
 def extract4 (s):
     if not s:
        print("extrac4 has a empty value")

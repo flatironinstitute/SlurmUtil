@@ -95,32 +95,39 @@ function getTresReplaceInteger(tres_str) {
     tres_str = tres_str.replace(/2=(\d+)/,    'mem=$1M')
     return     tres_str.replace('1=',         'cpu=')
 }
-function getPeriodDisplay(secs){
+function getPeriodDisplay_Hour(secs){
     var hours = secs/3600
     return Math.round(hours) + ' Hours'
-    //var day = Math.floor(secs / (24*3600))
-    //var rem = secs % (24*3600)
-    //var d   = new Date(rem * 1000)
-    //var hms = d.toISOString().substr(11, 8)  //00:00:00
-    //if (day > 0) {
-    //   year = Math.floor(day / 365)
-    //   day  = day % 365
-    //   d_s  = day + '-' + hms
-    //   if (year > 0)
-    //      return year + "Y-" + d_s 
-    //   else
-    //      return d_s;
-    //} else
-    //   return hms;
 }
-
+function getPeriodDisplay(secs){
+    var ONE_DAY_SECS = 24 * 3600
+    var day = 0
+    if (secs >= ONE_DAY_SECS) {
+       day  = Math.floor(secs/ONE_DAY_SECS)
+       secs = secs % ONE_DAY_SECS
+    }
+    var d   = new Date(secs * 1000)
+    var hms = d.toISOString().substr(11, 8)  //00:00:00
+    if (day>0)
+       return day + '-' + hms;
+    else
+       return hms;
+}
+function getCPUEffDisplay(cpu_eff){
+    var ratio=cpu_eff['cpu_time']/cpu_eff['core-wallclock']*100
+    return ratio.toFixed(2) + '% of ' + getPeriodDisplay(cpu_eff['core-wallclock']) + ' core-walltime'
+}
+function getMemEffDisplay(mem_eff){
+    var ratio=mem_eff['mem_KB']/1024/mem_eff['alloc_mem_MB']*100
+    return ratio.toFixed(2) + '% of ' + getDisplayM(mem_eff['alloc_mem_MB']) + 'B'
+}
 function getTresUsage_1(dict) {
     var alloc_sec  = dict['alloc_secs']
     var rank       = dict['rank']
     if (rank<=10)
-       return getPeriodDisplay(alloc_sec) + " (#" + rank + " top user)";
+       return getPeriodDisplay_Hour(alloc_sec) + " (#" + rank + " top user)";
     else
-       return getPeriodDisplay(alloc_sec);
+       return getPeriodDisplay_Hour(alloc_sec);
 }
 
 function getTresUsageString(tres_dict) {
