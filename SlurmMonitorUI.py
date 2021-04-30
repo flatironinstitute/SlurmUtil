@@ -977,16 +977,20 @@ class SLURMMonitorUI(object):
         past_jids     = [job['JobID'] for job in past_job]
         logger.debug("past_jobs={}".format(past_jids))
         py_jobs       = pyslurm.slurmdb_jobs().get(jobids=past_jids)
-        logger.debug("py_jobs={}".format(py_jobs))
+        #logger.debug("py_jobs={}".format(py_jobs))
         for job in past_job:
-            job.update(py_jobs[int(job['JobID'])])
+            job.update(py_jobs[int(job['JobIDRaw'])])
             job['wall_clock'] = job['end']-job['start']
-            df                = pandas.DataFrame.from_dict(job['steps'], orient='index')        
-            cpu_time          = int(df['sys_cpu_sec'].sum() + df['user_cpu_sec'].sum() + (df['sys_cpu_sec'].sum() + df['user_cpu_sec'].sum())/1000000)
             core_wallclock    = job['wall_clock'] * int(job['AllocCPUS'])
-            mem               = int(df['stats'].transform(lambda x: MyTool.extract2(x['tres_usage_in_tot'])).sum())
-            job['cpu_eff']    = {'cpu_time':cpu_time, 'core-wallclock':core_wallclock}
-            job['mem_eff']    = {'mem_KB':mem>>10, 'alloc_mem_MB':MyTool.extract2(job['tres_alloc_str']), 'alloc_nodes':job['alloc_nodes']}
+            if job['steps']:
+               df                = pandas.DataFrame.from_dict(job['steps'], orient='index')        
+               cpu_time          = int(df['sys_cpu_sec'].sum() + df['user_cpu_sec'].sum() + (df['sys_cpu_sec'].sum() + df['user_cpu_sec'].sum())/1000000)
+               mem               = int(df['stats'].transform(lambda x: MyTool.extract2(x['tres_usage_in_tot'])).sum())
+               job['cpu_eff']    = {'cpu_time':cpu_time, 'core-wallclock':core_wallclock}
+               job['mem_eff']    = {'mem_KB':  mem>>10,  'alloc_mem_MB':MyTool.extract2(job['tres_alloc_str']), 'alloc_nodes':job['alloc_nodes']}
+            else:
+               job['cpu_eff']    = {'cpu_time':0, 'core-wallclock':core_wallclock}
+               job['mem_eff']    = {'mem_KB':  0, 'alloc_mem_MB':  MyTool.extract2(job['tres_alloc_str']), 'alloc_nodes':job['alloc_nodes']}
 
         array_het_jids= [job['JobID'] for job in past_job if '_' in job['JobID'] or '+' in job['JobID']]  # array of heterogenour job
 

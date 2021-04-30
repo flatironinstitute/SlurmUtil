@@ -114,11 +114,15 @@ function getPeriodDisplay(secs){
        return hms;
 }
 function getCPUEffDisplay(cpu_eff){
-    var ratio=cpu_eff['cpu_time']/cpu_eff['core-wallclock']*100
+    var ratio = 0
+    if (cpu_eff['core-wallclock'] > 0)
+       ratio=cpu_eff['cpu_time']/cpu_eff['core-wallclock']*100
     return ratio.toFixed(2) + '% of ' + getPeriodDisplay(cpu_eff['core-wallclock']) + ' core-walltime'
 }
 function getMemEffDisplay(mem_eff){
-    var ratio=mem_eff['mem_KB']/1024/mem_eff['alloc_mem_MB']*100
+    var ratio = 0
+    if (mem_eff['alloc_mem_MB'] > 0)
+       ratio=mem_eff['mem_KB']/1024/mem_eff['alloc_mem_MB']*100
     return ratio.toFixed(2) + '% of ' + getDisplayM(mem_eff['alloc_mem_MB']) + 'B'
 }
 function getTresUsage_1(dict) {
