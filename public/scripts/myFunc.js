@@ -19,6 +19,13 @@ function getGRESType (gres_lst) {
     }
     return rlt
 };
+function getDisplayFile (filename) {
+    if (filename.startsWith("/") && !filename.includes(" ") )
+       return '<a href=./displayFile?fname=' + filename + '>' + filename + '</a>'
+    else
+       return filename
+}
+
 function percent2str(percent) {
     return (percent/100).toFixed(2)
 };

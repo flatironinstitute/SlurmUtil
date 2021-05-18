@@ -579,7 +579,7 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def getHeader(self, page=None):
-        pages =["index", "utilHeatmap", "pending", "sunburst", "usageGraph", "bulletinboard", "report",   "forecast", "settings"]
+        pages =["index",   "utilHeatmap", "pending",      "sunburst",       "usageGraph", "bulletinboard",  "report", "forecast", "settings"]
         titles=["Summary", "Host Util.",  "Pending Jobs", "Sunburst Graph", "File Usage", "Bulletin Board", "Report", "Forecast", "Settings"]
         result='<ul class="nav__inner">'
 
@@ -1371,7 +1371,7 @@ class SLURMMonitorUI(object):
     def jobGraph_influx(self, jobid, start=None, stop=None):
         jobid        = int(jobid)
         influxClient = InfluxQueryClient()
-        queryRlt     =influxClient.getJobMonData_hc(jobid, start, stop)
+        queryRlt     = influxClient.getJobMonData_hc(jobid, start, stop)
         return queryRlt
 
     def jobGraph_cache(self, jobid, start=None, stop=None):
@@ -1767,6 +1767,17 @@ class SLURMMonitorUI(object):
             new_settings[key] = value
         logger.info("---new settings{}".format(new_settings))
         config.setSetting(setting_key, new_settings)
+
+    @cherrypy.expose
+    def displayFile(self, fname):
+        if os.path.exists(fname):
+           mod_time = os.path.getmtime(fname)
+            
+           with open(fname) as f:
+             c = f.read()
+             return '<div align="right">Mod Time: {}</div> <div style="margin-top: 20px; white-space: pre-wrap">{}</div>'.format(MyTool.getTsString(mod_time), c)
+        else:
+           return 'Cannot display the content of file {}'.format(fname)
 
 if __name__=="__main__":
    cherrypy.config.update({#'log.access_file':    '/tmp/slurm_util/smcpgraph-html-sun.log',

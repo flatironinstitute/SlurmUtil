@@ -200,7 +200,8 @@ DISPLAY_FUNC={'user': getUserDetailHtml,
               'info_alarm':getInfoAlarmHtml,
               'percent2str':percent2str,
               'period':getPeriodDisplay,
-              'cpu_eff':getCPUEffDisplay, 'mem_eff':getMemEffDisplay}
+              'cpu_eff':getCPUEffDisplay, 'mem_eff':getMemEffDisplay,
+              'job_command':getDisplayFile}
 function getTypedHtml (d, type_dict)
 {
    var func = DISPLAY_FUNC[type_dict[d.key]]
