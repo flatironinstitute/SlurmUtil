@@ -34,7 +34,7 @@
           if (job)
              createNoHeaderTable (job,
                  {{'user':'User','job_state':'Job State','state_reason':'State Reason','partition':'Partition','qos':'QOS','num_tasks':'Number of Tasks','ntasks_per_node':'Tasks Per Node','tres_req_str':'Req TRES','exc_nodes':'Exclude Nodes','shared':'Shared','features':'Features','tres_alloc_str':'Alloc TRES','nodes':'Alloc Nodes', 'submit_time':'Submit Time','start_time':'Start Time', 'end_time':'End Time','CPUTime':'CPU Time','time_limit_str':'Time Limit','command':'Command','work_dir':'Work Dir','exit_code':'Exit Code','ArrayJobID':'Array Job','HeterogeneousJobID':'Heterogeneous Job'}},
-                 {{'user':'user','partition':'partition','submit_time':'timestamp','eligible_time':'timestamp','start_time':'timestamp', 'end_time':'timestamp', 'qos':'qos', 'tres_req_str':'tres', 'tres_alloc_str':'tres'}},
+                 {{'user':'user','partition':'partition','submit_time':'timestamp','eligible_time':'timestamp','start_time':'timestamp', 'end_time':'timestamp', 'qos':'qos', 'tres_req_str':'tres', 'tres_alloc_str':'tres', 'command':'job_command'}},
                  '#div_job_info', 'job_info')
           else
              createNoHeaderTable (j_info,
