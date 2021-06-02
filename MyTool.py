@@ -692,7 +692,11 @@ def sumOfListWithUnit (lst):
     return str(total) + postfix
     
 def convert2M (mem_unit):
-    mem,unit = int(mem_unit[:-1]),mem_unit[-1]
+    if mem_unit[-1] in ['K','M','G']:
+       mem,unit = int(mem_unit[:-1]),mem_unit[-1]
+    else:
+       mem      = int(mem_unit)
+       unit     = ''
     mem_MB   = mem
     if unit == 'G':
        mem_MB = mem * 1024
