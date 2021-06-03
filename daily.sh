@@ -25,7 +25,15 @@ python daily.py -c $clusters >> ${LOG} 2>&1
 /cm/shared/apps/slurm/current/bin/sacctmgr list user -P -s >& ./data/sacctmgr_assoc.csv
 
 #get users.csv from scc-ansible github repo
-wget -O ./data/users.csv https://raw.githubusercontent.com/flatironinstitute/scc-ansible/master/users.csv?token=AFMF3PZFMSI7CH7FHKXRN6TAM6BX2
+#once the file is changed, the address is changed
+cd ~yliu/projects/scc-ansible
+diff=`git diff users.csv`
+if [ ! -z "$diff" ] 
+then
+   git pull 
+   cp users.csv ~yliu/projects/slurm/utils/data/
+fi
+#wget -O ./data/users.csv https://raw.githubusercontent.com/flatironinstitute/scc-ansible/master/users.csv?token=AFMF3P7DKKTLWF7NTRJ2TYLAX6AFY
 
 echo "DONE" >> ${LOG}
 deactivate
