@@ -583,20 +583,6 @@ class SlurmEntities:
 
     return total, ic_list
 
-  #def getNodes(self):
-  #  try:
-  #      nodes     = pyslurm.node()
-  #      if len(self.node_dict) > 0:
-  #          idle    = SlurmEntitites.findNodeInState(self.node_dict, 'IDLE')
-  #          mixed   = SlurmEntitites.findNodeInState(self.node_dict, 'MIXED')
-  #          total1,lst1 = SlurmEntities.getIdleCores (self.node_dict, idle)
-  #          total2,lst2 = SlurmEntities.getIdleCores (self.node_dict, mixed)
-  #          logger.debug("Total {0} nodes: {1} IDLE nodes ({2} cpus) and {3} MIXED nodes ({4} cpus)".format(len(self.node_dict), len(idle), total1, len(mixed), total2))
-  #      else:
-  #          logger.debug("No Nodes found !")
-  #  except ValueError as e:
-  #      logger.debug("Error - {0}".format(e.args[0]))
-
   # return jobs of a user {'RUNNING':[], 'otherstate':[]}
   def getUserJobsByState (self, uid):
       result    = defaultdict(list)  #{state:[job...]}
@@ -802,11 +788,11 @@ class SlurmEntities:
       if 'mem' in user_limit:
          new_memAlloc                 = user_alloc.get('mem_MB',0)  +job_tres_req.get('mem_MB',0) 
          if new_memAlloc > user_limit['mem']:
-            suggestion += 'Increase User Mem Limit from {} to {}. '.format (user_limit['mem'], new_GPUAlloc)
+            suggestion += 'Increase User Mem Limit from {} to {}. '.format (user_limit['mem'], new_memAlloc)
       if 'mem' in grp_limit:
          new_memAlloc                 = grp_alloc.get('mem_MB',0)  +job_tres_req.get('mem_MB',0) 
          if new_memAlloc > grp_limit['mem']:
-            suggestion += 'Increase User GPU Limit from {} to {}. '.format (grp_limit['mem'], new_GPUAlloc)
+            suggestion += 'Increase User GPU Limit from {} to {}. '.format (grp_limit['mem'], new_memAlloc)
       return suggestion
 
   # can the job be scheduled if QoS is relaxed
