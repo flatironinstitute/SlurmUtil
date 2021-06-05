@@ -57,16 +57,18 @@ class SLURMMonitorData(object):
            if job_procs:
              for p in job_procs:   # pid, intervalCPUtimeAvg, create_time, user_time, system_time, mem_rss, mem_vms, cmdline, intervalIOByteAvg, jid
                # 09/09/2019 add jid
-               pid = p[0]
-               assert (savProcs[pid]['cpu_time'] <= p[3] + p[4])        #increasing
+               pid      = p[0]
+               cpu_time = p[3] + p[4]
+               if savProcs[pid]['cpu_time'] > cpu_time:
+                  logger.error("cpu_time of job {}'s process {} is decreasing from {}:{} to {}:{}".format(jobid, pid, savTs, savProcs[pid]['cpu_time'], ts, cpu_time))
                
-               savProcs[pid]['cpu_time']     = p[3] + p[4]
+               savProcs[pid]['cpu_time']     = cpu_time
                savProcs[pid]['mem_rss_K']    = int(p[5]/1024)
                savProcs[pid]['io_bps_curr']  = p[8]                    #bytes per sec
                savProcs[pid]['cpu_util_curr']= p[1]                    #bytes per sec
                savProcs[pid]['jid']          = p[PROC_JID_IDX]
            else:
-             logger.debug("{}: no proc for job {} on node {}".format(ts, jobid, node))
+             logger.info("{}: no proc for job {} on node {}".format(ts, jobid, node))
              savProcs = defaultdict(lambda: defaultdict(int))
            self.jobNode2ProcRecord[jobid][node] = (ts, savProcs)  # modify self.jobNode2ProcRecord
            #remove done job
@@ -235,7 +237,7 @@ class SLURMMonitorData(object):
                else:
                   node_cpu_util = self.inMemCache.queryNodeAvg(hostname, avg_minute)
                node_mem_util= (node_mem_M-pyslurmNodes['free_mem']) / node_mem_M  if pyslurmNodes['free_mem'] else 0 #ATTN: from slurm, not monitor, if no free_mem, in general, node is DOWN so return 0. TODO: Not saving memory information in cache. The sum of proc's RSS does not reflect the real value.
-               node_record  = self.getNodeLabelRecord(hostname, hostinfo, alloc_jobs, node_cpu_util, node_mem_util, gpudata)
+               node_record  = self.getHeatmapNodeLabelRecord(hostname, hostinfo, alloc_jobs, node_cpu_util, node_mem_util, gpudata)
                node_record['comb_util'] = (weight['cpu']*node_record['util'] + weight['mem']*node_record['mem_util'])/(weight['cpu'] + weight['mem'])
                workers.append(node_record)
               #{'name':hostname, 'stat':state, 'core':node_cores, 'util':node_cpu_util/node_cores, 'mem_util':node_mem_util, 'jobs':alloc_jobs, 'acct':job_accounts, 'labl':nodeLabel, 'gpus':gpuLabel, 'gpuCount':node_gpus})
@@ -248,7 +250,7 @@ class SLURMMonitorData(object):
     def nodeAllocated (hostinfo):
         return 'ALLOCATED' in hostinfo[0] or 'MIXED' in hostinfo[0]
 
-    def getNodeLabelRecord (self, hostname, hostinfo, alloc_jobs, node_cpu_util, node_mem_util, gpudata):
+    def getHeatmapNodeLabelRecord (self, hostname, hostinfo, alloc_jobs, node_cpu_util, node_mem_util, gpudata):
         pyslurmNode  = self.pyslurmNodes[hostname]
         node_cores   = pyslurmNode['cpus']
         node_gpus    = MyTool.getNodeGresGPUCount     (pyslurmNode['gres'])
@@ -309,6 +311,10 @@ class SLURMMonitorData(object):
         #TODO: 09/09/2019: add jid
         for jid, job in jobs.items():
             period                   = ts - job['start_time']
+            if period < 0.01:
+               logger.warning("Job {} has an invaild period {}-{}={}. Ignore the update.".format(jid, ts, job['start_time'], period))
+               continue
+
             total_cpu_time           = 0
             total_rss                = 0
             total_node_mem           = 0           #proportional mem for shared nodes
@@ -334,7 +340,11 @@ class SLURMMonitorData(object):
                    total_rss          += node_rss
                    total_io_bps       += node_io_bps_curr
                    total_cpu_util_curr+= node_cpu_util_curr
-                   job['node_cpu_util_avg'][node] = node_cpu_time / period / job['cpus_allocated'][node]
+                   if job['cpus_allocated'][node]:
+                      job['node_cpu_util_avg'][node] = node_cpu_time / period / job['cpus_allocated'][node]
+                   else:
+                      logger.warning ("Job {}'s allocated CPUs on node{} is 0".format(jid, node))
+                      job['node_cpu_util_avg'][node] = 0
                    job['node_rss_util'][node]     = node_rss
                    job['node_io_bps_curr'][node]  = node_io_bps_curr
                    job['node_cpu_util_curr'][node]= node_cpu_util_curr
@@ -354,7 +364,7 @@ class SLURMMonitorData(object):
                       logger.error('ERROR: Node {} of Job {} (start at {} on {}) is not in self.jobNode2ProcRecord'.format(node, jid, job['start_time'], job['nodes']))
 
             job['job_io_bps']   = total_io_bps
-            job['job_inst_util']= total_cpu_util_curr
+            job['job_inst_util']= total_cpu_util_curr / job['num_cpus']
             if total_cpu_time: # has process informatoin
                 job['job_avg_util'] = total_cpu_time / period / job['num_cpus']
                 job['job_mem_util'] = total_rss / total_node_mem
@@ -386,9 +396,6 @@ class SLURMMonitorData(object):
                       rlt[node] = gpu_ids
         return rlt, rlt_jobs
 
-    def getCurrLUJobs (self, long_period, job_width, low_mem, exclude_acct=['scc']):
-        return self.getLUJobs(self.updateTS, self.currJobs, long_period, job_width, low_mem, exclude_acct)
-
     def getCurrEmptyAllocNode (self):
         return [nm for nm, ninfo in self.data.items() if SLURMMonitorData.nodeAllocated(ninfo) and (len(ninfo) <= USER_INFO_IDX or      not ninfo[USER_INFO_IDX])]
 
@@ -405,15 +412,19 @@ class SLURMMonitorData(object):
             low_nodes.append({'name':nm, 'msg':'Node is allocated to job {} of user {}. The average cpu utilization is {} and the average memory utiization is {}.'.format([job['job_id'] for job in jobs], u_lst, avg_util, avg_mem)})
         return low_nodes
 
-    def getLUJobs (self, ts, jobs, low_util, long_period, job_width, low_mem, exclude_acct=['scc']):
+    def getCurrLUJobs (self, long_period, job_width, low_mem, exclude_acct=['scc']):
+        return self.getLowUtilJobs(self.updateTS, self.currJobs, long_period, job_width, low_mem, exclude_acct)
+
+    def getLowUtilJobs (self, ts, jobs, low_util, lmt_period, lmt_num_cpus, low_mem, exclude_acct=['scc']):
         #check self.currJobs and locate those jobs in question
         if not jobs:
            jobs   = self.currJobs
         result = {}            # return {jid:job,...}
         for jid, job in jobs.items():
             period = ts - job['start_time']
-            if (period > long_period) and (job.get('num_cpus',1)>=job_width) and (job['job_avg_util'] < low_util) and (job['job_mem_util']<low_mem) and (job['job_inst_util'] < low_util) and (job['account'] not in exclude_acct):
+            if (period > lmt_period) and (job.get('num_cpus',1)>lmt_num_cpus) and (job['job_avg_util'] < low_util) and (job['job_mem_util']<low_mem) and (job['job_inst_util'] < low_util) and (job['account'] not in exclude_acct):
                result[job['job_id']] = job
+            #if job is allocated gpu, check gpu util low
 
         return result
 
@@ -510,12 +521,7 @@ class SLURMMonitorData(object):
         #low_util = self.getLongrunLowUtilJobs(self.updateTS, self.currJobs)
         #print('low_util={}'.format(low_util.keys()))
         #if (cherrypy.session['settings']['low_util_job']['email'] ):
-        #   hour = datetime.datetime.fromtimestamp(self.updateTS).hour
-        #   if hour == 8: # only check to send un-duplicate email 8:00am-9:00am
-        #      self.jobNoticeSender.sendNotice(self.updateTS, low_util)
-        #BulletinBoard
-        #self.bulletinBoard.addLowUtilJobNotice (self.updateTS, low_util)
-        #TODO: synchorize update to jobNoticeSender and BulletinBoard
+        #   self.jobNoticeSender.sendNotice(self.updateTS, low_util)
         return updateTS, nodeData, pyslurmJobs, pyslurmNodes, currJobs, node2jids
 
     def getNodeProc (self, node):
@@ -852,7 +858,7 @@ class SLURMMonitorData(object):
 
     @cherrypy.expose
     def getLowResourceJobs (self, job_length_secs=ONE_DAY_SECS, job_width_cpus=1, job_cpu_avg_util=0.1, job_mem_util=0.3):
-        job_dict = self.getLUJobs(self.updateTS, self.currJobs, float(job_cpu_avg_util), int(job_length_secs), int(job_width_cpus), float(job_mem_util))
+        job_dict = self.getLowUtilJobs(self.updateTS, self.currJobs, float(job_cpu_avg_util), int(job_length_secs), int(job_width_cpus), float(job_mem_util))
         return json.dumps([self.updateTS, job_dict])
 
     #get the total cpu time of uid on node
