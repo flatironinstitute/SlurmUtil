@@ -794,6 +794,10 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
+    def test(self):
+        return open("test.html").read()
+
+    @cherrypy.expose
     def user_tresReport(self, uname):
         # click from File Usage
         start,stop,tresSer       = SlurmDBQuery.getUserTresHistory(uname)
@@ -1745,15 +1749,16 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def settings (self, **settings):
-        if settings:
-           logger.info("settings{}".format(settings))
-           self.chg_settings (settings)
+        #if settings:
+        #   logger.info("settings{}".format(settings))
+        #   self.chg_settings (settings)
         settings = config.getSettings()
         htmlTemp   = os.path.join(config.APP_DIR, 'settings.html')
         htmlStr    = open(htmlTemp).read().format(settings=json.dumps(settings))
         return htmlStr
 
-    def chg_settings (self, settings):
+    @cherrypy.expose
+    def chg_settings (self, **settings):
         chg_flag    = False
         setting_key = settings.pop("setting_key")   # which settings, such as 'summary_column'
         chkbox_str  = settings.pop("checkbox")
@@ -1769,6 +1774,7 @@ class SLURMMonitorUI(object):
             new_settings[key] = value
         logger.info("---new settings{}".format(new_settings))
         config.setSetting(setting_key, new_settings)
+        return open("back2.html").read()
 
     @cherrypy.expose
     def displayFile(self, fname):

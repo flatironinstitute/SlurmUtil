@@ -129,7 +129,7 @@
           $("form").submit((event) => {{
               var values = $(this).serialize()
               console.log("event=", event, "inputs=", values);
-              alert("The values have been submitted");
+              alert("The values have been submitted! Will come back to previous page");
             }});
 
         }});
@@ -141,13 +141,13 @@
     <div>
       <fieldset>
         <legend>Table Summary Settings</legend>
-        <form id="summary_column" action="./settings" method="post">
+        <form id="summary_column"    action="./chg_settings" method="post">
           <label class="title_short">Displayed Columns: </label>
         </form>
-        <form id="summary_low_util" action="./settings" method="post">
+        <form id="summary_low_util"  action="./chg_settings" method="post">
           <label class="title_short">Low Util Display <em class="inform">&nbsp &nbsp</em>: </label>
         </form>
-        <form id="summary_high_util" action="./settings" method="post">
+        <form id="summary_high_util" action="./chg_settings" method="post">
           <label class="title_short">High Util Display <em class="alarm">&nbsp &nbsp</em>: </label>
         </form>
         <p>Note: The Util is caculated as per job per host.</p>
@@ -156,10 +156,10 @@
     <div>
       <fieldset>
         <legend>Host Util Settings</legend>
-        <form id="heatmap_avg" action="./settings" method="post">
+        <form id="heatmap_avg" action="./chg_settings" method="post">
           <label class="title_short">Avg Util Over Time: </label>
         </form>
-        <form id="heatmap_weight" action="./settings" method="post">
+        <form id="heatmap_weight" action="./chg_settings" method="post">
           <label class="title_short">Combined Util Weight: </label>
         </form>
       </fieldset>
@@ -167,7 +167,7 @@
     <div>
       <fieldset>
         <legend>Pending Jobs Settings</legend>
-        <form id="part_avail" action="./settings" method="post">
+        <form id="part_avail" action="./chg_settings" method="post">
           <label class="title">Partition High Avail Display <em class="inform">&nbsp &nbsp</em>: </label>
         </form>
       </fieldset>
@@ -175,10 +175,10 @@
     <div>
       <fieldset>
         <legend>Bulletin Board Settings</legend>
-        <form id="low_util_job" action="./settings" method="post">
+        <form id="low_util_job" action="./chg_settings" method="post">
           <label class="title">Low Resource Util Threshold for Running Job: </label>
         </form>
-        <!--<form id="low_util_node" action="./settings" method="post">
+        <!--<form id="low_util_node" action="./chg_settings" method="post">
           <label class="title">Low Resource Util Threshold for Alloc Node : </label>
         </form>-->
       </fieldset>
@@ -193,7 +193,7 @@
       const year = now.getFullYear();
       const signature = 'Flatiron Institute, ' + year;
       const sig = document.querySelector(`#signature`);
-      sig.innerHTML = signature;
+      //sig.innerHTML = signature;
     </script>
   </body>
 </html>
