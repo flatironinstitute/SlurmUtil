@@ -27,24 +27,33 @@
       var chart;
       var data = {data}
       var fs   = {file_systems}
-      console.log(data)
+      var delta_days = {delta_day}
       // What is this syntax?
       $(function () {{
          $("#navmenu").load("/getHeader?page=usageGraph");
          var thisPath = window.location.pathname;
          $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
 
+         // init display
          for (var i in fs) {{
              $('#fsList').append ('<option value="' + i + '">' + fs[i][0] + '</option>');
          }}
-         // init display
          $("#fsList").val("home");
+         $("#delta_days").val(delta_days)
          displayData (data['home'])
+
          // fsList behavior
          $("#fsList").change(function() {{
             var val=$(this).val();
             displayData(data[val])
-            console.log("Changed to ", val)
+         }})
+         $("#delta_days").change(function() {{
+            console.log("delta_days is changed to ", $(this).val())
+            window.location.href = '/usageGraph?delta_day='+$(this).val()
+         }})
+         $("#center_user").change(function() {{
+            console.log("delta_days is changed to ", $(this).val())
+            centerUser($(this).val())
          }})
          //userSelect behavior is set in form
       }})
@@ -52,8 +61,7 @@
             var titleString = fs_data[0] + ': File Count and Bytes of Users on ' + fs_data[2];
             chart=bubblePlot(fs_data[1], 'container', titleString)  
       }}
-      function selectUser() {{
-          var username = $('input#username').val();
+      function centerUser(username) {{
           for (d of chart.series[0].data) {{
               if (username == d.name) {{
                  chart.xAxis[0].setExtremes(d.x/4, d.x*4);
@@ -88,14 +96,16 @@
             <div class="flex flex__left flex-gap" id="fsSelect">
               <label for="fsList">Select a File System:</label>
               <select id="fsList"></select>
+              <div style="width: 4em"></div>
+              <label for="delta_days">The days to calculate delta values:</label>
+              <input type="text" id="delta_days" value="1" size="3"></input>
+              <div style="width: 4em"></div>
+              <label for="center_user">Center on User:</label>
+              <input type="text" id="center_user" />
             </div>
-            <form action="javascript:selectUser()" class="flex flex__left flex-gap" id="userSelect">
-              <label id="usernameLabel" for="username">Center on User:</label>
-              <input type="text" id="username" />
-            </form>
             <p></p>
             <p>
-              <b>Note:</b> Double-Click on a user to see the history (default to 180 days) of the user's file usage.
+              <b>Note:</b> The bubbles represent the delta value of file bytes. The pink bubbles also have a high delta value of the number of files. The yellow bubbles belong to expired users. Double-Click a bubble to see the user's history (default to 180 days).
             </p>
           </div>
           <div class="section__div">

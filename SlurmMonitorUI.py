@@ -777,18 +777,20 @@ class SLURMMonitorUI(object):
         return t
 
     @cherrypy.expose
-    def usageGraph(self, yyyymmdd=''):
+    def usageGraph(self, yyyymmdd='', delta_day=1):
         ts          = int(time.time())
         update_time = MyTool.getTsString(int(time.time()))
         if not yyyymmdd:
             # in general, only have census date up to yesterday, if not availabe, return the latest date
             yyyymmdd = MyTool.getTS_strftime(ts, '%Y%m%d')
-        usageData_dict= fs2hc.gendata(yyyymmdd)
+        usageData_dict= fs2hc.gendata(yyyymmdd, delta_day=int(delta_day))
         for k,v in usageData_dict.items():
             v[2] = '{}-{}-{}'.format(v[2][0:4], v[2][4:6], v[2][6:8]) #convert from '%Y%m%d' to '%Y-%m-%d'
         htmlTemp    = 'fileCensus.html'
-        h           = open(htmlTemp).read().format(file_systems=fs2hc.FileSystems,data=usageData_dict, update_time=update_time)
-
+        h           = open(htmlTemp).read().format(file_systems=fs2hc.FileSystems,
+                                                   data=json.dumps(usageData_dict), 
+                                                   update_time=update_time,
+                                                   delta_day = delta_day)
         return h
 
     @cherrypy.expose

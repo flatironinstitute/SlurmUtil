@@ -21,11 +21,24 @@ def getAllUsers():
     return [p[0] for p in lst]
 
 def getAnsibleUsers(d):
+    today = datetime.now()
     with open (os.path.join(d, "users.csv")) as f:
          r        = csv.reader(f)
-         next(r)        #skip head
-         user2uid = dict((int(rows[0]),rows[3]) for rows in r)
-    return user2uid
+         header   = next(r)        #skip head
+         mapping  = dict([(h,idx) for idx, h in enumerate(header)])
+         idx1     = mapping['status']
+         idx2     = mapping['expires']
+         #user2uid = dict((int(row[0]),{'name':row[3], 'status':row[idx1], 'expired':False if row[idx2] and datetime.strptime(row[idx2], "%Y/%m/%d") > today else True}) for row in r)
+         uid2user = {}
+         for row in r:
+             expired  = False
+             if row[idx2]:
+                try:
+                   expired = datetime.strptime(row[idx2], "%Y/%m/%d") < today
+                except:
+                   expired = False #datetime.strptime(row[idx2], "%Y-%m-%d") < today
+             uid2user[int(row[0])] = {'name':row[3], 'status':row[idx1], 'expired':expired} 
+    return uid2user
 
 def getUid (user):
     p = getUserStruct(uname=user)
