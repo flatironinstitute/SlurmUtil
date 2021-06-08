@@ -19,11 +19,17 @@ function getGRESType (gres_lst) {
     }
     return rlt
 };
-function getDisplayFile (filename) {
-    if (filename.startsWith("/") && !filename.includes(" ") )
-       return '<a href=./displayFile?fname=' + filename + '>' + filename + '</a>'
+function getDisplayFile (file_cmd) {
+    file_cmd = file_cmd.trimEnd()
+    var last_idx = file_cmd.lastIndexOf(" ") 
+    if (last_idx != -1 )
+       filename = file_cmd.substring(last_idx+1)
     else
-       return filename
+       filename = file_cmd
+    if (filename.startsWith("/"))
+       return file_cmd.substring(0, last_idx+1) + '<a href=./displayFile?fname=' + filename + '>' + filename + '</a>'
+    else
+       return file_cmd
 }
 
 function percent2str(percent) {
