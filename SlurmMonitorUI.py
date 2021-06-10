@@ -666,14 +666,9 @@ class SLURMMonitorUI(object):
     def getLowResourceJobs (self, job_length_secs=ONE_DAY_SECS, job_width_cpus=1, job_cpu_avg_util=0.1, job_mem_util=0.3):
         return self.monData.getLowResourceJobs(job_length_secs, job_width_cpus, job_cpu_avg_util, job_mem_util)
 
-    def getLUJSettings (self):
-        luj_settings = config.getSetting('low_util_job')
-        return luj_settings['cpu']/100, luj_settings['gpu']/100, luj_settings['mem']/100, luj_settings['run_time_hour'], luj_settings['alloc_cpus']
-
     def getLongrunLowUtilJobs (self):
-        low_util, low_gpu, low_mem, long_period, job_width = self.getLUJSettings()
-        long_period       = long_period * 3600          # hours -> seconds
-        jobs              = self.monData.getCurrLUJobs (low_util, long_period, job_width, low_mem)
+        luj_settings      = config.getSetting('low_util_job')
+        jobs              = self.monData.getCurrLUJobs (luj_settings)
         #msgs              = BulletinBoard.getLowUtilJobMsg (jobs)
         BulletinBoard.setLowUtilJobMsg (jobs)
 

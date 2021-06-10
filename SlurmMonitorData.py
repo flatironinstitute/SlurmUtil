@@ -1,5 +1,5 @@
 import cherrypy, copy, _pickle as cPickle, datetime, json, os
-import logging, re, sys, time, zlib
+import logging, re, sys, threading, time, zlib
 from collections import defaultdict
 from functools import reduce
 
@@ -41,6 +41,11 @@ class SLURMMonitorData(object):
                                                       # modified through updateJobNode2ProcRecord only
         self.inMemCache        = inMemCache.InMemCache()
         self.inMemLog          = inMemCache.InMemLog()
+
+        self.checkTS           = None
+        self.checkResult       = {}                   # ts: {}
+        self.jobNoticeSender   = JobNoticeSender()
+        self.lock              = threading.Lock()
 
     def hasData (self):
         return self.data!={}
@@ -412,13 +417,17 @@ class SLURMMonitorData(object):
             low_nodes.append({'name':nm, 'msg':'Node is allocated to job {} of user {}. The average cpu utilization is {} and the average memory utiization is {}.'.format([job['job_id'] for job in jobs], u_lst, avg_util, avg_mem)})
         return low_nodes
 
-    def getCurrLUJobs (self, long_period, job_width, low_mem, exclude_acct=['scc']):
-        return self.getLowUtilJobs(self.updateTS, self.currJobs, long_period, job_width, low_mem, exclude_acct)
+    def getCurrLUJobs (self, luj_settings):
+        if self.updateTS == self.checkTS:
+           return self.checkResult
+        else:
+           self.checkTS     = self.updateTS
+           result = SLURMMonitorData.getLowUtilJobs(self.updateTS, self.currJobs, luj_settings['cpu']/100, luj_settings['run_time_hour']*3600, luj_settings['alloc_cpus'], luj_settings['mem']/100)
+           self.checkResult = result
+           return result
 
-    def getLowUtilJobs (self, ts, jobs, low_util, lmt_period, lmt_num_cpus, low_mem, exclude_acct=['scc']):
-        #check self.currJobs and locate those jobs in question
-        if not jobs:
-           jobs   = self.currJobs
+    def getLowUtilJobs (ts, jobs, low_util, lmt_period, lmt_num_cpus, low_mem, exclude_acct=['scc']):
+        #check and locate those jobs in question
         result = {}            # return {jid:job,...}
         for jid, job in jobs.items():
             period = ts - job['start_time']
@@ -477,7 +486,15 @@ class SLURMMonitorData(object):
         d =  cherrypy.request.body.read()
         self.updateTS, self.data, self.pyslurmJobs, self.pyslurmNodes, self.currJobs, self.node2jids = self.extractSlurmData(d)
         self.inMemCache.append(self.data, self.updateTS, self.pyslurmJobs)
-        
+
+        #check hourly for long run low util jobs and send notice
+        #if (cherrypy.session['settings']['low_util_job']['email'] ):
+        luj_settings = config.getSetting('low_util_job')
+        if luj_settings['email']:
+           if not self.checkResult or (datetime.datetime.fromtimestamp(self.checkTS).hour != datetime.datetime.fromtimestamp(self.updateTS).hour): 
+              low_util    = self.getCurrLUJobs (luj_settings)
+              logger.info('low_util={}'.format(low_util.keys()))
+              self.jobNoticeSender.sendNotice(self.updateTS, low_util)
 
     def extractSlurmData (self, d):
         updateTS, pyslurmJobs, hn2info, pyslurmNodes = cPickle.loads(zlib.decompress(d))
@@ -517,11 +534,6 @@ class SLURMMonitorData(object):
 
         self.addJobsAttr      (updateTS, currJobs, pyslurmNodes)          #add attribute job_avg_util, job_mem_util, job_io_bps
 
-        #check for long run low util jobs and send notice
-        #low_util = self.getLongrunLowUtilJobs(self.updateTS, self.currJobs)
-        #print('low_util={}'.format(low_util.keys()))
-        #if (cherrypy.session['settings']['low_util_job']['email'] ):
-        #   self.jobNoticeSender.sendNotice(self.updateTS, low_util)
         return updateTS, nodeData, pyslurmJobs, pyslurmNodes, currJobs, node2jids
 
     def getNodeProc (self, node):
@@ -858,7 +870,8 @@ class SLURMMonitorData(object):
 
     @cherrypy.expose
     def getLowResourceJobs (self, job_length_secs=ONE_DAY_SECS, job_width_cpus=1, job_cpu_avg_util=0.1, job_mem_util=0.3):
-        job_dict = self.getLowUtilJobs(self.updateTS, self.currJobs, float(job_cpu_avg_util), int(job_length_secs), int(job_width_cpus), float(job_mem_util))
+        # called from jupyter
+        job_dict = SLURMMonitorData.getLowUtilJobs(self.updateTS, self.currJobs, float(job_cpu_avg_util), int(job_length_secs), int(job_width_cpus), float(job_mem_util))
         return json.dumps([self.updateTS, job_dict])
 
     #get the total cpu time of uid on node
