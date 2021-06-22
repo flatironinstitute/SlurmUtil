@@ -332,7 +332,7 @@ function bubblePlot (series, container_id, title) {
        },
        subtitle: {
            text: document.ontouchstart === undefined ?
-           'Click and drag in the plot area to zoom in. Shift-click to pan.' : 'Pinch the chart to zoom in'
+           "Click and drag in the plot area to zoom in. Shift-click to pan. Double-Click on a bubble to see the user's history (default to 180 days)." : 'Pinch the chart to zoom in'
        },
        xAxis: {
            type: 'logarithmic',

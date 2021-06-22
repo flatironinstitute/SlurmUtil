@@ -48,6 +48,7 @@ class SLURMMonitorUI(object):
         self.startTime       = time.time()
         self.data            = 'No data received yet. Please wait a minute and come back.'
         self.pyslurmNode     = None
+        self.bright          = BrightRestClient()
 
     @cherrypy.expose
     def default(self, user):
@@ -554,8 +555,8 @@ class SLURMMonitorUI(object):
 
         avg_minute, weight   = self.getHeatMapSetting()
         gpu_nodes,max_gpu_cnt= PyslurmQuery.getGPUNodes(self.monData.pyslurmNodes)
-        logger.info ("gpu_nodes={}".format(gpu_nodes))
-        gpu_ts, gpudata      = BrightRestClient().getAllGPUAvg (gpu_nodes, minutes=avg_minute["gpu"], max_gpu_cnt=max_gpu_cnt)
+        #logger.debug ("gpu_nodes={}".format(gpu_nodes))
+        gpu_ts, gpudata      = self.bright.getAllGPUAvg (gpu_nodes, minutes=avg_minute["gpu"], max_gpu_cnt=max_gpu_cnt)
         workers,jobs,users   = self.getHeatmapData (gpudata, weight, avg_minute["cpu"])
 
         htmltemp = os.path.join(config.APP_DIR, 'heatmap.html')
@@ -628,12 +629,12 @@ class SLURMMonitorUI(object):
            gpu_nodes,max_gpu_cnt   = self.monData.getCurrJobGPUNodes()
            logger.info("max_gpu_cnt={},gpu_nodes={}".format(max_gpu_cnt, gpu_nodes))
            if max_gpu_cnt:
-              gpu_ts, gpudata      = BrightRestClient().getAllGPUAvg (gpu_nodes, minutes=5, max_gpu_cnt=max_gpu_cnt)
+              avg_minute, ignore   = self.getHeatMapSetting()
+              gpu_ts, gpudata      = self.bright.getAllGPUAvg (gpu_nodes, minutes=avg_minute, max_gpu_cnt=max_gpu_cnt)
         if 'avg_gpu_util' in column:
            min_start_ts, gpu_detail= self.monData.getCurrJobGPUDetail()   #gpu_detail include job's start_time
            minutes                 = int(int(time.time()) - min_start_ts)/60
-           gpu_ts_d, gpu_jid2data  = BrightRestClient().getAllGPUAvg_jobs(gpu_detail, minutes)
-           #logger.info('---index gpudata_d={}'.format(gpu_jid2data))
+           gpu_ts_d, gpu_jid2data  = self.bright.getAllGPUAvg_jobs(gpu_detail, minutes)
         data      = self.getSummaryTableData_1 (gpudata, gpu_jid2data)
         alarms    = self.getSummaryUtilAlarm()
         user      = config.getUser()
@@ -1061,7 +1062,7 @@ class SLURMMonitorUI(object):
 
         start_ts     = min([job['start_time'] for job in jobs_gpu])
         max_gpu_id   = max([i for id_lst in jobs_gpu_alloc.values() for i in id_lst])
-        d            = BrightRestClient().getNodesGPU_Mem(list(jobs_gpu_alloc.keys()), start_ts, max_gpu_id=max_gpu_id, msec=True)
+        d            = self.bright.getNodesGPU_Mem(list(jobs_gpu_alloc.keys()), start_ts, max_gpu_id=max_gpu_id, msec=True)
         gpu_dict     = d['gpu_utilization']
         mem_dict     = d['gpu_fb_used']
 
@@ -1096,7 +1097,7 @@ class SLURMMonitorUI(object):
            return "No GPU Alloc for job {}".format(jid)
         job_gpu_alloc= SLURMMonitorData.getJobAllocGPU(job, pyslurm.node().get())  #{'workergpu01':[0,1]
         max_gpu_id   = max([i for id_lst in job_gpu_alloc.values() for i in id_lst])
-        d            = BrightRestClient().getNodesGPU_Mem (list(job_gpu_alloc.keys()), job_start, max_gpu_id=max_gpu_id, msec=True)
+        d            = self.bright.getNodesGPU_Mem (list(job_gpu_alloc.keys()), job_start, max_gpu_id=max_gpu_id, msec=True)
         gpu_dict     = d['gpu_utilization']
         mem_dict     = d['gpu_fb_used']
 
@@ -1490,7 +1491,7 @@ class SLURMMonitorUI(object):
            return 'Node {} does not have gres resource'.format(node)
         stop      = int(time.time())
         start     = stop - hours * 60 * 60
-        data      = BrightRestClient().getNodesGPU_Mem({node:[0,1,2,3]}, start, msec=True)
+        data      = self.bright.getNodesGPU_Mem({node:[0,1,2,3]}, start, msec=True)
         util_data = data['gpu_utilization']
         mem_data  = data['gpu_fb_used']
    

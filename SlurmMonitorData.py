@@ -215,12 +215,12 @@ class SLURMMonitorData(object):
                jid       = gpu2jid[i]
                jobInfo   = self.currJobs[jid]
                gpu_alloc = [ 'gpu{}'.format(gpu_idx) for gpu_idx in jobInfo['gpus_allocated'].get(node_name,[])]
-               if node_name not in gpudata[gpu_name]:
+               if node_name not in gpudata.get(gpu_name,{}):
                   logger.error("gpudata not including {}:{}".format(node_name, gpu_name))
                if node_name not in jobInfo['cpus_allocated']:
                   logger.error("jobInfo not including {} -{}".format(node_name, jobInfo['cpus_allocated']))
                # sometimes, queryBright cannot get some gpu's data, in that case, use 0
-               gpu_label = '{}_{}: gpu_util={:.1%}, job=({},{},{} cpu, {})'.format(node_name, gpu_name, gpudata[gpu_name].get(node_name,0), jid, MyTool.getUser(jobInfo['user_id']), jobInfo['cpus_allocated'][node_name], gpu_alloc)
+               gpu_label = '{}_{}: gpu_util={:.1%}, job=({},{},{} cpu, {})'.format(node_name, gpu_name, gpudata.get(gpu_name,{}).get(node_name,0), jid, MyTool.getUser(jobInfo['user_id']), jobInfo['cpus_allocated'][node_name], gpu_alloc)
             else:
                gpu_label = '{}_{}: state={}'.format(node_name, gpu_name, state_str)
             gpus[gpu_name] = {'label':gpu_label, 'state': gpu_state, 'job': jid}
@@ -498,7 +498,6 @@ class SLURMMonitorData(object):
 
     def extractSlurmData (self, d):
         updateTS, pyslurmJobs, hn2info, pyslurmNodes = cPickle.loads(zlib.decompress(d))
-        #logger.info("hn2info={}".format(hn2info))
         updateTS  = int(updateTS)
         currJobs  = dict([(jid,job) for jid, job in pyslurmJobs.items() if job['job_state'] in ['RUNNING', 'CONFIGURING']])
         node2jids = SLURMMonitorData.createNode2Jids (currJobs)

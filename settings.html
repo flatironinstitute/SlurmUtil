@@ -57,14 +57,14 @@
               'alloc_cpus': 'Alloc CPUs, ',
               'proc_count': 'Proc Count, ',
               'cpu_util': 'CPU Util, ',
-              'avg_cpu_util': 'Avg CPU Util over Job Runtime, ',
+              'avg_cpu_util': 'Avg CPU Util (over job runtime), ',
               'rss': 'RSS, ',
               'vms': 'VMS, ',
               'io': 'I/O, ',
               'fds': 'Num Fds, ',
               'alloc_gpus': 'Alloc GPUs, ',
-              'gpu_util': 'GPU Util (5 min avg), ',
-              'avg_gpu_util': 'Avg GPU Util over Job Runtime (slow down loading page), ',
+              'gpu_util': 'GPU Util, ',
+              'avg_gpu_util': 'Avg GPU Util (over job runtime), ',
               'run_time': 'Job Runtime'
             }}
           console.log(sc_label)
@@ -92,8 +92,8 @@
               "avg_gpu_util": "number"
             }}
           const ha_label = {{
-              "cpu": " Minutes for CPU Avg, ",
-              "gpu": " Minutes for GPU Avg"
+              "cpu": " Minutes for CPU Util, ",
+              "gpu": " Minutes for GPU Util"
             }}
           const ha_type = {{
               "cpu": "number",
@@ -150,7 +150,7 @@
         <form id="summary_high_util" action="./chg_settings" method="post">
           <label class="title_short">High Util Display <em class="alarm">&nbsp &nbsp</em>: </label>
         </form>
-        <p>Note: The Util is caculated as per job per host.</p>
+        <p>Note: All CPU/GPU Util is per job per host. "GPU Util" is averaged over last several minutes that can be configured in "Host Util Settings". "Avg GPU Util" is averaged over the job runtime and can slow down the page loading."</p>
       </fieldset>
     </div>
     <div>
