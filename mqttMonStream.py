@@ -21,7 +21,7 @@ logger   = config.logger        #use app name, report to localhost:8126/data/log
 # info about the process identified by the pid.
 
 class MQTTReader(threading.Thread):
-    def __init__(self, mqtt_server='mon5.flatironinstitute.org'):
+    def __init__(self, mqtt_server):
         threading.Thread.__init__(self)
         # connect mqtt
         self.mqtt_client            = mqtt.Client()
@@ -197,11 +197,11 @@ class FileWebUpdater(threading.Thread):
             mmdiscard += len(value)
         if hdiscard: logger.info('Discarding %d messages from %d hosts (e.g., %s)'%(mmdiscard, hdiscard, h))
 
-def main(uiServer, fileDir, writeFileFlag, test_mode):
-    source = MQTTReader ()
+def main(uiServer, mqtt_dict, test_mode):
+    source = MQTTReader (mqtt_dict['host'])
     source.start()
     time.sleep(5)
-    app = FileWebUpdater(source, fileDir, uiServer, writeFileFlag, test_mode)
+    app = FileWebUpdater(source, mqtt_dict['file_dir'], uiServer, mqtt_dict['writeFile'], test_mode)
     app.start()
 
 if __name__=="__main__":
@@ -216,7 +216,7 @@ if __name__=="__main__":
    f_dir = cfg["mqtt"]["file_dir"]
    if f_dir and not os.path.isdir(f_dir):
       os.mkdir(f_dir)
-   main(cfg['ui']['urls'], cfg['mqtt']['file_dir'], cfg['mqtt']['writeFile'], cfg['test'])
+   main(cfg['ui']['urls'], cfg['mqtt'], cfg['test'])
 
  
 
