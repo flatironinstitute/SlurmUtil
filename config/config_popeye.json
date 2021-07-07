@@ -1,0 +1,28 @@
+{
+   "port":  8126,
+   "influxdb": {
+       "host": "worker1090",
+       "db":   "slurmdb_2"
+   },
+   "ui": {
+       "urls": ["http://localhost:8126/data/updateSlurmData"]
+   },
+   "log": {
+       "level": "logging.INFO",
+       "mqttMonStream": "logging.DEBUG",
+       "mqttMon2Influx": "logging.DEBUG"
+   },
+   "bright": {
+       "url":      "https://ironbcm:8081/rest/v1/monitoring/",
+       "cert_dir": "./prometheus.cm/"
+   },
+   "email": {
+       "flag": false
+   },
+   "mqtt": {
+       "host":      "popeye-mgr-3-10.cm.cluster",
+       "file_dir":  "/mnt/sdceph/users/yliu/mqtMonStreamRecord",
+       "writeFile": false
+   },
+   "test":  false
+}
