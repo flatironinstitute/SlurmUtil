@@ -213,10 +213,10 @@ if __name__=="__main__":
    if configFile:
       config.readConfigFile(configFile)
    cfg   = config.APP_CONFIG
-   f_dir = cfg["fileStorage"]["dir"]
+   f_dir = cfg["mqtt"]["file_dir"]
    if f_dir and not os.path.isdir(f_dir):
       os.mkdir(f_dir)
-   main(cfg['ui']['urls'], cfg['fileStorage']['dir'], cfg['fileStorage']['writeFile'], cfg['test'])
+   main(cfg['ui']['urls'], cfg['mqtt']['file_dir'], cfg['mqtt']['writeFile'], cfg['test'])
 
  
 

@@ -7,24 +7,22 @@
    "ui": {
        "urls": ["http://localhost:8126/data/updateSlurmData"]
    },
-   "fileStorage": {
-       "dir":       "/mnt/ceph/users/yliu/mqtMonStreamRecord",
-       "writeFile": false
-   },
    "log": {
-       "level": "logging.INFO",
-       "mqttMonStream": "logging.DEBUG",
-       "mqttMon2Influx": "logging.DEBUG"
+       "level": "logging.DEBUG",
+       "mqttMonStream": "logging.INFO",
+       "mqttMon2Influx": "logging.INFO"
    },
    "bright": {
        "url":      "https://ironbcm:8081/rest/v1/monitoring/",
        "cert_dir": "./prometheus.cm/"
    },
    "email": {
-       "flag": false
+       "flag": true
    },
    "mqtt": {
-       "host":      "mon5.flatironinstitute.org"
+       "host":      "mon5.flatironinstitute.org",
+       "file_dir":  "/mnt/ceph/users/yliu/mqtMonStreamRecord",
+       "writeFile": false
    },
    "test":  false
 }

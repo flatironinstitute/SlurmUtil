@@ -917,7 +917,7 @@ class SLURMMonitorUI(object):
         return start, stop, cpu_series, mem_series, io_series_r, io_series_w
 
     def nodeGraph_file(self, node, start, stop):
-        hostData                             = IndexedHostData(self.config["fileStorage"]["dir"])
+        hostData                             = IndexedHostData(self.config["mqtt"]["file_dir"])
         cpu_all_seq, mem_all_seq, io_all_seq = hostData.queryDataHosts([node], start, stop)
         if (not cpu_all_seq) and (not mem_all_seq) and (not mem_all_seq):
            return ["No data in file for node {} during {}-{}".format(node, MyTool.getTsString(start), MyTool.getTsString(stop))]
@@ -1363,7 +1363,7 @@ class SLURMMonitorUI(object):
         start    = job['start_time']
         stop     = job['end_time'] if job['end_time'] else int(time.time())
         nodelist = MyTool.nl2flat(job['nodes'])
-        hostData = IndexedHostData(self.config["fileStorage"]["dir"])
+        hostData = IndexedHostData(self.config["mqtt"]["file_dir"])
         cpu_all_seq, mem_all_seq, io_all_seq = hostData.queryDataHosts(nodelist, job['start_time'], stop, job['user'])
         if (not cpu_all_seq) and (not mem_all_seq) and (not mem_all_seq):
            return ["No data in file for job {}:{}".format(jobid, job)]
@@ -1784,7 +1784,7 @@ class SLURMMonitorUI(object):
            return 'Cannot display the content of file {}'.format(fname)
 
 if __name__=="__main__":
-   cherrypy.config.update({#'log.access_file':    '/tmp/slurm_util/smcpgraph-html-sun.log',
+   cherrypy.config.update({'log.access_file':    './log/sm_app_access.log',
                            'log.screen':         True,
                            'tools.sessions.on':              True,
                            'server.socket_host': '0.0.0.0',
