@@ -15,7 +15,7 @@ from IndexedDataFile import IndexedHostData
 from EmailSender     import JobNoticeSender
 from bulletinboard   import BulletinBoard
 
-import config
+import config, sessionConfig
 import MyTool
 import SlurmEntities
 import inMemCache
@@ -85,7 +85,7 @@ class SLURMMonitorUI(object):
         #latest_eval_ts= set([j['last_sched_eval'] for j in pendingLst])  #more than one
         relaxQoS   = ins.relaxQoS()
         partLst    = ins.getPartitions ()
-        partS      = config.getSetting("part_avail")
+        partS      = sessionConfig.getSetting("part_avail")
         for p in partLst:
             if p['total_nodes'] and p['total_cpus'] and p['total_gpus']:
                if p['avail_nodes_cnt']*100/p['total_nodes'] > partS['node'] or p['avail_cpus_cnt']*100/p['total_cpus'] > partS['cpu'] or (p['total_gpus'] and p['avail_gpus_cnt']*100/p['total_gpus'] > partS['gpu']):
@@ -525,13 +525,8 @@ class SLURMMonitorUI(object):
         return users
 
     def getHeatMapSetting (self):
-        settings = config.getSettings()
+        settings = sessionConfig.getSettings()
         return settings["heatmap_avg"], settings["heatmap_weight"]
-
-        #if 'user' in cherrypy.session:
-        #   return cherrypy.session["settings"]["heatmap_avg"], cherrypy.session["settings"]["heatmap_weight"]
-        #else:
-        #   return self.config["settings"]["heatmap_avg"], self.config["settings"]["heatmap_weight"]
 
     def getHeatmapData (self, gpudata, weight, avg_minute=0):
         workers = self.monData.getHeatmapWorkerData(gpudata, weight, avg_minute)
@@ -610,10 +605,10 @@ class SLURMMonitorUI(object):
 
 
     def getSummaryColumn (self):
-        settings = config.getSettings()
+        settings = sessionConfig.getSettings()
         return settings["summary_column"]
     def getSummaryUtilAlarm (self):
-        settings = config.getSettings()
+        settings = sessionConfig.getSettings()
         return settings["summary_low_util"], settings["summary_high_util"]
 
     @cherrypy.expose
@@ -637,7 +632,7 @@ class SLURMMonitorUI(object):
            gpu_ts_d, gpu_jid2data  = self.bright.getAllGPUAvg_jobs(gpu_detail, minutes)
         data      = self.getSummaryTableData_1 (gpudata, gpu_jid2data)
         alarms    = self.getSummaryUtilAlarm()
-        user      = config.getUser()
+        user      = sessionConfig.getUser()
         htmltemp  = os.path.join(config.APP_DIR, 'index.html')
         h         = open(htmltemp).read().format(table_data =json.dumps(data),
                                                  update_time=MyTool.getTsString(self.monData.updateTS),
@@ -645,6 +640,7 @@ class SLURMMonitorUI(object):
                                                  alarms     =json.dumps(alarms),
                                                  user       =json.dumps(user))
         return h
+
 
     def getUserAllocGPU (uid, node_dict):
         rlt      = {}
@@ -668,7 +664,7 @@ class SLURMMonitorUI(object):
         return self.monData.getLowResourceJobs(job_length_secs, job_width_cpus, job_cpu_avg_util, job_mem_util)
 
     def getLongrunLowUtilJobs (self):
-        luj_settings      = config.getSetting('low_util_job')
+        luj_settings      = sessionConfig.getSetting('low_util_job')
         jobs              = self.monData.getCurrLUJobs (luj_settings)
         #msgs              = BulletinBoard.getLowUtilJobMsg (jobs)
         BulletinBoard.setLowUtilJobMsg (jobs)
@@ -1748,7 +1744,7 @@ class SLURMMonitorUI(object):
         #if settings:
         #   logger.info("settings{}".format(settings))
         #   self.chg_settings (settings)
-        settings = config.getSettings()
+        settings = sessionConfig.getSettings()
         htmlTemp   = os.path.join(config.APP_DIR, 'settings.html')
         htmlStr    = open(htmlTemp).read().format(settings=json.dumps(settings))
         return htmlStr
@@ -1769,7 +1765,7 @@ class SLURMMonitorUI(object):
                value = True
             new_settings[key] = value
         logger.info("---new settings{}".format(new_settings))
-        config.setSetting(setting_key, new_settings)
+        sessionConfig.setSetting(setting_key, new_settings)
         return open("back2.html").read()
 
     @cherrypy.expose

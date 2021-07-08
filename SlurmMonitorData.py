@@ -8,7 +8,7 @@ import pandas
 from EmailSender     import JobNoticeSender
 from querySlurm      import PyslurmQuery, SlurmCmdQuery
 
-import config
+import config, sessionConfig
 import MyTool
 import inMemCache
 
@@ -42,7 +42,7 @@ class SLURMMonitorData(object):
         self.inMemCache        = inMemCache.InMemCache()
         self.inMemLog          = inMemCache.InMemLog()
 
-        self.checkTS           = None
+        self.checkTS           = 0
         self.checkResult       = {}                   # ts: {}
         self.jobNoticeSender   = JobNoticeSender()
         self.lock              = threading.Lock()
@@ -216,7 +216,7 @@ class SLURMMonitorData(object):
                jobInfo   = self.currJobs[jid]
                gpu_alloc = [ 'gpu{}'.format(gpu_idx) for gpu_idx in jobInfo['gpus_allocated'].get(node_name,[])]
                if node_name not in gpudata.get(gpu_name,{}):
-                  logger.error("gpudata not including {}:{}".format(node_name, gpu_name))
+                  logger.warning("gpudata not including {}:{}".format(node_name, gpu_name))
                if node_name not in jobInfo['cpus_allocated']:
                   logger.error("jobInfo not including {} -{}".format(node_name, jobInfo['cpus_allocated']))
                # sometimes, queryBright cannot get some gpu's data, in that case, use 0
@@ -489,9 +489,10 @@ class SLURMMonitorData(object):
 
         #check hourly for long run low util jobs and send notice
         #if (cherrypy.session['settings']['low_util_job']['email'] ):
-        luj_settings = config.getSetting('low_util_job')
+        luj_settings = sessionConfig.getSetting('low_util_job')
         if luj_settings['email']:
-           if not self.checkResult or (datetime.datetime.fromtimestamp(self.checkTS).hour != datetime.datetime.fromtimestamp(self.updateTS).hour): 
+           if not self.checkTS or (datetime.datetime.fromtimestamp(self.checkTS).hour != datetime.datetime.fromtimestamp(self.updateTS).hour): 
+              # check at start and later hourly
               low_util    = self.getCurrLUJobs (luj_settings)
               logger.info('low_util={}'.format(low_util.keys()))
               self.jobNoticeSender.sendNotice(self.updateTS, low_util)
