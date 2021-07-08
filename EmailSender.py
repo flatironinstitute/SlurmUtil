@@ -6,7 +6,9 @@ import MyTool
 # Import the email modules we'll need
 from email.message import EmailMessage
 
-RECIPIENTS    =['yliu@flatironinstitute.org','ncarriero@flatironinstitute.org','dsimon@flatironinstitute.org']
+RECIPIENTS    =['yliu@flatironinstitute.org']
+#RECIPIENTS    =['yliu@flatironinstitute.org', 'scicomp@flatironinstitute.org']
+#RECIPIENTS    =['yliu@flatironinstitute.org','ncarriero@flatironinstitute.org','dsimon@flatironinstitute.org']
 MSG_LOW_UTIL  ='Dear {}, \n\nYour job {} has run for {} with an average CPU utilization of {:.2f} and MEM utilization of {:.2f} on node {} with a total of {} cpus. You may check the details of the resource usage at {}. \n\n Please verify that this job is behaving as expected. If you no longer need the job, please terminate it (e.g., use "scancel"), so that the resources allocated to it can be used by others. \n\n Thank you very much! \n SCC team'
 SCC_USERS     =['yliu', 'ncarriero', 'dsimon', 'ifisk', 'apataki', 'jcreveling', 'awatter', 'ntrikoupis', 'jmoore', 'pgunn', 'achavkin', 'elovero', 'rblackwell']
 
@@ -24,42 +26,29 @@ def getMsg_test ():
 
 class JobNoticeSender:
     def __init__(self, interval=86400, cacheFile='jobNotice.cache'):
-        self.cacheFile       = cacheFile                                #disk file to persist self.last_jobNotice
-        self.last_jobNotice  = MyTool.readFile(cacheFile)               #{jid:ts}
-        if not self.last_jobNotice:
-           self.last_jobNotice = DDict(int)
-        self.interval_secs   = interval         #interval to send repeated notice for the same job
+        self.cacheFile       = cacheFile                                #disk file to persist self.sav_jobNotice
+        self.sav_jobNotice  = MyTool.readFile(cacheFile)               #{jid:sent_ts}
+        if not self.sav_jobNotice:
+           self.sav_jobNotice = DDict(int)
+        self.interval_secs   = interval         #interval to send repeated notice for the same job, 86400 sec=24 hours
+
+    # remove job with sent_ts too old 
+    def expireSavedNotice (self, ts):
+        newDict = dict(filter(lambda elem: ts - elem[1] < self.interval_secs, self.sav_jobNotice.items()))
+        self.sav_jobNotice = newDict
 
     def sendNotice (self, ts, jobs):
-        curr_jids = set(jobs.keys())
-        last_jids = set(self.last_jobNotice.keys())
-        
-        dup_jids  = curr_jids.intersection(last_jids)
-        rmv_jids  = last_jids.difference(dup_jids)
-        new_jids  = curr_jids.difference(dup_jids)
+        self.expireSavedNotice (ts)
 
-        #remove the job notice that is not repeated this time, if job's utilization is fluctrated around border-line->more than expected dup notices
-        for jid in rmv_jids:
-            self.last_jobNotice.pop(jid)
-        #send notice for new appeared job
-        for jid in new_jids:
-            self.sendJobNotice (ts, jobs[jid])
-            self.last_jobNotice[jid] = ts
-        #send notice for dup job if long interval passed
-        dup_jids_send = list(filter(lambda x: ts - self.last_jobNotice[x] > self.interval_secs, dup_jids))
-        #print('{}: send notice for {} conditionly ({})'.format(ts, dup_jids_send, dup_jids))
-        for jid in dup_jids_send:
-            self.sendJobNotice(ts, jobs[jid])
-            self.last_jobNotice[jid] = ts
+        for jid in jobs.keys():
+            if jid not in self.sav_jobNotice:                 #not sent in save window
+               self.sendJobNotice (ts, jobs[jid])
+               self.sav_jobNotice[jid] = ts
 
-        MyTool.writeFile (self.cacheFile, self.last_jobNotice)
+        MyTool.writeFile (self.cacheFile, self.sav_jobNotice)
         
     def sendJobNotice (self, ts, job):
-        user   =MyTool.getUserStruct(int(job['user_id']))
-        groups =MyTool.getUserGroups(user.pw_name)
-        if 'scc' in groups:
-           return
-        
+        user         = MyTool.getUserStruct(int(job['user_id']))
         userName     = user.pw_name
         userFullName = user.pw_gecos.split(',')[0]
         addr   ='http://mon7:8126/jobDetails?jid={}'.format(job['job_id'])
@@ -67,26 +56,21 @@ class JobNoticeSender:
         #to_list=RECIPIENTS + ['@flatironinstitute.org'.format(userName)]
         to_list=RECIPIENTS
 
-        msg = EmailMessage()
-        msg.set_content(content)
-        msg['Subject'] = 'Long runnig job with low utilization at slurm cluster -- Job {} by {}'.format(job['job_id'], userName)
-        msg['From']    = 'yliu'
-        msg['To']      = ', '.join(to_list)
-        
-        with smtplib.SMTP('smtp-relay.gmail.com') as s:
-            s.send_message(msg)
+        #sendMessage('Long runnig job with low utilization at slurm cluster -- Job {} by {}'.format(job['job_id'], userName), content, 'yliu', ', '.join(to_list))
+        sendMessage('[scicomp] Job {} with low utilization'.format(job['job_id'], userName), content, to=','.join(to_list))
           
-def sendMessage (subject, content):
+def sendMessage (subject, content, sender='SlurmMonitor@flatironinstitute.org', to='yliu@flatironinstitute.org'):
+    #sender='SlurmMonitor@mon7.flatironinstitute.org'
     msg = EmailMessage()
     msg.set_content(content)
     msg['Subject'] = subject
-    msg['From']    = 'yliu@mon7.flatironinstitute.org'
-    msg['To']      = 'yliu@flatironinstitute.org'
+    msg['From']    = sender
+    msg['To']      = to
     with smtplib.SMTP('smtp-relay.gmail.com') as s:
          s.send_message(msg)
 
 def main():
-    sendMessage('hello', 'hello')
+    sendMessage('test', 'test', to='yliu@flatironinstitute.org,yanbin_liu@yahoo.com,ygliu2007@gmail.com')#not reaching outside email
 
 if __name__=="__main__":
    main()
