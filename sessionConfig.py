@@ -1,7 +1,7 @@
 import cherrypy
 import config
 
-def getUser (self):
+def getUser ():
     if 'user' in cherrypy.session:
        return cherrypy.session["user"];
     else:
