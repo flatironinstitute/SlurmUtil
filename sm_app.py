@@ -20,9 +20,8 @@ def error_page_500(status, message, traceback, version):
 if __name__ == '__main__':
    #global config
    cherrypy.config.update({#'environment': 'production',
-#                        'log.access_file':                '/tmp/slurm_util/smcp_graph.log',
-                        'log.access_file':                '',
-                        'log.screen':                     True,
+                        'log.access_file':                './sm_app_access.log',
+                        'log.screen':                     False,
 #                        'error_page.500':                error_page_500,
                         'tools.sessions.on':              True,
 #                        'tools.sessions.storage_type':    "File",
@@ -54,9 +53,13 @@ if __name__ == '__main__':
    }
 
    print("config={}".format(config.APP_CONFIG))
-   sm_data = SLURMMonitorData()
-   cherrypy.tree.mount(SLURMMonitorUI(sm_data), '/',     conf)
-   cherrypy.tree.mount(sm_data,                 '/data', conf1)
+   sm_flatiron  = SLURMMonitorData('Flatiron')
+   print("create /data")
+   sm_popeye    = SLURMMonitorData('Popeye')
+   print("create /popeye")
+   cherrypy.tree.mount(SLURMMonitorUI(sm_flatiron, sm_popeye), '/',     conf)
+   cherrypy.tree.mount(sm_flatiron,             '/data', conf1)
+   cherrypy.tree.mount(sm_popeye,               '/popeye', conf1)
 
    #cherrypy.engine.signals.subscribe()
    cherrypy.engine.start()

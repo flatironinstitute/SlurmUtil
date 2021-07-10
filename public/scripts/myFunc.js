@@ -221,8 +221,19 @@ function getDateString (d) {
 function getTimeString(d) {
    return getPadStr(d.getHours()) + ":" + getPadStr(d.getMinutes())
 }
-function getDateTimeString(d) {
-   return getDateString (d) + "T" + getTimeString(d)
+function getDateTimeString(d, sep="T") {
+   return getDateString (d) + sep + getTimeString(d)
+}
+function getTS_String(ts_sec) {
+   var d = new Date(ts_sec * 1000)
+   return getDateTimeString(d, ' ')
+}
+
+function addSelectOption (parent_id, options) {
+   for (var i = 0; i < options.length; i++) {
+       $('#' + parent_id).append     ('<option value="' + options[i] + '">' + options[i] + '</option>');
+   }
+
 }
 
 

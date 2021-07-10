@@ -207,7 +207,8 @@ def getStartStopTS (start='', stop=None, formatStr='%Y%m%d', days=3, setStop=Tru
     if stop:
         if isinstance (stop, str):
            stop = time.mktime(time.strptime(stop, formatStr))
-        #else: stop is ts
+        else:
+           stop = int(stop)
     elif setStop:
         stop = int(time.time())+1
     # else: stop remains as None
@@ -215,11 +216,12 @@ def getStartStopTS (start='', stop=None, formatStr='%Y%m%d', days=3, setStop=Tru
     if start:
         if isinstance (start, str):
            start = time.mktime(time.strptime(start, formatStr))
-        #else: start is ts
+        else:
+           start = int(start)
     else:
         start = max(0, int(time.time()) - days * ONEDAY_SECS)
 
-    return int(start), int(stop)
+    return start, stop
 
 def func1 (df):
     return df[['user','job','load']].groupby('user').apply(func2)

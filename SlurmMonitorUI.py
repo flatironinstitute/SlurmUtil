@@ -21,7 +21,7 @@ import SlurmEntities
 import inMemCache
 from SlurmMonitorData import SLURMMonitorData
 
-logger  = config.logger
+logger  = MyTool.getFileLogger(__name__, logging.DEBUG) 
 
 # Directory where processed monitoring data lives.
 SACCT_WINDOW_DAYS  = 3 # number of days of records to return from sacct.
@@ -37,9 +37,10 @@ DATE_DISPLAY_FORMAT= '%m/%d/%y'
 
 @cherrypy.expose
 class SLURMMonitorUI(object):
-    def __init__(self, monData):
+    def __init__(self, monData, monData2):
+        self.monData_        = {monData.name:monData, monData2.name:monData2}
         self.monData         = monData
-        self.updateTS        = monData.updateTS
+        self.monData2        = monData2
         self.config          = config.APP_CONFIG
 
         self.queryTxtClient  = TextfileQueryClient(os.path.join(config.APP_DIR, 'host_up_ts.txt'))
@@ -407,22 +408,21 @@ class SLURMMonitorUI(object):
     def getAllJobData(self):
         return '({},{})'.format(self.monData.updateTS, self.monData.allJobs)
 
-    def getSummaryTableData_1(self, gpudata, gpu_jid2data=None):
-        lst_lst = self.getSummaryTableData (self.monData.data, self.monData.currJobs, self.monData.node2jids, self.monData.pyslurmNodes, gpudata, gpu_jid2data)
-        # in self.monData.currJobs, if gpus_allocated, then get the value
-        # gpudata[gpu_name][node_name]
-        return [dict(zip(config.SUMMARY_TABLE_COL, lst)) for lst in lst_lst]
-
-    def getSummaryTableData(self, hostData, jobData, node2jobs, pyslurmNode, gpudata=None, gpu_jid2data=None):
-        result    = []
+    def getSummaryTableData(monData, gpudata=None, gpu_jid2data=None):
+        logger.info("monData {}={}".format(monData.name, monData.data.keys()))
+        hostData    = monData.data
+        jobData     = monData.currJobs
+        node2jobs   = monData.node2jids
+        pyslurmNode = monData.pyslurmNodes
+        result      = []
         for node, nodeInfo in sorted(hostData.items()):
             if node not in pyslurmNode:
-               logger.error("getSummaryTableData node {} not in pyslurmNode".format(node))
+               logger.error("node {} not in pyslurmNode".format(node))
                continue
 
             node_mem_M = pyslurmNode[node]['real_memory']
             if len(nodeInfo) < USER_INFO_IDX:
-               logger.error("getSummaryTableData nodeInfo wrong format {}:{}".format(node, nodeInfo))
+               logger.error("nodeInfo wrong format {}:{}".format(node, nodeInfo))
                continue
 
             #status display no extra
@@ -439,9 +439,9 @@ class SLURMMonitorUI(object):
                   if job_runTime < 0:
                      logger.warning("job {} rumTime <0 {}-{}".format(jid, ts, jobData[jid]['start_time']))
                   # check job proc information
-                  job_cpuUtil, job_rss, job_vms, job_iobyteps, job_procCnt, job_fds = self.monData.getJobUsageOnNode(jid, jobData[jid], node, nodeInfo)
+                  job_cpuUtil, job_rss, job_vms, job_iobyteps, job_procCnt, job_fds = monData.getJobUsageOnNode(jid, jobData[jid], node, nodeInfo)
                   if job_procCnt and (job_runTime>0):     # has proc information
-                     job_avg_cpu = self.monData.getJobNodeTotalCPUTime(jid, node) / job_runTime if jobData[jid]['start_time'] > 0 else 0
+                     job_avg_cpu = monData.getJobNodeTotalCPUTime(jid, node) / job_runTime if jobData[jid]['start_time'] > 0 else 0
                      job_info    = [node, status, delay, node_mem_M, jid, job_user, job_coreCnt, job_runTime, job_procCnt, job_cpuUtil, job_avg_cpu, job_rss, job_vms, job_iobyteps, job_fds]
                   else:
                      job_info    = [node, status, delay, node_mem_M, jid, job_user, job_coreCnt, job_runTime, 0,           0,           0,           0,       0,       0,            0]
@@ -449,7 +449,7 @@ class SLURMMonitorUI(object):
                   #logger.info("jobData{}={}".format(jid, jobData[jid]))
                   job_gpuCnt  = len(jobData[jid]['gpus_allocated'][node]) if node in jobData[jid].get('gpus_allocated',{}) else 0
                   if job_gpuCnt:
-                     job_gpuUtil    = self.getJobGPUUtil_node(jobData[jid], node, gpudata) if gpudata else 0
+                     job_gpuUtil    = SLURMMotionUI.getJobGPUUtil_node(jobData[jid], node, gpudata) if gpudata else 0
                      job_avgGPUUtil = gpu_jid2data[node][jid]                              if gpu_jid2data and node in gpu_jid2data else 0
                      job_info.extend ([job_gpuCnt, job_gpuUtil, job_avgGPUUtil])
                   result.append(job_info)
@@ -458,7 +458,7 @@ class SLURMMonitorUI(object):
 
         return result
 
-    def getJobGPUUtil_node (self, job, nodename, gpudata):
+    def getJobGPUUtil_node (job, nodename, gpudata):
         if not gpudata:
            return 0
         #gpudata[gpuname][nodename]
@@ -613,34 +613,43 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def index(self, **args):
-        if not self.monData.hasData():
-           return self.getNoDataPage ('Tabular Summary', 'index')
-        logger.info("index args={}".format(args))
-
-        column      = [key for key, val in self.getSummaryColumn().items() if val]
-        gpudata     = None
-        gpu_jid2data= None
-        if 'gpu_util' in column:
-           gpu_nodes,max_gpu_cnt   = self.monData.getCurrJobGPUNodes()
-           logger.info("max_gpu_cnt={},gpu_nodes={}".format(max_gpu_cnt, gpu_nodes))
-           if max_gpu_cnt:
-              avg_minute, ignore   = self.getHeatMapSetting()
-              gpu_ts, gpudata      = self.bright.getAllGPUAvg (gpu_nodes, minutes=avg_minute, max_gpu_cnt=max_gpu_cnt)
-        if 'avg_gpu_util' in column:
-           min_start_ts, gpu_detail= self.monData.getCurrJobGPUDetail()   #gpu_detail include job's start_time
-           minutes                 = int(int(time.time()) - min_start_ts)/60
-           gpu_ts_d, gpu_jid2data  = self.bright.getAllGPUAvg_jobs(gpu_detail, minutes)
-        data      = self.getSummaryTableData_1 (gpudata, gpu_jid2data)
+        column    = [key for key, val in self.getSummaryColumn().items() if val]
         alarms    = self.getSummaryUtilAlarm()
         user      = sessionConfig.getUser()
+        data_dict = {}
+        upd_time  = {}
+        for name, monData in self.monData_.items():
+            logger.info("monData {}".format(monData.name))
+            if (name != "Popeye") and (not monData.hasData()):   #Allow popeye data to be empty
+               return self.getNoDataPage ('Tabular Summary', 'index')
+
+            gpudata     = None
+            gpu_jid2data= None
+            if name != "Popeye":    # TODO: skip popeye for now
+              if 'gpu_util' in column:
+               gpu_nodes,max_gpu_cnt   = monData.getCurrJobGPUNodes()
+               logger.info("max_gpu_cnt={},gpu_nodes={}".format(max_gpu_cnt, gpu_nodes))
+               if max_gpu_cnt:
+                  avg_minute, ignore   = self.getHeatMapSetting()
+                  gpu_ts, gpudata      = self.bright.getAllGPUAvg (gpu_nodes, minutes=avg_minute, max_gpu_cnt=max_gpu_cnt)
+              if 'avg_gpu_util' in column:
+               min_start_ts, gpu_detail= monData.getCurrJobGPUDetail()   #gpu_detail include job's start_time
+               minutes                 = int(int(time.time()) - min_start_ts)/60
+               gpu_ts_d, gpu_jid2data  = self.bright.getAllGPUAvg_jobs(gpu_detail, minutes)
+
+            lst_lst  = SLURMMonitorUI.getSummaryTableData (monData, gpudata, gpu_jid2data)
+            data     = [dict(zip(config.SUMMARY_TABLE_COL, lst)) for lst in lst_lst]
+            #data     = self.combineMonData (monData, gpudata, gpu_jid2data)
+            data_dict[name] = data
+            upd_time[name]  = monData.updateTS
+
         htmltemp  = os.path.join(config.APP_DIR, 'index.html')
-        h         = open(htmltemp).read().format(table_data =json.dumps(data),
-                                                 update_time=MyTool.getTsString(self.monData.updateTS),
+        h         = open(htmltemp).read().format(tables_data=json.dumps(data_dict),
+                                                 update_time=json.dumps(upd_time),
                                                  column     =column,
                                                  alarms     =json.dumps(alarms),
                                                  user       =json.dumps(user))
         return h
-
 
     def getUserAllocGPU (uid, node_dict):
         rlt      = {}
@@ -784,10 +793,6 @@ class SLURMMonitorUI(object):
                                                    update_time=update_time,
                                                    delta_day = delta_day)
         return h
-
-    @cherrypy.expose
-    def test(self):
-        return open("test.html").read()
 
     @cherrypy.expose
     def user_tresReport(self, uname):

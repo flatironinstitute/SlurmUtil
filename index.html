@@ -34,21 +34,38 @@
           const displayType = {{'node':'Node', 'delay':'Float', 'job':'JobAndStep', 'user':'User', 'alloc_cpus':'Int', 'proc_count':'Int', 'cpu_util':'Float', 'avg_cpu_util':'Float', 'rss':'Byte','vms':'Byte','io':'BigInt', 'fds':'Int', 'alloc_gpus':'Int', 'gpu_util':'Float', 'avg_gpu_util':'Float', 'run_time':'Int'}}     //default is string
           const summaryType = {{'delay':'avg', 'alloc_cpus':'total', 'proc_count':'total', 'cpu_util':'avg', 'avg_cpu_util':'avg', 'rss':'avg','vms':'avg','io':'avg','fds':'total', 'alloc_gpus':'total', 'gpu_util':'avg', 'avg_gpu_util':'avg', 'run_time':'avg'}}  //default is count
 
-          var data        = {table_data}
-          var display_fld = {column}
-          var alarm_lst   = {alarms}  //0: low_util, inform; 1: high_util, alarm
-          var user        = {user}
+          var data          = {tables_data}
+          var display_fld   = {column}
+          var alarm_lst     = {alarms}  //0: low_util, inform; 1: high_util, alarm
+          var user          = {user}
+          const update_time = {update_time}
           const display_title = Object.keys(displayName)
                                   .filter(function(key) {{return display_fld.includes(key);}})
                                   .reduce(function(obj, key) {{
                                       obj[key] = displayName[key];
                                       return obj;
                                   }}, {{}});
+          const clusters = Object.keys(data);
+          console.log(data);
+          console.log(update_time);
+          // fill in cluster options
+          addSelectOption ('cluster', clusters)
           if (user) {{
              console.log("user=",user)
              $("#user").append(', <a href="./userDetails?user=' + user + '">User ' + user + " Detail</a>")
           }}
-          createSummaryTable (data, display_title, 'summary_table',  'summary', displayType, summaryType, alarm_lst);
+          //init
+          $("#update_time").html(getTS_String(update_time[clusters[0]]))
+          $("#cluster").val(clusters[0])
+          createSummaryTable (data[clusters[0]], display_title, 'summary_table',  'summary', displayType, summaryType, alarm_lst);
+          $('#cluster').change(function() {{ 
+            // get the current selection and createSummaryTable
+            var curr = $(this).val()
+            console.log(curr + " ts=" + update_time[curr] )
+            $("#summary").html("");
+            $("#update_time").html(getTS_String(update_time[curr],' '))
+            createSummaryTable (data[curr], display_title, 'summary_table',  'summary', displayType, summaryType, alarm_lst);
+          }}) 
       }});
     </script>
   </head>
@@ -61,7 +78,7 @@
             <div class="stickynav__logo">
               <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
             </div>
-            <div class="stickynav__update">Updated: {update_time}</div>
+            <div class="stickynav__update">Updated: <font id="update_time"></font></div>
           </div>
         </div>
       </div>
@@ -70,8 +87,8 @@
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
             <h3>
-              Cluster Nodes & Jobs (<small><a href="./clusterHistory?days=7">Cluster History</a></small
-              ><small id="user"></small>)
+              Nodes & Jobs of Cluster <select id="cluster" name="cluster"></select>
+              (<small><a href="./clusterHistory?days=7">Cluster History</a></small><small id="user"></small>)
             </h3>
           </div>
           <div class="section__div" id="summary"></div>

@@ -28,7 +28,8 @@ def logTest (msg, pre_ts):
 
 @cherrypy.expose
 class SLURMMonitorData(object):
-    def __init__(self):
+    def __init__(self, name):
+        self.name              = name
         self.updateTS          = time.time()
         self.data              = {}                   #'No data received yet. Please wait a minute and come back.'
         self.currJobs          = {}                   #re-created in updateMonData
@@ -46,6 +47,7 @@ class SLURMMonitorData(object):
         self.checkResult       = {}                   # ts: {}
         self.jobNoticeSender   = JobNoticeSender()
         self.lock              = threading.Lock()
+        logger.info("Create SLURMMonitorData {}".format(self.name))
 
     def hasData (self):
         return self.data!={}
@@ -479,6 +481,10 @@ class SLURMMonitorData(object):
             else:
                #print('WARNING: Job {} has not enough process running on allocated nodes {} ({}) to calculate standard deviation.'.format(jid, job['nodes'], proc_cpu))
                job['node_cpu_stdev'],job['node_rss_stdev'], job['node_io_stdev'] = 0,0,0
+
+    @cherrypy.expose
+    def updateSlurmData_popeye(self, **args):
+        logger.info("receive data")
 
     @cherrypy.expose
     def updateSlurmData(self, **args):
