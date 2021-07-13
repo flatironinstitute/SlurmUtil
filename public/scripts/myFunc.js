@@ -38,8 +38,8 @@ function percent2str(percent) {
 function getInfoAlarmHtml (str) {
     return '<em class="inform">'+str+'</em>';
 };
-function getJobDetailHtml (jid) {
-    return '<a href=./jobDetails?jid=' + jid + '>' + jid + '</a>'
+function getJobDetailHtml (jid, cluster="Flatiron") {
+    return '<a href=./jobDetails?jid=' + jid + '&cluster=' + cluster + '>' + jid + '</a>'
 };
 function getJobListHtml(lst) {
     var html_list = lst.map( function(p) {return getJobDetailHtml(p);} )

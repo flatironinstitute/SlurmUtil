@@ -38,7 +38,7 @@ DATE_DISPLAY_FORMAT= '%m/%d/%y'
 @cherrypy.expose
 class SLURMMonitorUI(object):
     def __init__(self, monData, monData2):
-        self.monData_        = {monData.name:monData, monData2.name:monData2}
+        self.monDataDict        = {monData.name:monData, monData2.name:monData2}
         self.monData         = monData
         self.monData2        = monData2
         self.config          = config.APP_CONFIG
@@ -618,7 +618,7 @@ class SLURMMonitorUI(object):
         user      = sessionConfig.getUser()
         data_dict = {}
         upd_time  = {}
-        for name, monData in self.monData_.items():
+        for name, monData in self.monDataDict.items():
             logger.info("monData {}".format(monData.name))
             if (name != "Popeye") and (not monData.hasData()):   #Allow popeye data to be empty
                return self.getNoDataPage ('Tabular Summary', 'index')
@@ -639,7 +639,6 @@ class SLURMMonitorUI(object):
 
             lst_lst  = SLURMMonitorUI.getSummaryTableData (monData, gpudata, gpu_jid2data)
             data     = [dict(zip(config.SUMMARY_TABLE_COL, lst)) for lst in lst_lst]
-            #data     = self.combineMonData (monData, gpudata, gpu_jid2data)
             data_dict[name] = data
             upd_time[name]  = monData.updateTS
 
@@ -1137,16 +1136,18 @@ class SLURMMonitorUI(object):
         return ['PID', 'Avg CPU Util', 'RSS',  'VMS', 'IO Rate', 'Command'], worker2proc, ''
 
     @cherrypy.expose
-    def jobDetails(self, jid):
+    def jobDetails(self, jid, cluster="Flatiron"):
         if ',' in jid: jid         = jid.split(',')[0]
         jid            = int(jid)
         ts             = int(time.time())
 
+        monData        = self.monDataDict[cluster]
         jobstep_report = SlurmCmdQuery.sacct_getJobReport(jid)
         if not jobstep_report:
            return "Cannot find job {} from sacct.".format(jid)
         job_report     = jobstep_report[0]
-        job            = PyslurmQuery.getCurrJob(jid)
+        job            = monData.pyslurmJobs.get(jid,None)
+
         if not job:
            job         = PyslurmQuery.getSlurmDBJob(jid)
 
@@ -1161,11 +1162,11 @@ class SLURMMonitorUI(object):
         else:                                                                    #running job's proc is in self.data
            job_name    = job['name']
            if job['job_state'] == 'RUNNING':
-              if not self.monData.hasData():
-                 msg_note = self.getWaitMsg()
+              if not monData.hasData():
+                 msg_note = getWaitMsg()
               else: # should in the data
-                 ts                           = self.monData.updateTS
-                 proc_disp_field, worker2proc = self.monData.getJobProc (jid)
+                 ts                           = monData.updateTS
+                 proc_disp_field, worker2proc = monData.getJobProc (jid)
                  if not worker2proc:
                     msg_note = "Cannot find Job {} in the current data".format(jid)
                  else:
@@ -1181,16 +1182,17 @@ class SLURMMonitorUI(object):
         #grafana_url = 'http://mon8:3000/d/jYgoAfiWz/yanbin-slurm-node-util?orgId=1&from={}{}&var-jobID={}&theme=light'.format(start*1000, '&var-hostname=' + '&var-hostname='.join(MyTool.nl2flat(job_report['NodeList'])), jid)
 
         htmlTemp   = os.path.join(config.APP_DIR, 'jobDetail.html')
-        htmlStr    = open(htmlTemp).read().format(job_id     =jid,
-                                                  job_name   =job_name,
-                                                  update_time=datetime.datetime.fromtimestamp(ts).ctime(),
-                                                  job        =json.dumps(job),
-                                                  job_info   =json.dumps(job_report),
-                                                  title_list =proc_disp_field,
-                                                  proc_cnt   =sum([val[1] for val in worker2proc.values()]),
-                                                  worker_proc=json.dumps(worker2proc),
-                                                  note       =msg_note,
-                                                  job_report =json.dumps(jobstep_report))
+        htmlStr    = open(htmlTemp).read().format(cluster    = cluster,
+                                                  job_id     = jid,
+                                                  job_name   = job_name,
+                                                  update_time= datetime.datetime.fromtimestamp(ts).ctime(),
+                                                  job        = json.dumps(job),
+                                                  job_info   = json.dumps(job_report),
+                                                  title_list = proc_disp_field,
+                                                  proc_cnt   = sum([val[1] for val in worker2proc.values()]),
+                                                  worker_proc= json.dumps(worker2proc),
+                                                  note       = msg_note,
+                                                  job_report = json.dumps(jobstep_report))
         return htmlStr
 
     @cherrypy.expose

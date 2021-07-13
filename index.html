@@ -31,7 +31,7 @@
           $("#crumbmenu").load("/getBreadcrumbs?path=index");
 
           const displayName = {{'node':'Node', 'status':'Status', 'delay':'Delay', 'job':'Job',  'user':'User', 'alloc_cpus':'Alloc CPUs', 'proc_count':'Proc', 'cpu_util':'CPU Util', 'avg_cpu_util':'Avg CPU Util', 'rss':'RSS', 'vms':'VMS', 'io':'I/O Bps', 'fds':'Num Fds', 'alloc_gpus':'Alloc GPUs', 'gpu_util':'GPU Util', 'avg_gpu_util':'Avg GPU Util', 'run_time':'Run Time'}}
-          const displayType = {{'node':'Node', 'delay':'Float', 'job':'JobAndStep', 'user':'User', 'alloc_cpus':'Int', 'proc_count':'Int', 'cpu_util':'Float', 'avg_cpu_util':'Float', 'rss':'Byte','vms':'Byte','io':'BigInt', 'fds':'Int', 'alloc_gpus':'Int', 'gpu_util':'Float', 'avg_gpu_util':'Float', 'run_time':'Int'}}     //default is string
+          const displayType = {{'node':'Node', 'delay':'Float', 'job':'job', 'user':'User', 'alloc_cpus':'Int', 'proc_count':'Int', 'cpu_util':'Float', 'avg_cpu_util':'Float', 'rss':'Byte','vms':'Byte','io':'BigInt', 'fds':'Int', 'alloc_gpus':'Int', 'gpu_util':'Float', 'avg_gpu_util':'Float', 'run_time':'Int'}}     //default is string
           const summaryType = {{'delay':'avg', 'alloc_cpus':'total', 'proc_count':'total', 'cpu_util':'avg', 'avg_cpu_util':'avg', 'rss':'avg','vms':'avg','io':'avg','fds':'total', 'alloc_gpus':'total', 'gpu_util':'avg', 'avg_gpu_util':'avg', 'run_time':'avg'}}  //default is count
 
           var data          = {tables_data}
@@ -57,14 +57,14 @@
           //init
           $("#update_time").html(getTS_String(update_time[clusters[0]]))
           $("#cluster").val(clusters[0])
-          createSummaryTable (data[clusters[0]], display_title, 'summary_table',  'summary', displayType, summaryType, alarm_lst);
+          createSummaryTable (data[clusters[0]], display_title, 'summary_table',  'summary', displayType, summaryType, alarm_lst, cluster=clusters[0]);
           $('#cluster').change(function() {{ 
             // get the current selection and createSummaryTable
             var curr = $(this).val()
             console.log(curr + " ts=" + update_time[curr] )
             $("#summary").html("");
             $("#update_time").html(getTS_String(update_time[curr],' '))
-            createSummaryTable (data[curr], display_title, 'summary_table',  'summary', displayType, summaryType, alarm_lst);
+            createSummaryTable (data[curr], display_title, 'summary_table',  'summary', displayType, summaryType, alarm_lst, cluster=curr);
           }}) 
       }});
     </script>

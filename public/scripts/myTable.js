@@ -202,22 +202,31 @@ DISPLAY_FUNC={'user': getUserDetailHtml,
               'period':getPeriodDisplay,
               'cpu_eff':getCPUEffDisplay, 'mem_eff':getMemEffDisplay,
               'job_command':getDisplayFile}
-function getTypedHtml (d, type_dict)
-{
-   var func = DISPLAY_FUNC[type_dict[d.key]]
+//function getTypedHtml (d, type_dict)
+//{
+//   var func = DISPLAY_FUNC[type_dict[d.key]]
    //                        if (func) {
    //                           return func(d.value)
    //                        }
-   if (d.value && type_dict)
-      return getTypedValueHtml (d.value, type_dict[d.name]);
-   else
-      return d.value;
-}
+//   if (d.value && type_dict)
+//      return getTypedValueHtml (d.value, type_dict[d.name]);
+//   else
+//      return d.value;
+//}
 
-function getTypedValueHtml (d_value, d_type)
+function getTypedValueHtml (d_value, d_type, cluster)
 {
    if (d_value == undefined)
       return '';
+   var func = DISPLAY_FUNC[d_type]
+   if (func) {
+      if (d_type == "job") {
+         return func(d_value, cluster);
+      }
+      else      
+         return func(d_value);
+   }
+
    if (d_type) {
       if (d_type == 'Partition')
                        return getPartDetailHtml(d_value)
@@ -275,9 +284,9 @@ function getAlarmClass (d, key, alarm_list) {
 }
 
 //titles_dict define display fields
-function getTRHtml (d, titles_dict, type_dict) {
+function getTRHtml (d, titles_dict, type_dict, cluster) {
    var tds = Object.keys(titles_dict).reduce(function(str, key) {
-                                      var td_html = getTypedValueHtml(d[key], type_dict[key])
+                                      var td_html = getTypedValueHtml(d[key], type_dict[key], cluster)
                                       var classes = getAlarmClass (d, key, Summary_ALARM)
                                       if (type_dict[key] == 'Float' || type_dict[key] == 'BigInt' || type_dict[key] == 'Int')
                                          classes.push("right")
@@ -291,11 +300,11 @@ function getTRHtml (d, titles_dict, type_dict) {
 
 var Summary_ALARM    =null      // a list
 var Summary_TYPE_DICT=null      // a dict
-function createSummaryTable (data, titles_dict, table_id, parent_id, type_dict, summary_type, alarm_lst) {
-   console.log("createSummaryTable data=", data, ",titles=", titles_dict, ",type=", type_dict, ",alarm_lst=", alarm_lst)
+function createSummaryTable (data, titles_dict, table_id, parent_id, type_dict, summary_type, alarm_lst, cluster="Flatiron") {
+   console.log("createSummaryTable data=", data, ",titles=", titles_dict, ",type=", type_dict, ",alarm_lst=", alarm_lst, ",cluster=", cluster)
    Summary_ALARM     = alarm_lst
    Summary_TYPE_DICT = type_dict
-   data.forEach (function(d) { d.html = getTRHtml (d, titles_dict, type_dict) });
+   data.forEach (function(d) { d.html = getTRHtml (d, titles_dict, type_dict, cluster) });
    var table = d3.select('#'+parent_id).append('table')
                                           .property('id', table_id)
                                           .attr('class', 'slurminfo');
@@ -368,7 +377,6 @@ function createSummaryTbody (tbody, allData, sortCol, titles_dict, type_dict, su
                             })
                       .html(function(d) {
                                return d.html});
-   //console.log(rows)
    //use d3 to generate rows are slow
    // set up behavor
    // sortCol of summary row has class "expand", on click triggle display detail rows, then toggle class
@@ -528,7 +536,7 @@ function createSummaryThead (table, titles_dict, tbody, data, type_dict, summary
                       .html(function (d) { return titles_dict[d] })
                       .on('click', function (d) {  // every td can be sorted
                          //console.log('---', d, ',' ,sortAscending[d])
-                         reorderSummaryTable (tbody, data, d, sortAscending[d], titles_dict, type_dict, summary_type, currSortCol, !sortAscending[d])
+                         reorderSummaryTable (tbody, data, d, sortAscending[d], titles_dict, type_dict, summary_type, currSortCol, !sortAscending[d], cluster)
                          //tbody.selectAll('tr').lower() //each(function() { console.log(this); this.parentNode.appendChild(this); });
                          currSortCol      = d
                          sortAscending[d] = !sortAscending[d]

@@ -47,6 +47,8 @@ def getUid (user):
     return None
 
 def getUser (uid, fakeName=True):
+    if uid == None:
+       uid = -1
     p = getUserStruct(int(uid))
     if p:
        return p.pw_name

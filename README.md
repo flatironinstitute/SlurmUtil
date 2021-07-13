@@ -88,7 +88,7 @@ MQTT configuration is in config/config.json under key "mqtt".
 The host monitoring deamon (cluster_host_mon.py) should be installed on the nodes and report data to MQTT server.
 
 ### Install InfluxDB
-We save history data in InfluxDB.
+We save monitoring data in a time-series database: InfluxDB.
 For CentOS,
 ```
 wget https://dl.influxdata.com/influxdb/releases/influxdb-1.8.1.x86_64.rpm
@@ -125,6 +125,37 @@ wget https://files.pythonhosted.org/packages/a6/c1/5c998931cf075be7426907d975499
 tar -xzvf pyslurm-18.8.0.1.tar.gz
 ```
 
+For version 20.02
+```
+git clone https://github.com/PySlurm/pyslurm.git
+```
+
+#### Modify pyslurm source (20.02.0):
+Modify pyslurm/pyslurm.pyx
+```
+2027d2026
+<             # modify by Yanbin
+2029,2030c2028,2030
+<                 Job_dict[u'state_reason_desc'] = self._record.state_desc.decode("UTF-8").replace(" ", "_")
+<             Job_dict[u'state_reason'] = slurm.stringOrNone(
+---
+>                 Job_dict[u'state_reason'] = self._record.state_desc.decode("UTF-8").replace(" ", "_")
+>             else:
+>                 Job_dict[u'state_reason'] = slurm.stringOrNone(
+2094,2104d2093
+< 
+<             #add gres_detail by Yanbin
+<             gres_detail = []
+<             for x in range(min(self._record.num_nodes, self._record.gres_detail_cnt)):
+<                  gres_detail.append(slurm.stringOrNone(self._record.gres_detail_str[x],''))
+<             Job_dict[u'gres_detail'] = gres_detail
+<             #add pack_job by Yanbin
+<             if self._record.het_job_id:
+<                 Job_dict[u'pack_job_id'] = self._record.het_job_id
+<                 Job_dict[u'pack_job_offset'] = self._record.het_job_offset
+<                 Job_dict[u'pack_job_id_set'] = slurm.stringOrNone(self._record.het_job_id_set, '')
+```
+
 #### Modify pyslurm source (18.08.0):
 In pyslurm/pyslurm.pyx, changed line 1884 to:
 ```
@@ -150,14 +181,14 @@ modify pyslurm to add state_reason_desc 02/27/2020
 ```
 pip install Cython
 cd <pyslurm_source_dir>
-python setup.py build --slurm=/cm/shared/apps/slurm/curr
+python setup.py build --slurm=/cm/shared/apps/slurm/current
 python setup.py install
 ```
-Note: need to  
-module rm python3
-source env_slurm20_python37/bin/activate
-python setup.py install
-Note: setup.py change slurm version
+[comment]: Note: need to  
+[comment]: module rm python3
+[comment]: source env_slurm20_python37/bin/activate
+[comment]: python setup.py install
+[comment]: Note: setup.py change slurm version
 
 ### Install python packages
 #### Install fbprophet
@@ -176,6 +207,7 @@ pip install paho-mqtt
 pip install influxdb
 pip install python-ldap
 pip install seaborn
+pip install python-dateutil
 ```
 
 Python virtual environment with packages:
@@ -219,9 +251,9 @@ zc.lockfile                   1.4
 ## Others:
 ### Rebuild pyslurm
 ```
+. env_slurm18/bin/activate
 python setup.py build
 python setup.py install
-. env_slurm18/bin/activate
 pip install -e ../pyslurm
 ```
 

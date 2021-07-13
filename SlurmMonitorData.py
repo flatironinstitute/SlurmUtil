@@ -103,6 +103,10 @@ class SLURMMonitorData(object):
     def getNode2Jobs1 (self):
         return "{}".format(self.node2jids)
 
+    @cherrypy.expose
+    def getPyJobs (self):
+        return "{}".format(self.pyslurmJobs)
+
     def getUserJobStartTimes(self, uid):
         uid   = int(uid)
         stime = []
