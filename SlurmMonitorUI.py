@@ -451,7 +451,7 @@ class SLURMMonitorUI(object):
                   #logger.info("jobData{}={}".format(jid, jobData[jid]))
                   job_gpuCnt  = len(jobData[jid]['gpus_allocated'][node]) if node in jobData[jid].get('gpus_allocated',{}) else 0
                   if job_gpuCnt:
-                     job_gpuUtil    = SLURMMotionUI.getJobGPUUtil_node(jobData[jid], node, gpudata) if gpudata else 0
+                     job_gpuUtil    = SLURMMonitorUI.getJobGPUUtil_node(jobData[jid], node, gpudata) if gpudata else 0
                      job_avgGPUUtil = gpu_jid2data[node][jid]                              if gpu_jid2data and node in gpu_jid2data else 0
                      job_info.extend ([job_gpuCnt, job_gpuUtil, job_avgGPUUtil])
                   result.append(job_info)
