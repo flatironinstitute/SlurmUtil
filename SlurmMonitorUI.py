@@ -38,7 +38,8 @@ DATE_DISPLAY_FORMAT= '%m/%d/%y'
 @cherrypy.expose
 class SLURMMonitorUI(object):
     def __init__(self, monData, monData2):
-        self.monDataDict        = {monData.name:monData, monData2.name:monData2}
+        self.monDataDict     = {"Flatiron":monData,                   "Popeye":monData2}
+        self.slurmCmdDict    = {"Flatiron":SlurmCmdQuery("Flatiron"), "Popeye":SlurmCmdQuery("Popeye")}
         self.monData         = monData
         self.monData2        = monData2
         self.config          = config.APP_CONFIG
@@ -957,15 +958,30 @@ class SLURMMonitorUI(object):
                                                       node_report    = nodeReport)
         return htmlStr
 
+    def getUserDetails(self, user, cluster):
+        userAssoc      = self.slurmCmdDict["Flatiron"].getUserAssoc(user, cluster)
+        monData        = self.monDataDict["Flatiron"]
+        if not userAssoc:
+           return None
+        uid            = MyTool.getUid(user, cluster)
+        if not uid:
+           return None
+
+        userjob        = SlurmEntities.SlurmEntities.getUserJobsByState (uid, monData.pyslurmJobs)
+
     @cherrypy.expose
     def userDetails(self, user, days=3):
+        userAssoc      = self.slurmCmdDict["Flatiron"].getUserAssoc(user)
+        monData        = self.monDataDict["Flatiron"]
+        
+        if not userAssoc:
+           return 'Cannot find user {}!'.format(user)
         uid            = MyTool.getUid(user)
         if not uid:
            return 'Cannot find uid of user {}!'.format(user)
 
-        userAssoc      = SlurmCmdQuery.getUserAssoc(user)
         ins            = SlurmEntities.SlurmEntities()
-        userjob        = ins.getUserJobsByState (uid)  # can also get from sacct -u user -s 'RUNNING, PENDING'
+        userjob        = SlurmEntities.SlurmEntities.getUserJobsByState (uid, monData.pyslurmJobs)  # can also get from sacct -u user -s 'RUNNING, PENDING'
         part           = ins.getAccountPartition (userAssoc['Account'], uid)
         for p in part:  #replace big number with n/a
             for k,v in p.items():

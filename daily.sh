@@ -23,6 +23,7 @@ clusters='slurm'
 python daily.py -c $clusters >> ${LOG} 2>&1
 
 /cm/shared/apps/slurm/current/bin/sacctmgr list user -P -s >& ./data/sacctmgr_assoc.csv
+ssh -i /mnt/home/yliu/.ssh/id_sdsc popeye.sdsc.edu "module add slurm;sacctmgr -P -s list user" >& ./data/sacctmgr_assoc_popeye.csv
 
 #get users.csv from scc-ansible github repo
 #once the file is changed, the address is changed

@@ -432,14 +432,6 @@ class SlurmEntities:
   def getSmallerJobIDs (self, job_id, job_list):
       return [jid for jid in job_list if jid < job_id]
 
-  #return list of current pending jobs sorted by jid, no explaination
-  def getCurrentPendingJobs (self, fields=['job_id', 'submit_time', 'user_id', 'account', 'qos', 'partition', 'state_reason', 'tres_per_node']):
-      logging.debug ("getCurrentPendingJobs")
-      job_dict = pyslurm.job().get()
-      pending  = [MyTool.sub_dict(job, fields) for jid,job in job_dict.items() if job['job_state']=='PENDING']
-
-      return datetime.now().timestamp(), pending
-
   #return list of jobs sorted by jid and with state_exp filled
   def getPendingJobs (self):
       pending   = [job for jid,job in sorted(self.job_dict.items()) if job['job_state']=='PENDING']
@@ -584,12 +576,13 @@ class SlurmEntities:
     return total, ic_list
 
   # return jobs of a user {'RUNNING':[], 'otherstate':[]}
-  def getUserJobsByState (self, uid):
+  @staticmethod
+  def getUserJobsByState (uid, job_dict):
       result    = defaultdict(list)  #{state:[job...]}
-      jobs      = [job for job in self.job_dict.values() if job['user_id']==uid]
+      jobs      = [job for job in job_dict.values() if job['user_id']==uid]
       for job in jobs:
           result[job['job_state']].append (job)
-      return result
+      return dict(result)
 
   def getAllAlloc_Partition ( pname, job_dict ):
       jobLst    = [ job for job in job_dict.values() if job['partition'] == pname and job['job_state']=='RUNNING' ]
@@ -653,8 +646,6 @@ class SlurmEntities:
                  gNodeLmt, gCpuLmt, gGpuLmt = SlurmEntities.getQoSTresLimit(qos.get('grp_tres',    '')) 
                  uNodeLmt, uCpuLmt, uGpuLmt = SlurmEntities.getQoSTresLimit(qos.get('max_tres_pu', ''))
               else:
-                 #gNodeLmt, gCpuLmt, gGpuLmt = part['total_nodes'], part['total_cpus'], part['total_gpus']
-                 #uNodeLmt, uCpuLmt, uGpuLmt = part['total_nodes'], part['total_cpus'], part['total_gpus']
                  gNodeLmt, gCpuLmt, gGpuLmt = MAX_LIMIT,MAX_LIMIT,MAX_LIMIT
                  uNodeLmt, uCpuLmt, uGpuLmt = MAX_LIMIT,MAX_LIMIT,MAX_LIMIT
 

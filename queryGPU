@@ -1,0 +1,6 @@
+#!/bin/bash
+
+cd /mnt/home/yliu/projects/slurm/utils
+. /mnt/home/yliu/projects/slurm/utils/env_slurm18_python37/bin/activate
+python queryGPU.py $*
+deactivate

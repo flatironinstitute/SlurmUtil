@@ -22,19 +22,24 @@ def getAllUsers():
 
 SLURM_USERS = {"Flatiron":["./data/users.csv",0, {'name':'user'}, {}, {}], 
                "Popeye":  ["./data/sdsc.csv", 0, {},              {}, {}]}   #file_name, modify_time, rename_column, uid2record, user2record
+                                                                             #popeye is for users that does not have the same id as in FI 
 def refreshUsers (cluster):
-    if not os.path.isfile(SLURM_USERS[cluster][0]):
+    fileName = SLURM_USERS[cluster][0]
+    if not os.path.isfile(fileName):
        return {}
 
-    ts = os.path.getmtime(SLURM_USERS[cluster][0])
+    ts = os.path.getmtime(fileName)
     if ts > SLURM_USERS[cluster][1]:
        # modified since last read
-       SLURM_USERS[cluster][3],SLURM_USERS[cluster][3] = readUserFile (SLURM_USERS[cluster][0], SLURM_USERS[cluster][2])
+       SLURM_USERS[cluster][3],SLURM_USERS[cluster][4] = readUserFile (fileName, SLURM_USERS[cluster][2])
        SLURM_USERS[cluster][1] = ts
 
 def getUid2User (cluster):
     refreshUsers (cluster)
     return SLURM_USERS[cluster][3]
+def getUser2Record (cluster):
+    refreshUsers (cluster)
+    return SLURM_USERS[cluster][4]
 
 def readUserFile (filename, rename={}):
     uid2record  = {}
@@ -52,7 +57,7 @@ def readUserFile (filename, rename={}):
              record        = dict(zip(header, row))
              record['uid'] = int(record['uid'])
              uid2record[record['uid']]  = record
-             user2record[record['uid']] = record
+             user2record[record['user']] = record
     return uid2record, user2record
 
 def getAnsibleUsers(d):
@@ -75,10 +80,18 @@ def getAnsibleUsers(d):
              uid2user[int(row[0])] = {'name':row[3], 'status':row[idx1], 'expired':expired} 
     return uid2user
 
-def getUid (user):
-    p = getUserStruct(uname=user)
-    if p:
-       return p.pw_uid
+def getUserRecord (user, cluster):
+    user2rec = getUser2Record(cluster);
+    return user2rec.get(user, None)
+    
+def getUid (user, cluster="Flatiron"):
+    record = getUserRecord (user, cluster);
+    if record:
+       return record["uid"]
+    elif cluster != "Flatiron":
+       record = getUserRecord (user, "Flatiron");
+       if record:
+          return record["uid"]
     return None
 
 def getUser (uid, fakeName=True, cluster="Flatiron"):
@@ -86,9 +99,13 @@ def getUser (uid, fakeName=True, cluster="Flatiron"):
        return None
 
     uid      = int(uid)
-    uid2user = getUid2User(cluster)
+    uid2user = getUid2User("Flatiron")
     if uid in uid2user:
        return uid2user[uid]['user']
+    elif cluster!="Flatiron":     # popeye is for exception
+       uid2user = getUid2User(cluster)
+       if uid in uid2user:
+          return uid2user[uid]['user']
 
     if fakeName:
        return "User_{}".format(uid)
@@ -857,6 +874,8 @@ def test4():
     print(user)
     user = getUser(519052)
     print(user)
+    uid  = getUid("ajamieson")
+    print(uid)
 
 def main(argv):
     test4()

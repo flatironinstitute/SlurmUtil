@@ -28,12 +28,43 @@ class SlurmStatus:
         return cls.STATUS_LIST[idInt]
 
 class SlurmCmdQuery:
-    TS_ASSOC     = 0
-    DICT_ASSOC   = {}  # {'user':'account'}
-    SET_ACCT     = set()
+    TS_ASSOC   = 0
+    DICT_ASSOC = {}  # {'user':'account'}
+    SET_ACCT   = set()
+    USER_ASSOC = {"Flatiron":["./data/sacctmgr_assoc.csv",        0, {}],
+                  "Popeye":  ["./data/sacctmgr_assoc_popeye.csv", 0, {}]}   #file_name, modify_time, user2record
+                               #User|Def Acct|Admin|Cluster|Account|Partition|Share|Priority|MaxJobs|MaxNodes|MaxCPUs|MaxSubmit|MaxWall|MaxCPUMins|QOS|Def QOS
 
-    def __init__(self):
-        pass
+    def __init__(self, cluster):
+        self.cluster    = cluster;
+
+    def refreshUserAssoc (cluster):
+        fileName = SlurmCmdQuery.USER_ASSOC[cluster][0]
+        if not os.path.isfile(fileName):
+           return {}
+
+        ts = os.path.getmtime(fileName)
+        if ts > SlurmCmdQuery.USER_ASSOC[cluster][1]: # modified since last read
+           SlurmCmdQuery.USER_ASSOC[cluster][2] = SlurmCmdQuery.readUserAssocFile (fileName)
+           SlurmCmdQuery.USER_ASSOC[cluster][1] = ts
+
+    def readUserAssocFile (file_nm):
+        with open(file_nm) as fp:
+             lines = fp.read().splitlines()
+
+        fields = lines[0].split('|')           # read field name from first line
+        d      = {}
+        for i in range(1, len(lines)):
+            values       = lines[i].split('|')       #arora|cca|None|slurm|cca||1||||||||cca,gen,ib,preempt|gen
+            d[values[0]] = dict(zip(fields,values))
+        return d
+
+    def getUserAssoc (self, user):
+        SlurmCmdQuery.refreshUserAssoc (self.cluster)
+        u_assoc = SlurmCmdQuery.USER_ASSOC[self.cluster][2]
+        if user in u_assoc:
+           return u_assoc[user]
+        return {}
 
     @staticmethod
     def getUserDoneJobReport (user, days=3, output='JobID,JobIDRaw,JobName,AllocCPUS,AllocTRES,State,ExitCode,User,NodeList,Start,End'):
@@ -161,21 +192,6 @@ class SlurmCmdQuery:
            SlurmCmdQuery.TS_ASSOC   = file_ts
            SlurmCmdQuery.DICT_ASSOC = d
            SlurmCmdQuery.SET_ACCT   = set([item['Def Acct'] for item in d.values()])
-
-    #sacctmgr list user -P -s 
-    @staticmethod
-    def getUserQOS (user):
-        userAssoc = getUserAssoc (user)
-        if userAssoc:
-           return userAssoc['QOS'].split(',')
-        return []
-
-    @staticmethod
-    def getUserAssoc (user):
-        SlurmCmdQuery.updateAssoc ()
-        if user in SlurmCmdQuery.DICT_ASSOC:
-           return SlurmCmdQuery.DICT_ASSOC[user]
-        return {}
 
     @staticmethod
     def getAllUserAssoc ():
@@ -343,10 +359,6 @@ def test4():
 def test5():
     jobs=SlurmCmdQuery.sacct_getNodeReport('workergpu00')
     print(repr(jobs))
-
-def test6():
-    user=SlurmCmdQuery.getUserAssoc('adaly')
-    print('{}'.format(user))
 
 def main():
     #job= pyslurm.job().find_id ('88318')
