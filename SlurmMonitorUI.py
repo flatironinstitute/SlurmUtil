@@ -409,7 +409,8 @@ class SLURMMonitorUI(object):
         return '({},{})'.format(self.monData.updateTS, self.monData.allJobs)
 
     def getSummaryTableData(monData, gpudata=None, gpu_jid2data=None):
-        logger.info("monData {}={}".format(monData.name, monData.data.keys()))
+        #logger.info("monData {}={}".format(monData.name, monData.data.keys()))
+        cluster     = monData.name
         hostData    = monData.data
         jobData     = monData.currJobs
         node2jobs   = monData.node2jids
@@ -433,7 +434,7 @@ class SLURMMonitorUI(object):
                status = 'DOWN'
             if ( node in node2jobs) and node2jobs[node]:  # node has running jobs
                for jid in node2jobs[node]:                # for each job on the node, add one item
-                  job_user    = MyTool.getUser(jobData[jid]['user_id'])
+                  job_user    = MyTool.getUser(jobData[jid]['user_id'], cluster=cluster)
                   job_coreCnt = jobData[jid]['cpus_allocated'][node]
                   job_runTime = int(ts)-jobData[jid]['start_time']
                   if job_runTime < 0:

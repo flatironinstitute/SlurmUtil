@@ -20,6 +20,41 @@ def getAllUsers():
     lst = pwd.getpwall()
     return [p[0] for p in lst]
 
+SLURM_USERS = {"Flatiron":["./data/users.csv",0, {'name':'user'}, {}, {}], 
+               "Popeye":  ["./data/sdsc.csv", 0, {},              {}, {}]}   #file_name, modify_time, rename_column, uid2record, user2record
+def refreshUsers (cluster):
+    if not os.path.isfile(SLURM_USERS[cluster][0]):
+       return {}
+
+    ts = os.path.getmtime(SLURM_USERS[cluster][0])
+    if ts > SLURM_USERS[cluster][1]:
+       # modified since last read
+       SLURM_USERS[cluster][3],SLURM_USERS[cluster][3] = readUserFile (SLURM_USERS[cluster][0], SLURM_USERS[cluster][2])
+       SLURM_USERS[cluster][1] = ts
+
+def getUid2User (cluster):
+    refreshUsers (cluster)
+    return SLURM_USERS[cluster][3]
+
+def readUserFile (filename, rename={}):
+    uid2record  = {}
+    user2record = {}
+    with open (filename) as f:
+         r        = csv.reader(f)
+         header   = next(r)        #read header
+                                   #user.csv 
+                                   #uid,status,dept,name,firstname,lastname,mail,sponsor,groups,location,phone,cpuhours,gpuhours,storegb,comment,activated,expires,sdsc,shell,passwd
+                                   #sdsc.csv 
+                                   #user,name,uid,gid
+         for nm, mod in rename.items():
+             header[header.index(nm)] = mod
+         for row in r:
+             record        = dict(zip(header, row))
+             record['uid'] = int(record['uid'])
+             uid2record[record['uid']]  = record
+             user2record[record['uid']] = record
+    return uid2record, user2record
+
 def getAnsibleUsers(d):
     today = datetime.now()
     with open (os.path.join(d, "users.csv")) as f:
@@ -46,15 +81,25 @@ def getUid (user):
        return p.pw_uid
     return None
 
-def getUser (uid, fakeName=True):
+def getUser (uid, fakeName=True, cluster="Flatiron"):
     if uid == None:
-       uid = -1
-    p = getUserStruct(int(uid))
-    if p:
-       return p.pw_name
+       return None
+
+    uid      = int(uid)
+    uid2user = getUid2User(cluster)
+    if uid in uid2user:
+       return uid2user[uid]['user']
+
     if fakeName:
        return "User_{}".format(uid)
-    return None
+    else:
+       return None
+    #p = getUserStruct(int(uid))
+    #if p:
+    #   return p.pw_name
+    #if fakeName:
+    #   return "User_{}".format(uid)
+    #return None
 
 def getUserFullName(uid, returnName=True):
     p = getUserStruct(int(uid))
@@ -807,8 +852,14 @@ def test3():
     stopTS  =11
     print(getTimeSeqAvg(seq, startTS, stopTS))
 
+def test4():
+    user = getUser(519052, cluster="Popeye")
+    print(user)
+    user = getUser(519052)
+    print(user)
+
 def main(argv):
-    test3()
+    test4()
 
 if __name__=="__main__":
    main(sys.argv[1:])

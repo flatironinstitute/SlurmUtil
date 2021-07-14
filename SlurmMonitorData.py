@@ -487,10 +487,6 @@ class SLURMMonitorData(object):
                job['node_cpu_stdev'],job['node_rss_stdev'], job['node_io_stdev'] = 0,0,0
 
     @cherrypy.expose
-    def updateSlurmData_popeye(self, **args):
-        logger.info("receive data")
-
-    @cherrypy.expose
     def updateSlurmData(self, **args):
         #updated the data
         d =  cherrypy.request.body.read()

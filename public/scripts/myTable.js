@@ -221,7 +221,6 @@ function getTypedValueHtml (d_value, d_type, cluster)
    var func = DISPLAY_FUNC[d_type]
    if (func) {
       if (["job","node"].includes(d_type)) {
-         console.log("****", d_type, cluster);
          return func(d_value, cluster);
       }
       else      
