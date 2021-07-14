@@ -925,14 +925,18 @@ class SLURMMonitorUI(object):
         return start, stop, cpu_all_seq, mem_all_seq, io_all_seq
 
     @cherrypy.expose
-    def nodeDetails(self, node):
-        if not self.monData.hasData():
+    def nodeDetails(self, node, cluster="Flatiron"):
+        monData = self.monDataDict[cluster]
+        if not monData.hasData():
            return self.getWaitMsg() # error of some sort.
-        nodeData    = self.monData.getNodeProc(node)
-        if not nodeData:
-           return "Node {} is not monitored".format(node)
+        nodeData    = monData.getNodeProc(node)
+        #if not nodeData:
+        #   return "Node {} is not monitored".format(node)
 
-        nodeDisplay = pyslurm.node().get()[node]
+        #nodeDisplay = pyslurm.node().get()[node]
+        nodeDisplay = monData.pyslurmNodes.get(node,None)
+        if not nodeDisplay:
+           return "Node {} is not a slurm node".format(node)
         if nodeData['gpus']:
            nodeDisplay['gpus']         = nodeData['gpus']
         if nodeData['alloc_gpus']:
@@ -943,7 +947,8 @@ class SLURMMonitorUI(object):
         nodeReport     = SlurmCmdQuery.getNodeDoneJobReport(node, days=3)
         array_het_jids = [ job['JobID'] for job in nodeReport if '_' in job['JobID'] or '+' in job['JobID']]
         htmlTemp       = os.path.join(config.APP_DIR, 'nodeDetail.html')
-        htmlStr        = open(htmlTemp).read().format(update_time    = MyTool.getTsString(nodeData['updateTS']),
+        htmlStr        = open(htmlTemp).read().format(cluster        = cluster,
+                                                      update_time    = MyTool.getTsString(nodeData['updateTS']),
                                                       node_name      = node,
                                                       node_data      = nodeData,
                                                       node_info      = json.dumps(nodeDisplay),

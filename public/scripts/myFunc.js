@@ -91,8 +91,8 @@ function getPartitionListHtml(p_list) {
     var html_list = p_list.map( function(p) {return getPartDetailHtml(p);} )
     return html_list.join(',')
 }
-function getNodeDetailHtml (id) {
-    return '<a href=./nodeDetails?node=' + id + '>' + id + '</a>'
+function getNodeDetailHtml (id, cluster="Flatiron") {
+    return '<a href=./nodeDetails?node=' + id + '&cluster=' + cluster + '>' + id + '</a>'
 }
 function getQoSDetailHtml (id) {
     return '<a href=./qosDetail?qos=' + id + '>' + id + '</a>'
