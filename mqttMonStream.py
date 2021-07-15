@@ -46,9 +46,9 @@ class MQTTReader(threading.Thread):
         data     = json.loads(msg.payload)
         hostname = data['hdr']['hostname']
         #logger.debug("on_message {}:{}:{}.".format(threading.get_ident(), MyTool.getTsString(data['hdr']['msg_ts']), hostname))
-        if hostname.startswith('worker'):
-           with self.lock:
-               self.msgs[hostname].append(data)
+        #if hostname.startswith('worker'):
+        with self.lock:
+             self.msgs[hostname].append(data)
 
     def retrieveMsgs(self):
         with self.lock:
