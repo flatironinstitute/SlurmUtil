@@ -5,7 +5,7 @@
        "db":   "slurmdb_2"
    },
    "ui": {
-       "urls": ["http://localhost:8126/popeye/updateSlurmData"]
+       "urls": ["http://localhost:8126/popeye/updateSlurmData"],
        "extra_pyslurm": true
    },
    "log": {
