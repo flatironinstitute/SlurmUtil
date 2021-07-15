@@ -208,6 +208,8 @@ class SLURMMonitorData(object):
     def getNodeGPULabel (self, gpudata, node_name, node_state, state_str, node_gpus, alloc_jobs):
         if not node_gpus:
            return {}
+        if not gpudata:
+           return {}
         gpus = {}
         gpu2jid=dict([(gpu_idx, jid) for jid in alloc_jobs for gpu_idx in self.currJobs[jid]['gpus_allocated'].get(node_name,[])]) #TODO: assume gpu is not shared, gpus_allocated': {'workergpu14': [(0, 2)]
         for i in range(0, node_gpus):
@@ -237,8 +239,8 @@ class SLURMMonitorData(object):
         workers = []  #dataset1 in heatmap
         for hostname, hostinfo in sorted(self.data.items()):
             #try:
-               pyslurmNodes  = self.pyslurmNodes[hostname]
-               node_mem_M   = pyslurmNodes['real_memory']
+               pyslurmNode  = self.pyslurmNodes[hostname]
+               node_mem_M   = pyslurmNode['real_memory']
                alloc_jobs   = node2job.get(hostname, [])
                if avg_minute==0:
                   if len(hostinfo) > USER_INFO_IDX: #has user proc information
@@ -247,7 +249,7 @@ class SLURMMonitorData(object):
                      node_cpu_util  = 0
                else:
                   node_cpu_util = self.inMemCache.queryNodeAvg(hostname, avg_minute)
-               node_mem_util= (node_mem_M-pyslurmNodes['free_mem']) / node_mem_M  if pyslurmNodes['free_mem'] else 0 #ATTN: from slurm, not monitor, if no free_mem, in general, node is DOWN so return 0. TODO: Not saving memory information in cache. The sum of proc's RSS does not reflect the real value.
+               node_mem_util= (node_mem_M-pyslurmNode['free_mem']) / node_mem_M  if pyslurmNode['free_mem'] else 0 #ATTN: from slurm, not monitor, if no free_mem, in general, node is DOWN so return 0. TODO: Not saving memory information in cache. The sum of proc's RSS does not reflect the real value.
                node_record  = self.getHeatmapNodeLabelRecord(hostname, hostinfo, alloc_jobs, node_cpu_util, node_mem_util, gpudata)
                node_record['comb_util'] = (weight['cpu']*node_record['util'] + weight['mem']*node_record['mem_util'])/(weight['cpu'] + weight['mem'])
                workers.append(node_record)
@@ -490,7 +492,9 @@ class SLURMMonitorData(object):
     def updateSlurmData(self, **args):
         #updated the data
         d =  cherrypy.request.body.read()
-        self.updateTS, self.data, self.pyslurmJobs, self.pyslurmNodes, self.currJobs, self.node2jids = self.extractSlurmData(d)
+        self.updateTS, self.data, self.currJobs, self.node2jids, self.pyslurmData = self.extractSlurmData(d)
+        self.pyslurmJobs  = self.pyslurmData['jobs']
+        self.pyslurmNodes = self.pyslurmData['nodes']
         self.inMemCache.append(self.data, self.updateTS, self.pyslurmJobs)
 
         #check hourly for long run low util jobs and send notice
@@ -504,7 +508,9 @@ class SLURMMonitorData(object):
               self.jobNoticeSender.sendNotice(self.updateTS, low_util)
 
     def extractSlurmData (self, d):
-        updateTS, pyslurmJobs, hn2info, pyslurmNodes = cPickle.loads(zlib.decompress(d))
+        updateTS, hn2info, pyslurmData = cPickle.loads(zlib.decompress(d))
+        pyslurmJobs  = pyslurmData['jobs']
+        pyslurmNodes = pyslurmData['nodes']
         updateTS  = int(updateTS)
         currJobs  = dict([(jid,job) for jid, job in pyslurmJobs.items() if job['job_state'] in ['RUNNING', 'CONFIGURING']])
         node2jids = SLURMMonitorData.createNode2Jids (currJobs)
@@ -540,7 +546,7 @@ class SLURMMonitorData(object):
 
         self.addJobsAttr      (updateTS, currJobs, pyslurmNodes)          #add attribute job_avg_util, job_mem_util, job_io_bps
 
-        return updateTS, nodeData, pyslurmJobs, pyslurmNodes, currJobs, node2jids
+        return updateTS, nodeData, currJobs, node2jids, pyslurmData
 
     def getNodeProc (self, node):
         if node not in self.data:

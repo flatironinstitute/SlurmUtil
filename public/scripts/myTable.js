@@ -536,7 +536,7 @@ function createSummaryThead (table, titles_dict, tbody, data, type_dict, summary
                       .html(function (d) { return titles_dict[d] })
                       .on('click', function (d) {  // every td can be sorted
                          //console.log('---', d, ',' ,sortAscending[d])
-                         reorderSummaryTable (tbody, data, d, sortAscending[d], titles_dict, type_dict, summary_type, currSortCol, !sortAscending[d], cluster)
+                         reorderSummaryTable (tbody, data, d, sortAscending[d], titles_dict, type_dict, summary_type, currSortCol, !sortAscending[d])
                          //tbody.selectAll('tr').lower() //each(function() { console.log(this); this.parentNode.appendChild(this); });
                          currSortCol      = d
                          sortAscending[d] = !sortAscending[d]

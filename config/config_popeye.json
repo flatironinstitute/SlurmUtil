@@ -6,6 +6,7 @@
    },
    "ui": {
        "urls": ["http://localhost:8126/data/updateSlurmData"]
+       "extra_pyslurm": true
    },
    "log": {
        "level": "logging.INFO",

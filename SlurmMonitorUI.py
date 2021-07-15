@@ -502,9 +502,9 @@ class SLURMMonitorUI(object):
 
     # return a list of jobs with attribute long_label and disabled
     # generate jobs info {job_id, long_label, disabled}
-    def getAllocJobsWithLabel (self):
+    def getAllocJobsWithLabel (monData):
         jobs    = []
-        for jid, jobinfo in self.monData.currJobs.items():  # running jobs
+        for jid, jobinfo in monData.currJobs.items():  # running jobs
             if jobinfo['tres_alloc_str']:  # alloc resource
                long_label = '{}({}) alloc {}'.format (jid, jobinfo['user'], jobinfo['tres_alloc_str'])
                disabled   = ""
@@ -514,9 +514,9 @@ class SLURMMonitorUI(object):
         return jobs
 
     #generate users with job allocation with info {user, jobs, long_label}
-    def getAllocUsersWithLabel (self):
+    def getAllocUsersWithLabel (monData):
         users_dict = defaultdict(list)
-        for jid, jobinfo in self.monData.currJobs.items():
+        for jid, jobinfo in monData.currJobs.items():
             if jobinfo['tres_alloc_str']:
                users_dict[jobinfo['user']].append (jid)
         users      = []
@@ -530,10 +530,10 @@ class SLURMMonitorUI(object):
         settings = sessionConfig.getSettings()
         return settings["heatmap_avg"], settings["heatmap_weight"]
 
-    def getHeatmapData (self, gpudata, weight, avg_minute=0):
-        workers = self.monData.getHeatmapWorkerData(gpudata, weight, avg_minute)
-        jobs    = self.getAllocJobsWithLabel ()  #jobs list  [{job_id, long_label, disabled}, ...]
-        users   = self.getAllocUsersWithLabel()  #users list [{user, jobs, long_label}, ...]
+    def getHeatmapData (self, monData, gpudata, weight, avg_minute=0):
+        workers = monData.getHeatmapWorkerData(gpudata, weight, avg_minute)
+        jobs    = SLURMMonitorUI.getAllocJobsWithLabel (monData)  #jobs list  [{job_id, long_label, disabled}, ...]
+        users   = SLURMMonitorUI.getAllocUsersWithLabel(monData)  #users list [{user, jobs, long_label}, ...]
         return workers,jobs,users
 
     def getNoDataPage (self, title, page):
@@ -547,14 +547,20 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def utilHeatmap(self, **args):
-        if not self.monData.hasData():
-           return self.getNoDataPage ('Host Utilization Heatmap', 'utilHeatmap')
+        if not self.monDataDict["Flatiron"].hasData():   #Allow popeye data to be empty
+            return self.getNoDataPage ('Host Utilization Heatmap', 'utilHeatmap')
 
         avg_minute, weight   = self.getHeatMapSetting()
-        gpu_nodes,max_gpu_cnt= PyslurmQuery.getGPUNodes(self.monData.pyslurmNodes)
-        #logger.debug ("gpu_nodes={}".format(gpu_nodes))
-        gpu_ts, gpudata      = self.bright.getAllGPUAvg (gpu_nodes, minutes=avg_minute["gpu"], max_gpu_cnt=max_gpu_cnt)
-        workers,jobs,users   = self.getHeatmapData (gpudata, weight, avg_minute["cpu"])
+        for name, monData in self.monDataDict.items():
+            logger.info("monData {}".format(monData.name))
+
+            gpu_nodes,max_gpu_cnt= PyslurmQuery.getGPUNodes(monData.pyslurmNodes)
+            #logger.debug ("gpu_nodes={}".format(gpu_nodes))
+            if name == "Flatiron":
+               gpu_ts, gpudata   = self.bright.getAllGPUAvg (gpu_nodes, minutes=avg_minute["gpu"], max_gpu_cnt=max_gpu_cnt)
+            else:
+               gpu_ts, gpudata   = 0, {}
+            workers,jobs,users   = self.getHeatmapData (monData, gpudata, weight, avg_minute["cpu"])
 
         htmltemp = os.path.join(config.APP_DIR, 'heatmap.html')
         h        = open(htmltemp).read()%{'update_time': MyTool.getTsString(self.monData.updateTS),
@@ -615,6 +621,9 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def index(self, **args):
+        if not self.monDataDict["Flatiron"].hasData():   #Allow popeye data to be empty
+           return self.getNoDataPage ('Tabular Summary', 'index')
+
         column    = [key for key, val in self.getSummaryColumn().items() if val]
         alarms    = self.getSummaryUtilAlarm()
         user      = sessionConfig.getUser()
@@ -622,12 +631,9 @@ class SLURMMonitorUI(object):
         upd_time  = {}
         for name, monData in self.monDataDict.items():
             logger.info("monData {}".format(monData.name))
-            if (name != "Popeye") and (not monData.hasData()):   #Allow popeye data to be empty
-               return self.getNoDataPage ('Tabular Summary', 'index')
-
             gpudata     = None
             gpu_jid2data= None
-            if name != "Popeye":    # TODO: skip popeye for now
+            if name == "Flatiron":   
               if 'gpu_util' in column:
                gpu_nodes,max_gpu_cnt   = monData.getCurrJobGPUNodes()
                logger.info("max_gpu_cnt={},gpu_nodes={}".format(max_gpu_cnt, gpu_nodes))
@@ -638,6 +644,11 @@ class SLURMMonitorUI(object):
                min_start_ts, gpu_detail= monData.getCurrJobGPUDetail()   #gpu_detail include job's start_time
                minutes                 = int(int(time.time()) - min_start_ts)/60
                gpu_ts_d, gpu_jid2data  = self.bright.getAllGPUAvg_jobs(gpu_detail, minutes)
+            else:                     # TODO: popeye no GPU data
+              if 'gpu_util' in column:
+               column.remove('gpu_util')
+              if 'avg_gpu_util' in column:
+               column.remove('avg_gpu_util')
 
             lst_lst  = SLURMMonitorUI.getSummaryTableData (monData, gpudata, gpu_jid2data)
             data     = [dict(zip(config.SUMMARY_TABLE_COL, lst)) for lst in lst_lst]

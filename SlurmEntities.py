@@ -44,8 +44,23 @@ MAX_LIMIT = 2**32 - 1  #429496729, biggest integer
 class SlurmEntities:
   #two's complement -1
 
-  def __init__ (self):
-    self.getPyslurmData ()
+  def __init__ (self, cluster="Flatiron", pyslurmData={}):
+    self.cluster = cluster
+    if pyslurmData:
+        pass
+    else:
+        self.getPyslurmData ()
+    self.part_node_cpu  = {}  # {'gen': [40, 28], 'ccq': [40, 28], 'ib': [44, 28], 'gpu': [40, 36, 28], 'mem': [96], 'bnl': [40], 'bnlx': [40], 'genx': [44, 40, 28], 'amd': [128, 64]}
+    for pname,part in self.partition_dict.items():
+        self.part_node_cpu[pname] = sorted(set([self.node_dict[name]['cpus'] for name in MyTool.nl2flat(part['nodes'])]), reverse=True)
+
+    # extend node_dict by adding running_jobs, gpu_total, gpu_used
+    self.extendNodeDict ()
+
+    # extend partition_dict by adding node_flats, flag_shared, running_jobs, pending_jobs...
+    for pname, part in self.partition_dict.items():
+        self.extendPartitionDict (pname, part)
+
 
   def getPyslurmData (self): 
     self.config_dict    = pyslurm.config().get()
@@ -66,17 +81,6 @@ class SlurmEntities:
            res['job_id']    = name          # just for simplicity
            self.res_future.append (res)
     self.user_assoc_dict= SlurmCmdQuery.getAllUserAssoc()
-
-    self.part_node_cpu  = {}  # {'gen': [40, 28], 'ccq': [40, 28], 'ib': [44, 28], 'gpu': [40, 36, 28], 'mem': [96], 'bnl': [40], 'bnlx': [40], 'genx': [44, 40, 28], 'amd': [128, 64]}
-    for pname,part in self.partition_dict.items():
-        self.part_node_cpu[pname] = sorted(set([self.node_dict[name]['cpus'] for name in MyTool.nl2flat(part['nodes'])]), reverse=True)
-
-    # extend node_dict by adding running_jobs, gpu_total, gpu_used
-    self.extendNodeDict ()
-
-    # extend partition_dict by adding node_flats, flag_shared, running_jobs, pending_jobs...
-    for pname, part in self.partition_dict.items():
-        self.extendPartitionDict (pname, part)
 
   @staticmethod
   def getQoSTresDict (tres_str):

@@ -2,8 +2,13 @@ import json,logging,os,sys
 from logging.handlers import HTTPHandler
 import MyTool
 
-APP_DIR           = os.path.dirname(os.path.realpath(sys.argv[0]))
-APP_NAME          = os.path.basename(sys.argv[0]).split('.')[0]
+if sys.argv[0]:
+   APP_DIR           = os.path.dirname(os.path.realpath(sys.argv[0]))
+   APP_NAME          = os.path.basename(sys.argv[0]).split('.')[0]
+else:  # from python
+   APP_DIR           = os.path.realpath(sys.argv[0])
+   APP_NAME          = 'python'
+
 APP_CONFIG        = {}
 CSV_DIR           = "./data/"
 SUMMARY_TABLE_COL = ['node', 'status', 'delay', 'node_mem_M', 'job', 'user', 'alloc_cpus', 'run_time', 'proc_count', 'cpu_util', 'avg_cpu_util', 'rss', 'vms', 'io', 'fds', 'alloc_gpus', 'gpu_util', 'avg_gpu_util']
@@ -43,6 +48,7 @@ def getUserSettings (user):
        return APP_CONFIG["settings"]
 def readConfigFile (configFile):
    configFile = os.path.join(APP_DIR, configFile)
+   print(configFile)
    if os.path.isfile(configFile):
       with open(configFile) as config_file:
           cfg= json.load(config_file)
@@ -64,8 +70,12 @@ def addHttpLog (url):
     logger.addHandler (http_handler)
     #h=logging.handlers.HTTPHandler("scclin011:8126", "/log", method='GET', secure=False, credentials=None, context=None)
 
+import os
 logger        = MyTool.getFileLogger(APP_NAME, logging.DEBUG) 
+if not os.path.isfile('config/config.json'):
+   print("no config file")
 readConfigFile('config/config.json')        #default config file
+print(APP_CONFIG)
 addHttpLog    ('localhost:{}'.format(APP_CONFIG["port"]))
 
 

@@ -60,7 +60,7 @@ class MQTTReader(threading.Thread):
 class FileWebUpdater(threading.Thread):
     INTERVAL   = 60
 
-    def __init__(self, source, tgt_dir, tgt_url, write_file_flag, test_mode):
+    def __init__(self, source, tgt_dir, tgt_url, write_file_flag, extra_pyslurm):
         threading.Thread.__init__(self)
         self.source          = source
         self.hostData_dir    = IndexedHostData(tgt_dir)           # write to files in the data_dir
@@ -68,20 +68,28 @@ class FileWebUpdater(threading.Thread):
         self.time            = time.time()
         self.savNode2TsProcs = DDict(lambda: (-1.0, {}, []))   #host - ts - pid - proc
         self.write_file_flag = write_file_flag
-        self.test_mode       = test_mode
-        logger.info("Start FileWebUpdater with tgt_dir={}, urls={}, test_mode={}, write_file_flag={}".format(tgt_dir, self.urls, test_mode, write_file_flag))
+        self.extra_pyslurm   = extra_pyslurm
+        logger.info("Start FileWebUpdater with tgt_dir={}, urls={}, extra_pyslurm={}, write_file_flag={}".format(tgt_dir, self.urls, extra_pyslurm, write_file_flag))
 
     def run(self):
         #pdb.set_trace()
         while True:
-            curr_ts    = time.time()
-            slurmJobs  = pyslurm.job().get()
-            slurmNodes = pyslurm.node().get()
             msgs       = self.source.retrieveMsgs()
             if msgs:
-               self.dealData (curr_ts, slurmJobs, slurmNodes, msgs)
+               curr_ts    = time.time()
+               #slurmJobs  = pyslurm.job().get()
+               #slurmNodes = pyslurm.node().get()
+               pyslurmData = self.getPyslurmData ()
+               self.dealData (curr_ts, msgs, pyslurmData)
 
             time.sleep(self.INTERVAL)
+
+    def getPyslurmData (self):
+        if self.extra_pyslurm:
+           pyslurmData    = {'jobs':pyslurm.job().get(), 'nodes':pyslurm.node().get(), 'partition':pyslurm.partition().get(), 'qos':pyslurm.qos().get(), 'reservation':pyslurm.reservation(), 'extra_pyslurm':True}
+        else:
+           pyslurmData    = {'jobs':pyslurm.job().get(), 'nodes':pyslurm.node().get(), 'extra_pyslurm':False}
+        return pyslurmData
 
     def getUserAllocCPUOnNode(self, slurmJobs):
         runningJobs     = [job for job in slurmJobs.values() if job['job_state']=='RUNNING']
@@ -130,8 +138,10 @@ class FileWebUpdater(threading.Thread):
             
         return procsByUser
 
-    def dealData(self, ts, slurmJobs, slurmNodes, msgs):
+    def dealData(self, ts, msgs, pyslurmData):
         # faciliated data structure
+        slurmJobs       = pyslurmData['jobs']
+        slurmNodes      = pyslurmData['nodes']
         node2uid2cpuCnt = self.getUserAllocCPUOnNode(slurmJobs)
 
         nodeUserProcs = {} #node:state, delta, ts, [user, procs] 
@@ -173,17 +183,14 @@ class FileWebUpdater(threading.Thread):
                   logger.debug("simulate write to file")
 
         self.discardMessage(msgs)
-        self.sendUpdate    (ts, slurmJobs, nodeUserProcs, slurmNodes)
+        self.sendUpdate    (ts, nodeUserProcs, pyslurmData)
 
-    def sendUpdate (self, ts, slurmJobs, hn2data, slurmNodes):
+    def sendUpdate (self, ts, hn2data, pyslurmData):
         for url in self.urls:
-           zps = zlib.compress(cPickle.dumps((ts, slurmJobs, hn2data, slurmNodes), -1))
+           zps = zlib.compress(cPickle.dumps((ts, hn2data, pyslurmData), -1))
            try:
                logger.debug("sendUpdate to {}".format(url))
-               if not self.test_mode:
-                  resp = urllib2.urlopen(urllib2.Request(url, zps, {'Content-Type': 'application/octet-stream'}))
-               else:
-                  resp = 0
+               resp = urllib2.urlopen(urllib2.Request(url, zps, {'Content-Type': 'application/octet-stream'}))
                logger.debug("{}:{}: sendUpdate to {} with return code {}".format(threading.currentThread().ident, MyTool.getTsString(ts), url, resp))
            except Exception as e:
                logger.error( 'Failed to update slurm data {}: {}'.format(url, e))
@@ -197,11 +204,11 @@ class FileWebUpdater(threading.Thread):
             mmdiscard += len(value)
         if hdiscard: logger.info('Discarding %d messages from %d hosts (e.g., %s)'%(mmdiscard, hdiscard, h))
 
-def main(uiServer, mqtt_dict, test_mode):
+def main(uiServer, mqtt_dict, extra_pyslurm):
     source = MQTTReader (mqtt_dict['host'])
     source.start()
     time.sleep(5)
-    app = FileWebUpdater(source, mqtt_dict['file_dir'], uiServer, mqtt_dict['writeFile'], test_mode)
+    app    = FileWebUpdater(source, mqtt_dict['file_dir'], uiServer, mqtt_dict['writeFile'], extra_pyslurm)
     app.start()
 
 if __name__=="__main__":
@@ -216,7 +223,7 @@ if __name__=="__main__":
    f_dir = cfg["mqtt"]["file_dir"]
    if f_dir and not os.path.isdir(f_dir):
       os.mkdir(f_dir)
-   main(cfg['ui']['urls'], cfg['mqtt'], cfg['test'])
+   main(cfg['ui']['urls'], cfg['mqtt'], cfg['ui']['extra_pyslurm_data'])
 
  
 
