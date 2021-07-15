@@ -753,16 +753,16 @@ def sumOfListWithUnit_lst (lst):
     lst_G = list(filter(lambda x: x[-1]=='G', lst))
     total = 0
     if lst_G:
-       total   = sum([int(n[:-1]) for n in lst_G])
+       total   = sum([float(n[:-1]) for n in lst_G])
        postfix = 'G'
     if lst_M:
-       total   = sum([int(n[:-1]) for n in lst_M]) + total * 1024
+       total   = sum([float(n[:-1]) for n in lst_M]) + total * 1024
        postfix = 'M'
     if lst_K:
-       total   = sum([int(n[:-1]) for n in lst_K]) + total * 1024
+       total   = sum([float(n[:-1]) for n in lst_K]) + total * 1024
        postfix = 'K'
     if lst_D:
-       total   = sum([int(n)      for n in lst_D]) + total * 1024
+       total   = sum([float(n)      for n in lst_D]) + total * 1024
        postfix = ''
     return total, postfix
 
@@ -772,9 +772,9 @@ def sumOfListWithUnit (lst):
     
 def convert2M (mem_unit):
     if mem_unit[-1] in ['K','M','G']:
-       mem,unit = int(mem_unit[:-1]),mem_unit[-1]
+       mem,unit = float(mem_unit[:-1]),mem_unit[-1]
     else:
-       mem      = int(mem_unit)
+       mem      = float(mem_unit)
        unit     = ''
     mem_MB   = mem
     if unit == 'G':
