@@ -5,7 +5,7 @@
        "db":   "slurmdb_2"
    },
    "ui": {
-       "urls": ["http://localhost:8126/data/updateSlurmData"]
+       "urls": ["http://localhost:8126/popeye/updateSlurmData"]
        "extra_pyslurm": true
    },
    "log": {
@@ -23,7 +23,7 @@
    "mqtt": {
        "host":      "popeye-mgr-3-10.cm.cluster",
        "file_dir":  "/mnt/sdceph/users/yliu/mqtMonStreamRecord",
-       "writeFile": false
+       "writeFile": true
    },
    "test":  false
 }
