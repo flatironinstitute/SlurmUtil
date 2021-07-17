@@ -6,7 +6,7 @@
    },
    "ui": {
        "urls": ["http://localhost:8126/popeye/updateSlurmData"],
-       "extra_pyslurm": true
+       "extra_pyslurm_data": true
    },
    "log": {
        "level": "logging.INFO",
