@@ -19,13 +19,109 @@
     <script type="text/javascript" src="static/scripts/jquery.min.js"></script>
     <script type="text/javascript" src="static/scripts/d3.v3.js"></script>
     <!--v5 will cause error -->
+    <script type="text/javascript" src="static/scripts/myFunc.js"></script>
     <script type="text/javascript" src="static/scripts/myHeatmap.js"></script>
     <script src="http://rawgithub.com/indrimuska/jquery-editable-select/master/dist/jquery-editable-select.min.js"></script>
     <script>
-      $(function () {
-        $('#navmenu').load('/getHeader?page=utilHeatmap');
-        var thisPath = window.location.pathname;
-        $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+    $(function () {
+      $('#navmenu').load('/getHeader?page=utilHeatmap');
+      var thisPath = window.location.pathname;
+      $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+
+      var heatmapData = %(heatmapData)s;                            //{"Flatiron":[node_ts, workers, jobs, users, gpu_ts, gpudata]
+      console.log("heatmapData=", heatmapData)
+      var cntPerLine  = 32;                                         //count per line
+      var nodes_data  = prepareNodeData(heatmapData, cntPerLine);   //{"Flatiron":[nodeData, line_label]
+      var gpus_data   = prepareGPUData (heatmapData)
+      
+      const clusters = Object.keys(heatmapData);
+      var cluter, jobs_data, users_data;
+      var workers_data, labels, gpu_data, gpu_labels;
+      setCluster (clusters[0])
+      console.log("workers_data=",workers_data, "gpu_data=",gpu_data);
+
+      var margin      = { top: 10, right: 0, bottom: 50, left: 120 },
+          gpu_margin  = { top: 100, right: 0, bottom: 50, left: 120 },
+          width       = 960  - margin.left - margin.right,
+          height      = 900  - margin.top - margin.bottom;
+
+      var legend_width  = width + margin.left + margin.right,
+          legend_height = 110;
+
+      var gridSize     = Math.floor(width / cntPerLine);
+      var svg_width    = width+margin.left+margin.right;
+      var svg_height   = labels.length*gridSize +margin.top+margin.bottom
+
+      var gpu_gridSize = Math.floor(width / gpu_labels.length)
+      var gpu_height   = 4*gridSize+margin.top+margin.bottom+100
+      var disp_attr    = "util"
+      var acctColor     = true;                                       //wether use color for each account
+      addSelectOption ('cluster', clusters)
+      createSelectList ("#select_list_div", jobs_data,  "select_list",  "job_id", job_onchange);
+      heatmapChart     (workers_data);
+
+
+      // add heatmap labels under svg
+      function heatmapChart(data) {
+          d3.selectAll("svg > *").remove();
+          var legend_svg = createLegend("#legend_svg", legend_width, legend_height, acctColor, gridSize);
+          var svg        = createSVG   ("#node_svg", ".label", labels, svg_width, svg_height, margin,     gridSize)
+          createHeatMap    (svg,     data,     acctColor, gridSize, disp_attr)
+          
+          if (gpu_data.length>0) {
+             var gpu_svg  = createGPUSVG ("#gpu_svg",  ".gpuNodeLabel", ".gpuLabel", gpu_labels, svg_width, gpu_height, gpu_margin, gpu_gridSize)
+             createGPUHeatMap (gpu_svg, gpu_data, acctColor, gpu_gridSize)
+          }
+      };
+
+      function setCluster (cluster) {
+          cluster     = cluster
+          jobs_data   = heatmapData[cluster][2]   
+          users_data  = heatmapData[cluster][3]   
+          workers_data= nodes_data[cluster][0]     
+          labels      = nodes_data[cluster][1]
+          gpu_data    = gpus_data[cluster][0]
+          gpu_labels  = gpus_data[cluster][1]
+      }
+
+      $("#cluster").change(function () {
+           var optionSelected = $("option:selected", this);
+           setCluster  (this.value)
+           heatmapChart(workers_data)
+         })
+      $("#colorCheckbox").change(function () {  // $(this) selector refers the current selected object in a loop or event.
+           acctColor = $(this)[0].checked
+           heatmapChart(workers_data)
+         })
+      $("#select_disp_attr").change(function () {
+           var optionSelected = $("option:selected", this);
+           disp_attr = this.value
+           heatmapChart(workers_data)
+        })
+      $("#select_job_user").change(function () {
+           var optionSelected = $("option:selected", this);
+           if (this.value == 'job') 
+              createSelectList ("#select_list_div", jobs_data,  "select_list",  "job_id", job_onchange);
+           else 
+              createSelectList ("#select_list_div", users_data, "select_list",  "jobs",   user_onchange);
+         });
+      function job_onchange() {
+         var optionSelected = $("option:selected", this);
+         jid=this.value
+         $(".popout").removeClass("popout");
+         $(`.${jid}`).addClass("popout");
+      }
+      function user_onchange() {
+         //sel_jids=d3.select("#select_list_div select").property("value");
+         var optionSelected = $("option:selected", this);
+         sel_jids=this.value
+         jids    =sel_jids.split(',')
+         console.log("user_onchange " + jids)
+         $(".popout").removeClass("popout");
+         jids.forEach(function(e) {
+            $(`.${e}`).addClass("popout");
+         });
+      }
       });
     </script>
   </head>
@@ -46,24 +142,13 @@
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
             <div class="flex flex__left flex-gap">
-              <h3>Worker Nodes Utilization</h3>
-              <select id="select_cpu_mem">
+              <h3><select id="cluster" name="cluster"></select> Worker Nodes Utilization of 
+              <select id="select_disp_attr">
                 <option value="util">CPU</option>
                 <option value="mem_util">Memory</option>
                 <option value="comb_util">Combined</option>
               </select>
-            </div>
-            <p>
-              Click to see the co-allocated worker nodes for the same job. Double click to see the worker node detail.
-              Shift + double click to see the job detail.
-            </p>
-            <div id="select_div">
-              Select an option to see the allocated worker nodes:
-              <select id="select_job_user">
-                <option value="job">Job</option>
-                <option value="user">User</option>
-              </select>
-              <span id="select_list_div"></span>
+              </h3>
             </div>
             <div id="legend">
                <div class="flex flex__left">
@@ -71,6 +156,17 @@
                   <label for="colorCheckbox"> Use color to differentiate account </label>
                </div>
               <p><svg id="legend_svg"></svg></p>
+            </div>
+            <div id="select_div">
+              <p>Double click a node rectangle to see the detail of the node. Shift + double click to see the detail of the job allocated on the node. Click to see the co-allocated nodes of the job. 
+              </p>
+              Highlight the allocated nodes of
+              <select id="select_job_user">
+                <option value="job">a running job</option>
+                <option value="user">an active user</option>
+              </select>
+              :
+              <span id="select_list_div"></span>
             </div>
             <div class="viz-wrapper"><svg id="node_svg"></svg></div>
           </div>
@@ -82,7 +178,6 @@
                <h3>GPU Average Utilization of Last %(gpu_avg_minute)s Minutes</h3>
                <i>Update time: %(gpu_update_time)s</i>
                <i id="gpu_update"></i>
-               <p>Click to see the co-allocated worker nodes for the same job. Double click to see the worker node details.
                </p>
                <div class="viz-wrapper"><svg id="gpu_svg"></svg></div>
              </div>
@@ -96,92 +191,5 @@
         <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
       </div>
     </footer>
-    <script type="text/javascript">
-      var margin      = { top: 10, right: 0, bottom: 50, left: 120 },
-          gpu_margin  = { top: 100, right: 0, bottom: 50, left: 120 },
-          width       = 960  - margin.left - margin.right,
-          height      = 900  - margin.top - margin.bottom,
-          cntPerLine  = 32,                                         //count per line
-          acctColor   = true,                                       //wether use color for each account
-          gridSize    = Math.floor(width / cntPerLine),
-          workers     = %(data1)s                                   //input
-          jobs_data   = %(data2)s                                   //input
-          users_data  = %(users)s                                   //input
-          gpu_obj     = %(gpu)s
-
-      var labels       = [], gpu_labels=[];                   // labels, save results
-      var grpCnt       = [0,0,0,0,0,0,0,0,0,0];  // count for each group worker0..., ..., save results from function call
-      var workers_data = prepareNodeData_1 (workers, grpCnt, labels, gpu_obj)
-      var gpu_data     = prepareGPUData    (workers_data,    gpu_labels)
-      var gpu_gridSize = Math.floor(width / gpu_labels.length)
-      console.log("workers_data=",workers_data, "gpu_data=",gpu_data);
-
-      var legend_svg   = d3.select("#legend_svg")
-          .attr("width",  width + margin.left + margin.right)
-          .attr("height", 110)
-          .append("g")
-             .attr("transform", "translate(" + 120 + "," + 10 + ")");
-
-      var svg_line = 0
-      for (var i=0; i<grpCnt.length; i++)
-          svg_line += Math.ceil(grpCnt[i] / cntPerLine)
-      var svg           = createSVG    ("#node_svg", ".label",        labels, width+margin.left+margin.right, svg_line*gridSize +margin.top+margin.bottom, margin, gridSize)
-      var gpu_svg       = createGPUSVG ("#gpu_svg",  ".gpuNodeLabel", ".gpuLabel", gpu_labels, width+margin.left+margin.right, 4*gridSize+margin.top+margin.bottom+100, gpu_margin, gpu_gridSize)
-      var color_attr    = "util"
-      var select_jids   = []
-
-      // add heatmap labels under svg
-      var heatmapChart = function(data) {
-          createLegend     (legend_svg, acctColor, gridSize);
-          createHeatMap    (svg,     data,     acctColor, grpCnt, cntPerLine, gridSize, color_attr)
-          createGPUHeatMap (gpu_svg, gpu_data, acctColor, grpCnt, cntPerLine, gpu_gridSize)
-      };
-
-      d3.select("#select_cpu_mem")
-        .on('change', function () {
-           color_attr = d3.select(this).property('value');
-           heatmapChart(workers_data)
-        })
-      d3.select("#select_job_user")
-        .on('change', function() {
-           val = d3.select(this).property('value');
-           if (val == 'job') {
-              createSelectList ("#select_list_div", jobs_data,  "select_list",  "job_id", job_onchange);
-           } else {
-              createSelectList ("#select_list_div", users_data, "select_list",  "jobs",   user_onchange);
-           }
-         });
-      d3.select("#colorCheckbox")
-        .on('change', function () {
-           //console.log(d3.event)
-           acctColor = d3.event.target.checked
-           console.log("onchange of colorCheckbox set acctColor=" + acctColor)
-
-           d3.selectAll(".node").remove()
-           d3.selectAll(".legend").remove()
-           heatmapChart(workers_data)
-         })
-      // init
-      createSelectList ("#select_list_div", jobs_data,  "select_list",  "job_id", job_onchange);
-      heatmapChart     (workers_data);
-
-      function job_onchange() {
-         selectedJid=d3.select("#select_list_div select").property("value");
-         //console.log("job_onchange", selectedJid)
-         $(".bordered").removeClass("popout");
-         $(`.${selectedJid}`).addClass("popout");
-         select_jids = [parseInt(selectedJid)]
-      }
-      function user_onchange() {
-         sel_jids=d3.select("#select_list_div select").property("value");
-         jids    =sel_jids.split(',')
-         console.log("user_onchange " + jids)
-         $(".bordered").removeClass("popout");
-         jids.forEach(function(e) {
-            $(`.${e}`).addClass("popout");
-         });
-         select_jids = jids.map(function (num) {return parseInt(num);})
-      }
-    </script>
   </body>
 </html>

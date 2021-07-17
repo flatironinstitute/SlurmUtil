@@ -238,25 +238,21 @@ class SLURMMonitorData(object):
         node2job= self.node2jids
         workers = []  #dataset1 in heatmap
         for hostname, hostinfo in sorted(self.data.items()):
-            #try:
-               pyslurmNode  = self.pyslurmNodes[hostname]
-               node_mem_M   = pyslurmNode['real_memory']
-               alloc_jobs   = node2job.get(hostname, [])
-               if avg_minute==0:
-                  if len(hostinfo) > USER_INFO_IDX: #has user proc information
-                     node_cpu_util  = sum ([hostinfo[idx][4] for idx in range(USER_INFO_IDX, len(hostinfo))])
-                  else:
-                     node_cpu_util  = 0
+            pyslurmNode  = self.pyslurmNodes[hostname]
+            node_mem_M   = pyslurmNode['real_memory']
+            alloc_jobs   = node2job.get(hostname, [])
+            if avg_minute==0:
+               if len(hostinfo) > USER_INFO_IDX: #has user proc information
+                  node_cpu_util  = sum ([hostinfo[idx][4] for idx in range(USER_INFO_IDX, len(hostinfo))])
                else:
-                  node_cpu_util = self.inMemCache.queryNodeAvg(hostname, avg_minute)
-               node_mem_util= (node_mem_M-pyslurmNode['free_mem']) / node_mem_M  if pyslurmNode['free_mem'] else 0 #ATTN: from slurm, not monitor, if no free_mem, in general, node is DOWN so return 0. TODO: Not saving memory information in cache. The sum of proc's RSS does not reflect the real value.
-               node_record  = self.getHeatmapNodeLabelRecord(hostname, hostinfo, alloc_jobs, node_cpu_util, node_mem_util, gpudata)
-               node_record['comb_util'] = (weight['cpu']*node_record['util'] + weight['mem']*node_record['mem_util'])/(weight['cpu'] + weight['mem'])
-               workers.append(node_record)
+                  node_cpu_util  = 0
+            else:
+               node_cpu_util = self.inMemCache.queryNodeAvg(hostname, avg_minute)
+            node_mem_util= (node_mem_M-pyslurmNode['free_mem']) / node_mem_M  if pyslurmNode['free_mem'] else 0 #ATTN: from slurm, not monitor, if no free_mem, in general, node is DOWN so return 0. TODO: Not saving memory information in cache. The sum of proc's RSS does not reflect the real value.
+            node_record  = self.getHeatmapNodeLabelRecord(hostname, hostinfo, alloc_jobs, node_cpu_util, node_mem_util, gpudata)
+            node_record['comb_util'] = (weight['cpu']*node_record['util'] + weight['mem']*node_record['mem_util'])/(weight['cpu'] + weight['mem'])
+            workers.append(node_record)
               #{'name':hostname, 'stat':state, 'core':node_cores, 'util':node_cpu_util/node_cores, 'mem_util':node_mem_util, 'jobs':alloc_jobs, 'acct':job_accounts, 'labl':nodeLabel, 'gpus':gpuLabel, 'gpuCount':node_gpus})
-
-            #except Exception as exp:
-            #   print("ERROR getHeatmapData: {0}".format(exp))
 
         return workers
 

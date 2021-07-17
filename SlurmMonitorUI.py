@@ -551,6 +551,7 @@ class SLURMMonitorUI(object):
             return self.getNoDataPage ('Host Utilization Heatmap', 'utilHeatmap')
 
         avg_minute, weight   = self.getHeatMapSetting()
+        heatmapData          = {}
         for name, monData in self.monDataDict.items():
             logger.info("monData {}".format(monData.name))
 
@@ -561,13 +562,11 @@ class SLURMMonitorUI(object):
             else:
                gpu_ts, gpudata   = 0, {}
             workers,jobs,users   = self.getHeatmapData (monData, gpudata, weight, avg_minute["cpu"])
+            heatmapData[name]    = (monData.updateTS, workers, jobs, users, gpu_ts, gpudata)
 
         htmltemp = os.path.join(config.APP_DIR, 'heatmap.html')
         h        = open(htmltemp).read()%{'update_time': MyTool.getTsString(self.monData.updateTS),
-                                          'data1'      : json.dumps(workers),
-                                          'data2'      : json.dumps(jobs),
-                                          'users'      : json.dumps(users),
-                                          'gpu'        : json.dumps(gpudata),
+                                          'heatmapData': json.dumps(heatmapData),
                                           'gpu_update_time' : MyTool.getTsString(gpu_ts),
                                           'gpu_avg_minute'  : json.dumps(avg_minute["gpu"])}
 

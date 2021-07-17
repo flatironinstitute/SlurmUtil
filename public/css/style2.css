@@ -851,3 +851,9 @@ text {
   background-color: rgba(0, 0, 0, 0.05);
   width:            20%;
 }
+rect.popout{
+   stroke:       black;
+   stroke-width: 5px;
+   z-index:      9999;
+   position:     relative;
+}

@@ -21,11 +21,17 @@ for (var acct of accounts) {
                  .range(acctColors[acct]);
 }
 
-function createLegend (legend_svg, acctColor, gridSize) {
-          var y=0
-          var legend = legend_svg.selectAll(".legend")
+function createLegend (svg_id, width, height, acctColor, gridSize) {
+    var legend_svg  = d3.select(svg_id)
+          .attr("width",  width)
+          .attr("height", height)
+          .append("g")
+             .attr("transform", "translate(" + 120 + "," + 10 + ")");
+
+    var y=0
+    var legend = legend_svg.selectAll(".legend")
                  .data([-0.2,-0.1,0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]);
-          if (acctColor) {
+    if (acctColor) {
             for (var acct of accounts) {
              legend.enter().append("g")
                  .attr("class", "legend");
@@ -44,7 +50,7 @@ function createLegend (legend_svg, acctColor, gridSize) {
                .attr("x", -gridSize)
                .attr("y", y);
              }
-           } else {
+    } else {
              legend.enter().append("g")
                  .attr("class", "legend");
              legend.append("rect")
@@ -56,8 +62,8 @@ function createLegend (legend_svg, acctColor, gridSize) {
                                                 else if (i==1) return "gray";
                                                 else return colors[i-2]; });
              y = y + gridSize/2
-           }
-           legend.append("text")
+    }
+    legend.append("text")
                .attr("class", "mono")
                .text(function(d, i) { if (i==0) return "Down"; 
                                       else if (i==1) return "Idle";
@@ -65,41 +71,22 @@ function createLegend (legend_svg, acctColor, gridSize) {
                                       else return "≥ " + d; })
                .attr("x", function(d, i) { return gridSize * 2 * i; })
                .attr("y", y+gridSize/2);
-           legend.exit().remove();
+    legend.exit().remove();
+    return legend_svg;
 };
 
-//d is data, called by createHeatMap
-function getClass(d) {
-   var str      = "bordered";
-   var selected = false;
-   d["jobs"].forEach(function(e) {
-      str += " " + e;
-      if (!selected && select_jids.includes(e))
-         selected = true;
-      });
-   if (selected) return str + " popout";
-   else          return str;
-}
-
-//use global variable select_jids
-function createHeatMap(svg, data, acctColor, grpCnt, cntLine, gridSize, colorAttr="util") 
+function createHeatMap(svg, data, acctColor, gridSize, colorAttr="util") 
 {
-          console.log("createHeatMap select_jids=", select_jids)       // select_jids is global
-          svg.selectAll("*:not(text)").remove()
+          //svg.selectAll("*:not(text)").remove()
           //svg.selectAll("*").remove()
-          //console.log ("sav.node=", svg.selectAll(".node"), "popout=", svg.selectAll(".bordered"))
           var cards = svg.selectAll(".node")
               .data(data);
           cards.enter().append("rect")
-              .attr("x", function(d, i) { var x = d["gIdx"] - Math.floor(d["gIdx"]/cntLine) * cntLine; return x * gridSize; })
-              .attr("y", function(d, i) { 
-                            var y=0,i; 
-                            for (i=0; i<d["gID"]; i++) 
-                                y += Math.ceil(grpCnt[i]/cntLine); 
-                            return (y + Math.floor(d["gIdx"]/cntLine) )* gridSize; })
+              .attr("x", function(d, i) { var x = d.x; return x * gridSize; })
+              .attr("y", function(d, i) { var y = d.y; return y * gridSize; }) 
               .attr("rx", 4)
               .attr("ry", 4)
-              .attr("class", function(d) { return getClass(d);})
+              .attr("class", function(d) { return d.classes;})
               .attr("width",  gridSize)
               .attr("height", gridSize)
               .attr("title", function (d) {return d["name"]})
@@ -111,11 +98,10 @@ function createHeatMap(svg, data, acctColor, grpCnt, cntLine, gridSize, colorAtt
                                  location.href="nodeDetails?node="+d["name"]
                               }})
               .on("click", function(d) {
+                              $(".popout").removeClass("popout");
                               var keyArr=d["jobs"]; 
                               keyArr.forEach(function(e) {
-                                               $(".bordered").removeClass("popout");
                                                $(`.${e}`).addClass("popout")});
-                              select_jids = keyArr;
                               })
               .style("fill",  "gray");
           cards.transition().duration(1000)
@@ -145,31 +131,67 @@ function createSelectList (parent_id, data, tag, value_fld, func_onchg){
                  .attr("disabled", function(d) {if (d["disabled"]) return d["disabled"]; else return undefined});
 };
 
-function prepareNodeData_1 (nodeData, grpCnt, labels, gpu_obj) {
+function getGroupID (name) {
+   var str = name.slice(6,7);  // worker1001
+   var i   = parseInt(str)
+   if (isNaN(i))
+      return name.slice(6,8);
+   else
+      return i;
+}
+function getGroupID_popeye (name) {
+   var str = name.split('-');   // pcn-1-12  
+   var i   = parseInt(str[1]);
+   if (isNaN(i))
+      return 100;
+   else
+      return i;
+}
+
+////{"Flatiron":[node_ts, workers, jobs, users, gpu_ts, gpudata]
+function prepareNodeData (data, cntPerLine) {
+   var rlt = new Object();
+   for (const key in data) {
+       console.log(key);
+       rlt[key]   = prepareNodeData_1 (key, data[key][1], data[key][5], cntPerLine);
+   }
+   return rlt;
+}
+
+GID_FUNC = {"Flatiron": getGroupID, "Popeye": getGroupID_popeye}
+function prepareNodeData_1 (cluster, nodeData, gpu_obj, cntPerLine) {  // nodeData is sorted by 'name
         console.log("prepareNodeData_1 ", nodeData, gpu_obj)
-        var name2idx = new Object()
-        for (var i=0; i<nodeData.length; i++) {
-          var obj = nodeData[i]
-          name2idx[obj['name']] = i
-          switch (obj['name'].slice(6,7)) {
-                 case "0": obj.gID = 0; break; // worker0...
-                 case "1": obj.gID = 1; break; // worker1...
-                 case "2": obj.gID = 2; break; // worker2...
-                 case "3": obj.gID = 3; break; // worker3...
-                 case "4": obj.gID = 4; break; // worker4...
-                 case "5": obj.gID = 5; break; // worker4...
-                 case "a": obj.gID = 6; break; // workeramd...
-                 case "g": obj.gID = 7; obj.gpu=true; break; // workergpu..
-                 case "m": obj.gID = 8; break; // workermem..
-                 case "p": obj.gID = 9; break; // workerphi..
+        if (nodeData.length == 0)
+           return NaN;
+
+        var gid_func     = GID_FUNC[cluster]
+        var name2idx     = new Object();           // name2idx {'worker1001':0, ...}, used to combine gpu data
+        var line_label   = [];                     // label for each line
+        var curr_line    = -1;
+        var curr_grp     = 'Not_exist';
+        var curr_grp_cnt = 0
+        for (var i=0; i<nodeData.length; i++) {  // loop over nodeData list, add gID and 
+          var obj         = nodeData[i];
+          var grp         = gid_func(obj['name']);
+          if ( grp != curr_grp ) {                 // start a new group and a new line
+             curr_grp     = grp;
+             curr_grp_cnt = 0;
+             curr_line   += 1;
+             line_label[curr_line] = obj['name'] + ",...";
+          } else {
+             curr_grp_cnt+= 1;
+             if ( curr_grp_cnt % cntPerLine == 0 ) {// start a new line
+                curr_line+= 1;
+                line_label[curr_line] = obj['name'] + ",...";
+             }
           }
-          obj.gIdx        = grpCnt[obj.gID];
-          if ( Math.floor(grpCnt[obj.gID] / cntPerLine)*cntPerLine == grpCnt[obj.gID] )
-             labels.push(obj.name+",...");
-          grpCnt[obj.gID] ++;
+          obj.x           = curr_grp_cnt % cntPerLine  
+          obj.y           = curr_line;
+          obj.classes     = obj.jobs.join(' ');
+
+          name2idx[obj['name']] = i;
         }
 
-        console.log(name2idx)
         // gpu data
         for (let [gpuID, gpuNodes] of Object.entries(gpu_obj)) {
             if (gpuID == "time") continue;
@@ -180,76 +202,50 @@ function prepareNodeData_1 (nodeData, grpCnt, labels, gpu_obj) {
             }
         }
 
-        return nodeData
+        return [nodeData, line_label]
 };
 
-function prepareNodeData (nodeData, grpCnt, labels, gpu_obj) {
-        var objData  = [];             // data that will be used later
+function prepareGPUData (data) {
+   var rlt = new Object();
+   for (const key in data) {
+       console.log(key);
+       rlt[key]   = prepareGPUData_1 (key, data[key][1]);
+   }
+   return rlt;
+}
 
-        //nodeData is already sorted by group 
-        for (var i=0; i<nodeData.length; i++) {
-          var obj = {name: nodeData[i][0], stat: nodeData[i][1], core: nodeData[i][2], 
-                     jobs: nodeData[i][4], acct: nodeData[i][5], labl: nodeData[i][6], gpus: nodeData[i][7]};
-          if ( obj.stat == 1)
-             obj.util=nodeData[i][3]/obj.core;
-          else
-             obj.util=0
-          
-          switch (nodeData[i][0].slice(6,7)) {
-                 case "0": obj.gID = 0; break; // worker0...
-                 case "1": obj.gID = 1; break; // worker1...
-                 case "2": obj.gID = 2; break; // worker2...
-                 case "3": obj.gID = 3; break; // worker3...
-                 case "4": obj.gID = 4; break; // worker4...
-                 case "a": obj.gID = 5; break; // workeramd...
-                 case "g": obj.gID = 6; obj.gpu=true; break; // workergpu..
-                 case "m": obj.gID = 7; break; // workermem..
-                 case "p": obj.gID = 8; break; // workerphi..
-          }
-          obj.gIdx        = grpCnt[obj.gID];
-          if ( Math.floor(grpCnt[obj.gID] / cntPerLine)*cntPerLine == grpCnt[obj.gID] )
-             labels.push(obj.name+",...");
-          grpCnt[obj.gID] ++;
-   
-          // gpu data
-          if (obj['gpu']) {  //TODO: defined by name including 'gpu'
-             obj['gpuCount'] =0
-             for (gpuID of Object.keys(gpu_obj)) {
-                if (gpuID == "time") continue;
-                if (gpu_obj[gpuID][obj['name']] != undefined) {
-                   obj['gpuCount'] ++
-                   obj[gpuID] = gpu_obj[gpuID][obj['name']]
-                }
-             }
-             //console.log(obj)
-          }
-          objData.push (obj);
-        }
-
-        return objData
-};
 //gpu_labels follow nodeData's sort
-function prepareGPUData(nodeData, gpu_labels)
+function prepareGPUData_1 (cluster, nodeData)
 {
-          var gpuData  = [];             // data that will be used later
-          for (d of nodeData) {
-             if (d['gpu']) {
-                for (i=0; i<d['gpuCount']; i++) {
-                   di = Object.assign({}, d)
-                   di['gpuIdx'] = i
-                   di['gpuLabel'] = d['gpus']['gpu'+i]['label']
-                   di['stat']     = d['gpus']['gpu'+i]['state']
-                   job            = d['gpus']['gpu'+i]['job']
-                   if (job != 0 ) 
-                      di['jobs']  = [job]
-                   else
-                      di['jobs']  = []
-                   gpuData.push(di)
-                }
-                gpu_labels.push(d['name'])
-             }
+   console.log("prepareGPUData_1 cluster=", cluster)
+   var gpu_labels = []
+   var gpuData    = [];             // data that will be used later
+   var node_idx   = 0;
+   for (d of nodeData) {
+       if (d['gpuCount']) {
+          console.log("GPU=",d);
+          for (i=0; i<d['gpuCount']; i++) {
+              di = Object.assign({}, d)
+              di['gpuIdx']   = i
+              if (d['gpus'].hasOwnProperty('gpu'+i)) {
+                 di['gpuLabel'] = d['gpus']['gpu'+i]['label']
+                 di['stat']     = d['gpus']['gpu'+i]['state']
+                 job            = d['gpus']['gpu'+i]['job']
+                 di.x = node_idx
+                 di.y = i
+                 if (job != 0 ) 
+                    di['jobs']  = [job]
+                 else
+                    di['jobs']  = []
+             
+                 gpuData.push(di)
+              }
           }
-          return gpuData
+          gpu_labels.push(d['name'])
+          node_idx += 1
+      } // ignore non-gpu nodes
+   }
+   return [gpuData, gpu_labels]
 };
 
 function getColorScale(d, useAccountColor) { 
@@ -276,16 +272,17 @@ function getColorScale(d, useAccountColor) {
        return colorScale
 };
 
-function createGPUHeatMap(svg, gpuData, acctColor, grpCnt, cntLine, gridSize) 
+function createGPUHeatMap(svg, gpuData, acctColor, gridSize) 
 {
+   console.log("createGPUHeatMap, gpuData=", gpuData);
           var cards = svg.selectAll(".gpu")
               .data(gpuData);
           cards.enter().append("rect")
-              .attr("x", function(d, i) { var x = d["gIdx"]; return x * gridSize; })
-              .attr("y", function(d, i) { return d['gpuIdx'] * gridSize; })
+              .attr("x", function(d, i) { return d.x * gridSize; })
+              .attr("y", function(d, i) { return d.y * gridSize; })
               .attr("rx", 4)
               .attr("ry", 4)
-              .attr("class", function(d) { return getClass(d);})
+              .attr("class", function(d) { return d["classes"];})
               .attr("width",  gridSize)
               .attr("height", gridSize)
               .attr("title", function (d) {return d["name"]})
@@ -302,7 +299,7 @@ function createGPUHeatMap(svg, gpuData, acctColor, grpCnt, cntLine, gridSize)
                               keyArr.forEach(function(e) {
                                                $(".bordered").removeClass("popout");
                                                $(`.${e}`).addClass("popout")});
-                              select_jids = keyArr})
+                           })
               .style("fill",  "gray");
           cards.transition().duration(1000)
               .style("fill", function(d) { var currColorS = getColorScale(d, acctColor);
@@ -315,7 +312,7 @@ function createGPUHeatMap(svg, gpuData, acctColor, grpCnt, cntLine, gridSize)
 };
 function createSVG (svg_id, label_id, labels, width, height, margin, gridSize) {
       var svg = d3.select(svg_id)
-          .attr("width",  width  + margin.left + margin.right)
+          .attr("width",  width + margin.left + margin.right)
           .attr("height", height + margin.top + margin.bottom)
           .append("g")
              .attr("transform", "translate(" + margin.left + "," + margin.top + ")");

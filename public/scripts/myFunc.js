@@ -231,7 +231,10 @@ function getTS_String(ts_sec) {
 
 function addSelectOption (parent_id, options) {
    for (var i = 0; i < options.length; i++) {
-       $('#' + parent_id).append     ('<option value="' + options[i] + '">' + options[i] + '</option>');
+       if (i==0)
+          $('#' + parent_id).append ('<option value="' + options[i] + '" selected>' + options[i] + '</option>');
+       else
+          $('#' + parent_id).append ('<option value="' + options[i] + '">' + options[i] + '</option>');
    }
 
 }
