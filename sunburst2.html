@@ -14,6 +14,7 @@
     <title>Sunburst Graph</title>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/6.5.0/d3.min.js"></script>
+    <script type="text/javascript" src="static/scripts/myFunc.js"></script>
     <script type="text/javascript" src="static/scripts/mySunburst.js"></script>
     <!-- Todo: Move this CSS -->
     <style>
@@ -21,12 +22,6 @@
         stroke: #fff;
         fill-rule: evenodd;
       }
-
-      text {
-        font-family: Arial, sans-serif;
-        font-size: 8px;
-      }
-
       div.tooltip {
         position: absolute;
         text-align: center;
@@ -40,6 +35,45 @@
         pointer-events: none;
       }
     </style>
+    <script type="text/javascript">
+      $(document).ready(() => {
+        $('#navmenu').load('/getHeader?page=sunburst');
+        var thisPath = window.location.pathname;
+        $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+
+        var data   = %(sunburstData)s
+        console.log("data=",data)
+        const clusters = Object.keys(data);
+        addSelectOption ('cluster', clusters)
+        var cluster;
+        var graph1,graph2,graph3,graph4,graph5;
+
+        setCluster (clusters[0])
+        sunburst(graph1);
+
+        $("#cluster").change(function () {
+           var c = $("option:selected", this);
+           setCluster  (this.value)         // assign the data
+           $('#sunburst').empty();
+
+           var graph = $("#optionsList option:selected");   // keep the graph choice
+           sunburst    (eval(graph[0].value))
+        })
+        $("#optionsList").change(function() {  //change graph
+           var option= $(this).val();
+           $('#sunburst').empty();
+           sunburst(eval(option));
+        });
+        function setCluster (c) {
+           cluster = c
+           graph1 = data[cluster][0]
+           graph2 = data[cluster][1]
+           graph3 = data[cluster][2]
+           graph4 = data[cluster][3]
+           graph5 = data[cluster][4]
+        }
+      });
+    </script>
   </head>
   <body>
     <div class="layout">
@@ -58,7 +92,7 @@
         <div class="section__inner">
           <div class="section__div">
             <div id="optionsSelect">
-              <h3>Sunburst Graph</h3>
+              <h3><select id="cluster" name="cluster"></select> Sunburst Graph</h3>
               <div class="flex flex__left flex-gap">
                 <p>Select a Graph Type:</p>
                 <select id="optionsList">
@@ -83,30 +117,5 @@
         <a href="/" class="hero__title hero__title--footer">Slurm Util</a>
       </div>
     </footer>
-    <script type="text/javascript">
-      $(document).ready(() => {
-        $('#navmenu').load('/getHeader?page=sunburst');
-        var thisPath = window.location.pathname;
-        $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
-      });
-    </script>
-    <script type="text/javascript">
-
-      var graph1 = %(data1)s
-      var graph2 = %(data2)s
-      var graph3 = %(data3)s
-      var graph4 = %(data4)s
-      var graph5 = %(data5)s
-
-      $(document).ready(function(){
-        sunburst(graph1);
-        $("#optionsList").change(function() {
-           var option= $(this).val();
-           $('#sunburst').empty();
-           sunburst(eval(option));
-        });
-      });
-      
-    </script>
   </body>
 </html>

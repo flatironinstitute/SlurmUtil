@@ -26,6 +26,8 @@
           $("#navmenu").load("/getHeader?page=pending");
           $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
 
+          const clusters = ['Flatiron']
+          addSelectOption ('cluster', clusters)
           //create table job_table and part_table
           var j_titles     = {{'job_id':'Job', 'submit_time':'Submit Time', 'num_nodes':'Req Node', 'num_cpus':'Req CPU', 'user':'User', 'account':'Account', 'partition':'Req Part.', 'state_reason':'Pending Reason', 'state_exp':'Note'}}
           var p_titles     = {{'name':'Name', 'flag_shared':'Share', 'total_nodes':'Total Node', 'total_cpus':'Total CPU', 'total_gpus':'Total GPU', 'avail_nodes_cnt':'Avail Node', 'avail_cpus_cnt':'Avail CPU','avail_gpus_cnt':'Avail GPU', 'pending_jobs':'PENDING JOB', 'running_jobs':'RUNNING JOB'}}
@@ -71,7 +73,7 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="pending_jobs">
-            <h3>Pending Queue: {job_cnt} Jobs</h3>
+            <h3><select id="cluster" name="cluster"></select> Pending Queue: {job_cnt} Jobs</h3>
             <p>Click to see (<a href="./pending_history?days=7"> history of last 7 days</a>)</p>
           </div>
           <div class="section__div" id="note">

@@ -652,27 +652,6 @@ class SLURMMonitorData(object):
            job = PyslurmQuery.getSlurmDBJob (jobid, req_fields=['start_time'])
         return job
 
-    def getSunburstData1 (self):
-        more_data    = {k:v[0:USER_INFO_IDX] + v[USER_INFO_IDX][0:7] for k,v in self.data.items() if len(v)>USER_INFO_IDX } #flatten hostdata
-        less_data    = {k:v[0:USER_INFO_IDX]                         for k,v in self.data.items() if len(v)<=USER_INFO_IDX }
-        hostdata_flat= dict(more_data,**less_data)
-
-        keys_id      =(u'job_id',u'user_id',u'qos', u'num_nodes', u'num_cpus')
-        data_dash    ={jid:{k:jinfo[k] for k in keys_id} for jid,jinfo in self.currJobs.items()} #extract set of keys
-        #this appends a dictionary for all of the node information to the job dataset
-        for jid, jinfo in self.currJobs.items():
-            data_dash[jid]["node_info"] = {n: hostdata_flat.get(n,[]) for n in jinfo.get(u'cpus_allocated').keys()}
-
-        if len(data_dash) == 0:
-            return EMPTYPROCDATA_MSG + '\n\n' + repr(self.data)
-        for jid, jinfo in sorted(data_dash.items()):
-            username = MyTool.getUser(jinfo[u'user_id'])
-            data_dash[jid]['cpu_list'] = [jinfo['node_info'][i][5] for i in jinfo['node_info'].keys() if len(jinfo['node_info'][i])>=7]
-            if not data_dash[jid]['cpu_list']:
-                #print ('Pruning:', repr(jinfo), file=sys.stderr)
-                data_dash.pop(jid)
-                continue
-        
     def sunburst_node_func (df, val_col):  # return [{'name':worker0000,'value':33}]
         return df[['node',val_col]].rename(columns={'node':'name',val_col:'value'}).to_dict(orient='record')
 
@@ -736,7 +715,7 @@ class SLURMMonitorData(object):
             #jobs_df       = jobs_df.append(job_df)
         ts = logTest("jobs_df={}".format(jobs_df), ts)
         
-    def test(self):
+    def getSunburstData(self):
         #TODO: synchronize the mod/get of core data structure
         #self.getSunburstData ()
         ts           = time.time()
@@ -786,95 +765,6 @@ class SLURMMonitorData(object):
         # acct, user, job, node, mem_rss_K
         # acct, user, job, node, io_bps
         return num_cpus_dict, cpu_util_dict, rss_K_dict, io_bps_dict, state_ncpu_dict
-        
-
-    def getSunburstData(self):
-        #prepare required information in data_dash
-        ts = time.time()
-        more_data    = {k:v[0:USER_INFO_IDX] + v[USER_INFO_IDX][0:7] for k,v in self.data.items() if len(v)>USER_INFO_IDX } #flatten hostdata
-        less_data    = {k:v[0:USER_INFO_IDX]                         for k,v in self.data.items() if len(v)<=USER_INFO_IDX }
-        hostdata_flat= dict(more_data,**less_data)
-
-        keys_id      =(u'job_id',u'user_id',u'qos', u'num_nodes', u'num_cpus')
-        data_dash    ={jid:{k:jinfo[k] for k in keys_id} for jid,jinfo in self.currJobs.items()} #extract set of keys
-        #this appends a dictionary for all of the node information to the job dataset
-        for jid, jinfo in self.currJobs.items():
-            data_dash[jid]["node_info"] = {n: hostdata_flat.get(n,[]) for n in jinfo.get(u'cpus_allocated').keys()}
-
-        if len(data_dash) == 0:
-            return EMPTYPROCDATA_MSG + '\n\n' + repr(self.data)
-        for jid, jinfo in sorted(data_dash.items()):
-            username = MyTool.getUser(jinfo[u'user_id'])
-            data_dash[jid]['cpu_list'] = [jinfo['node_info'][i][5] for i in jinfo['node_info'].keys() if len(jinfo['node_info'][i])>=7]
-            if not data_dash[jid]['cpu_list']:
-                #print ('Pruning:', repr(jinfo), file=sys.stderr)
-                data_dash.pop(jid)
-                continue
-
-            nodes = list(jinfo['node_info'].keys())
-            #print("nodes={} \n{}".format(nodes, jinfo))
-            data_dash[jid]['list_nodes'] = nodes
-            data_dash[jid]['list_state'] =[jinfo['node_info'][i][0]          if len(jinfo['node_info'][i])>0  else 'UNDEFINED' for i in nodes]
-            data_dash[jid]['list_cores'] =[round(jinfo['node_info'][i][5],3) if len(jinfo['node_info'][i])>=7 else -1          for i in nodes]
-            data_dash[jid]['list_load']  =[round(jinfo['node_info'][i][7],3) if len(jinfo['node_info'][i])>=7 else 0.0         for i in nodes]
-            data_dash[jid]['list_RSS']   =[jinfo['node_info'][i][8]          if len(jinfo['node_info'][i])>=7 else 0           for i in nodes]
-            data_dash[jid]['list_VMS']   =[jinfo['node_info'][i][9]          if len(jinfo['node_info'][i])>=7 else 0           for i in nodes]
-
-            num_nodes = jinfo[u'num_nodes']
-            data_dash[jid]['list_jobid']   =[jid]                             * num_nodes
-            data_dash[jid]['list_username']=[username]                        * num_nodes
-            data_dash[jid]['list_qos']     =[jinfo[u'qos']]                   * num_nodes
-            data_dash[jid]['list_group']   =[MyTool.getUserOrgGroup(username)]* num_nodes
-
-        #need to filter data_dash so that it no longer contains users that are "None"->this was creating sunburst errors
-        #open('/tmp/sunburst.tmp', 'w').write(repr(data_dash))
-
-        # get flat list corresponding to each node
-        list_nodes_flat     =reduce((lambda x,y: x+y), [v['list_nodes']    for v in data_dash.values()])
-        list_loads_flat     =reduce((lambda x,y: x+y), [v['list_load']     for v in data_dash.values()])
-        list_cpus_flat      =reduce((lambda x,y: x+y), [v['cpu_list']      for v in data_dash.values()])
-        list_RSS_flat       =reduce((lambda x,y: x+y), [v['list_RSS']      for v in data_dash.values()])
-        list_VMS_flat       =reduce((lambda x,y: x+y), [v['list_VMS']      for v in data_dash.values()])
-        list_job_flatn      =reduce((lambda x,y: x+y), [v['list_jobid']    for v in data_dash.values()])
-        list_part_flatn     =reduce((lambda x,y: x+y), [v['list_qos']      for v in data_dash.values()])
-        list_usernames_flatn=reduce((lambda x,y: x+y), [v['list_username'] for v in data_dash.values()])
-        list_group_flatn    =reduce((lambda x,y: x+y), [v['list_group']    for v in data_dash.values()])
-
-        # merge above list into nested list
-        listn  =[[list_group_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_loads_flat[i]] for i in range(len(list_nodes_flat))]
-        listrss=[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_RSS_flat[i]]    for i in range(len(list_nodes_flat))]
-        listvms=[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i],list_VMS_flat[i]]    for i in range(len(list_nodes_flat))]
-        listns =[[list_part_flatn[i],list_usernames_flatn[i],list_job_flatn[i],list_nodes_flat[i]]                     for i in range(len(list_nodes_flat))]
-        #print("listn=" + repr(listn))
-
-        data_dfload =pandas.DataFrame(listn,   columns=['partition','user','job','node','load'])
-        data_dfrss  =pandas.DataFrame(listrss, columns=['partition','user','job','node','rss'])
-        data_dfvms  =pandas.DataFrame(listvms, columns=['partition','user','job','node','vms'])
-        #print("data_dfload=" + repr(data_dfload))
-
-        #node_states =[[j.encode("utf-8"),hostdata[j][0]] for j in hostdata.keys()]
-        node_states =[[j,hostdata_flat[j][0]] for j in hostdata_flat.keys()]
-        data_df     =pandas.DataFrame(listns,     columns=['partition','user','job','node'])
-        state       =pandas.DataFrame(node_states,columns=['node','state'])
-        data_dfstate=pandas.merge(state, data_df, on='node',how='left')
-        data_dfstate['partition'].fillna('Not_Allocated', inplace=True)
-        data_dfstate['user'].fillna     ('Not_Allocated', inplace=True)
-        data_dfstate['job'].fillna      ('Not_Allocated', inplace=True)
-        data_dfstate['load']=28
-        order       =['partition','user','job','state','node','load']
-        data_dfstate=data_dfstate[order]
-
-        d_load    = MyTool.createNestedDict("load",  ["partition","user","job","node"],          data_dfload,  "load")
-        d_vms     = MyTool.createNestedDict("VMS",   ["partition","user","job","node"],          data_dfvms,   "vms")
-        d_rss     = MyTool.createNestedDict("RSS",   ["partition","user","job","node"],          data_dfrss,   "rss")
-        d_state   = MyTool.createNestedDict("state", ["partition","user","job","state", "node"], data_dfstate, "load")
-
-        d_load  = {'name':'root', 'sysname':'load',  'children':SLURMMonitorData.df2nested(data_dfload, 'load')}
-        d_vms   = {'name':'root', 'sysname':'VMS',   'children':SLURMMonitorData.df2nested(data_dfvms,  'vms')}
-        d_rss   = {'name':'root', 'sysname':'RSS',   'children':SLURMMonitorData.df2nested(data_dfrss,  'rss')}
-        
-        ts = logTest("Done", ts)
-        return d_load, d_vms, d_rss, d_state, list_usernames_flatn
 
     @cherrypy.expose
     def getLowResourceJobs (self, job_length_secs=ONE_DAY_SECS, job_width_cpus=1, job_cpu_avg_util=0.1, job_mem_util=0.3):

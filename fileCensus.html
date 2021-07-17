@@ -21,6 +21,7 @@
     <script type="text/javascript" src="static/scripts/highcharts.js"></script>
     <script type="text/javascript" src="static/scripts/highcharts-more.js"></script>
     <script type="text/javascript" src="static/scripts/exporting.js"></script>
+    <script type="text/javascript" src="static/scripts/myFunc.js"></script>
     <script type="text/javascript" src="static/scripts/myHC.js"></script>
 
     <script type="text/javascript">
@@ -33,6 +34,9 @@
          $("#navmenu").load("/getHeader?page=usageGraph");
          var thisPath = window.location.pathname;
          $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+
+         const clusters = ['Flatiron']
+         addSelectOption ('cluster', clusters)
 
          // init display
          for (var i in fs) {{
@@ -92,7 +96,7 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
-            <h3>File Usage</h3>
+            <h3><select id="cluster" name="cluster"></select> File Usage</h3>
             <div class="flex flex__left flex-gap" id="fsSelect">
               <label for="fsList">Select a File System:</label>
               <select id="fsList"></select>

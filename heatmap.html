@@ -52,7 +52,9 @@
       var svg_width    = width+margin.left+margin.right;
       var svg_height   = labels.length*gridSize +margin.top+margin.bottom
 
-      var gpu_gridSize = Math.floor(width / gpu_labels.length)
+      //var gpu_gridSize = Math.floor(width / gpu_labels.length)
+      var gpu_gridSize = Math.max(gridSize /2, Math.floor(width / gpu_labels.length)) 
+      var gpu_width    = gpu_gridSize * (gpu_labels.length+1)
       var gpu_height   = 4*gridSize+margin.top+margin.bottom+100
       var disp_attr    = "util"
       var acctColor     = true;                                       //wether use color for each account
@@ -67,15 +69,18 @@
           var legend_svg = createLegend("#legend_svg", legend_width, legend_height, acctColor, gridSize);
           var svg        = createSVG   ("#node_svg", ".label", labels, svg_width, svg_height, margin,     gridSize)
           createHeatMap    (svg,     data,     acctColor, gridSize, disp_attr)
+          $("#update_time").html(getTS_String(heatmapData[cluster][0]))
           
           if (gpu_data.length>0) {
-             var gpu_svg  = createGPUSVG ("#gpu_svg",  ".gpuNodeLabel", ".gpuLabel", gpu_labels, svg_width, gpu_height, gpu_margin, gpu_gridSize)
+           
+             $("#gpu_update").html(getTS_String(heatmapData[cluster][4]))
+             var gpu_svg  = createGPUSVG ("#gpu_svg",  ".gpuNodeLabel", ".gpuLabel", gpu_labels, gpu_width, gpu_height, gpu_margin, gpu_gridSize)
              createGPUHeatMap (gpu_svg, gpu_data, acctColor, gpu_gridSize)
           }
       };
 
-      function setCluster (cluster) {
-          cluster     = cluster
+      function setCluster (c) {
+          cluster     = c
           jobs_data   = heatmapData[cluster][2]   
           users_data  = heatmapData[cluster][3]   
           workers_data= nodes_data[cluster][0]     
@@ -133,7 +138,7 @@
             <div class="stickynav__logo">
               <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
             </div>
-            <div class="stickynav__update">Updated: %(update_time)s</div>
+            <div class="stickynav__update">Updated: <font id="update_time"></font></div>
           </div>
         </div>
       </div>
@@ -176,8 +181,7 @@
          <div class="section__inner section__inner--fullwidth">
             <div class="section__div">
                <h3>GPU Average Utilization of Last %(gpu_avg_minute)s Minutes</h3>
-               <i>Update time: %(gpu_update_time)s</i>
-               <i id="gpu_update"></i>
+               <i>Update time: </i><i id="gpu_update"></i>
                </p>
                <div class="viz-wrapper"><svg id="gpu_svg"></svg></div>
              </div>

@@ -21,6 +21,9 @@
           var thisPath = window.location.pathname;
           $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
 
+          const clusters = ['Flatiron']
+          addSelectOption ('cluster', clusters)
+
           // populate date and time
           var startDate  = new Date();
           startDate.setMonth(startDate.getMonth() - 3);
@@ -66,7 +69,7 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
-            <h3>Slurm Allocation Hourly Report</h3>
+            <h3><select id="cluster" name="cluster"></select> Slurm Allocation Hourly Report</h3>
           </div>
           <div class="section__div" id="hourly">
             <form action="./clusterReport_hourly">

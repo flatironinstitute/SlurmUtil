@@ -565,9 +565,7 @@ class SLURMMonitorUI(object):
             heatmapData[name]    = (monData.updateTS, workers, jobs, users, gpu_ts, gpudata)
 
         htmltemp = os.path.join(config.APP_DIR, 'heatmap.html')
-        h        = open(htmltemp).read()%{'update_time': MyTool.getTsString(self.monData.updateTS),
-                                          'heatmapData': json.dumps(heatmapData),
-                                          'gpu_update_time' : MyTool.getTsString(gpu_ts),
+        h        = open(htmltemp).read()%{'heatmapData': json.dumps(heatmapData),
                                           'gpu_avg_minute'  : json.dumps(avg_minute["gpu"])}
 
         return h
@@ -1712,33 +1710,19 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def sunburst(self):
-        if not self.monData.hasData():
+        if not self.monDataDict["Flatiron"].hasData():   #Allow popeye data to be empty
            return self.getNoDataPage ('Tabular Summary', 'sunburst')
-        d_core, d_cpu_util, d_rss_K, d_io_bps, d_state = self.monData.test()
+
+        data = {}
+        for name, monData in self.monDataDict.items():
+           data[name] = monData.getSunburstData()        #d_core, d_cpu_util, d_rss_K, d_io_bps, d_state
 
         htmltemp = os.path.join(config.APP_DIR, 'sunburst2.html')
         h = open(htmltemp).read()%{'update_time': datetime.datetime.fromtimestamp(self.monData.updateTS).ctime(), 
-                                   'data1':json.dumps(d_core),
-                                   'data2':json.dumps(d_cpu_util), 'data3' : json.dumps(d_rss_K), 
-                                   'data4' : json.dumps(d_io_bps), 'data5':json.dumps(d_state)}
-        return h
-
-    @cherrypy.expose
-    def sunburst_old(self):
-        if not self.monData.hasData():
-           return self.getNoDataPage ('Tabular Summary', 'sunburst')
-
-        d_load, d_vms, d_rss, d_state, list_usernames_flatn = self.monData.getSunburstData()
-        json_load = json.dumps(d_load,  sort_keys=False)
-        json_vms  = json.dumps(d_vms, sort_keys=False)
-        json_rss  = json.dumps(d_rss, sort_keys=False)
-        json_state= json.dumps(d_state, sort_keys=False)
-
-        #get all the usernames
-        set_usernames = sorted(set(list_usernames_flatn))
-
-        htmltemp = os.path.join(config.APP_DIR, 'sunburst2.html')
-        h = open(htmltemp).read()%{'update_time': datetime.datetime.fromtimestamp(self.monData.updateTS).ctime(), 'data1' : json_load, 'data2' : json_state, 'data3' : json_vms, 'data4' : json_rss, 'users':set_usernames}
+                                   'sunburstData': json.dumps(data)}
+                                   #'data1':json.dumps(d_core),
+                                   #'data2':json.dumps(d_cpu_util), 'data3' : json.dumps(d_rss_K), 
+                                   #'data4' : json.dumps(d_io_bps), 'data5':json.dumps(d_state)}
         return h
 
     @cherrypy.expose

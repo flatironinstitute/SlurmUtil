@@ -219,7 +219,7 @@ function getDateString (d) {
    return d.getFullYear() + "-" + getPadStr(d.getMonth()+1) + '-' + getPadStr(d.getDate()) 
 }
 function getTimeString(d) {
-   return getPadStr(d.getHours()) + ":" + getPadStr(d.getMinutes())
+   return getPadStr(d.getHours()) + ":" + getPadStr(d.getMinutes()) + ":" + getPadStr(d.getSeconds())
 }
 function getDateTimeString(d, sep="T") {
    return getDateString (d) + sep + getTimeString(d)
