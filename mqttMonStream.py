@@ -86,7 +86,7 @@ class FileWebUpdater(threading.Thread):
 
     def getPyslurmData (self):
         if self.extra_pyslurm:
-           pyslurmData    = {'jobs':pyslurm.job().get(), 'nodes':pyslurm.node().get(), 'partition':pyslurm.partition().get(), 'qos':pyslurm.qos().get(), 'reservation':pyslurm.reservation(), 'extra_pyslurm':True}
+           pyslurmData    = {'jobs':pyslurm.job().get(), 'nodes':pyslurm.node().get(), 'partition':pyslurm.partition().get(), 'qos':pyslurm.qos().get(), 'reservation':pyslurm.reservation().get(), 'extra_pyslurm':True}
         else:
            pyslurmData    = {'jobs':pyslurm.job().get(), 'nodes':pyslurm.node().get(), 'extra_pyslurm':False}
         return pyslurmData
@@ -187,7 +187,9 @@ class FileWebUpdater(threading.Thread):
 
     def sendUpdate (self, ts, hn2data, pyslurmData):
         for url in self.urls:
+           logger.info("compress sent data");
            zps = zlib.compress(cPickle.dumps((ts, hn2data, pyslurmData), -1))
+	   #zps = zlib.compress(cPickle.dumps((ts, hn2data, {}), -1))
            try:
                logger.debug("sendUpdate to {}".format(url))
                resp = urllib2.urlopen(urllib2.Request(url, zps, {'Content-Type': 'application/octet-stream'}))
