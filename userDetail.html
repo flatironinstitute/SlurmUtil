@@ -25,7 +25,10 @@
           var thisPath = window.location.pathname;
           $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
 
-          
+          var detailData     = {data}
+          console.log(detailData)
+
+          var uid            = detailData['Flatiron'][1]['uid']
           //create table job_table and part_table
           var r_j_titles     = {{'job_id':'Job ID', 'name':'Job Name', 'partition':'Partition', 'nodes':'Nodes', 'submit_time':'Submit Time', 'start_time':'Start Time', 'tres_req_str':'Tres Req', 'tres_alloc_str':'Tres Alloc'}}
           var p_j_titles     = {{'job_id':'Job ID', 'name':'Job Name', 'partition':'Partition', 'submit_time':'Submit Time', 'tres_req_str':'Tres Req', 'state_reason':'Pending Reason'}}
@@ -33,15 +36,13 @@
           var u_fields_title = {{'uid':'User ID', 'Account':'Account', 'MaxSubmit':'Max Submit', 'MaxJobs':'Max Jobs', 'MaxNodes':'Max Nodes', 'MaxCPUs':'Max CPUs', 'MaxWall':'Max Wall Time', 'MaxCPUMins':'Max CPU min', 
                                  'tres_alloc_str':'Alloc Res.', 
                                  'tres_usage':'<a href="user_tresReport?uname={uname}">Res YTD Time</a>',
-                                 'file_usage':'<a href="user_fileReport?uid={uid}&days=30">File Systems</a>', 
+                                 'file_usage':'<a href="user_fileReport?uid='+uid+'&days=30">File Systems</a>', //TODO: popeye
                                  'partitions':'<a href="#div_partition">Avail Partitions</a>','running_jobs':'<a href="#div_running_job">Running Jobs<a>','pending_jobs':'<a href="#div_pending_job">Pending Jobs<a>'}}
-          var detailData     = {data}
-          console.log(detailData)
 
           const clusters     = Object.keys(detailData);
           addSelectOption ('cluster', clusters)
 
-          var cluster,running_jobs,pending_jobs,part_info,job_history,user_assoc,array_het_jids;
+          var cluster,update_time,running_jobs,pending_jobs,part_info,job_history,user_assoc,array_het_jids;
           display(clusters[0])
 
 
@@ -68,6 +69,7 @@
              
              clearDisplay();
 
+             $("#update_time").html(update_time)
              createNoHeaderTable (user_assoc, u_fields_title, 
                                   {{'running_jobs':'job_list_summary','pending_jobs':'job_list_summary','tres_usage':'tres_usage','file_usage':'file_usage','partitions':'partition_list_avail'}}, 
                                   '#div_user_info', 'job_info')
@@ -82,6 +84,7 @@
                 $("#pending_jobs_len").text(pending_jobs.length)
              }} else
                 $("#pending_jobs_len").text(0)
+
              createUserPartTable   (part_info,   'part_table',     'div_partition')
              $("#part_len").text        (part_info.length)
 
@@ -105,6 +108,7 @@
           function setClusterData (c) {{
              cluster        = c // [uid, userAssoc, ins.updateTS, user_jobs, part, array_het_jids, past_job]
              user_assoc     = detailData[cluster][1]
+             update_time    = getTS_String(detailData[cluster][2])
              running_jobs   = detailData[cluster][3]['RUNNING']   
              pending_jobs   = detailData[cluster][3]['PENDING']
              part_info      = detailData[cluster][4]
@@ -124,7 +128,7 @@
             <div class="stickynav__logo">
               <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
             </div>
-            <div class="stickynav__update">Updated: {update_time}</div>
+            <div class="stickynav__update">Updated: <font id="update_time"></font></div>
           </div>
         </div>
       </div>

@@ -94,7 +94,7 @@ def getUid (user, cluster="Flatiron"):
           return record["uid"]
     return None
 
-def getUser (uid, fakeName=True, cluster="Flatiron"):
+def getUser (uid, cluster="Flatiron", fakeName=True):
     if uid == None:
        return None
 

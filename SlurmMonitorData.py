@@ -30,7 +30,7 @@ def logTest (msg, pre_ts):
 @cherrypy.expose
 class SLURMMonitorData(object):
     def __init__(self, name):
-        self.name              = name
+        self.cluster           = name
         self.updateTS          = time.time()
         self.data              = {}                   #'No data received yet. Please wait a minute and come back.'
         self.currJobs          = {}                   #re-created in updateMonData
@@ -49,7 +49,7 @@ class SLURMMonitorData(object):
         self.checkResult       = {}                   # ts: {}
         self.jobNoticeSender   = JobNoticeSender()
         self.lock              = threading.Lock()
-        logger.info("Create SLURMMonitorData {}".format(self.name))
+        logger.info("Create SLURMMonitorData {}".format(self.cluster))
 
     def hasData (self):
         return self.data!={}
@@ -340,7 +340,7 @@ class SLURMMonitorData(object):
             job['node_io_bps_curr']  = {}
             job['node_cpu_util_curr']= {}
             job['num_proc']          = {}
-            job['user']              = MyTool.getUser(job['user_id'])
+            job['user']              = MyTool.getUser(job['user_id'], self.cluster)
 
             for node in job['cpus_allocated']:
                 node_cpu_time, node_rss, node_mem, node_io_bps_curr, node_cpu_util_curr = 0,0,0,0,0

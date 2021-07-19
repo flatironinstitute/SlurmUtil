@@ -82,23 +82,22 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def pending(self, start='', stop='', state=3):
-        ins        = SlurmEntities()
-        pendingLst = ins.getPendingJobs()
-        #latest_eval_ts= set([j['last_sched_eval'] for j in pendingLst])  #more than one
-        relaxQoS   = ins.relaxQoS()
-        partLst    = ins.getPartitions ()
-        partS      = sessionConfig.getSetting("part_avail")
-        for p in partLst:
+        pendingData = {}
+        for cluster, monData in self.monDataDict.items():
+           monData    = self.monDataDict[cluster]
+           ins        = SlurmEntities(cluster, monData.pyslurmData)
+           pendingLst = ins.getPendingJobs()
+           relaxQoS   = ins.relaxQoS()
+           partLst    = ins.getPartitions ()
+           partS      = sessionConfig.getSetting("part_avail")
+           for p in partLst:
             if p['total_nodes'] and p['total_cpus'] and p['total_gpus']:
                if p['avail_nodes_cnt']*100/p['total_nodes'] > partS['node'] or p['avail_cpus_cnt']*100/p['total_cpus'] > partS['cpu'] or (p['total_gpus'] and p['avail_gpus_cnt']*100/p['total_gpus'] > partS['gpu']):
                   p['display_class'] = 'inform'
+           pendingData[cluster] = [ins.updateTS, pendingLst, relaxQoS, partLst]
 
         htmlTemp   = os.path.join(config.APP_DIR, 'pending.html')
-        htmlStr    = open(htmlTemp).read().format(update_time       =MyTool.getTsString(ins.ts_job_dict),
-                                                  job_cnt           =len(pendingLst),
-                                                  pending_jobs_input=json.dumps(pendingLst),
-                                                  note              = '{}'.format(relaxQoS),
-                                                  partitions_input  =json.dumps(partLst))
+        htmlStr    = open(htmlTemp).read().format(data              =json.dumps(pendingData))
         return htmlStr
 
     @cherrypy.expose
@@ -410,8 +409,8 @@ class SLURMMonitorUI(object):
         return '({},{})'.format(self.monData.updateTS, self.monData.allJobs)
 
     def getSummaryTableData(monData, gpudata=None, gpu_jid2data=None):
-        #logger.info("monData {}={}".format(monData.name, monData.data.keys()))
-        cluster     = monData.name
+        #logger.info("monData {}={}".format(monData.cluster, monData.data.keys()))
+        cluster     = monData.cluster
         hostData    = monData.data
         jobData     = monData.currJobs
         node2jobs   = monData.node2jids
@@ -553,7 +552,7 @@ class SLURMMonitorUI(object):
         avg_minute, weight   = self.getHeatMapSetting()
         heatmapData          = {}
         for name, monData in self.monDataDict.items():
-            logger.info("monData {}".format(monData.name))
+            logger.info("monData {}".format(monData.cluster))
 
             gpu_nodes,max_gpu_cnt= PyslurmQuery.getGPUNodes(monData.pyslurmNodes)
             #logger.debug ("gpu_nodes={}".format(gpu_nodes))
@@ -627,7 +626,7 @@ class SLURMMonitorUI(object):
         data_dict = {}
         upd_time  = {}
         for name, monData in self.monDataDict.items():
-            logger.info("monData {}".format(monData.name))
+            logger.info("monData {}".format(monData.cluster))
             gpudata     = None
             gpu_jid2data= None
             if name == "Flatiron":   
@@ -1061,9 +1060,7 @@ class SLURMMonitorUI(object):
         htmlTemp   = os.path.join(config.APP_DIR, 'userDetail.html')
         htmlStr    = open(htmlTemp).read().format(data        =json.dumps(detailData),
                                                   user        =MyTool.getUserFullName(user),  
-                                                  uid         =json.dumps(detail[0]),  #Popeye
                                                   uname       =user,
-                                                  update_time =json.dumps(MyTool.getTsString(detail[2])),
                                                   day_cnt     = days)
         return htmlStr
         # Currently, running jobs & pending jobs of the user processes in the worker nodes
