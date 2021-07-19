@@ -7,7 +7,8 @@ from functools import reduce
 import fs2hc
 import pyslurm
 from queryInflux     import InfluxQueryClient
-from querySlurm      import SlurmCmdQuery, PyslurmQuery
+from querySlurm      import SlurmCmdQuery
+from queryPyslurm    import PyslurmQuery, SlurmEntities, MAX_LIMIT
 from querySlurmDB    import SlurmDBQuery
 from queryTextFile   import TextfileQueryClient
 from queryBright     import BrightRestClient
@@ -17,7 +18,6 @@ from bulletinboard   import BulletinBoard
 
 import config, sessionConfig
 import MyTool
-import SlurmEntities
 import inMemCache
 from SlurmMonitorData import SLURMMonitorData
 
@@ -67,7 +67,7 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def partitionDetail(self, partition='gpu'):
-        ins           = SlurmEntities.SlurmEntities()
+        ins           = SlurmEntities()
         p_info, nodes = ins.getPartitionAndNodes (partition)
         if 'gres/gpu' in p_info['tres_fmt_str']:
            p_info['avail_tres_fmt_str']='cpu={},node={},gres/gpu={}'.format(p_info.get('avail_cpus_cnt',0),p_info.get('avail_nodes_cnt',0),p_info.get('avail_gpus_cnt',0))
@@ -82,7 +82,7 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def pending(self, start='', stop='', state=3):
-        ins        = SlurmEntities.SlurmEntities()
+        ins        = SlurmEntities()
         pendingLst = ins.getPendingJobs()
         #latest_eval_ts= set([j['last_sched_eval'] for j in pendingLst])  #more than one
         relaxQoS   = ins.relaxQoS()
@@ -966,73 +966,33 @@ class SLURMMonitorUI(object):
                                                       node_report    = nodeReport)
         return htmlStr
 
-    def getUserDetails(self, user, cluster):
-        userAssoc      = self.slurmCmdDict["Flatiron"].getUserAssoc(user, cluster)
-        monData        = self.monDataDict["Flatiron"]
-        if not userAssoc:
-           return None
-        uid            = MyTool.getUid(user, cluster)
-        if not uid:
-           return None
+    def getUserDoneJob (self, user, cluster, days):
+        if cluster != "Flatiron":     #TODO: Popeye
+           return []
 
-        userjob        = SlurmEntities.SlurmEntities.getUserJobsByState (uid, monData.pyslurmJobs)
-
-    @cherrypy.expose
-    def userDetails(self, user, days=3):
-        userAssoc      = self.slurmCmdDict["Flatiron"].getUserAssoc(user)
-        monData        = self.monDataDict["Flatiron"]
-        
-        if not userAssoc:
-           return 'Cannot find user {}!'.format(user)
-        uid            = MyTool.getUid(user)
-        if not uid:
-           return 'Cannot find uid of user {}!'.format(user)
-
-        ins            = SlurmEntities.SlurmEntities()
-        userjob        = SlurmEntities.SlurmEntities.getUserJobsByState (uid, monData.pyslurmJobs)  # can also get from sacct -u user -s 'RUNNING, PENDING'
-        part           = ins.getAccountPartition (userAssoc['Account'], uid)
-        for p in part:  #replace big number with n/a
-            for k,v in p.items():
-                if v == SlurmEntities.MAX_LIMIT: p[k]='n/a'
-        if self.monData.hasData():
-           note       = ''
-           userworker = self.monData.getUserNodeData(user)
-           core_cnt   = sum([val[0] for val in userworker.values()])
-           proc_cnt   = sum([val[1] for val in userworker.values()])
-        else:
-           note       = 'Note: {}'.format(self.data)
-           userworker = {}
-           core_cnt   = 0
-           proc_cnt   = 0
-        # get done job of the user
-        past_job      = SlurmCmdQuery.getUserDoneJobReport(user, days=int(days))
-        past_jids     = [job['JobID'] for job in past_job]
-        logger.debug("past_jobs={}".format(past_jids))
-        py_jobs       = pyslurm.slurmdb_jobs().get(jobids=past_jids)
-        #logger.debug("py_jobs={}".format(py_jobs))
+        past_job  = SlurmCmdQuery.getUserDoneJobReport(user, days=int(days))
+        past_jids = [job['JobID'] for job in past_job]
+        py_jobs   = pyslurm.slurmdb_jobs().get(jobids=past_jids)
         for job in past_job:
-            job.update(py_jobs[int(job['JobIDRaw'])])
-            job['wall_clock'] = job['end']-job['start']
-            core_wallclock    = job['wall_clock'] * int(job['AllocCPUS'])
-            if job['steps']:
-               df                = pandas.DataFrame.from_dict(job['steps'], orient='index')        
-               cpu_time          = int(df['sys_cpu_sec'].sum() + df['user_cpu_sec'].sum() + (df['sys_cpu_sec'].sum() + df['user_cpu_sec'].sum())/1000000)
-               mem               = int(df['stats'].transform(lambda x: MyTool.extract2(x['tres_usage_in_tot'])).sum())
-               job['cpu_eff']    = {'cpu_time':cpu_time, 'core-wallclock':core_wallclock}
-               job['mem_eff']    = {'mem_KB':  mem>>10,  'alloc_mem_MB':MyTool.extract2(job['tres_alloc_str']), 'alloc_nodes':job['alloc_nodes']}
-            else:
-               job['cpu_eff']    = {'cpu_time':0, 'core-wallclock':core_wallclock}
-               job['mem_eff']    = {'mem_KB':  0, 'alloc_mem_MB':  MyTool.extract2(job['tres_alloc_str']), 'alloc_nodes':job['alloc_nodes']}
+               job.update(py_jobs[int(job['JobIDRaw'])])
+               job['wall_clock'] = job['end']-job['start']
+               core_wallclock    = job['wall_clock'] * int(job['AllocCPUS'])
+               if job['steps']:
+                  df             = pandas.DataFrame.from_dict(job['steps'], orient='index')        
+                  cpu_time       = int(df['sys_cpu_sec'].sum() + df['user_cpu_sec'].sum() + (df['sys_cpu_sec'].sum() + df['user_cpu_sec'].sum())/1000000)
+                  mem            = int(df['stats'].transform(lambda x: MyTool.extract2(x['tres_usage_in_tot'])).sum())
+                  job['cpu_eff'] = {'cpu_time':cpu_time, 'core-wallclock':core_wallclock}
+                  job['mem_eff'] = {'mem_KB':  mem>>10,  'alloc_mem_MB':MyTool.extract2(job['tres_alloc_str']), 'alloc_nodes':job['alloc_nodes']}
+               else:
+                  job['cpu_eff'] = {'cpu_time':0, 'core-wallclock':core_wallclock}
+                  job['mem_eff'] = {'mem_KB':  0, 'alloc_mem_MB':  MyTool.extract2(job['tres_alloc_str']), 'alloc_nodes':job['alloc_nodes']}
+        return past_job
 
-        array_het_jids= [job['JobID'] for job in past_job if '_' in job['JobID'] or '+' in job['JobID']]  # array of heterogenour job
-
-        running_jobs            = userjob.get('RUNNING',[])
-        pending_jobs            = userjob.get('PENDING',[])
-        userAssoc['uid']        = uid
-        userAssoc['partitions'] = [p for p in part if p['user_avail_cpus']>0 or p['user_avail_gpus']>0]
+    def updateUserAssoc (self, userAssoc, user_jobs):
+        running_jobs            = user_jobs.get('RUNNING',[])
+        pending_jobs            = user_jobs.get('PENDING',[])
         userAssoc['running_jobs'] = [j['job_id'] for j in running_jobs]
-        if pending_jobs:
-           userAssoc['pending_jobs'] = [j['job_id'] for j in pending_jobs]
+        userAssoc['pending_jobs'] = [j['job_id'] for j in pending_jobs]
 
         tres_alloc              = [MyTool.getTresDict(j['tres_alloc_str']) for j in running_jobs]
         alloc_cpus              = sum([t['cpu']  for t in tres_alloc])
@@ -1041,26 +1001,70 @@ class SLURMMonitorUI(object):
         alloc_mem               = MyTool.sumOfListWithUnit([t['mem']  for t in tres_alloc if 'mem' in t])
         userAssoc['tres_alloc_str'] = "cpu={},node={},mem={}".format(alloc_cpus, alloc_nodes, alloc_mem)
         if alloc_gpus:
-           userAssoc['tres_alloc_str'] = "{},gpu={}".format(userAssoc['tres_alloc_str'], alloc_gpus)
+              userAssoc['tres_alloc_str'] = "{},gpu={}".format(userAssoc['tres_alloc_str'], alloc_gpus)
 
-        userAssoc['file_usage'] = {'home':MyTool.df_cmd(user)}
-        fs_data                 = fs2hc.gendata_user_latest(uid, file_systems=['ceph_full'])
-        if 'ceph_full' in fs_data:
-           userAssoc['file_usage']['ceph'] = fs_data['ceph_full']
+
+    @cherrypy.expose
+    def test(self):
+        htmlTemp   = os.path.join(config.APP_DIR, '../slurm-util-ui/index.html')
+        return open(htmlTemp).read()
+
+    @cherrypy.expose
+    def userDetails(self, user, days=3):
+        detailData = {}
+        for cluster, monData in self.monDataDict.items():
+           monData       = self.monDataDict[cluster]
+           userAssoc     = self.slurmCmdDict[cluster].getUserAssoc(user)
         
-        userAssoc['tres_usage'] = SlurmDBQuery.getUserTresUsage(user)
+           if not userAssoc and (clsuter=="Flatiron"):
+              return 'Cannot find user {}!'.format(user)
+           uid           = MyTool.getUid(user, cluster)
+           if not uid and (cluster=="Flatiron"):
+              return 'Cannot find uid of user {}!'.format(user)
+           userAssoc['uid'] = uid
+
+           ins           = SlurmEntities(cluster, monData.pyslurmData)
+           user_jobs     = ins.getUserJobsByState (uid)  # can also get from sacct -u user -s 'RUNNING, PENDING'
+           self.updateUserAssoc(userAssoc, user_jobs)
+
+           part          = ins.getAccountPartition (userAssoc['Account'], uid)
+           for p in part:  #replace big number with n/a
+               for k,v in p.items():
+                   if v == MAX_LIMIT: p[k]='n/a'
+           userAssoc['partitions'] = [p for p in part if p['user_avail_cpus']>0 or p['user_avail_gpus']>0]
+
+           if cluster=="Flatiron":
+              userAssoc['file_usage'] = {'home':MyTool.df_cmd(user)} 
+              fs_data                 = fs2hc.gendata_user_latest(uid, file_systems=['ceph_full']) 
+              if 'ceph_full' in fs_data:
+                 userAssoc['file_usage']['ceph'] = fs_data['ceph_full']
+              userAssoc['tres_usage'] = SlurmDBQuery.getUserTresUsage(user)  
+           #else: TODO: popeye
+        
+           #if monData.hasData():
+           #   note       = ''
+           #   userworker = monData.getUserNodeProc(user)  #[alloc_core_cnt, proc_cnt, t_cpu, t_rss, t_vms, procs, t_io]
+           #   core_cnt   = sum([val[0] for val in userworker.values()])
+           #   proc_cnt   = sum([val[1] for val in userworker.values()])
+           #else:
+           #   note       = 'Note: {}'.format("No monitored data received yet")
+           #   userworker = {}
+           #   core_cnt   = 0
+           #   proc_cnt   = 0
+           # get done job of the user
+           past_job      = self.getUserDoneJob(user, cluster, days)
+           array_het_jids= [job['JobID'] for job in past_job if '_' in job['JobID'] or '+' in job['JobID']]  # array of heterogenour job
+
+           detailData[cluster] = [uid, userAssoc, ins.updateTS, user_jobs, part, array_het_jids, past_job]
     
+        detail = detailData["Flatiron"]
         htmlTemp   = os.path.join(config.APP_DIR, 'userDetail.html')
-        htmlStr    = open(htmlTemp).read().format(user        =MyTool.getUserFullName(uid),
-                                                  uid         =uid,
+        htmlStr    = open(htmlTemp).read().format(data        =json.dumps(detailData),
+                                                  user        =MyTool.getUserFullName(user),  
+                                                  uid         =json.dumps(detail[0]),  #Popeye
                                                   uname       =user,
-                                                  user_assoc  = userAssoc,
-                                                  update_time = MyTool.getTsString(ins.ts_job_dict),
-                                                  running_jobs=json.dumps(running_jobs),
-                                                  pending_jobs=json.dumps(pending_jobs),
-                                                  worker_proc =json.dumps(userworker), note=note,
-                                                  part_info   =json.dumps(part),
-                                                  array_het_jids=array_het_jids, job_history=json.dumps(past_job), day_cnt = days)
+                                                  update_time =json.dumps(MyTool.getTsString(detail[2])),
+                                                  day_cnt     = days)
         return htmlStr
         # Currently, running jobs & pending jobs of the user processes in the worker nodes
         # Future, QoS and resource restriction
@@ -1749,7 +1753,7 @@ class SLURMMonitorUI(object):
            low_nodes  = [{'name':'', 'low_util_msg':self.getWaitMsg()}]
         other      = self.monData.inMemLog.getAllLogs () #[{'source':'', 'ts':'','msg':''}]
 
-        #SE_ins     = SlurmEntities.SlurmEntities()
+        #SE_ins     = SlurmEntities()
         #qos_relax  = SE_ins.relaxQoS()   # {uid:suggestion}
         #qos_relax  = [ {'user':MyTool.getUser(uid), 'msg':s} for uid,s in qos_relax.items()]
 

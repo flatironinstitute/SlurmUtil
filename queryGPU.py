@@ -8,7 +8,7 @@ import MyTool
 from collections import defaultdict
 from functools   import reduce
 from queryBright import BrightRestClient
-from querySlurm  import PyslurmQuery
+from queryPyslurm  import PyslurmQuery
 
 def display_user_GPU(user_name):
     ts   = int(time.time())

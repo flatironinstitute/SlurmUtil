@@ -8,7 +8,7 @@ import MyTool
 from collections import defaultdict
 from functools   import reduce
 from queryBright import BrightRestClient
-from querySlurm  import PyslurmQuery
+from queryPyslurm  import PyslurmQuery
 from queryInflux import InfluxQueryClient
 
 def display_user_CPU(user_name, hours=2, detail=False):

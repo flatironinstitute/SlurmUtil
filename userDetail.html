@@ -25,6 +25,7 @@
           var thisPath = window.location.pathname;
           $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
 
+          
           //create table job_table and part_table
           var r_j_titles     = {{'job_id':'Job ID', 'name':'Job Name', 'partition':'Partition', 'nodes':'Nodes', 'submit_time':'Submit Time', 'start_time':'Start Time', 'tres_req_str':'Tres Req', 'tres_alloc_str':'Tres Alloc'}}
           var p_j_titles     = {{'job_id':'Job ID', 'name':'Job Name', 'partition':'Partition', 'submit_time':'Submit Time', 'tres_req_str':'Tres Req', 'state_reason':'Pending Reason'}}
@@ -34,31 +35,16 @@
                                  'tres_usage':'<a href="user_tresReport?uname={uname}">Res YTD Time</a>',
                                  'file_usage':'<a href="user_fileReport?uid={uid}&days=30">File Systems</a>', 
                                  'partitions':'<a href="#div_partition">Avail Partitions</a>','running_jobs':'<a href="#div_running_job">Running Jobs<a>','pending_jobs':'<a href="#div_pending_job">Pending Jobs<a>'}}
-          var running_jobs   = {running_jobs}
-          var pending_jobs   = {pending_jobs}
-          var part_info      = {part_info}
-          var job_history    = {job_history}
-          var user_assoc     = {user_assoc}
-          var array_het_jids = {array_het_jids}
-          console.log("array_het_jids=", array_het_jids)
+          var detailData     = {data}
+          console.log(detailData)
 
-          createNoHeaderTable (user_assoc, u_fields_title, 
-                              {{'running_jobs':'job_list_summary','pending_jobs':'job_list_summary','tres_usage':'tres_usage','file_usage':'file_usage','partitions':'partition_list_avail'}}, 
-                              '#div_user_info', 'job_info')
-          if (running_jobs.length >0) {{
-             createTable (running_jobs, r_j_titles, 'run_job_table',  'div_running_job', undefined, job_type_dict);
-          }}
-          if (pending_jobs.length >0) {{
-             createTable (pending_jobs, p_j_titles, 'pend_job_table', 'div_pending_job',undefined, job_type_dict);
-          }}
+          const clusters     = Object.keys(detailData);
+          addSelectOption ('cluster', clusters)
 
-          createUserPartTable   (part_info,   'part_table',     'div_partition')
-          createUserJobHistoryTable (job_history, array_het_jids, 'job_history_table', 'past_job')
+          var cluster,running_jobs,pending_jobs,part_info,job_history,user_assoc,array_het_jids;
+          display(clusters[0])
 
-          $("#running_jobs_len").text(running_jobs.length)
-          $("#pending_jobs_len").text(pending_jobs.length)
-          $("#part_len").text        (part_info.length)
-          $("#job_history_len").text (job_history.length)
+
 
           //$('.table_title + table').hide()
           $('.table_title').toggleClass('table_title_collapse')
@@ -71,6 +57,61 @@
 
           if (user_assoc['alloc_gpus'])
              $("#gpu_link").html (", <a href='userGPUGraph?user={uname}'>GPU Usage Graph </a>")
+
+          $('#cluster').change(function() {{ 
+            var curr = $(this).val()
+            display(curr)
+          }}) 
+ 
+          function display(c) {{
+             setClusterData (c)
+             
+             clearDisplay();
+
+             createNoHeaderTable (user_assoc, u_fields_title, 
+                                  {{'running_jobs':'job_list_summary','pending_jobs':'job_list_summary','tres_usage':'tres_usage','file_usage':'file_usage','partitions':'partition_list_avail'}}, 
+                                  '#div_user_info', 'job_info')
+             if (running_jobs && running_jobs.length >0) {{
+                createTable (running_jobs, r_j_titles, 'run_job_table',  'div_running_job', undefined, job_type_dict);
+                $("#running_jobs_len").text(running_jobs.length)
+             }} else 
+                $("#running_jobs_len").text(0)
+
+             if (pending_jobs && pending_jobs.length >0) {{
+                createTable (pending_jobs, p_j_titles, 'pend_job_table', 'div_pending_job',undefined, job_type_dict);
+                $("#pending_jobs_len").text(pending_jobs.length)
+             }} else
+                $("#pending_jobs_len").text(0)
+             createUserPartTable   (part_info,   'part_table',     'div_partition')
+             $("#part_len").text        (part_info.length)
+
+             if (job_history && job_history.length >0) {{
+                createUserJobHistoryTable (job_history, array_het_jids, 'job_history_table', 'past_job')
+                $("#job_history_len").text (job_history.length)
+             }} else
+                $("#job_history_len").text (0)
+             if (cluster == "Popeye") 
+                $("#past_job .table_title").text("Popeye data of finished jobs is coming soon...")
+
+          }}
+
+          function clearDisplay () {{
+             $("#div_user_info *").remove()    //TODO: use detach
+             $("#run_job_table").remove()
+             $("#pend_job_table").remove()
+             $("#part_table").remove()
+          }}
+
+          function setClusterData (c) {{
+             cluster        = c // [uid, userAssoc, ins.updateTS, user_jobs, part, array_het_jids, past_job]
+             user_assoc     = detailData[cluster][1]
+             running_jobs   = detailData[cluster][3]['RUNNING']   
+             pending_jobs   = detailData[cluster][3]['PENDING']
+             part_info      = detailData[cluster][4]
+             array_het_jids = detailData[cluster][5]
+             job_history    = detailData[cluster][6]
+          }}
+
       }});
     </script>
   </head>
@@ -127,7 +168,6 @@
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="past_job">
             <h3 class="table_title">Total <span id="job_history_len"></span> Finished Jobs during Last {day_cnt} Days</h3>
-            <!-- <p>You can change the number of days by adding/changing the parameter "days" in the address such as http://scclin011:8126/userDetails?user=uname<span color="green">&days=7</span> -->
           </div>
         </div>
       </section>

@@ -118,13 +118,15 @@ def getUser (uid, fakeName=True, cluster="Flatiron"):
     #   return "User_{}".format(uid)
     #return None
 
-def getUserFullName(uid, returnName=True):
-    p = getUserStruct(int(uid))
-    if p:
-       return p.pw_gecos.split(',')[0]
-    if returnName:
-       return "User {}".format(uid)
-    return None
+def getUserFullName(user):
+    refreshUsers("Flatiron")
+    records = SLURM_USERS["Flatiron"][4]
+    if user in records:
+       r = records[user]
+       print(r)
+       return '{} {}'.format(r['firstname'], r['lastname']);
+    else:
+       return user
 
 def getUserStruct (uid=None, uname=None):
     p = None
@@ -876,6 +878,8 @@ def test4():
     print(user)
     uid  = getUid("ajamieson")
     print(uid)
+    name = getUserFullName("yliu")
+    print(name)
 
 def main(argv):
     test4()

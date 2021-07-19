@@ -194,163 +194,23 @@ class SlurmCmdQuery:
            SlurmCmdQuery.SET_ACCT   = set([item['Def Acct'] for item in d.values()])
 
     @staticmethod
-    def getAllUserAssoc ():
-        SlurmCmdQuery.updateAssoc ()
-        return SlurmCmdQuery.DICT_ASSOC
+    def getAllUserAssoc (cluster="Flatiron"):
+        SlurmCmdQuery.refreshUserAssoc (cluster)
+        return SlurmCmdQuery.USER_ASSOC[cluster][2]
 
     @staticmethod
     def getAccounts ():
         SlurmCmdQuery.updateAssoc ()
         return SlurmCmdQuery.SET_ACCT
 
-class PyslurmQuery():
-    @staticmethod
-    def getAllNodes ():
-        return pyslurm.node().get()
-
-    @staticmethod
-    def getGPUNodes (pyslurmNodes):
-        #TODO: need to change max_gpu_cnt if no-GPU node add other gres
-        gpu_nodes   = [n_name for n_name, node in pyslurmNodes.items() if 'gpu' in node['features']]
-        max_gpu_cnt = max([MyTool.getNodeGresGPUCount(pyslurmNodes[n]['gres']) for n in gpu_nodes])
-        return gpu_nodes, max_gpu_cnt
-
-    @staticmethod
-    def getJobGPUNodes (jobs, pyslurmNodes):
-        gpu_nodes   = reduce(lambda rlt, curr: rlt.union(curr), [set(job['gpus_allocated'].keys()) for job in jobs.values() if 'gpus_allocated' in job and job['gpus_allocated']], set())
-        if gpu_nodes:
-           max_gpu_cnt = max([MyTool.getNodeGresGPUCount(pyslurmNodes[n]['gres']) for n in gpu_nodes])
-        else:
-           max_gpu_cnt = 0
-        return gpu_nodes, max_gpu_cnt
-
-    @staticmethod
-    def getUserCurrJobs (user_id, jobs=None):
-        if not jobs:
-           jobs = pyslurm.job().get()
-        return [job for job in jobs.values() if job['user_id']==user_id]
-
-    @staticmethod
-    def getUserRunningJobs (user_id, jobs=None):
-        if not jobs:
-           jobs = pyslurm.job().get()
-        return [job for job in jobs.values() if (job['user_id']==user_id) and (job['job_state']=='RUNNING')]
-
-    @staticmethod
-    def getCurrJob (jid, job_dict=None):
-        if not job_dict:
-           job_dict = pyslurm.job().get()
-        if jid not in job_dict:
-           return None
-        return job_dict[jid]
-
-    @staticmethod
-    def getNode (node_name, node_dict=None):
-        if not node_dict:
-           node_dict = pyslurm.node().get()
-        if node_name not in node_dict:
-           return None
-        return node_dict[node_name]
-        
-    @staticmethod
-    def getNodeAllocJobs (node_name, node=None, node_dict=None, job_dict=None):
-        if not node:
-           node = getNode(node_name, node_dict)
-        if ('ALLOC' not in node['state']) and ('MIXED' not in node['state']):
-           # no allocated jobs
-           return []
-        if not job_dict:
-           job_dict = pyslurm.job().get()
-           return [job for job in job_dict.values() if node_name in job['cpus_allocated']]
-           
-    @staticmethod
-    def getNodeAllocGPU (node_name, node_dict=None):
-        if not node_dict:
-           node_dict = pyslurm.node().get()
-        if node_name not in node_dict or 'gres' not in node_dict[node_name]:
-           return None
-        return MyTool.getNodeGresGPUCount(node_dict[node_name]['gres'])
-
-    @staticmethod
-    def getJobAllocGPU (job, node_dict=None):
-        if not node_dict:
-           node_dict = pyslurm.node().get()
-        if not job['cpus_allocated']:
-           return None
-        node_list      = [node_dict[node] for node in job['cpus_allocated']]
-        gpus_allocated = MyTool.getGPUAlloc_layout(node_list, job['gres_detail'])
-        return gpus_allocated
-
-    @staticmethod
-    def getJobAllocGPUonNode (job, node):
-        gpus_allocated = MyTool.getGPUAlloc_layout([node], job['gres_detail'])
-        if gpus_allocated:
-           return gpus_allocated[node['name']]
-        else:
-           return []
-
-    @staticmethod
-    def getUserAllocGPU (uid, node_dict=None):
-        if not node_dict:
-           node_dict = pyslurm.node().get()
-        rlt      = {}
-        rlt_jobs = []
-        jobs     = PyslurmQuery.getUserCurrJobs(uid)
-        if jobs:
-           for job in jobs:
-               job_gpus = PyslurmQuery.getJobAllocGPU(job, node_dict)
-               if job_gpus:   # job has gpu
-                  rlt_jobs.append(job)
-                  for node, gpu_ids in job_gpus.items():
-                      if node in rlt:
-                         rlt[node].extend (gpu_ids)
-                      else:
-                         rlt[node] = gpu_ids
-        return rlt, rlt_jobs
-
-    @staticmethod
-    def getSlurmDBClusters ():
-        c_dict = pyslurm.slurmdb_clusters().get()
-        return c_dict
-
-    #common: ['account', 'array_job_id', 'array_task_id', 'array_task_str', 'array_max_tasks', 'derived_ec', 'nodes', 'partition', 'priority', 'resv_name', 'tres_alloc_str', 'tres_req_str', 'wckey', 'work_dir']
-    #only in job: ['accrue_time', 'admin_comment', 'alloc_node', 'alloc_sid', 'assoc_id', 'batch_flag', 'batch_features', 'batch_host', 'billable_tres', 'bitflags', 'boards_per_node', 'burst_buffer', 'burst_buffer_state', 'command', 'comment', 'contiguous', 'core_spec', 'cores_per_socket', 'cpus_per_task', 'cpus_per_tres', 'cpu_freq_gov', 'cpu_freq_max', 'cpu_freq_min', 'dependency', 'eligible_time', 'end_time', 'exc_nodes', 'exit_code', 'features', 'group_id', 'job_id', 'job_state', 'last_sched_eval', 'licenses', 'max_cpus', 'max_nodes', 'mem_per_tres', 'name', 'network', 'nice', 'ntasks_per_core', 'ntasks_per_core_str', 'ntasks_per_node', 'ntasks_per_socket', 'ntasks_per_socket_str', 'ntasks_per_board', 'num_cpus', 'num_nodes', 'num_tasks', 'mem_per_cpu', 'min_memory_cpu', 'mem_per_node', 'min_memory_node', 'pn_min_memory', 'pn_min_cpus', 'pn_min_tmp_disk', 'power_flags', 'profile', 'qos', 'reboot', 'req_nodes', 'req_switch', 'requeue', 'resize_time', 'restart_cnt', 'run_time', 'run_time_str', 'sched_nodes', 'shared', 'show_flags', 'sockets_per_board', 'sockets_per_node', 'start_time', 'state_reason', 'std_err', 'std_in', 'std_out', 'submit_time', 'suspend_time', 'system_comment', 'time_limit', 'time_limit_str', 'time_min', 'threads_per_core', 'tres_bind', 'tres_freq', 'tres_per_job', 'tres_per_node', 'tres_per_socket', 'tres_per_task', 'user_id', 'wait4switch', 'gres_detail', 'cpus_allocated', 'cpus_alloc_layout']
-    #only in db_job: ['alloc_gres', 'alloc_nodes', 'associd', 'blockid', 'cluster', 'derived_es', 'elapsed', 'eligible', 'end', 'exitcode', 'gid', 'jobid', 'jobname', 'lft', 'qosid', 'req_cpus', 'req_gres', 'req_mem', 'requid', 'resvid', 'show_full', 'start', 'state', 'state_str', 'stats', 'steps', 'submit', 'suspended', 'sys_cpu_sec', 'sys_cpu_usec', 'timelimit', 'tot_cpu_sec', 'tot_cpu_usec', 'track_steps', 'uid', 'used_gres', 'user', 'user_cpu_sec', 'wckeyid']
-    COMMON_FLD  = ['account', 'array_job_id', 'array_task_id', 'array_task_str', 'array_max_tasks', 'derived_ec', 'nodes', 'partition', 'priority', 'resv_name', 'tres_alloc_str', 'tres_req_str', 'wckey', 'work_dir']
-    MAP_JOB2DBJ = {'submit_time':'submit', 'start_time':'start','end_time':'end', 'exitcode':'exit_code', 'jobid':'job_id', 'job_state':'state_str'}
-    DEF_REQ_FLD = COMMON_FLD + list(MAP_JOB2DBJ.keys())
-    @staticmethod
-    def getSlurmDBJob (jid, req_fields=DEF_REQ_FLD):
-        job = pyslurm.slurmdb_jobs().get(jobids=[jid]).get(jid, None)
-        if not job:   # cannot find
-           return None
-
-        job['user_id']=MyTool.getUid(job['user'])
-        for f in req_fields:
-            if f in job:
-               continue
-            if f in PyslurmQuery.MAP_JOB2DBJ:  # can be converted
-               if type(PyslurmQuery.MAP_JOB2DBJ[f])!=list:
-                  db_fld = PyslurmQuery.MAP_JOB2DBJ[f]
-                  job[f] = job[db_fld]
-               else:
-                  db_fld, cvtFunc = PyslurmQuery.MAP_JOB2DBJ[f]
-                  job[f] = cvtFunc(job[db_fld])
-            else:                 # cannot be converted
-               logger.error("Cannot find/map reqested job field {} in job {}".format(f, job))
-        return job
-
 def test1():
     rlt=SlurmCmdQuery.seff_cmd (964648)
     print("rlt={}".format(rlt))
 
 def test2():
-    client = SlurmDBQuery()
-    info = client.getClusterJobQueue()
-
-def test3():
-    client = SlurmDBQuery()
-    client.getJobByName ('script.sh')
+    for cluster in ["Flatiron", "Popeye"]:
+        ins = SlurmCmdQuery(cluster)
+        print(ins.getUserAssoc("aarora"))
 
 def test4():
     jobs=SlurmCmdQuery.sacct_getJobReport(927525)
@@ -361,15 +221,8 @@ def test5():
     print(repr(jobs))
 
 def main():
-    #job= pyslurm.job().find_id ('88318')
-    #job= pyslurm.slurmdb_jobs().get ()
-    #print(repr(job))
     t1=time.time()
-    #print(SlurmStatus.getStatusID('running'))
-    #print(SlurmStatus.getStatusID('running1'))
-    #print(SlurmStatus.getStatus(1))
-    #info = client.test()
-    test1()
+    test2()
     print("main take time " + str(time.time()-t1))
 
 if __name__=="__main__":

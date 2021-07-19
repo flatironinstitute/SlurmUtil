@@ -6,7 +6,8 @@ from functools import reduce
 import pandas
 
 from EmailSender     import JobNoticeSender
-from querySlurm      import PyslurmQuery, SlurmCmdQuery
+from querySlurm      import SlurmCmdQuery
+from queryPyslurm    import PyslurmQuery
 
 import config, sessionConfig
 import MyTool
@@ -37,6 +38,7 @@ class SLURMMonitorData(object):
         self.uid2jid           = {}                   #
         self.pyslurmJobs       = {}
         self.pyslurmNodes      = {}
+        self.pyslurmData       = {}
         self.jobNode2ProcRecord= defaultdict(lambda: defaultdict(lambda: (0, defaultdict(lambda: defaultdict(int))))) # jid: node: (ts, {pid: cpu_time})
                                                       # one 'ts' kept for each pid
                                                       # modified through updateJobNode2ProcRecord only
@@ -106,6 +108,10 @@ class SLURMMonitorData(object):
     @cherrypy.expose
     def getPyJobs (self):
         return "{}".format(self.pyslurmJobs)
+
+    @cherrypy.expose
+    def getPyslurmData (self):
+        return "{}".format(self.pyslurmData)
 
     def getUserJobStartTimes(self, uid):
         uid   = int(uid)
@@ -489,6 +495,7 @@ class SLURMMonitorData(object):
         #updated the data
         d =  cherrypy.request.body.read()
         self.updateTS, self.data, self.currJobs, self.node2jids, self.pyslurmData = self.extractSlurmData(d)
+        self.pyslurmData['updateTS'] = self.updateTS;        # used in SlurmEntities
         self.pyslurmJobs  = self.pyslurmData['jobs']
         self.pyslurmNodes = self.pyslurmData['nodes']
         self.inMemCache.append(self.data, self.updateTS, self.pyslurmJobs)
@@ -583,7 +590,7 @@ class SLURMMonitorData(object):
         return newNode
 
     #return dict (workername, workerinfo)
-    def getUserNodeData (self, user):
+    def getUserNodeProc (self, user):
         if type(self.data) == str: return {} # error of some sort.
 
         result = {}
