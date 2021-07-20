@@ -202,17 +202,6 @@ DISPLAY_FUNC={'user': getUserDetailHtml,
               'period':getPeriodDisplay,
               'cpu_eff':getCPUEffDisplay, 'mem_eff':getMemEffDisplay,
               'job_command':getDisplayFile}
-//function getTypedHtml (d, type_dict)
-//{
-//   var func = DISPLAY_FUNC[type_dict[d.key]]
-   //                        if (func) {
-   //                           return func(d.value)
-   //                        }
-//   if (d.value && type_dict)
-//      return getTypedValueHtml (d.value, type_dict[d.name]);
-//   else
-//      return d.value;
-//}
 
 function getTypedValueHtml (d_value, d_type, cluster)
 {
@@ -220,7 +209,7 @@ function getTypedValueHtml (d_value, d_type, cluster)
       return '';
    var func = DISPLAY_FUNC[d_type]
    if (func) {
-      if (["job","node"].includes(d_type)) {
+      if (["job","job_list", "job_list_summary", "job_step", "node", 'partition', 'partition_list'].includes(d_type)) {
          return func(d_value, cluster);
       }
       else      
@@ -578,7 +567,7 @@ function createTableHeader (table, titles_dict, rows) {
 }
 
 //data is a list of dict
-function createTable (data, titles_dict, table_id, parent_id, pre_data_func, type_dict) {
+function createTable (data, titles_dict, table_id, parent_id, pre_data_func, type_dict, cluster="Flatiron") {
         console.log("createTable table_id=", table_id, " data=", data, " titles_dict=", titles_dict, ",type_dict=", type_dict)
         var table         = d3.select('#'+parent_id).append('table').property('id', table_id);
 
@@ -611,11 +600,9 @@ function createTable (data, titles_dict, table_id, parent_id, pre_data_func, typ
             .attr('group-cnt', function (d) {
                         if (d.group_cnt) return d.group_cnt; })
             .html(function (d) {
-                 if (type_dict && d.value!=undefined) {
-                    var func = DISPLAY_FUNC[type_dict[d.name]]
-                    if (func) {
-                       return func(d.value);
-                    } 
+                 if (type_dict) {
+                    d_type = type_dict[d.name]
+                    return getTypedValueHtml(d.value, d_type, cluster);
                  }
                  return d.value;
             });
@@ -674,13 +661,12 @@ function filterDict2NestList (data_dict, req_fields)
     var f      = req_fields.filter(function (k) {return data_dict.hasOwnProperty(k) && data_dict[k] && data_dict[k]!="None" && data_dict[k].toString()!=''})  //keep the order in fields
     return f.map(function (k) { return [k, data_dict[k]] })
 }
-//DISPLAY_FUNC={'user': getUserDetailHtml, "timestamp":getTS_LString, 'partition':getPartDetailHtml,'qos':getQoSDetailHtml,"partition_list": getPartitionListHtml, "M":getDisplayM,'job_list':getJobListHtml,'job_list_summary':getJobListSummaryHtml}
 //table without header, 1st column is key, 2nd column is value
 //input: data_dict is a dictionary with {key: value}, 
 //       disp_dict is a dictionary {display_key: display_text}, 
 //       type_dict is {key: display_type}
-function createNoHeaderTable (data_dict, disp_dict, type_dict, parent_id, table_id, prepare_data_func=filterDict2NestList){
-    console.log('createNoHeaderTable: data_dict=', data_dict, ',disp_dict=', disp_dict, ",type_dict=", type_dict)
+function createNoHeaderTable (data_dict, disp_dict, type_dict, parent_id, table_id, prepare_data_func=filterDict2NestList, cluster="Flatiron"){
+    console.log('createNoHeaderTable: data_dict=', data_dict, ',disp_dict=', disp_dict, ",type_dict=", type_dict, ",cluster=", cluster)
     var data  = prepare_data_func(data_dict, Object.keys(disp_dict))
     var table = d3.select(parent_id).append('table').property('id', table_id)
                                                     .attr('class', 'no_header');
@@ -693,14 +679,11 @@ function createNoHeaderTable (data_dict, disp_dict, type_dict, parent_id, table_
                         }).enter()
                    .append('td')
                    .html(function (d, i) {
-                        if (i==0)
+                        if (i==0)                     // Attribute Name
                            return disp_dict[d];
-                        if (i==1) {
-                           var func = DISPLAY_FUNC[type_dict[d.key]]
-                           if (func) {
-                              return func(d.value)
-                           }
-                           return d.value;
+                        if (i==1) {                   // Attribute Value
+                           var d_type = type_dict[d.key]
+                           return getTypedValueHtml (d.value, d_type, cluster)
                         }
                         return d; })
 }
@@ -727,7 +710,7 @@ function createUserJobHistoryTable (job_history, array_het_jids, job_history_tab
    createTable (job_history, j_h_titles,  job_history_table_id, parent_id, undefined, {'JobID':'job_step', 'JobIDRaw':'job_step','JobName':'job_name','wall_clock':'period', 'cpu_eff':'cpu_eff', 'mem_eff':'mem_eff'})
 }
 
-function createUserPartTable (part_info, part_table_id, parent_id) {
+function createUserPartTable (part_info, part_table_id, parent_id, cluster="Flatiron") {
    const part_titles    = {'name': 'Part.', 'flag_shared':'Sharable',
                            'user_avail_nodes':'Node', 'user_avail_cpus':'CPU', 'user_avail_gpus': 'GPU',
                            'user_lmt_nodes'  :'Node', 'user_lmt_cpus'  :'CPU', 'user_lmt_gpus'  :'GPU',
@@ -738,7 +721,7 @@ function createUserPartTable (part_info, part_table_id, parent_id) {
                            'avail_nodes_cnt' :'Node', 'avail_cpus_cnt' :'CPU', 'avail_gpus_cnt' :'GPU',
                           }
 
-   createTable (part_info, part_titles, part_table_id, parent_id, undefined, {'name':'partition'})
+   createTable (part_info, part_titles, part_table_id, parent_id, undefined, {'name':'partition'}, cluster)
    // add one extra line to category table headers
    $('#' + part_table_id + ' thead').prepend('<tr><th colspan="2"></th><th colspan="3">User Avail</th><th colspan="3">User Lmt</th><th colspan="3">User Alloc</th><th colspan="3">Grp Lmt</th><th colspan="3">Grp Alloc</th><th colspan="3">Part. Total</th><th colspan="3">Part. Avail</th></tr>')
    $('#' + part_table_id + ' td[data-th^="user_avail_"]').addClass("inform")

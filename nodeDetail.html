@@ -23,25 +23,30 @@
         // Add menus
           $("#navmenu").load("/getHeader?page=index");
           var thisPath = window.location.pathname;
-          console.log("thisPath=", thisPath)
           $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
+
+          var cluster         = {cluster}
           // Create node detail table
           var node_data       = {node_data}
           var node_info       = {node_info}
-          var proc_title      = ['PID', 'Avg CPU Util', 'RSS', 'VMS','IO Rate', 'Command']
-          var proc_type       = [null,  'Float',        'B',   'B',  'Bps',      null]
           var array_het_jids  = {array_het_jids}
+          const proc_title    = ['PID', 'Avg CPU Util', 'RSS', 'VMS','IO Rate', 'Command']
+          const proc_type     = [null,  'Float',        'B',   'B',  'Bps',      null]
 
           // title line
-          $("#node_state").text(node_data["state"])
+          var htmlStr = cluster + ' Node ' + node_info.name + ' : ' + node_info.state 
+                            + " <small>(<a href='nodeGraph?node=" + node_info.name + "'> Last 3 Days' Usage Graph</a>";
           if (node_data["gpus"])
-             $("#gpu_link").html(", <a href='nodeGPUGraph?node=" + node_data["name"] + "'>GPU Graph</a>")
+              htmlStr = htmlStr + ", <a href='nodeGPUGraph?node=" + node_info.name + "'>GPU Graph</a>";
+          htmlStr     = htmlStr + ')</small>'
+
+          $("#node_title").html(htmlStr);
 
           // node information
           createNoHeaderTable (node_info, 
                  {{'features':'Features','partitions':'Partitions','tres_fmt_str':'TRES','gres':'GRES','boot_time':'Boot Time','alloc_cpus':'Alloc CPUs','alloc_mem':'Alloc Mem','alloc_gpus':'Alloc GPUs','running_jobs':'Running Jobs'}}, 
                  {{'boot_time':'timestamp','alloc_mem':'M', 'partitions':'partition_list','running_jobs':'job_list'}}, 
-                 '#div_node_info', 'node_info')
+                 '#div_node_info', 'node_info', filterDict2NestList, cluster)
 
           // running job 
           if (node_data["jobCnt"])
@@ -76,10 +81,7 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
-            <h3>
-              {cluster} {node_name} : <span id="node_state"></span>
-              <small>(<a href="nodeGraph?node={node_name}">Last 3 Days' Usage Graph</a><span id="gpu_link"></span>)</small>
-            </h3>
+            <h3 id="node_title"></h3>
             <div id="div_node_info"></div>
           </div>
         </div>

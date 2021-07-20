@@ -45,7 +45,7 @@
           if ({worker_proc}) {{
              createMultiTable ({worker_proc}, '#div_worker_proc', {title_list}, {job_id})
           }}
-          createTable ({job_report}, j_h_titles,  'job_history_table', 'job_report', undefined, {{'JobID':'JobAndStep'}})
+          createTable ({job_report}, j_h_titles,  'job_history_table', 'job_report', undefined, {{'JobID':'JobAndStep'}}, cluster)
           $("#node_cnt").text(j_info['AllocNodes'])
           $("#cpu_cnt").text (j_info['AllocCPUS'])
 

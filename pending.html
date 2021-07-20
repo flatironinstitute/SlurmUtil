@@ -60,8 +60,8 @@
              
              clearDisplay();
 
-             createTable (pending_jobs, j_titles, 'job_table',  'pending_jobs', prepareData_pending, type);
-             createTable (partitions,   p_titles, 'part_table', 'partitions',   undefined, type);  //undefined will use default value
+             createTable (pending_jobs, j_titles, 'job_table',  'pending_jobs', prepareData_pending, type, cluster);
+             createTable (partitions,   p_titles, 'part_table', 'partitions',   undefined, type, cluster);  //undefined will use default value
              createList  (note,         null,     '#note')
              $("#pending_job_count").text(pending_cnt)
 

@@ -41,13 +41,13 @@ function getInfoAlarmHtml (str) {
 function getJobDetailHtml (jid, cluster="Flatiron") {
     return '<a href=./jobDetails?jid=' + jid + '&cluster=' + cluster + '>' + jid + '</a>'
 };
-function getJobListHtml(lst) {
-    var html_list = lst.map( function(p) {return getJobDetailHtml(p);} )
+function getJobListHtml(lst, cluster="Flatiron") {
+    var html_list = lst.map( function(p) {return getJobDetailHtml(p, cluster);} )
     return html_list.join(', ')
 }
-function getJobListSummaryHtml(lst) {
+function getJobListSummaryHtml(lst, cluster="Flatiron") {
     var detail_lst = (lst.length>10) ? lst.slice(0,10) : lst
-    var html_list = detail_lst.map( function(p) {return getJobDetailHtml(p);} )
+    var html_list = detail_lst.map( function(p) {return getJobDetailHtml(p, cluster);} )
     var html_str  = html_list.join(',')
     return (lst.length>10) ? html_str + '... total ' + lst.length + ' jobs' : html_str
 }
@@ -57,9 +57,9 @@ function getJobNameHtml(name) {
     else
        return '<a href=./jobByName?name=' + name + '>' + name + '</a>'
 }
-function getJob_StepHtml(d_value) {
+function getJob_StepHtml(d_value, cluster="Flatiron") {
     if ((d_value.toString().indexOf('.') == -1) && (d_value.toString().indexOf('_')==-1))   // not jobstep
-       return '<a href=./jobDetails?jid=' + d_value+'>' + d_value + '</a>'
+       return '<a href=./jobDetails?jid=' + d_value+'&cluster=' + cluster + '>' + d_value + '</a>'
     return d_value
 }
 
@@ -72,8 +72,8 @@ function getJobArrayDetail (jids_array) {
         str  = str + ' ' + getJobDetailHtml(jid)
     return str
 }
-function getPartDetailHtml (pid) {
-    return '<a href=./partitionDetail?partition=' + pid +'>' + pid + '</a>'
+function getPartDetailHtml (pid, cluster="Flatiron") {
+    return '<a href=./partitionDetail?partition=' + pid +'&cluster=' + cluster + '>' + pid + '</a>'
 }
 function getPartAvailString(p) {
     var str = p.name + " (cpu=" + p.user_avail_cpus + ",node=" + p.user_avail_nodes 
@@ -87,8 +87,8 @@ function getPartListAvailString (p_list) {
     var str_list = p_list.map( function(p) {return getPartAvailString(p);} )
     return str_list.join(', ')
 }
-function getPartitionListHtml(p_list) {
-    var html_list = p_list.map( function(p) {return getPartDetailHtml(p);} )
+function getPartitionListHtml(p_list, cluster="Flatiron") {
+    var html_list = p_list.map( function(p) {return getPartDetailHtml(p, cluster);} )
     return html_list.join(',')
 }
 function getNodeDetailHtml (id, cluster="Flatiron") {

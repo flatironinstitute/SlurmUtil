@@ -21,10 +21,12 @@
 
       $(document).ready(function(){{
         // Add menus
-          $("#navmenu").load("/getHeader?page=index");
+          $("#navmenu").load("/getHeader");
           var thisPath = window.location.pathname;
           $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
-        // Create partition node table
+
+          // Create partition node table
+          var cluster    = {cluster};
           var part       = {p_detail};
           var nodes      = {p_nodes};
           var node_title_dict = {{'name':'Node', 'state':'State', 'tres_fmt_str':'TRES', 'features':'Features', 'alloc_cpus':'Alloc CPU','alloc_mem':'Alloc Mem(MB)', 'running_jobs':'Run Job', 'cpu_load':'CPU Util'}}
@@ -34,6 +36,7 @@
                   'avail_tres_fmt_str':'Avail TRES',
                   'default_time_str':'Default Job Time', 'max_time_str':'Maximum Job Time', 'running_jobs':'Running Jobs', 'pending_jobs':'Pending Jobs'}}
 
+          $("#cluster").text(cluster)
           $("#part_name").text(part.name)
           //createList  (part,   part_list_title, '#details', {{'tres_fmt_str':'TresShort','running_jobs':'JobArray','pending_jobs':'JobArray', 'qos_char':'QoS','def_mem_per_cpu':'M'}});
           createNoHeaderTable (part, part_list_title, {{'qos_char':'qos','running_jobs':'job_list_summary','pending_jobs':'job_list_summary', 'def_mem_per_cpu':'M'}}, '#div_part_info', 'part_info')
@@ -41,7 +44,7 @@
              node_title_dict = {{'name':'Node', 'state':'State', 'tres_fmt_str':'TRES', 'gres':'GPU Type', 'features':'Features', 'alloc_cpus':'Alloc CPU','alloc_gpus':'Alloc GPU', 'alloc_mem':'Alloc Mem(MB)', 'running_jobs':'Run Job', 'cpu_load':'CPU Util' }}
 
           // partition node list
-          createTable (nodes,  node_title_dict,  'table_nodes', 'div_node', undefined, {{'name':'node','running_jobs':'job_list','gres':'gpu_type','cpu_load':'percent2str'}})
+          createTable (nodes,  node_title_dict,  'table_nodes', 'div_node', undefined, {{'name':'node','running_jobs':'job_list','gres':'gpu_type','cpu_load':'percent2str'}}, cluster)
       }});
     </script>
   </head>
@@ -62,7 +65,7 @@
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
             <h3>
-              Partition <span id="part_name"></span>
+              <font id="cluster"></font> Partition <span id="part_name"></span>
               <small> </small>
             </h3>
             <div id="div_part_info"></div>
@@ -73,6 +76,7 @@
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div section__div--nobottom" id="div_node">
               <h3>Partition Nodes</h3>
+              <p>Click the table header to sort data according to that column
           </div>
         </div>
       </section>
