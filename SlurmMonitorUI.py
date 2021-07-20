@@ -680,10 +680,9 @@ class SLURMMonitorUI(object):
     def getLowResourceJobs (self, job_length_secs=ONE_DAY_SECS, job_width_cpus=1, job_cpu_avg_util=0.1, job_mem_util=0.3):
         return self.monData.getLowResourceJobs(job_length_secs, job_width_cpus, job_cpu_avg_util, job_mem_util)
 
-    def getLongrunLowUtilJobs (self):
+    def getLongrunLowUtilJobs (self, monData):
         luj_settings      = sessionConfig.getSetting('low_util_job')
-        jobs              = self.monData.getCurrLUJobs (luj_settings)
-        #msgs              = BulletinBoard.getLowUtilJobMsg (jobs)
+        jobs              = monData.getCurrLUJobs (luj_settings)
         BulletinBoard.setLowUtilJobMsg (jobs)
 
         return list(jobs.values())
@@ -1739,28 +1738,23 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def bulletinboard(self):
-        if self.monData.hasData():
-           ts_str     = MyTool.getTsString(self.monData.updateTS)
-           low_util   = self.getLongrunLowUtilJobs()
+        bbData = {}
+        for cluster, monData in self.monDataDict.items():
+          if monData.hasData():
+           update_time= monData.updateTS
+           low_util   = self.getLongrunLowUtilJobs(monData)
            # node with low resource utlization
-           low_nodes  = self.monData.getLowUtilNodes()
-        else:
-           ts_str     = MyTool.getTsString(int(time.time()))
+           low_nodes  = monData.getLowUtilNodes()
+          else:
+           update_time= int(time.time())
            low_util   = [{'name':self.getWaitMsg()}]
            low_nodes  = [{'name':'', 'low_util_msg':self.getWaitMsg()}]
-        other      = self.monData.inMemLog.getAllLogs () #[{'source':'', 'ts':'','msg':''}]
+          other      = monData.inMemLog.getAllLogs () #[{'source':'', 'ts':'','msg':''}]
+          bbData[cluster] = [update_time, low_util, low_nodes, other]
 
-        #SE_ins     = SlurmEntities()
-        #qos_relax  = SE_ins.relaxQoS()   # {uid:suggestion}
-        #qos_relax  = [ {'user':MyTool.getUser(uid), 'msg':s} for uid,s in qos_relax.items()]
 
         htmlTemp   = os.path.join(config.APP_DIR, 'bulletinboard.html')
-        htmlStr    = open(htmlTemp).read().format(update_time =ts_str,
-                                                  low_util    =json.dumps(low_util),
-                                                  low_node    =json.dumps(low_nodes),
-                                                  #qos_relax   =json.dumps(qos_relax),
-                                                  #qos_relax_ts=MyTool.getTsString(SE_ins.ts_job_dict),
-                                                  other       =other)
+        htmlStr    = open(htmlTemp).read().format(data        =json.dumps(bbData))
         return htmlStr
 
     @cherrypy.expose

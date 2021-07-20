@@ -26,19 +26,47 @@
 
 
       $(document).ready(() => {{
-          const clusters = ['Flatiron']
+          var bbData     = {data}
+          console.log(bbData)
+          const clusters     = Object.keys(bbData);
           addSelectOption ('cluster', clusters)
 
-          var j_title    = {{'job_id':'Job', 'name':'Job Name','user':'User', 'partition':'Partition','run_time_str':'Wall-clock Time','time_limit_str':'Wall-clock Limit','nodes':'Nodes','num_cpus':'#CPUs', 'job_avg_util':'Avg CPU Util', 'job_mem_util':'Mem Util','job_io_bps':'Avg I/O bps'}};
-          var o_title    = {{'source':'Source', 'ts':'Time', 'msg':'Message'}};
-          var type       = {{'job_id':'job_step', 'user':'user', 'ts':'timestamp', 'job_avg_util':'float','job_mem_util':'float', 'partition':'partition'}};
-          var low_node   = {low_node}
+          const j_title    = {{'job_id':'Job', 'name':'Job Name','user':'User', 'partition':'Partition','run_time_str':'Wall-clock Time','time_limit_str':'Wall-clock Limit','nodes':'Nodes','num_cpus':'#CPUs', 'job_avg_util':'Avg CPU Util', 'job_mem_util':'Mem Util','job_io_bps':'Avg I/O bps'}};
+          const o_title    = {{'source':'Source', 'ts':'Time', 'msg':'Message'}};
+          const type       = {{'job_id':'job_step', 'user':'user', 'ts':'timestamp', 'job_avg_util':'float','job_mem_util':'float', 'partition':'partition'}};
 
-          //create table job_table and part_table
-          createTable  ({low_util},   j_title,  'low_util_table',  'low_util',  undefined, type)
-          createTable  ({other},      o_title,  'other_table',     'other',     undefined, type)
-          expandTitle ();
-          //collapseTitle ();
+          var update_time, low_util, low_nodes, other;
+          display(clusters[0])
+
+          $('#cluster').change(function() {{ 
+            var curr = $(this).val()
+            display(curr)
+          }}) 
+
+          function display(c) {{
+            setClusterData (c)
+
+            clearDisplay();
+            $("#update_time").text(getTS_String(update_time))
+            //create table job_table and part_table
+            createTable (low_util,   j_title,  'low_util_table',  'low_util',  undefined, type)
+            createTable (other,      o_title,  'other_table',     'other',     undefined, type)
+            expandTitle ();
+            //collapseTitle ();
+          }}
+
+          function clearDisplay () {{
+             $("#low_util_table").remove()
+             $("#other_table").remove()
+          }}
+
+          function setClusterData (c) {{
+             cluster = c          //[update_time, low_util, low_nodes, other]
+             update_time = bbData[cluster][0]
+             low_util    = bbData[cluster][1]
+             low_nodes   = bbData[cluster][2]
+             other       = bbData[cluster][3]
+          }} 
       }});
     </script>
   </head>
@@ -51,7 +79,7 @@
             <div class="stickynav__logo">
               <a href="/" class="hero__title hero__title--crumb">Slurm Util</a>
             </div>
-            <div class="stickynav__update">Updated: {update_time}</div>
+            <div class="stickynav__update">Updated: <font id="update_time"></font></div>
           </div>
         </div>
       </div>
@@ -59,7 +87,8 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
-            <h3 class="table_title"><select id="cluster" name="cluster"></select> Running Jobs with Low Resource Utilization:</h3>
+            <h3><select id="cluster" name="cluster"></select></h3>
+            <h3 class="table_title"> Running Jobs with Low Resource Utilization:</h3>
             <div class="table__subtitle" id="low_util">
             </div>
           </div>
