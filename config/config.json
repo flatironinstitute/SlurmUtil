@@ -1,30 +1,32 @@
 {
    "port":  8126,
    "influxdb": {
-       "host": "worker1090",
-       "port": 8086,
-       "db":   "slurmdb_2"
+       "host"                  : "worker1090",
+       "port"                  : 8086,
+       "db"                    : "slurmdb_2",
+       "write_interval"        : 120,
+       "query_pyslurm_interval": 300
    },
    "ui": {
-       "urls": ["http://localhost:8126/data/updateSlurmData"],
-       "extra_pyslurm_data": false
+       "urls"                  : ["http://localhost:8126/data/updateSlurmData"],
+       "extra_pyslurm_data"    : false
    },
    "log": {
-       "level": "logging.DEBUG",
-       "mqttMonStream": "logging.INFO",
-       "mqttMon2Influx": "logging.INFO"
+       "level"                 : "logging.DEBUG",
+       "mqttMonStream"         : "logging.INFO",
+       "mqttMon2Influx"        : "logging.INFO"
    },
    "bright": {
-       "url":      "https://ironbcm:8081/rest/v1/monitoring/",
-       "cert_dir": "./prometheus.cm/"
+       "url"                   : "https://ironbcm:8081/rest/v1/monitoring/",
+       "cert_dir"              : "./prometheus.cm/"
    },
    "email": {
-       "flag": true
+       "flag"                  : true
    },
    "mqtt": {
-       "host":      "mon5.flatironinstitute.org",
-       "file_dir":  "/mnt/ceph/users/yliu/mqtMonStreamRecord",
-       "writeFile": false
+       "host"                  : "mon5.flatironinstitute.org",
+       "file_dir"              : "/mnt/ceph/users/yliu/mqtMonStreamRecord",
+       "writeFile"             : false
    },
    "test":  false
 }

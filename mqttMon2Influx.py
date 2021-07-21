@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import argparse, json, os.path, pdb, threading, time 
 
 from collections import defaultdict as DDict
@@ -13,18 +12,12 @@ import pyslurm
 import config, EmailSender, MyTool, querySlurm
 
 logger   = config.logger
-#MyTool.getFileLogger('mqttMon2Influx', logging.DEBUG)  # use module name
-
-# Maps a host name to a tuple (time, pid2info), where time is the time
-# stamp of the last update, and pid2info maps a pid to a dictionary of
-# info about the process identified by the pid.
 
 ignore_count = 0
 class InfluxWriter (threading.Thread):
-    INTERVAL = 120
     MAX_SIZE = 10000
 
-    def __init__(self, influxServer='scclin011', influxPort=8086, influxDB='slurmdb', testMode = False):
+    def __init__(self, influxServer='scclin011', influxPort=8086, influxDB='slurmdb', ifx_interval=120, testMode = False):
         threading.Thread.__init__(self)
 
         self.influx_host   = influxServer
@@ -33,8 +26,9 @@ class InfluxWriter (threading.Thread):
         self.influx_user   = "yliu"
         self.influx_client = self.connectInflux ()
         self.source        = []
+        self.interval      = ifx_interval
         self.test_mode     = testMode
-        logger.info("Start InfluxWriter with influx_client={}, interval={}, test={}".format(self.influx_client._baseurl, self.INTERVAL, self.test_mode))
+        logger.info("Start InfluxWriter with influx_client={}, interval={}, test={}".format(self.influx_client._baseurl, self.interval, self.test_mode))
         self.influx_client.close()
 
     def connectInflux (self):
@@ -80,10 +74,12 @@ class InfluxWriter (threading.Thread):
         
     def run(self):
         #pdb.set_trace()
+        #points = []
         rp_points = {}   #{"retention_policy":[points, ...]
         time.sleep (10)
         while True:
           for s in self.source:
+              #points.extend(s.retrieveInfluxPoints ())
               self.addSourcePoints (rp_points, s.retrieveInfluxPoints ())
               sum_s = sum([len(points) for points in rp_points.values()])
               logger.info ("InfluxWriter have {} points after checking source {}".format(sum_s, s))
@@ -102,7 +98,7 @@ class InfluxWriter (threading.Thread):
               #   logger.error("write_points return False")
 
           self.influx_client.close()
-          time.sleep (InfluxWriter.INTERVAL)
+          time.sleep (self.interval)
 
 class MQTTReader (threading.Thread):
     TS_FNAME = 'host_up_ts.txt'
@@ -373,7 +369,9 @@ class MQTTReader (threading.Thread):
         #change 01/17/2021: change to short_term.node_proc_mon, hostname+jid as tag
         #change 01/19/2021: change to short_term.node_proc_mon, hostname+jid+pid as tag
         
+        #point                     = {'measurement':'node_proc_mon1', 'time': ts}
         #point['tags']             = {'hostname':node, 'jid':proc['jid'], 'pid':proc['pid']}
+        #point['fields']           = MyTool.flatten(MyTool.sub_dict(proc, ['uid', 'io', 'num_fds', 'cpu'], default=0))
         point                     = {'measurement':'node_proc_mon', 'time': ts}
         point['tags']             = {'hostname':node, 'pid':proc['pid']}
         point['fields']           = MyTool.flatten(MyTool.sub_dict(proc, ['uid', 'jid', 'io', 'num_fds', 'cpu'], default=0))
@@ -390,6 +388,7 @@ class MQTTReader (threading.Thread):
 
     def createUidMonPoint(self, node, uid, curr_ts, new_procs, cont_procs, pre_ts, pre_cont_procs):
         point = self.createMonPoint ('cpu_uid_mon', node, 'uid', uid, curr_ts, new_procs, cont_procs, pre_ts, pre_cont_procs)
+        #point['fields']['jid'] = jid
         return point
 
     def createJidMonPoint(self, node, jid, curr_ts, new_procs, cont_procs, pre_ts, pre_cont_procs):
@@ -471,19 +470,19 @@ class Node2PidsCache:
           logger.debug("writeFile test")
 
 class PyslurmReader (threading.Thread):
-    INTERVAL = 300            #10s
-    def __init__(self, influxServer='scclin011'):
+    def __init__(self, py_interval=300):
         threading.Thread.__init__(self)
 
-        self.points = []
-        self.lock   = threading.Lock()       #protect self.points as it is read and write by different threads
+        self.points   = []
+        self.lock     = threading.Lock()       #protect self.points as it is read and write by different threads
+        self.interval = py_interval
    
         self.sav_job_dict = {}               #save job_id:json.dumps(infopoint)   03/15/2021 not used
         self.sav_node_dict = {}              #save name:json.dumps(infopoint)
         self.sav_part_dict = {}              #save value
         self.sav_qos_dict  = {}              #save value
         self.sav_res_dict  = {}              #save value
-        logger.info("Init PyslurmReader with interval={}".format(self.INTERVAL))
+        logger.info("Init PyslurmReader with interval={}".format(self.interval))
 
     def run(self):
         #pdb.set_trace()
@@ -529,7 +528,7 @@ class PyslurmReader (threading.Thread):
           with self.lock:
               self.points.extend(points)
 
-          time.sleep (PyslurmReader.INTERVAL)
+          time.sleep (self.interval)
 
     #return the points, called by InfluxDBWriter 
     def retrieveInfluxPoints (self):
@@ -559,19 +558,6 @@ class PyslurmReader (threading.Thread):
         point['fields'] = MyTool.sub_dict_exist_remove (item, ['user_id', 'job_state', 'state_reason', 'run_time', 'suspend_time', 'num_cpus', 'num_nodes', 'tres_req_str']) # add tres_req_str 06/28/2019
         points.append(point)
 
-        # slurm_job_info: submit_time, job_id, user_id
-        #infopoint = {'measurement':'slurm_job', 'time': (int)(item.pop('submit_time'))}
-        #infopoint['tags']   = MyTool.sub_dict (point['tags'], ['job_id', 'user_id'])
-        #infopoint['fields'] = item
-        #infopoint['fields'].update (MyTool.sub_dict(point['fields'], ['job_state', 'state_reason', 'num_cpus', 'num_nodes', 'tres_req_str','tres_alloc_str']))
-        #MyTool.dict_complex2str(infopoint['fields'])
-        #newValue = json.dumps(infopoint)
-        #if (job_id not in self.sav_job_dict) or (self.sav_job_dict[job_id] != newValue):
-        #   points.append(infopoint)
-        #   self.sav_job_dict[job_id] = newValue
-        #else:
-        #   logger.debug("duplicate job info for {}".format(job_id))
-        #points.append(infopoint)
         return points
 
     def slurmNode2point (self, ts, item, points):
@@ -642,15 +628,15 @@ class PyslurmReader (threading.Thread):
 
         return points
 
-def startInfluxThread (influxServer, influxPort, influxDB, mqtt_thd, pyslm_thd, testMode):
-    ifx_thd = InfluxWriter    (influxServer, influxPort, influxDB, testMode)
+def startInfluxThread (influxServer, influxPort, influxDB, ifx_interval, mqtt_thd, pyslm_thd, testMode):
+    ifx_thd = InfluxWriter    (influxServer, influxPort, influxDB, ifx_interval, testMode)
     ifx_thd.addSource (mqtt_thd)
     ifx_thd.addSource (pyslm_thd)
     ifx_thd.start()
     return ifx_thd
 
-def startPyslurmThread():
-    pyslm_thd  = PyslurmReader ()
+def startPyslurmThread(py_interval):
+    pyslm_thd  = PyslurmReader (py_interval)
     pyslm_thd.start()
     return pyslm_thd
 
@@ -659,28 +645,29 @@ def startMQTTThread(testMode):
     mqtt_thd.start()
     return mqtt_thd
 
-def main(influxServer, influxPort, influxDB, testMode=False):
+def main(influxServer, influxPort, influxDB, ifx_interval, py_interval, testMode=False):
     mqtt_thd   = startMQTTThread (testMode)
     time.sleep(5)
-    pyslm_thd  = startPyslurmThread()
+    pyslm_thd  = startPyslurmThread(py_interval)
     time.sleep(5)
-    ifx_thd    = startInfluxThread(influxServer, influxPort, influxDB, mqtt_thd, pyslm_thd, testMode)
+    ifx_thd    = startInfluxThread(influxServer, influxPort, influxDB, ifx_interval, mqtt_thd, pyslm_thd, testMode)
 
     while True:
        if not mqtt_thd.is_alive():
           EmailSender.sendMessage ("ERROR: MQTTReader thread is dead. Restart it!", "Check it!")
           logger.error("ERROR: MQTTReader thread is dead. Restart it!")
           mqtt_thd   = startMQTTThread(testMode)
-          ifx_thd    = startInfluxThread(mqtt_thd,pyslm_thd, testMode)
+          ifx_thd    = startInfluxThread(influxServer, influxPort, influxDB, ifx_interval, mqtt_thd, pyslm_thd, testMode)
        if not pyslm_thd.is_alive():
           EmailSender.sendMessage ("ERROR: MQTTReader thread is dead. Restart it!", "Check it!")
           logger.error("ERROR: Pyslurm thread is dead. Restart it!")
-          pyslm_thd  = startPyslurmThread()
-          ifx_thd    = startInfluxThread(mqtt_thd,pyslm_thd, testMode)
+          pyslm_thd  = startPyslurmThread(py_interval)
+          ifx_thd    = startInfluxThread(influxServer, influxPort, influxDB, ifx_interval, mqtt_thd, pyslm_thd, testMode)
        if not ifx_thd.is_alive():
           EmailSender.sendMessage ("ERROR: MQTTReader thread is dead. Restart it!", "Check it!")
           logger.error("ERROR: Influx thread is dead. Restart it!")
-          ifx_thd    = startInfluxThread(mqtt_thd,pyslm_thd, testMode)
+          ifx_thd    = startInfluxThread(influxServer, influxPort, influxDB, ifx_interval, mqtt_thd, pyslm_thd, testMode)
+
           logger.info("New Influx thread {}.".format(ifx_thd))
           
        time.sleep (600)  # check every 10 minutes
@@ -703,7 +690,9 @@ if __name__=="__main__":
    influxServer = cfg['influxdb']['host']
    influxPort   = cfg['influxdb']['port']
    influxDB     = cfg['influxdb']['db']
+   ifx_interval = cfg['influxdb']['write_interval']
+   py_interval  = cfg['influxdb']['query_pyslurm_interval']
    print("Start ... influxServer={}:{}-{}, test={}".format(influxServer, influxPort, influxDB, test))
-   main(influxServer, influxPort, influxDB, test)
+   main(influxServer, influxPort, influxDB, ifx_interval, py_interval, test)
 
 
