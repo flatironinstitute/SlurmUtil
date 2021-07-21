@@ -640,13 +640,13 @@ def startPyslurmThread(py_interval):
     pyslm_thd.start()
     return pyslm_thd
 
-def startMQTTThread(testMode):
-    mqtt_thd   = MQTTReader(test_mode=testMode)
+def startMQTTThread(mqttServer, testMode):
+    mqtt_thd   = MQTTReader(mqttServer, test_mode=testMode)
     mqtt_thd.start()
     return mqtt_thd
 
-def main(influxServer, influxPort, influxDB, ifx_interval, py_interval, testMode=False):
-    mqtt_thd   = startMQTTThread (testMode)
+def main(influxServer, influxPort, influxDB, ifx_interval, py_interval, mqttServer, testMode=False):
+    mqtt_thd   = startMQTTThread (mqttServer, testMode)
     time.sleep(5)
     pyslm_thd  = startPyslurmThread(py_interval)
     time.sleep(5)
@@ -656,7 +656,7 @@ def main(influxServer, influxPort, influxDB, ifx_interval, py_interval, testMode
        if not mqtt_thd.is_alive():
           EmailSender.sendMessage ("ERROR: MQTTReader thread is dead. Restart it!", "Check it!")
           logger.error("ERROR: MQTTReader thread is dead. Restart it!")
-          mqtt_thd   = startMQTTThread(testMode)
+          mqtt_thd   = startMQTTThread(mqttServer, testMode)
           ifx_thd    = startInfluxThread(influxServer, influxPort, influxDB, ifx_interval, mqtt_thd, pyslm_thd, testMode)
        if not pyslm_thd.is_alive():
           EmailSender.sendMessage ("ERROR: MQTTReader thread is dead. Restart it!", "Check it!")
@@ -692,7 +692,8 @@ if __name__=="__main__":
    influxDB     = cfg['influxdb']['db']
    ifx_interval = cfg['influxdb']['write_interval']
    py_interval  = cfg['influxdb']['query_pyslurm_interval']
+   mqttServer   = cfg['mqtt']['host']
    print("Start ... influxServer={}:{}-{}, test={}".format(influxServer, influxPort, influxDB, test))
-   main(influxServer, influxPort, influxDB, ifx_interval, py_interval, test)
+   main(influxServer, influxPort, influxDB, ifx_interval, py_interval, mqttServer, test)
 
 
