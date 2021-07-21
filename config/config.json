@@ -2,6 +2,7 @@
    "port":  8126,
    "influxdb": {
        "host": "worker1090",
+       "port": 8086,
        "db":   "slurmdb_2"
    },
    "ui": {

@@ -24,17 +24,27 @@ class InfluxWriter (threading.Thread):
     INTERVAL = 120
     MAX_SIZE = 10000
 
-    def __init__(self, influxServer='scclin011', influxDB='slurmdb', testMode = False):
+    def __init__(self, influxServer='scclin011', influxPort=8086, influxDB='slurmdb', testMode = False):
         threading.Thread.__init__(self)
 
-        self.influx_client = self.connectInflux (influxServer, influxDB)
+        self.influx_host   = influxServer
+        self.influx_port   = influxPort
+        self.influx_db     = influxDB
+        self.influx_user   = "yliu"
+        self.influx_client = self.connectInflux ()
         self.source        = []
         self.test_mode     = testMode
         logger.info("Start InfluxWriter with influx_client={}, interval={}, test={}".format(self.influx_client._baseurl, self.INTERVAL, self.test_mode))
         self.influx_client.close()
 
-    def connectInflux (self, host, db, port=8086, user="yliu"):
-        return influxdb.InfluxDBClient(host, port, user, "", db)
+    def connectInflux (self):
+        #return influxdb.InfluxDBClient(host, port, user, "", db, timeout=10)
+        #using UDP
+        #client = InfluxDBClient(host, db, use_udp=True, udp_port=4444)
+        #logger.info("connect {}:{}-{} {}".format(self.influx_host, self.influx_port, self.influx_user, "", self.influx_db)
+        client = influxdb.InfluxDBClient(self.influx_host, self.influx_port, self.influx_user, "", self.influx_db)
+        logger.info("return client {}".format(client))
+        return client
 
     def writeInflux (self, points, ret_policy="autogen", t_precision="s"):
         try:
@@ -70,26 +80,26 @@ class InfluxWriter (threading.Thread):
         
     def run(self):
         #pdb.set_trace()
-        #points = []
         rp_points = {}   #{"retention_policy":[points, ...]
         time.sleep (10)
         while True:
           for s in self.source:
-              #points.extend(s.retrieveInfluxPoints ())
               self.addSourcePoints (rp_points, s.retrieveInfluxPoints ())
               sum_s = sum([len(points) for points in rp_points.values()])
               logger.info ("InfluxWriter have {} points after checking source {}".format(sum_s, s))
 
           if not rp_points: 
               continue
-          self.influx_client = self.connectInflux (influxServer, influxDB)
+          self.influx_client = self.connectInflux ()
           for rp, points in rp_points.items():
               ret   = self.writeInflux (points, ret_policy=rp)
-              if ret:
-                 rp_points[rp].clear()
-              else: 
+              time.sleep(5)           # sleep 5 seconds between write
+              rp_points[rp].clear()
+              #if ret:
+              #   rp_points[rp].clear()
+              #else: 
                  # show the users list, still failed, reconnect with it
-                 logger.error("write_points return False")
+              #   logger.error("write_points return False")
 
           self.influx_client.close()
           time.sleep (InfluxWriter.INTERVAL)
@@ -204,7 +214,7 @@ class MQTTReader (threading.Thread):
         hostproc_msgs = self.consume_hostproc_msgs()
         ignore_count  = 0
         self.process_list_add(rp_points, hostproc_msgs, self.hostproc2point)
-        logger.debug("MQTTReader generate {} {} points after adding hostproc, ignore {} points".format(len(rp_points['autogen']), len(rp_points['one_month']), ignore_count))
+        logger.debug("MQTTReader generate {} {} points after adding hostproc, ignore {} points".format(len(rp_points['autogen']), len(rp_points['short_term']), ignore_count))
 
         #points = hostinfo + hostperf + hostproc
         if self.cpu_up_ts_count > 0:
@@ -299,9 +309,9 @@ class MQTTReader (threading.Thread):
         if (not new_procs) and (not cont_procs):
            return {}
 
-        rp_points={'autogen':[], 'one_month':[]}
+        rp_points={'autogen':[], 'short_term':[]}
         for proc in new_procs:
-            rp_points['one_month'].append(self.createProcMonPoint  (node, ts, proc))
+            rp_points['short_term'].append(self.createProcMonPoint  (node, ts, proc))
 
         cont_pids    = [proc['pid'] for proc in cont_procs]
         pre_pids     = [proc['pid'] for proc in pre_cont_procs]
@@ -316,14 +326,14 @@ class MQTTReader (threading.Thread):
             else:
                cpu_delta = 10
             if cpu_delta > 1:
-               rp_points['one_month'].append(self.createProcMonPoint  (node, ts, proc))
+               rp_points['short_term'].append(self.createProcMonPoint  (node, ts, proc))
             else:
                ignore_count += 1
 
         for proc in new_procs:
-            rp_points['one_month'].append(self.createProcInfoPoint (node, proc))
+            rp_points['short_term'].append(self.createProcInfoPoint (node, proc))
         for proc in pre_done_procs:
-            rp_points['one_month'].append(self.createProcInfoPoint (node, proc, end_time=int((pre_ts+ts)/2)))
+            rp_points['short_term'].append(self.createProcInfoPoint (node, proc, end_time=int((pre_ts+ts)/2)))
 
         uids = set([proc['uid'] for proc in msg['processes']])
         for uid in uids:
@@ -342,11 +352,11 @@ class MQTTReader (threading.Thread):
                #if ts - pre_ts < 600:  # longer than 10 minutes, ignore
                rp_points['autogen'].append(self.createJidMonPoint(node, jid, ts, j_new_procs, j_cont_procs, pre_ts, j_pre_cont_procs))
 
-        #logger.debug("rp_points=autogen:{} one_month:{}".format(len(rp_points['autogen']), len(rp_points['one_month'])))
+        #logger.debug("rp_points=autogen:{} short_term:{}".format(len(rp_points['autogen']), len(rp_points['short_term'])))
         return rp_points
 
     def createProcInfoPoint (self, node, proc, end_time=None):
-        #change 01/17/2021: change to one_month.node_proc_info, hostname+jid as tag
+        #change 01/17/2021: change to short_term.node_proc_info, hostname+jid as tag
         point                     = {'measurement':'node_proc_info2', 'time': (int)(proc['create_time'])}
         point['tags']             = {'hostname':node, 'pid': proc['pid']}
         point['fields']           = MyTool.flatten(MyTool.sub_dict(proc, ['ppid', 'uid', 'jid', 'name', 'cmdline']))
@@ -360,13 +370,11 @@ class MQTTReader (threading.Thread):
         #point['fields']           = MyTool.flatten(MyTool.sub_dict(proc, ['create_time', 'jid', 'mem', 'io', 'num_fds', 'cpu'], default=0))
         #change 01/23/2020: change name from cpu_proc_mon to node_proc_mon
         #                   remove uid from tags
-        #change 01/17/2021: change to one_month.node_proc_mon, hostname+jid as tag
-        #change 01/19/2021: change to one_month.node_proc_mon, hostname+jid+pid as tag
+        #change 01/17/2021: change to short_term.node_proc_mon, hostname+jid as tag
+        #change 01/19/2021: change to short_term.node_proc_mon, hostname+jid+pid as tag
         
-        #point                     = {'measurement':'node_proc_mon1', 'time': ts}
         #point['tags']             = {'hostname':node, 'jid':proc['jid'], 'pid':proc['pid']}
-        #point['fields']           = MyTool.flatten(MyTool.sub_dict(proc, ['uid', 'io', 'num_fds', 'cpu'], default=0))
-        point                     = {'measurement':'node_proc_mon2', 'time': ts}
+        point                     = {'measurement':'node_proc_mon', 'time': ts}
         point['tags']             = {'hostname':node, 'pid':proc['pid']}
         point['fields']           = MyTool.flatten(MyTool.sub_dict(proc, ['uid', 'jid', 'io', 'num_fds', 'cpu'], default=0))
         point['fields']['status'] = querySlurm.SlurmStatus.getStatusID(proc['status'])
@@ -382,7 +390,6 @@ class MQTTReader (threading.Thread):
 
     def createUidMonPoint(self, node, uid, curr_ts, new_procs, cont_procs, pre_ts, pre_cont_procs):
         point = self.createMonPoint ('cpu_uid_mon', node, 'uid', uid, curr_ts, new_procs, cont_procs, pre_ts, pre_cont_procs)
-        #point['fields']['jid'] = jid
         return point
 
     def createJidMonPoint(self, node, jid, curr_ts, new_procs, cont_procs, pre_ts, pre_cont_procs):
@@ -396,7 +403,7 @@ class MQTTReader (threading.Thread):
 
         period   = curr_ts - pre_ts
         if period > 500:
-           logger.warning("createUidMonPoint: Node{}, Period is {} bigger than 120 seconds between {} and {}. ".format(node, period, pre_ts, curr_ts))
+           logger.debug("createUidMonPoint: Node{}, Period is {} bigger than 120 seconds between {} and {}. ".format(node, period, pre_ts, curr_ts))
         pre_num      = [(proc['cpu']['system_time'],proc['cpu']['user_time'],proc['io']['read_bytes'],proc['io']['write_bytes']) for proc in pre_cont_procs]
         pre_sum      = list(map(sum, zip(*pre_num)))
         point['fields']['cpu_system_util'] = max(0.0,round((curr_sum[0] - pre_sum[0])/period,4))
@@ -635,8 +642,8 @@ class PyslurmReader (threading.Thread):
 
         return points
 
-def startInfluxThread (mqtt_thd, pyslm_thd, testMode):
-    ifx_thd = InfluxWriter    (influxServer, influxDB, testMode)
+def startInfluxThread (influxServer, influxPort, influxDB, mqtt_thd, pyslm_thd, testMode):
+    ifx_thd = InfluxWriter    (influxServer, influxPort, influxDB, testMode)
     ifx_thd.addSource (mqtt_thd)
     ifx_thd.addSource (pyslm_thd)
     ifx_thd.start()
@@ -652,12 +659,12 @@ def startMQTTThread(testMode):
     mqtt_thd.start()
     return mqtt_thd
 
-def main(influxServer, influxDB, testMode=False):
+def main(influxServer, influxPort, influxDB, testMode=False):
     mqtt_thd   = startMQTTThread (testMode)
     time.sleep(5)
     pyslm_thd  = startPyslurmThread()
     time.sleep(5)
-    ifx_thd    = startInfluxThread(mqtt_thd,pyslm_thd, testMode)
+    ifx_thd    = startInfluxThread(influxServer, influxPort, influxDB, mqtt_thd, pyslm_thd, testMode)
 
     while True:
        if not mqtt_thd.is_alive():
@@ -694,8 +701,9 @@ if __name__=="__main__":
       config.readConfigFile(configFile)
    cfg          = config.APP_CONFIG
    influxServer = cfg['influxdb']['host']
+   influxPort   = cfg['influxdb']['port']
    influxDB     = cfg['influxdb']['db']
-   print("Start ... influxServer={}:{}, test={}".format(influxServer, influxDB, test))
-   main(influxServer, influxDB, test)
+   print("Start ... influxServer={}:{}-{}, test={}".format(influxServer, influxPort, influxDB, test))
+   main(influxServer, influxPort, influxDB, test)
 
 
