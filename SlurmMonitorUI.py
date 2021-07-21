@@ -66,8 +66,9 @@ class SLURMMonitorUI(object):
         return htmlStr
 
     @cherrypy.expose
-    def partitionDetail(self, partition='gpu'):
-        ins           = SlurmEntities()
+    def partitionDetail(self, partition, cluster="Flatiron"):
+        monData       = self.monDataDict[cluster]
+        ins           = SlurmEntities(monData.cluster, monData.pyslurmData)
         p_info, nodes = ins.getPartitionAndNodes (partition)
         if 'gres/gpu' in p_info['tres_fmt_str']:
            p_info['avail_tres_fmt_str']='cpu={},node={},gres/gpu={}'.format(p_info.get('avail_cpus_cnt',0),p_info.get('avail_nodes_cnt',0),p_info.get('avail_gpus_cnt',0))
@@ -75,7 +76,8 @@ class SLURMMonitorUI(object):
            p_info['avail_tres_fmt_str']='cpu={},node={}'.format(p_info.get('avail_cpus_cnt',0),p_info.get('avail_nodes_cnt',0))
 
         htmlTemp      = os.path.join(config.APP_DIR, 'partitionDetail.html')
-        htmlStr       = open(htmlTemp).read().format(update_time=MyTool.getTsString(ins.ts_node_dict),
+        htmlStr       = open(htmlTemp).read().format(cluster    =json.dumps(cluster),
+                                                     update_time=MyTool.getTsString(ins.updateTS),
                                                      p_detail   =json.dumps(p_info),
                                                      p_nodes    =json.dumps(nodes))
         return htmlStr
@@ -505,7 +507,7 @@ class SLURMMonitorUI(object):
         jobs    = []
         for jid, jobinfo in monData.currJobs.items():  # running jobs
             if jobinfo['tres_alloc_str']:  # alloc resource
-               long_label = '{}({}) alloc {}'.format (jid, jobinfo['user'], jobinfo['tres_alloc_str'])
+               long_label = '{}({}) alloc {}'.format (jid, jobinfo.get('user','NoUser'), jobinfo['tres_alloc_str'])
                disabled   = ""
             else:
                logger.error("getAllocJobsWithLabel should not come here {}".format(jobinfo))
@@ -938,10 +940,7 @@ class SLURMMonitorUI(object):
         if not monData.hasData():
            return self.getWaitMsg() # error of some sort.
         nodeData    = monData.getNodeProc(node)
-        #if not nodeData:
-        #   return "Node {} is not monitored".format(node)
 
-        #nodeDisplay = pyslurm.node().get()[node]
         nodeDisplay = monData.pyslurmNodes.get(node,None)
         if not nodeDisplay:
            return "Node {} is not a slurm node".format(node)
@@ -954,10 +953,10 @@ class SLURMMonitorUI(object):
 
         nodeReport     = SlurmCmdQuery.getNodeDoneJobReport(node, days=3)
         array_het_jids = [ job['JobID'] for job in nodeReport if '_' in job['JobID'] or '+' in job['JobID']]
+
         htmlTemp       = os.path.join(config.APP_DIR, 'nodeDetail.html')
-        htmlStr        = open(htmlTemp).read().format(cluster        = cluster,
+        htmlStr        = open(htmlTemp).read().format(cluster        = json.dumps(cluster),
                                                       update_time    = MyTool.getTsString(nodeData['updateTS']),
-                                                      node_name      = node,
                                                       node_data      = nodeData,
                                                       node_info      = json.dumps(nodeDisplay),
                                                       array_het_jids = array_het_jids,

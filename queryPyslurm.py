@@ -22,7 +22,8 @@ class PyslurmQuery():
     def getGPUNodes (pyslurmNodes):
         #TODO: need to change max_gpu_cnt if no-GPU node add other gres
         gpu_nodes   = [n_name for n_name, node in pyslurmNodes.items() if 'gpu' in node['features']]
-        max_gpu_cnt = max([MyTool.getNodeGresGPUCount(pyslurmNodes[n]['gres']) for n in gpu_nodes])
+        lst         = [MyTool.getNodeGresGPUCount(pyslurmNodes[n]['gres']) for n in gpu_nodes]
+        max_gpu_cnt = max(lst) if lst else 0
         return gpu_nodes, max_gpu_cnt
 
     @staticmethod

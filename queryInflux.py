@@ -74,7 +74,7 @@ class InfluxQueryClient:
     #used by nodeJobProcGraph
     def getNodeJobProcData (self, node, jid, start_time, stop_time='', limit=1000):
         t1      = time.time()
-        query   = "select * from one_month.node_proc_mon2 where hostname='" + node + "'" # tag value is string type
+        query   = "select * from short_term.node_proc_mon where hostname='" + node + "'" # tag value is string type
         query   = self.extendQuery(query, start_time, stop_time)
         results = self.query(query)
         if not results:
@@ -86,16 +86,18 @@ class InfluxQueryClient:
         first_time = None
         count      = 0
         points     = [p for p in results.get_points() if p['jid']==jid]
-        first_time = points[0]['time']
-        for point in points:
-            pid    = int(point['pid'])
-            rlt[pid].append ((point['time'], 
+        first_time,last_time = 0,0
+        if points:
+           first_time = points[0]['time']
+           for point in points:
+               pid    = int(point['pid'])
+               rlt[pid].append ((point['time'], 
                               point.get('cpu_system_time',0) + point.get('cpu_user_time',0),
                               point.get('mem_rss',0),      #KB
                               point.get('io_read_bytes',0),
                               point.get('io_write_bytes',0)))
-            count += 1
-        last_time = point['time'] 
+               count += 1
+           last_time = point['time'] 
         logger.info("Data transform take time {} and return {} points".format(time.time()-t1, count))
 
         return first_time, last_time, rlt
@@ -148,6 +150,16 @@ class InfluxQueryClient:
            query= query.replace("and", "", 1)
         return query
 
+    def getJidMonDataCount (jid, start_time='', stop_time='', nodelist=[]):
+        query   = "select count(*) from autogen.cpu_jid_mon where jid='{}'".format(jid)
+        query   = self.extendQuery (query, start_time, stop_time, nodelist)
+        results = self.query(query)
+        for point in results.get_points():
+            total = point['count_cpu_system_util']       # any field should do
+            return total
+        logger.error("No count returned from {}".format(query))
+        return 0
+
     #return the query result list of dictionaries
     def queryJidMonData (self, jid, start_time='', stop_time='', nodelist=[], fields=[]):
         t1      = time.time()
@@ -174,7 +186,7 @@ class InfluxQueryClient:
                point['mem_rss_K']=int (point['mem_rss'] / 1024)
         return points
 
-    def getSlurmUidMonData_Hourly(self, uid, start_time, stop_time=''):
+    def getSlurmUidMonData_Hourly(self, uid, start_time, stop_time='', limit=10000):
         query   = "select count(*) from autogen.cpu_uid_mon where uid='{}' and time>= {}000000000 and time<={}000000000".format(uid, start_time, stop_time)
         results = self.query(query)
         for point in results.get_points():
@@ -182,7 +194,6 @@ class InfluxQueryClient:
             break
         # restrict to less than 10K number
         x = 1              # default to 1 hour
-        limit = 10000
         if total > limit:  # write to influx every 2 min INTERVAL=120
            x = int(2 * total / limit / 60) + 1
            
@@ -271,19 +282,20 @@ class InfluxQueryClient:
         return nodeDataDict
     
     def getSavedNodeHistory (self, filename='nodeHistory', days=7):
-        with open('./{}_{}.pickle'.format(filename, days), 'rb') as f:
+        with open('./data/{}_{}.pickle'.format(filename, days), 'rb') as f:
              rltSet = pickle.load(f)
         return rltSet
         
     def savNodeHistory      (self, filename='nodeHistory', days=7):
         st,et  = MyTool.getStartStopTS (days=days)
         rltSet = self.getNodeHistory(st, et) 
-        with open('./{}_{}.pickle'.format(filename, days), 'wb') as f:
+        print (rltSet)
+        with open('./data/{}_{}.pickle'.format(filename, days), 'wb') as f:
              pickle.dump(rltSet, f)
   
     # query autogen.slurm_pending and return {ts_in_sec:{state_reason:count}], ...}  
     def getNodeHistory(self, st, et):
-        query   = "select * from autogen.slurm_node_mon1 where "
+        query   = "select * from autogen.slurm_node_mon2 where "
         query   = self.extendQuery (query, st, et, first_flag=True)
         results = self.query(query, "ms")
         points  = list(results.get_points()) # lists of dictionaries
@@ -458,7 +470,7 @@ class InfluxQueryClient:
     def queryJobProc(self, jid, nodelist, start_time, stop_time):
         t1=time.time()
 
-        query     = "select * from one_month.node_proc_info1 where jid = " + str(jid) #jid is integer, show field keys from autogen.node_proc_info
+        query     = "select * from short_term.node_proc_info1 where jid = " + str(jid) #jid is integer, show field keys from autogen.node_proc_info
         query     = self.extendQuery (query, start_time, stop_time, nodelist)
         query_rlt = self.query(query, epoch='s') 
         rlt       = {}
@@ -510,12 +522,16 @@ class InfluxQueryClient:
         query      = "select * from autogen.cpu_load where hostname = '" + node + "' and time >= " + str(int(start_time)) + "000000000 and time <= " + str(int(stop_time)+1) + "000000000"
         query_rlt  = app.query(query)
 
+def daily():
+    app  = InfluxQueryClient()
+    app.savNodeHistory      ()  # default is 7 days
+    app.savJobRequestHistory()
 
 def test1(node):
     stop_time  = time.time()
     start_time = stop_time - 60 * 60   # 1 hour
     app        = InfluxQueryClient()
-    query      = "select * from one_month.node_proc_mon where hostname = '" + node + "' and time >= " + str(int(start_time)) + "000000000 and time <= " + str(int(stop_time)+1) + "000000000"
+    query      = "select * from short_term.node_proc_mon where hostname = '" + node + "' and time >= " + str(int(start_time)) + "000000000 and time <= " + str(int(stop_time)+1) + "000000000"
     print("query {}".format(query))
     query_rlt  = app.query(query)
     print("influxdb query {} take time {}, return {} key and {} records".format(query, time.time()-t1, query_rlt.keys(), len(list(query_rlt.get_points()))))
@@ -552,7 +568,7 @@ def test6():
 
     app         = InfluxQueryClient()
     t1      = time.time()
-    query   = "select * from one_month.node_proc_mon where hostname='" + node + "' and jid=" + str(jid)   #jid is int type in node_proc_mon
+    query   = "select * from short_term.node_proc_mon where hostname='" + node + "' and jid=" + str(jid)   #jid is int type in node_proc_mon
     query   = app.extendQuery(query, start_time, None)
     results = app.query(query)
     print("Influx query take time {}".format(time.time()-t1))
@@ -571,9 +587,8 @@ def test7():
 
 def main():
     t1=time.time()
-    rlt = test7()
+    daily()
 	
- 
     print("main take time " + str(time.time()-t1))
 
 if __name__=="__main__":

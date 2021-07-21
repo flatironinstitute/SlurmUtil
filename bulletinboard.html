@@ -24,7 +24,6 @@
       }}
       window.onload = timedRefresh(INTERVAL_REFRESH * 1000);
 
-
       $(document).ready(() => {{
           var bbData     = {data}
           console.log(bbData)
@@ -49,8 +48,8 @@
             clearDisplay();
             $("#update_time").text(getTS_String(update_time))
             //create table job_table and part_table
-            createTable (low_util,   j_title,  'low_util_table',  'low_util',  undefined, type)
-            createTable (other,      o_title,  'other_table',     'other',     undefined, type)
+            createTable (low_util,   j_title,  'low_util_table',  'low_util',  undefined, type, cluster)
+            createTable (other,      o_title,  'other_table',     'other',     undefined, type, cluster)
             expandTitle ();
             //collapseTitle ();
           }}

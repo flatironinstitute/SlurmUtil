@@ -223,7 +223,6 @@ function prepareGPUData_1 (cluster, nodeData)
    var node_idx   = 0;
    for (d of nodeData) {
        if (d['gpuCount']) {
-          console.log("GPU=",d);
           for (i=0; i<d['gpuCount']; i++) {
               di = Object.assign({}, d)
               di['gpuIdx']   = i

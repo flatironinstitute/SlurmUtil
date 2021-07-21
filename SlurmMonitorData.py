@@ -240,10 +240,16 @@ class SLURMMonitorData(object):
             gpus[gpu_name] = {'label':gpu_label, 'state': gpu_state, 'job': jid}
         return gpus
 
+    
     def getHeatmapWorkerData (self, gpudata, weight, avg_minute=0):
         node2job= self.node2jids
         workers = []  #dataset1 in heatmap
-        for hostname, hostinfo in sorted(self.data.items()):
+        if self.cluster == 'Popeye':
+            sorted_d = sorted(self.data, key=lambda x: x[4:].zfill(5))
+        else:
+            sorted_d = sorted(self.data)
+        for hostname in sorted_d:
+            hostinfo     = self.data[hostname]
             pyslurmNode  = self.pyslurmNodes[hostname]
             node_mem_M   = pyslurmNode['real_memory']
             alloc_jobs   = node2job.get(hostname, [])
