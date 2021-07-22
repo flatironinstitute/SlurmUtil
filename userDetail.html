@@ -45,8 +45,6 @@
           var cluster,update_time,running_jobs,pending_jobs,part_info,job_history,user_assoc,array_het_jids;
           display(clusters[0])
 
-
-
           //$('.table_title + table').hide()
           $('.table_title').toggleClass('table_title_collapse')
           $('.table_title').next().toggleClass('hide')
@@ -96,6 +94,7 @@
              if (cluster == "Popeye") 
                 $("#past_job .table_title").text("Popeye data of finished jobs is coming soon...")
 
+             $("#userJobGraph_link").attr("href", "userJobGraph?cluster=" + cluster + "&user={uname}")
           }}
 
           function clearDisplay () {{
@@ -149,7 +148,7 @@
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="div_running_job">
             <h3 class="table_title">Total <span id="running_jobs_len"></span> Running Jobs
-                (<a href="userJobGraph?user={uname}">Resource Usage</a>
+                (<a id="userJobGraph_link" href="userJobGraph?user={uname}">Resource Usage</a>
                 <span id="gpu_link"></span>)
             </h3>
           </div>

@@ -6,7 +6,7 @@ from functools import reduce
 
 import fs2hc
 import pyslurm
-from queryInflux     import InfluxQueryClient
+from queryInflux     import InfluxQueryClient, CLUSTER_DB
 from querySlurm      import SlurmCmdQuery
 from queryPyslurm    import PyslurmQuery, SlurmEntities, MAX_LIMIT
 from querySlurmDB    import SlurmDBQuery
@@ -1583,28 +1583,30 @@ class SLURMMonitorUI(object):
         return h
 
     #return jobstarttime, data, datadescription
-    def getUserJobMeasurement (self, uid):
+    def getUserJobProc (self, uid, cluster="Flatiron"):
         # get the current jobs of uid
-        uid  = int(uid)
-        jobs = PyslurmQuery.getUserCurrJobs (uid, self.monData.currJobs)
+        monData = self.monDataDict[cluster]
+        uid     = int(uid)
+        jobs    = PyslurmQuery.getUserRunningJobs (uid, monData.currJobs)
         if not jobs:
+            logger.info("Cluster {} cannot find job for {}".format(cluster, uid))
             return None, None, None
-        start = min([j['start_time'] for j in jobs])  #curr jobs always have start_time
 
+        start = min([j['start_time'] for j in jobs])  #curr jobs always have start_time
         # get nodes and period,
         # get the utilization of each jobs
-        #queryClient = InfluxQueryClient.getClientInstance()
-        ifxClient = InfluxQueryClient(self.config['influxdb']['host'])
-        jid2df    = {}
-        jid2dsc   = {}   # jid description
+        ifxClient = InfluxQueryClient(cluster, self.config['influxdb']['host'])
+        jid2df    = {}                                #job data
+        jid2dsc   = {}                                #job description
         for job in jobs:
-            jid          = job['job_id']
+            jid   = job['job_id']
             if job.get('num_nodes',-1) < 1 or not job.get('nodes', None):
-               logger.warning("WARNING getUserJobbMeasurement:job does not have allocated nodes information {}".format(job))
+               logger.warning("Job {} does not have allocated nodes ({})".format(jid, job))
                continue
 
-            #print ("getUserJobMeasurement nodes=" + repr(job['nodes']))
-            ld    = ifxClient.queryJidMonData (job['job_id'], job['start_time'], '', MyTool.convert2list(job['nodes']), ['hostname', 'time', 'cpu_system_util', 'cpu_user_util', 'io_read_bytes', 'io_write_bytes', 'mem_rss_K'])
+            #print ("getUserJobProc nodes=" + repr(job['nodes']))
+            ld    = ifxClient.queryJidMonData (job['job_id'], job['start_time'], '', list(job['cpus_allocated'].keys()), 
+                                               ['hostname', 'time', 'cpu_system_util', 'cpu_user_util', 'io_read_bytes', 'io_write_bytes', 'mem_rss_K'])
             t1    = time.time()
             # sum over hostname to get jobs data, PROBLEM: ts on different host is not synchornized
             df    = pandas.DataFrame (ld)
@@ -1627,7 +1629,9 @@ class SLURMMonitorUI(object):
 
             jid2df[jid]  = sumDf
             jid2dsc[jid] = '{} ({}, {} CPUs)'.format(jid, job['nodes'], job['num_cpus'])
-            logger.info('getUserJobMeasurement reconstruct result takes {}'.format(time.time()-t1))
+            logger.info('getUserJobProc reconstruct result takes {}'.format(time.time()-t1))
+
+        del ifxClient
         return start, jid2df, jid2dsc
 
     def getWaitMsg (self):
@@ -1635,12 +1639,12 @@ class SLURMMonitorUI(object):
         return WAIT_MSG + repr(elapse_time) + " seconds since server restarted."
 
     @cherrypy.expose
-    def userJobGraph(self,user,start='', stop=''):
+    def userJobGraph(self,user,start='', stop='',cluster="Flatiron"):
         #if not self.monData.hasData(): return self.getWaitMsg()
 
         #{jid: df, ...}
-        uid                      = MyTool.getUid(user)
-        start, jid2df, jid2dsc   = self.getUserJobMeasurement (uid)
+        uid                      = MyTool.getUid(user, cluster)
+        start, jid2df, jid2dsc   = self.getUserJobProc (uid, cluster)
         if not jid2df:          return "User does not have running jobs at this time"
 
         #{'name': jid, 'data':[[ts, value], ...]
