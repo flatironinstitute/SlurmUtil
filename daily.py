@@ -10,11 +10,6 @@ def getTS_strftime (ts, fmt='%Y/%m/%d'):
     d = datetime.fromtimestamp(ts)
     return d.strftime(fmt)
 
-def influxPickle():
-    app  = InfluxQueryClient()
-    app.savNodeHistory      ()  # default is 7 days
-    app.savJobRequestHistory()
-
 if __name__=="__main__":
    parser = argparse.ArgumentParser(description='Collect CPU and other resources (mem, io) utilization data')
    parser.add_argument('-y', '--years',    type=int, default=3,  help='years of history used to make day prediction')
@@ -43,8 +38,10 @@ if __name__=="__main__":
 
        # generate pickle file
        print("--- Query influx")
-       influxPickle()
+       InfluxQueryClient.daily()
+
    # generate summary usage file
+
    SlurmDBQuery.sum_assoc_usage_day('slurm_plus')
    SlurmDBQuery.sum_job_step       ('slurm')
 

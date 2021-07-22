@@ -128,13 +128,13 @@ def gendata_all(fs, start='', stop='', topN=5):
     uid2seq1 = []  #{ uid: [(ts, value), ...], ...}
     for uid in top_uid1:
         uidDf         = dfg.get_group(uid).reset_index()
-        uname         = MyTool.getUser(uid, True)
+        uname         = MyTool.getUser(uid, fakeName=True)
         uid2seq1.append ({'name': uname, 'data': uidDf.loc[:,['ts','fc']].values.tolist()})
         
     uid2seq2 = []  #{ uid: [(ts, value), ...], ...}
     for uid in top_uid2:
         uidDf         = dfg.get_group(uid).reset_index()
-        uname         = MyTool.getUser(uid, True)
+        uname         = MyTool.getUser(uid, fakeName=True)
         uid2seq2.append ({'name': uname, 'data': uidDf.loc[:,['ts','bc']].values.tolist()})
         
     return uid2seq1, uid2seq2

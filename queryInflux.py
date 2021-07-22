@@ -15,6 +15,7 @@ logger   = config.logger
 APP_CONF = config.APP_CONFIG
 ONE_DAY_SECS = 86400
 
+CLUSTER_DB = {"Flatiron":"slurmdb_2", "Popeye":"popeye"}
 class InfluxQueryClient:
     Interval = 61
     LOCAL_TZ = timezone(timedelta(hours=-4))
@@ -27,13 +28,17 @@ class InfluxQueryClient:
 
         return cls.CLIENT_INS
 
-    def __init__(self, influxServer=None, dbname=None):
+    def __init__(self, cluster="Flatiron", influxServer=None):
+        self.cluster = cluster
         if not influxServer:
            influxServer = APP_CONF['influxdb']['host']
-        if not dbname:
-           dbname       = APP_CONF['influxdb']['db']
-        self.influx_client = self.connectInflux (influxServer, 8086, dbname)
+        port         = APP_CONF['influxdb']['port']
+        dbname       = CLUSTER_DB[cluster]
+        self.influx_client = self.connectInflux (influxServer, port, dbname)
         logger.info("influx_client= " + repr(self.influx_client._baseurl))
+
+    def __del__(self):
+        self.influx_client.close()
 
     def connectInflux (self, host, port, dbname):
         return influxdb.InfluxDBClient(host, port, "yliu", "", dbname)
@@ -282,15 +287,15 @@ class InfluxQueryClient:
         return nodeDataDict
     
     def getSavedNodeHistory (self, filename='nodeHistory', days=7):
-        with open('./data/{}_{}.pickle'.format(filename, days), 'rb') as f:
+        with open('./data/{}_{}_{}.pickle'.format(self.cluster, filename, days), 'rb') as f:
              rltSet = pickle.load(f)
         return rltSet
         
-    def savNodeHistory      (self, filename='nodeHistory', days=7):
+    def savNodeHistory (self, filename='nodeHistory', days=7):
         st,et  = MyTool.getStartStopTS (days=days)
         rltSet = self.getNodeHistory(st, et) 
-        print (rltSet)
-        with open('./data/{}_{}.pickle'.format(filename, days), 'wb') as f:
+        #print (rltSet)
+        with open('./data/{}_{}_{}.pickle'.format(self.cluster, filename, days), 'wb') as f:
              pickle.dump(rltSet, f)
   
     # query autogen.slurm_pending and return {ts_in_sec:{state_reason:count}], ...}  
@@ -334,7 +339,7 @@ class InfluxQueryClient:
         return ts2AllocNodeCnt, ts2MixNodeCnt, ts2IdleNodeCnt, ts2DownNodeCnt, ts2AllocCPUCnt, ts2MixCPUCnt, ts2IdleCPUCnt, ts2DownCPUCnt 
 
     def getSavedJobRequestHistory (self, filename='jobRequestHistory', days=7):
-        with open('./data/{}_{}.pickle'.format(filename, days), 'rb') as f:
+        with open('./data/{}_{}_{}.pickle'.format(self.cluster, filename, days), 'rb') as f:
              rltSet = pickle.load(f)
        
         return rltSet 
@@ -342,7 +347,7 @@ class InfluxQueryClient:
     def savJobRequestHistory      (self, filename='jobRequestHistory', days=7):
         st,et  = MyTool.getStartStopTS (days=days)
         rltSet = self.getJobRequestHistory(st, et) 
-        with open('./data/{}_{}.pickle'.format(filename, days), 'wb') as f:
+        with open('./data/{}_{}_{}.pickle'.format(self.cluster, filename, days), 'wb') as f:
              pickle.dump(rltSet, f)
   
     def getJobRequestHistory(self, st, et):
@@ -522,10 +527,13 @@ class InfluxQueryClient:
         query      = "select * from autogen.cpu_load where hostname = '" + node + "' and time >= " + str(int(start_time)) + "000000000 and time <= " + str(int(stop_time)+1) + "000000000"
         query_rlt  = app.query(query)
 
-def daily():
-    app  = InfluxQueryClient()
-    app.savNodeHistory      ()  # default is 7 days
-    app.savJobRequestHistory()
+    def daily():
+      for cluster in ["Flatiron", "Popeye"]:
+       app  = InfluxQueryClient(cluster)
+    
+       app.savNodeHistory      ()  # default is 7 days
+       app.savJobRequestHistory()
+       del app
 
 def test1(node):
     stop_time  = time.time()
@@ -587,7 +595,7 @@ def test7():
 
 def main():
     t1=time.time()
-    daily()
+    InfluxQueryClient.daily()
 	
     print("main take time " + str(time.time()-t1))
 

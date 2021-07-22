@@ -208,6 +208,8 @@ pip install influxdb
 pip install python-ldap
 pip install seaborn
 pip install python-dateutil
+pip install holidays
+pip install matplotlib
 ```
 
 Python virtual environment with packages:

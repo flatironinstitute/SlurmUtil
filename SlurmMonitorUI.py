@@ -223,13 +223,15 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def clusterHistory(self, start='', stop='', days=7):
+    def clusterHistory(self, cluster="Flatiron", start='', stop='', days=7):
         start, stop  = MyTool.getStartStopTS (start, stop)
 
         #influxClient = InfluxQueryClient.getClientInstance()
-        influxClient = InfluxQueryClient(self.config['influxdb']['host'])
+        influxClient = InfluxQueryClient(cluster, self.config['influxdb']['host'])
         ts2AllocNodeCnt, ts2MixNodeCnt, ts2IdleNodeCnt, ts2DownNodeCnt, ts2AllocCPUCnt, ts2MixCPUCnt, ts2IdleCPUCnt, ts2DownCPUCnt= influxClient.getSavedNodeHistory(days=days)
         runJidSet, ts2ReqNodeCnt, ts2ReqCPUCnt, pendJidSet, ts2PendReqNodeCnt, ts2PendReqCPUCnt = influxClient.getSavedJobRequestHistory (days=days)
+        del influxClient
+
         #it is more difficult to get the node number from running jobs as they may share
         series11  = [
                      {'name': 'Allocated Nodes', 'data':[[ts, cnt] for ts, cnt in ts2AllocNodeCnt.items()]},
@@ -256,8 +258,9 @@ class SLURMMonitorUI(object):
                      {'name': 'Pending Job Requested CPUs',       'data':[[ts, cnt] for ts, cnt in ts2PendReqCPUCnt.items()]},
                     ]
 
-        htmlTemp = os.path.join(config.APP_DIR, 'jobResourceReport.html')
-        h = open(htmlTemp).read().format(start=time.strftime('%Y-%m-%d', time.localtime(start)),
+        htmlTemp = os.path.join(config.APP_DIR, 'clusterHistory.html')
+        h = open(htmlTemp).read().format(cluster=cluster,
+                                         start=time.strftime('%Y-%m-%d', time.localtime(start)),
                                          stop =time.strftime('%Y-%m-%d', time.localtime(stop)),
                                          series_11=series11, series_12=series12, xlabel1='Node Count',
                                          series_21=series21, series_22=series22, xlabel2='CPU Count')

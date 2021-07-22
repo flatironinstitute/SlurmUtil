@@ -48,7 +48,6 @@ def getUserSettings (user):
        return APP_CONFIG["settings"]
 def readConfigFile (configFile):
    configFile = os.path.join(APP_DIR, configFile)
-   print(configFile)
    if os.path.isfile(configFile):
       with open(configFile) as config_file:
           cfg= json.load(config_file)
@@ -75,9 +74,7 @@ logger        = MyTool.getFileLogger(APP_NAME, logging.DEBUG)
 if not os.path.isfile('config/config.json'):
    print("no config file")
 readConfigFile('config/config.json')        #default config file
-print(APP_CONFIG)
 addHttpLog    ('localhost:{}'.format(APP_CONFIG["port"]))
-
 
 def savUserSettings (user, settings):
     filename = os.path.join(APP_DIR, 'config/{}_settings.json'.format(user))

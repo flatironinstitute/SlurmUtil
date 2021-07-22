@@ -49,23 +49,27 @@
           console.log(data);
           console.log(update_time);
           // fill in cluster options
-          addSelectOption ('cluster', clusters)
+          addSelectOption ('sel_cluster', clusters)
           if (user) {{
              console.log("user=",user)
              $("#user").append(', <a href="./userDetails?user=' + user + '">User ' + user + " Detail</a>")
           }}
           //init
-          $("#update_time").html(getTS_String(update_time[clusters[0]]))
-          $("#cluster").val(clusters[0])
-          createSummaryTable (data[clusters[0]], display_title, 'summary_table',  'summary', displayType, summaryType, alarm_lst, cluster=clusters[0]);
-          $('#cluster').change(function() {{ 
+          display(clusters[0])
+
+          $('#sel_cluster').change(function() {{ 
             // get the current selection and createSummaryTable
             var curr = $(this).val()
-            console.log(curr + " ts=" + update_time[curr] )
+
             $("#summary").html("");
-            $("#update_time").html(getTS_String(update_time[curr],' '))
-            createSummaryTable (data[curr], display_title, 'summary_table',  'summary', displayType, summaryType, alarm_lst, cluster=curr);
+            display(curr)
           }}) 
+
+          function display(curr) {{
+            $("#update_time").html(getTS_String(update_time[curr],' '))
+            $("#history_link").attr("href", "clusterHistory?cluster="+curr+"&days=7")
+            createSummaryTable (data[curr], display_title, 'summary_table',  'summary', displayType, summaryType, alarm_lst, cluster=curr);
+          }}
       }});
     </script>
   </head>
@@ -87,8 +91,8 @@
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
             <h3>
-              <select id="cluster" name="cluster"></select> Nodes & Jobs 
-              (<small><a href="./clusterHistory?days=7">Cluster History</a></small><small id="user"></small>)
+              <select id="sel_cluster" name="sel_cluster"></select> Nodes & Jobs 
+              (<small><a id="history_link">Cluster History</a></small><small id="user"></small>)
             </h3>
           </div>
           <div class="section__div" id="summary"></div>
