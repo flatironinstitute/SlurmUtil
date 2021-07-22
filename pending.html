@@ -71,6 +71,7 @@
              $('#job_table>tbody>tr:not([data-group-idx="0"])').find('td:first').addClass('group_sub')  //group_sub means the toggle ones under a group
              $('#job_table td.group_plus').html(function(i, origText) {{ var cnt=$(this).attr('group-cnt'); return origText + "<i>, ... Total " + cnt + " jobs</i>"; }})
              $('#job_table>tbody>tr:not([data-group-idx="0"])').hide()
+             $('#history_link').attr("href", "./pending_history?days=7&cluster="+cluster)
           }}
 
           function clearDisplay () {{
@@ -109,7 +110,7 @@
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="pending_jobs">
             <h3><select id="cluster" name="cluster"></select> Pending Queue: <font id="pending_job_count"></font> Jobs</h3>
-            <p>Click to see (<a href="./pending_history?days=7"> history of last 7 days</a>)</p>
+            <p>Click to see (<a id="history_link"> history of last 7 days</a>)</p>
           </div>
           <div class="section__div" id="note">
             <h3>Administrator Notes:</h3>

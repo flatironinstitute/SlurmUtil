@@ -68,14 +68,14 @@
           d3.selectAll("svg > *").remove();
           var legend_svg = createLegend("#legend_svg", legend_width, legend_height, acctColor, gridSize);
           var svg        = createSVG   ("#node_svg", ".label", labels, svg_width, svg_height, margin,     gridSize)
-          createHeatMap    (svg,     data,     acctColor, gridSize, disp_attr)
+          createHeatMap    (svg,     data,     acctColor, gridSize, disp_attr, cluster)
           $("#update_time").html(getTS_String(heatmapData[cluster][0]))
           
           if (gpu_data.length>0) {
            
              $("#gpu_update").html(getTS_String(heatmapData[cluster][4]))
              var gpu_svg  = createGPUSVG ("#gpu_svg",  ".gpuNodeLabel", ".gpuLabel", gpu_labels, gpu_width, gpu_height, gpu_margin, gpu_gridSize)
-             createGPUHeatMap (gpu_svg, gpu_data, acctColor, gpu_gridSize)
+             createGPUHeatMap (gpu_svg, gpu_data, acctColor, gpu_gridSize, cluster)
           }
       };
 

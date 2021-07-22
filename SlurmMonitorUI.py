@@ -280,12 +280,12 @@ class SLURMMonitorUI(object):
         return 'Other'
 
     @cherrypy.expose
-    def pending_history(self, start='', stop='', days=''):
+    def pending_history(self, cluster="Flatiron", start='', stop='', days=7):
         note         = ''
-        days         = int(days) if days else 7
+        days         = int(days)
         start, stop  = MyTool.getStartStopTS (start, stop, days, setStop=False)
 
-        influxClient = InfluxQueryClient(self.config['influxdb']['host'])
+        influxClient = InfluxQueryClient(cluster, self.config['influxdb']['host'])
         start, stop, tsReason2Cnt = influxClient.getPendingCount(start, stop)
         reasons      = [set(reasons.keys()) for ts, reasons in tsReason2Cnt.items()]
         reasons      = set([i2 for item in reasons for i2 in item])  # the unique reasons
@@ -314,7 +314,7 @@ class SLURMMonitorUI(object):
         htmlTemp   = os.path.join(config.APP_DIR, 'pendingJobReport.html')
         h          = open(htmlTemp).read().format(start=time.strftime(DATE_DISPLAY_FORMAT, time.localtime(start)),
                                                   stop =time.strftime(DATE_DISPLAY_FORMAT, time.localtime(stop)),
-                                                  series1=series1, title1='Cluster Job Queue Length', xlabel1='Queue Length',
+                                                  series1=series1, title1=cluster + ' Job Queue Length', xlabel1='Queue Length',
                                                   other_reason=list(other_reason_set),
                                                   note=note)
 

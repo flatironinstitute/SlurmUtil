@@ -38,6 +38,9 @@ function percent2str(percent) {
 function getInfoAlarmHtml (str) {
     return '<em class="inform">'+str+'</em>';
 };
+function getJobDetailHref (jid, cluster="Flatiron") {
+    return './jobDetails?jid=' + jid + '&cluster=' + cluster
+};
 function getJobDetailHtml (jid, cluster="Flatiron") {
     return '<a href=./jobDetails?jid=' + jid + '&cluster=' + cluster + '>' + jid + '</a>'
 };
@@ -91,11 +94,14 @@ function getPartitionListHtml(p_list, cluster="Flatiron") {
     var html_list = p_list.map( function(p) {return getPartDetailHtml(p, cluster);} )
     return html_list.join(',')
 }
+function getNodeDetailHref (id, cluster="Flatiron") {
+   return './nodeDetails?node=' + id + '&cluster=' + cluster
+}
 function getNodeDetailHtml (id, cluster="Flatiron") {
     return '<a href=./nodeDetails?node=' + id + '&cluster=' + cluster + '>' + id + '</a>'
 }
-function getQoSDetailHtml (id) {
-    return '<a href=./qosDetail?qos=' + id + '>' + id + '</a>'
+function getQoSDetailHtml (id, cluster="Flatiron") {
+    return '<a href=./qosDetail?qos=' + id + '&cluster=' + cluster + '>' + id + '</a>'
 }
 //return 2/23/2021, 10:18:02
 function getTS_LString (ts_sec) {
@@ -236,7 +242,6 @@ function addSelectOption (parent_id, options) {
        else
           $('#' + parent_id).append ('<option value="' + options[i] + '">' + options[i] + '</option>');
    }
-
 }
 
 

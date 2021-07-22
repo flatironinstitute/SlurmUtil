@@ -75,7 +75,7 @@ function createLegend (svg_id, width, height, acctColor, gridSize) {
     return legend_svg;
 };
 
-function createHeatMap(svg, data, acctColor, gridSize, colorAttr="util") 
+function createHeatMap(svg, data, acctColor, gridSize, colorAttr="util", cluster) 
 {
           //svg.selectAll("*:not(text)").remove()
           //svg.selectAll("*").remove()
@@ -93,9 +93,9 @@ function createHeatMap(svg, data, acctColor, gridSize, colorAttr="util")
               .attr("value", function (d) {return d["util"]})
               .on("dblclick", function(d) {
                               if (d3.event.shiftKey) { // Ctrl seems not working with MacOS
-                                 location.href="jobDetails?jid="+d["jobs"]
+                                 location.href=getJobDetailHref (d["jobs"], cluster)
                               } else {
-                                 location.href="nodeDetails?node="+d["name"]
+                                 location.href=getNodeDetailHref(d["name"], cluster)
                               }})
               .on("click", function(d) {
                               $(".popout").removeClass("popout");
@@ -271,7 +271,7 @@ function getColorScale(d, useAccountColor) {
        return colorScale
 };
 
-function createGPUHeatMap(svg, gpuData, acctColor, gridSize) 
+function createGPUHeatMap(svg, gpuData, acctColor, gridSize, cluster="Flatiron") 
 {
    console.log("createGPUHeatMap, gpuData=", gpuData);
           var cards = svg.selectAll(".gpu")
@@ -288,9 +288,9 @@ function createGPUHeatMap(svg, gpuData, acctColor, gridSize)
               .attr("value", function (d) {return d["gpu"+d["gpuIdx"]]})
               .on("dblclick", function(d) {
                               if (d3,event.ctrlKey) {
-                                 location.href="jobDetails?jid="+d["jobs"]
+                                 location.href=getJobDetailHref(d["jobs"], cluster)
                               } else {
-                                 location.href="nodeDetails?node="+d["name"]
+                                 location.href=getNodeDetailHref(d["name"],cluster)
                               }})
               .on("click", function(d) {
                               var keyArr=d["jobs"];

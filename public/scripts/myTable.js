@@ -209,7 +209,7 @@ function getTypedValueHtml (d_value, d_type, cluster)
       return '';
    var func = DISPLAY_FUNC[d_type]
    if (func) {
-      if (["job","job_list", "job_list_summary", "job_step", "node", 'partition', 'partition_list'].includes(d_type)) {
+      if (["job","job_list", "job_list_summary", "job_step", "node", 'partition', 'partition_list', 'qos'].includes(d_type)) {
          return func(d_value, cluster);
       }
       else      

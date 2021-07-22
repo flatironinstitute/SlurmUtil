@@ -640,7 +640,8 @@ class SlurmEntities:
       pa_node, pa_cpu, pa_node_lst, features, conflict_res = self.getPartitionAvailNodeCPU (p_name, job, higherPending=higherJobs)
       pa_node_str                                          = '{}'.format(pa_node)
       if pa_node:
-         pa_node_str = '{} ({})'.format(pa_node,['<a href=./nodeDetails?node={node_name}>{node_name}</a>'.format(node_name=node) for node in sorted(pa_node_lst)])
+         #pa_node_str = '{} ({})'.format(pa_node,['<a href=./nodeDetails?node={node_name}>{node_name}</a>'.format(node_name=node) for node in sorted(pa_node_lst)])
+         pa_node_str = '{} ({})'.format(pa_node,['{node_name}'.format(node_name=node) for node in sorted(pa_node_lst)])
       state_exp      = state_exp.format(partition=p_name, avail_node=pa_node_str, avail_cpu=pa_cpu, feature='({0})'.format(features))
       if job.get('state_reason_desc',None): #modify pyslurm to add state_reason_desc 02/27/2020
          state_exp   = '{} ({}). {} '.format(job['state_reason_desc'].replace('_',' '), [res['job_id'] for res in conflict_res], state_exp)
