@@ -13,7 +13,7 @@
 
       $(document).ready(function(){{
           var qos          = {qos}
-          var qos_disp_fld = {{'priority':'Priority','max_tres_pu':'Max TRES/User','max_jobs_pu':'Max Jobs/User','max_tres_pj':'Max Tres/Job', 'max_wall_pj':'Max Wall Time/Job','min_tres_pj':'Min TRES/Job','preempt_mode':'Preempt'}}
+          var qos_disp_fld = {{'priority':'Priority','max_tres_pu':'Max TRES/User','max_jobs_pu':'Max Jobs/User','max_tres_pj':'Max Tres/Job', 'max_wall_pj':'Max Wall Time/Job','min_tres_pj':'Min TRES/Job','preempt_mode':'Preempt', 'note':'Note'}}
 
           $("#qos_name").text(qos.name)
           createList  (qos,   qos_disp_fld, '#details', {{'max_tres_pu':'TresInteger','max_tres_pj':'TresInteger','min_tres_pj':'TresInteger'}});
@@ -22,7 +22,7 @@
   </head>
   <body>
     <h3>
-      QoS <font id="qos_name"></font>:
+      {cluster} QoS <font id="qos_name"></font>:
       <a href="./"><p class="home">Home</p></a>
     </h3>
     <p><i>Update time: {update_time}</i></p>

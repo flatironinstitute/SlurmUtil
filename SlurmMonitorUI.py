@@ -15,6 +15,8 @@ from queryBright     import BrightRestClient
 from IndexedDataFile import IndexedHostData
 from EmailSender     import JobNoticeSender
 from bulletinboard   import BulletinBoard
+from inspect import getmembers, isfunction
+
 
 import config, sessionConfig
 import MyTool
@@ -57,12 +59,13 @@ class SLURMMonitorUI(object):
         return self.userDetails(user)
 
     @cherrypy.expose
-    def qosDetail(self, qos='gpu'):
-        qos           = pyslurm.qos().get()[qos]
-        #ts_qos        = py_qos.lastUpdate()   # does not have lastUpdate
+    def qosDetail(self, qos, cluster="Flatiron"):
+        pyslurmData   = self.monDataDict[cluster].pyslurmData
+        qosData       = PyslurmQuery.getQoSDict(cluster,pyslurmData).get(qos, {'name':qos, 'note':"No data yet. Please come back to check."})
         htmlTemp      = os.path.join(config.APP_DIR, 'qosDetail.html')
-        htmlStr       = open(htmlTemp).read().format(update_time=MyTool.getTsString(time.time()),
-                                                     qos        =json.dumps(qos))
+        htmlStr       = open(htmlTemp).read().format(cluster    = cluster,
+                                                     update_time=MyTool.getTsString(time.time()),
+                                                     qos        =json.dumps(qosData))
         return htmlStr
 
     @cherrypy.expose
@@ -1016,7 +1019,7 @@ class SLURMMonitorUI(object):
            monData       = self.monDataDict[cluster]
            userAssoc     = self.slurmCmdDict[cluster].getUserAssoc(user)
         
-           if not userAssoc and (clsuter=="Flatiron"):
+           if not userAssoc and (cluster=="Flatiron"):
               return 'Cannot find user {}!'.format(user)
            uid           = MyTool.getUid(user, cluster)
            if not uid and (cluster=="Flatiron"):

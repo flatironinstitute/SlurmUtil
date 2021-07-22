@@ -13,11 +13,18 @@ from querySlurm  import SlurmCmdQuery
 logger    = config.logger
 MAX_LIMIT = 2**32 - 1  #429496729, biggest integer
 
-class PyslurmQuery():
+class PyslurmQuery():    
     @staticmethod
     def getAllNodes ():
         return pyslurm.node().get()
-
+    
+    @staticmethod
+    def getQoSDict (cluster="Flatiron", pyslurmData=None):
+      qos    = pyslurmData.get("qos", {}) if pyslurmData else {}
+      if cluster=="Flatiron":          # local cluster
+         qos = pyslurm.qos().get()
+      return qos
+ 
     @staticmethod
     def getGPUNodes (pyslurmNodes):
         #TODO: need to change max_gpu_cnt if no-GPU node add other gres
@@ -150,6 +157,7 @@ class PyslurmQuery():
             else:                 # cannot be converted
                logger.error("Cannot find/map reqested job field {} in job {}".format(f, job))
         return job
+
 
 #TODO: job['num_tasks'] what is it
 PEND_EXP={
@@ -1002,8 +1010,13 @@ class SlurmEntities:
 #|    1559052921 |       0 | 1001 | gres           | gpu  |
 #+---------------+---------+------+----------------+------+
 
+def test1():
+    d = PyslurmQuery.getQoSDict()
+    print(d)
+
 if __name__ == "__main__":
-    SlurmEntities.test2()
+    test1()
+    #SlurmEntities.test2()
     #ins = SlurmEntities()
     #ins.getPendingJobs()
     #ins.getUserPartition('agabrielpillai')
