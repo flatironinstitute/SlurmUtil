@@ -1443,8 +1443,8 @@ class SLURMMonitorUI(object):
     def nodeJobProcGraph_file(self, node, jobid):
         return None
 
-    def nodeJobProcGraph_influx(self, node, jobid, start):
-        influxClient     = InfluxQueryClient()
+    def nodeJobProcGraph_influx(self, node, jobid, start, cluster):
+        influxClient     = InfluxQueryClient(cluster)
         first, last, seq = influxClient.getNodeJobProcData(node, jobid, start)  #{pid: [(ts,cpu, mem, io_r, io_w) ... ]}
         if not seq:
            return None
@@ -1549,8 +1549,8 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def nodeJobProcGraph(self, node, jid, days=3, cluster="Flatiron"):
-        jobid = int(jid)
-        job   = self.monData.getJob (jobid, req_fields=['start_time'])
+        jobid      = int(jid)
+        job        = self.monDataDict[cluster].getJob (jobid, req_fields=['start_time'])
         start,stop = MyTool.getStartStopTS(days=days)
         if not job:
            return 'Job {}: cannot find the job.'.format(jobid)
@@ -1560,7 +1560,7 @@ class SLURMMonitorUI(object):
         note  = 'cache'
         if not msg:
            logger.info('Job {}: no data in cache'.format(jobid))
-           msg = self.nodeJobProcGraph_influx(node, jobid, max(start,job['start_time']))
+           msg = self.nodeJobProcGraph_influx(node, jobid, max(start,job['start_time']), cluster)
            note= 'influx'
         if not msg:
            logger.info('Job {}: no data returned from influx'.format(jobid))

@@ -50,9 +50,9 @@ function createMultiTitle (data_dict, parent_id, job_id, cluster="Flatiron") {
 }
 
 //data_dict is a dictionary of a fixed format
-function createMultiTable (data_dict, parent_id, table_title_list, job_id, no_head=false) {
+function createMultiTable (data_dict, parent_id, table_title_list, job_id, no_head=false, cluster="Flatiron") {
    console.log("createMultiTable: data_dict=", data_dict, ", table_title_list=", table_title_list)
-   var pas    = createMultiTitle (data_dict, parent_id, job_id)
+   var pas    = createMultiTitle (data_dict, parent_id, job_id, cluster)
    var tables = pas.append('table').property('id', function(d) {return d+'_proc'}).attr('class','noborder')
    if (!no_head)
       var theads = tables.append('thead')

@@ -44,7 +44,7 @@
                  '#div_job_info', 'job_info')
 
           if ({worker_proc}) {{
-             createMultiTable ({worker_proc}, '#div_worker_proc', {title_list}, {job_id})
+             createMultiTable ({worker_proc}, '#div_worker_proc', {title_list}, {job_id}, false, cluster)
           }}
           createTable ({job_report}, j_h_titles,  'job_history_table', 'job_report', undefined, {{'JobID':'JobAndStep'}}, cluster)
           $("#node_cnt").text(j_info['AllocNodes'])
@@ -52,7 +52,6 @@
 
           if (job['job_state'] != 'PENDING') {{
              var html_str = '<a href="' + getJobGraphHref({job_id}, cluster) + '">CPU Usage Graph</a>'
-             console.log("----------", html_str)
              if (('gres_detail' in job && job['gres_detail'].length) || j_info['AllocGRES']) // finished job cannot find GPU idx
                 html_str = html_str + ", <a href='jobGPUGraph?jid=" + {job_id} + "'>GPU Usage Graph</a>"
              $("#usageLink").html("(" + html_str + ")")
