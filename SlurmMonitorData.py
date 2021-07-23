@@ -98,16 +98,8 @@ class SLURMMonitorData(object):
         return '({},{})'.format(self.updateTS, self.pyslurmJobs)
 
     @cherrypy.expose
-    def getRawNodeData(self):
-        return repr(self.pyslurmNodes)
-
-    @cherrypy.expose
     def getNode2Jobs1 (self):
         return "{}".format(self.node2jids)
-
-    @cherrypy.expose
-    def getPyJobs (self):
-        return "{}".format(self.pyslurmJobs)
 
     @cherrypy.expose
     def getPyslurmData (self):
@@ -518,11 +510,11 @@ class SLURMMonitorData(object):
 
     def extractSlurmData (self, d):
         updateTS, hn2info, pyslurmData = cPickle.loads(zlib.decompress(d))
-        pyslurmJobs  = pyslurmData['jobs']
-        pyslurmNodes = pyslurmData['nodes']
-        updateTS  = int(updateTS)
-        currJobs  = dict([(jid,job) for jid, job in pyslurmJobs.items() if job['job_state'] in ['RUNNING', 'CONFIGURING']])
-        node2jids = SLURMMonitorData.createNode2Jids (currJobs)
+        pyslurmJobs                    = pyslurmData['jobs']
+        pyslurmNodes                   = pyslurmData['nodes']
+        updateTS                       = int(updateTS)
+        currJobs                       = dict([(jid,job) for jid, job in pyslurmJobs.items() if job['job_state'] in ['RUNNING', 'CONFIGURING']])
+        node2jids                      = SLURMMonitorData.createNode2Jids (currJobs)
 
         nodeData  = {}
         for node,nInfo in hn2info.items():

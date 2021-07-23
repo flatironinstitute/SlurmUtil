@@ -229,8 +229,7 @@ class SLURMMonitorUI(object):
     def clusterHistory(self, cluster="Flatiron", start='', stop='', days=7):
         start, stop  = MyTool.getStartStopTS (start, stop)
 
-        #influxClient = InfluxQueryClient.getClientInstance()
-        influxClient = InfluxQueryClient(cluster, self.config['influxdb']['host'])
+        influxClient = InfluxQueryClient(cluster)
         ts2AllocNodeCnt, ts2MixNodeCnt, ts2IdleNodeCnt, ts2DownNodeCnt, ts2AllocCPUCnt, ts2MixCPUCnt, ts2IdleCPUCnt, ts2DownCPUCnt= influxClient.getSavedNodeHistory(days=days)
         runJidSet, ts2ReqNodeCnt, ts2ReqCPUCnt, pendJidSet, ts2PendReqNodeCnt, ts2PendReqCPUCnt = influxClient.getSavedJobRequestHistory (days=days)
         del influxClient
@@ -285,7 +284,7 @@ class SLURMMonitorUI(object):
         days         = int(days)
         start, stop  = MyTool.getStartStopTS (start, stop, days, setStop=False)
 
-        influxClient = InfluxQueryClient(cluster, self.config['influxdb']['host'])
+        influxClient = InfluxQueryClient(cluster)
         start, stop, tsReason2Cnt = influxClient.getPendingCount(start, stop)
         reasons      = [set(reasons.keys()) for ts, reasons in tsReason2Cnt.items()]
         reasons      = set([i2 for item in reasons for i2 in item])  # the unique reasons
@@ -913,10 +912,9 @@ class SLURMMonitorUI(object):
         else:
            return None
 
-    def nodeGraph_influx(self, node, start, stop):
+    def nodeGraph_influx(self, node, start, stop, cluster="Flatiron"):
         # highcharts
-        #influxClient = InfluxQueryClient()
-        influxClient = InfluxQueryClient(self.config['influxdb']['host'])
+        influxClient = InfluxQueryClient(cluster)
         uid2seq,start,stop = influxClient.getSlurmNodeMonData(node,start,stop)
         if not uid2seq:
            return None
@@ -1153,11 +1151,11 @@ class SLURMMonitorUI(object):
                                    'series2'   : json.dumps(series2)}
         return h
 
-    def getDoneJobProc (self, jid, job_report):
+    def getDoneJobProc (self, jid, job_report, cluster="Flatiron"):
         if job_report['End'] == 'Unknown':
            return {}, [], 'Can not find end time for a finished job'
 
-        influxClient = InfluxQueryClient(self.config['influxdb']['host'])
+        influxClient = InfluxQueryClient(cluster)
         node2procs   = influxClient.queryJobProc (jid, MyTool.nl2flat(job_report['NodeList']), MyTool.str2ts(job_report['Start']), MyTool.str2ts(job_report['End']))
         if not node2procs:
            return "WARNING: no record of user's process has been saved in the database.", {}
@@ -1549,7 +1547,7 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def nodeJobProcGraph(self, node, jid, days=3):
+    def nodeJobProcGraph(self, node, jid, days=3, cluster="Flatiron"):
         jobid = int(jid)
         job   = self.monData.getJob (jobid, req_fields=['start_time'])
         start,stop = MyTool.getStartStopTS(days=days)
@@ -1598,7 +1596,7 @@ class SLURMMonitorUI(object):
         start = min([j['start_time'] for j in jobs])  #curr jobs always have start_time
         # get nodes and period,
         # get the utilization of each jobs
-        ifxClient = InfluxQueryClient(cluster, self.config['influxdb']['host'])
+        ifxClient = InfluxQueryClient(cluster)
         jid2df    = {}                                #job data
         jid2dsc   = {}                                #job description
         for job in jobs:
@@ -1678,15 +1676,15 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def userGraph(self,user,start='', stop=''):
-        uid          = MyTool.getUid(user)
+    def userGraph(self,user,start='', stop='', cluster="Flatiron"):
+        uid          = MyTool.getUid(user, cluster)
         start, stop  = MyTool.getStartStopTS (start, stop, formatStr='%Y-%m-%d')
 
-        return self.userNodeGraphData(uid, user, start, stop)
+        return self.userNodeGraphData(uid, user, start, stop, cluster)
 
-    def userNodeGraphData (self, uid, uname, start, stop):
+    def userNodeGraphData (self, uid, uname, start, stop, cluster):
         #{hostname: {ts: [cpu, io, mem] ... }}
-        influxClient = InfluxQueryClient(self.config['influxdb']['host'])
+        influxClient = InfluxQueryClient(cluster)
         node2seq     = influxClient.getSlurmUidMonData_All(uid, start,stop)
 
         mem_all_nodes = []  ##[{'data': [[1531147508000(ms), value]...], 'name':'workerXXX'}, ...]

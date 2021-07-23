@@ -33,15 +33,15 @@ function getDisplayFloat (n) {
    }
 }
 
-function createMultiTitle (data_dict, parent_id, job_id) {
+function createMultiTitle (data_dict, parent_id, job_id, cluster="Flatiron") {
    var pas = d3.select(parent_id).selectAll('p')
                .data(Object.keys(data_dict))
                .enter().append('div')
    pas.append('p')
       .attr('class', 'thick table_title')
       .html(function (d) {
-               var procLink = '<a href="./nodeJobProcGraph?node=' + d + '&jid=' + job_id + '"> (Proc Usage Graph) </a>'
-               var rlt      = '<a href="./nodeDetails?node=' + d + '">' + d + '</a>: ' + data_dict[d][1] + ' processes'
+               var procLink = '<a href="' + getNodeJobProcHref(d, job_id, cluster) + '"> (Proc Usage Graph) </a>'
+               var rlt      = getNodeDetailHtml(d, cluster) + ': ' + data_dict[d][1] + ' processes'
                if (data_dict[d][0]>0)
                   rlt  = rlt + ' on ' + data_dict[d][0] + ' CPUs, Avg Inst. CPU util ' + data_dict[d][2].toFixed(2)
                rlt          = rlt + procLink

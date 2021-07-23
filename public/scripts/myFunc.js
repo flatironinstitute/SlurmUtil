@@ -103,6 +103,9 @@ function getNodeDetailHtml (id, cluster="Flatiron") {
 function getQoSDetailHtml (id, cluster="Flatiron") {
     return '<a href=./qosDetail?qos=' + id + '&cluster=' + cluster + '>' + id + '</a>'
 }
+function getNodeJobProcHref (node, job_id, cluster="Flatiron") {
+   return './nodeJobProcGraph?node=' + node + '&jid=' + job_id + '&cluster=' + cluster;
+}
 //return 2/23/2021, 10:18:02
 function getTS_LString (ts_sec) {
     var d = new Date(ts_sec * 1000)
