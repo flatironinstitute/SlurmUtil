@@ -828,7 +828,7 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def user_fileReport(self, uid, start='', stop='', days=180):
+    def user_fileReport(self, uid, start='', stop='', days=180, cluster="Flatiron"):
         # click from File Usage
         start, stop   = MyTool.getStartStopTS (start, stop, '%Y-%m-%d', int(days))
         fc_seq,bc_seq = fs2hc.gendata_user(int(uid), start, stop)
@@ -837,7 +837,7 @@ class SLURMMonitorUI(object):
         h        = open(htmlTemp).read().format(
                                    start = time.strftime(DATE_DISPLAY_FORMAT, time.localtime(start)),
                                    stop  = time.strftime(DATE_DISPLAY_FORMAT, time.localtime(stop)),
-                                   spec_title = MyTool.getUser(uid),
+                                   spec_title = MyTool.getUser(uid, cluster),
                                    file_count = json.dumps(fc_seq),
                                    byte_count = json.dumps(bc_seq))
         return h
@@ -922,7 +922,7 @@ class SLURMMonitorUI(object):
         cpu_series,mem_series,io_series_r,io_series_w = [],[],[],[]
                                                  ##[{'data': [[1531147508000, value]...], 'name':'userXXX'}, ...]
         for uid, d in uid2seq.items():
-            uname = MyTool.getUser(uid)
+            uname = MyTool.getUser(uid, cluster)
             cpu_series.append  ({'name': uname, 'data':[[ts, d[ts][0]] for ts in d.keys()]})
             mem_series.append  ({'name': uname, 'data':[[ts, d[ts][1]] for ts in d.keys()]})
             io_series_r.append ({'name': uname, 'data':[[ts, d[ts][2]] for ts in d.keys()]})
@@ -1208,7 +1208,7 @@ class SLURMMonitorUI(object):
         job_report['ArrayJobID']         = job_report['JobID'] if '_' in job_report['JobID'] else None
         job_report['HeterogeneousJobID'] = job_report['JobID'] if '+' in job_report['JobID'] else None
         if job:
-           job['user']                   = MyTool.getUser(job['user_id'])
+           job['user']                   = MyTool.getUser(job['user_id'], cluster)
            job['ArrayJobID']             = job_report['ArrayJobID']
            job['HeterogeneousJobID']     = job_report['HeterogeneousJobID']
 
@@ -1386,11 +1386,11 @@ class SLURMMonitorUI(object):
                                    'iseries_rw': msg[4]}
         return h
 
-    def jobGraph_file(self, jobid):
+    def jobGraph_file(self, jobid, cluster="Flatiron"):
         if jobid in self.monData.currJobs:
            job = self.monData.currJobs[jobid]
            if 'user' not in job:
-              job['user'] = MyTool.getUser(job['user_id'])
+              job['user'] = MyTool.getUser(job['user_id'], cluster)
         else:
            job = PyslurmQuery.getSlurmDBJob (jobid, req_fields=['start_time', 'end_time', 'user', 'nodes'])
         #logger.info("job={}".format(job))
