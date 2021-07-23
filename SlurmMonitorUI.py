@@ -1341,17 +1341,17 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def jobGraph(self, jid, history="FULL", start="", stop=""):
+    def jobGraph(self, jid, history="FULL", start="", stop="", cluster="Flatiron"):
         jobid = int(jid)
         if history != "FULL":
            start, stop = MyTool.getStartStopTS(start, stop, formatStr='%Y-%m-%dT%H:%M')
         else:
            start, stop = None, None
-        msg   = self.jobGraph_cache(jobid, start, stop)
+        msg   = self.jobGraph_cache(jobid, start, stop, cluster)
         note  = 'cache'
         if not msg:
            logger.info('Job {}: no data in cache'.format(jobid))
-           msg = self.jobGraph_influx(jobid, start, stop)
+           msg = self.jobGraph_influx(jobid, start, stop, cluster)
            note= 'influx'
         if not msg:
            logger.info('Job {}: no data returned from influx'.format(jobid))
@@ -1367,6 +1367,7 @@ class SLURMMonitorUI(object):
         if len(msg)==6:
            htmltemp = os.path.join(config.APP_DIR, 'nodeGraph.html')
            h = open(htmltemp).read()%{'spec_title': ' of job {}'.format(jobid),
+                                   'cluster'   : cluster,
                                    'note'      : note,
                                    'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(msg[0])),
                                    'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(msg[1])),
@@ -1406,16 +1407,16 @@ class SLURMMonitorUI(object):
         else:
            return start, stop, cpu_all_seq, mem_all_seq, io_all_seq
 
-    def jobGraph_influx(self, jobid, start=None, stop=None):
+    def jobGraph_influx(self, jobid, start=None, stop=None, cluster="Flatiron"):
         jobid        = int(jobid)
-        influxClient = InfluxQueryClient()
+        influxClient = InfluxQueryClient(cluster)
         queryRlt     = influxClient.getJobMonData_hc(jobid, start, stop)
         return queryRlt
 
-    def jobGraph_cache(self, jobid, start=None, stop=None):
+    def jobGraph_cache(self, jobid, start=None, stop=None, cluster="Flatiron"):
         jobid  = int(jobid)
         #job, cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes= self.monData.inMemCache.queryJob(jobid)
-        jobRlt = self.monData.inMemCache.queryJob(jobid, start, stop)
+        jobRlt = self.monDataDict[cluster].inMemCache.queryJob(jobid, start, stop)
 
         # highcharts
         if jobRlt:  #job is in cache

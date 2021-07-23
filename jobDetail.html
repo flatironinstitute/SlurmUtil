@@ -24,6 +24,7 @@
           var thisPath = window.location.pathname;
           $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
           //create table job_table and part_table
+          var cluster        = "{cluster}"
           var j_info         = {job_info}
           var job            = {job}
           var j_h_titles     = {{'JobID':'Job ID', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
@@ -45,12 +46,13 @@
           if ({worker_proc}) {{
              createMultiTable ({worker_proc}, '#div_worker_proc', {title_list}, {job_id})
           }}
-          createTable ({job_report}, j_h_titles,  'job_history_table', 'job_report', undefined, {{'JobID':'JobAndStep'}}, '"{cluster}"')
+          createTable ({job_report}, j_h_titles,  'job_history_table', 'job_report', undefined, {{'JobID':'JobAndStep'}}, cluster)
           $("#node_cnt").text(j_info['AllocNodes'])
           $("#cpu_cnt").text (j_info['AllocCPUS'])
 
           if (job['job_state'] != 'PENDING') {{
-             var html_str = "<a href='jobGraph?jid=" + {job_id} + "'>CPU Usage Graph</a>"
+             var html_str = '<a href="' + getJobGraphHref({job_id}, cluster) + '">CPU Usage Graph</a>'
+             console.log("----------", html_str)
              if (('gres_detail' in job && job['gres_detail'].length) || j_info['AllocGRES']) // finished job cannot find GPU idx
                 html_str = html_str + ", <a href='jobGPUGraph?jid=" + {job_id} + "'>GPU Usage Graph</a>"
              $("#usageLink").html("(" + html_str + ")")
