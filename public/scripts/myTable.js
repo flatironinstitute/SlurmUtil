@@ -217,26 +217,14 @@ function getTypedValueHtml (d_value, d_type, cluster)
    }
 
    if (d_type) {
-      if (d_type == 'Partition')
-                       return getPartDetailHtml(d_value)
-      else if (d_type == 'Time')
+      if (d_type == 'Time')
                        return getTS_LString(d_value)
       else if (d_type == 'TresShort')
                        return getTres_short(d_value)
-      else if (d_type == 'JobList') {
-                       var jids = d_value.split(" ")
-                       var str  = ''
-                       for (jid of jids)
-                           str  = str + ' ' + getJobDetailHtml(jid)
-                       return str }
       else if (d_type == 'JobArray' && d_value)
                        return getJobArrayDetail(d_value)
       else if (d_type == 'JobName')
                        return '<a href=./jobByName?name=' + d_value+'>' + d_value + '</a>'
-      else if (d_type == 'JobAndStep') {
-                       if ((d_value.toString().indexOf('.') == -1) && (d_value.toString().indexOf('_')==-1))   // not jobstep
-                          return '<a href=./jobDetails?jid=' + d_value+'>' + d_value + '</a>'
-                          return '<a href=./jobDetails?jid=' + d_value+'>' + d_value + '</a>'}
       else if (d_type == 'Node')
                        return getNodeDetailHtml (d_value)
       else if (d_type == 'User')
