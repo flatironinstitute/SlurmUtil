@@ -12,7 +12,7 @@ function prepareDictData (data_dict, fields_dict)
 //data={key:value}, fields={key:display_text}, type_dict={key:display_type} are all objects(python dict)
 function createList  (data, fields, parent_id, type_dict, prepare_data_func=prepareDictData) 
 {
-        console.log('createList: orig data=', data, ',fields=', fields, ",type_dict=", type_dict)
+        console.log('createList: orig data=', data)
         data = prepare_data_func(data, fields)
         var ul = d3.select(parent_id).append ('ul');
         ul.selectAll('li')
@@ -20,8 +20,6 @@ function createList  (data, fields, parent_id, type_dict, prepare_data_func=prep
           .append('li')
           .html  (function(d) {
                      var span_str = '<span class="attribute">'
-                     //if (d[0]=='User') 
-                     //   return span_str + d[0] + ':</span><a href=./userDetails?user=' + d[1]+'>' + d[1] + '</a>'
                      if (d[0]=='partitions'){ 
                        var str  = ''
                        for (pid of d[1])

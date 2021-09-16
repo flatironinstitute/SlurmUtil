@@ -124,6 +124,9 @@ function getPeriodDisplay_Hour(secs){
     var hours = secs/3600
     return Math.round(hours) + ' Hours'
 }
+function getPeriodMinuteDisplay(mins) {
+   return getPeriodDisplay (mins*60)
+}
 function getPeriodDisplay(secs){
     var ONE_DAY_SECS = 24 * 3600
     var day = 0

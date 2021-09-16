@@ -38,7 +38,6 @@
 
           $("#cluster").text(cluster)
           $("#part_name").text(part.name)
-          //createList  (part,   part_list_title, '#details', {{'tres_fmt_str':'TresShort','running_jobs':'JobArray','pending_jobs':'JobArray', 'qos_char':'QoS','def_mem_per_cpu':'M'}});
           createNoHeaderTable (part, part_list_title, {{'qos_char':'qos','running_jobs':'job_list_summary','pending_jobs':'job_list_summary', 'def_mem_per_cpu':'M'}}, '#div_part_info', 'part_info', filterDict2NestList, cluster)
           if (part['total_gpus']>0)
              node_title_dict = {{'name':'Node', 'state':'State', 'tres_fmt_str':'TRES', 'gres':'GPU Type', 'features':'Features', 'alloc_cpus':'Alloc CPU','alloc_gpus':'Alloc GPU', 'alloc_mem':'Alloc Mem(MB)', 'running_jobs':'Run Job', 'cpu_load':'CPU Util' }}

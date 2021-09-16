@@ -199,7 +199,7 @@ DISPLAY_FUNC={'user': getUserDetailHtml,
               'file_usage':getFileUsageString,
               'info_alarm':getInfoAlarmHtml,
               'percent2str':percent2str,
-              'period':getPeriodDisplay,
+              'period':getPeriodDisplay,'period_min':getPeriodMinuteDisplay,
               'cpu_eff':getCPUEffDisplay, 'mem_eff':getMemEffDisplay,
               'job_command':getDisplayFile}
 
