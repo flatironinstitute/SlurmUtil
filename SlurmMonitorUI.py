@@ -1,5 +1,5 @@
 import cherrypy, _pickle as cPickle, datetime, glob, json, os
-import pandas, logging, pwd, re, subprocess as SUB, sys, time, zlib
+import pandas, logging, pwd, re, subprocess, sys, time, zlib
 from collections import defaultdict, OrderedDict
 import operator
 from functools import reduce
@@ -741,8 +741,8 @@ class SLURMMonitorUI(object):
         cmd = ['sacct', '-n', '-P', '-o', 'JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End'] + criteria
         try:
             #TODO: capture standard error separately?
-            d = SUB.check_output(cmd, stderr=SUB.STDOUT)
-        except SUB.CalledProcessError as e:
+            d = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
             return 'Command "%s" returned %d with output %s.<br>'%(' '.join(cmd), e.returncode, repr(e.output))
 
         return d.decode('utf-8')
@@ -1180,9 +1180,9 @@ class SLURMMonitorUI(object):
            return "Cannot find job {} from sacct.".format(jid)
         job_report     = jobstep_report[0]
         job            = monData.pyslurmJobs.get(jid,None)
-
         if not job:
            job         = PyslurmQuery.getSlurmDBJob(jid)
+        job['cluster'] = cluster
 
         msg_note       = ''
         worker2proc    = {}
@@ -1795,7 +1795,13 @@ class SLURMMonitorUI(object):
         return open("back2.html").read()
 
     @cherrypy.expose
-    def displayFile(self, fname):
+    def displayFile(self, fname, cluster='Flatiron'):
+        sav_name     = fname
+        if cluster=='Popeye':
+            basename = os.path.basename(fname)
+            subprocess.run(['scp','-i','/mnt/home/yliu/.ssh/id_sdsc','popeye.sdsc.edu:{}'.format(fname),'/tmp/'])
+            fname    = '/tmp/{}'.format(basename)
+
         if os.path.exists(fname):
            mod_time = os.path.getmtime(fname)
             
@@ -1803,7 +1809,7 @@ class SLURMMonitorUI(object):
              c = f.read()
              return '<div align="right">Mod Time: {}</div> <div style="margin-top: 20px; white-space: pre-wrap">{}</div>'.format(MyTool.getTsString(mod_time), c)
         else:
-           return 'Cannot display the content of file {}'.format(fname)
+           return 'Cannot display the content of file {}:{}'.format(cluster, sav_name)
 
 if __name__=="__main__":
    cherrypy.config.update({'log.access_file':    './log/sm_app_access.log',

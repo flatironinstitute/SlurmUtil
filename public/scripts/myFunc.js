@@ -19,7 +19,7 @@ function getGRESType (gres_lst) {
     }
     return rlt
 };
-function getDisplayFile (file_cmd) {
+function getDisplayFile (file_cmd, cluster="Flatiron") {
     file_cmd = file_cmd.trimEnd()
     var last_idx = file_cmd.lastIndexOf(" ") 
     if (last_idx != -1 )
@@ -27,7 +27,7 @@ function getDisplayFile (file_cmd) {
     else
        filename = file_cmd
     if (filename.startsWith("/"))
-       return file_cmd.substring(0, last_idx+1) + '<a href=./displayFile?fname=' + filename + '>' + filename + '</a>'
+       return file_cmd.substring(0, last_idx+1) + '<a href=./displayFile?fname=' + filename + '&cluster=' + cluster + '>' + filename + '</a>'
     else
        return file_cmd
 }
