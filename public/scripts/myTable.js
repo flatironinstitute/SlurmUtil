@@ -33,7 +33,7 @@ function getDisplayFloat (n) {
    }
 }
 
-function createMultiTitle (data_dict, parent_id, job_id, cluster="Flatiron") {
+function createMultiTitle (data_dict, parent_id, job_id, cluster="Iron") {
    var pas = d3.select(parent_id).selectAll('p')
                .data(Object.keys(data_dict))
                .enter().append('div')
@@ -50,7 +50,7 @@ function createMultiTitle (data_dict, parent_id, job_id, cluster="Flatiron") {
 }
 
 //data_dict is a dictionary of a fixed format
-function createMultiTable (data_dict, parent_id, table_title_list, job_id, no_head=false, cluster="Flatiron") {
+function createMultiTable (data_dict, parent_id, table_title_list, job_id, no_head=false, cluster="Iron") {
    console.log("createMultiTable: data_dict=", data_dict, ", table_title_list=", table_title_list)
    var pas    = createMultiTitle (data_dict, parent_id, job_id, cluster)
    var tables = pas.append('table').property('id', function(d) {return d+'_proc'}).attr('class','noborder')
@@ -277,7 +277,7 @@ function getTRHtml (d, titles_dict, type_dict, cluster) {
 
 var Summary_ALARM    =null      // a list
 var Summary_TYPE_DICT=null      // a dict
-function createSummaryTable (data, titles_dict, table_id, parent_id, type_dict, summary_type, alarm_lst, cluster="Flatiron") {
+function createSummaryTable (data, titles_dict, table_id, parent_id, type_dict, summary_type, alarm_lst, cluster="Iron") {
    console.log("createSummaryTable data=", data, ",titles=", titles_dict, ",type=", type_dict, ",alarm_lst=", alarm_lst, ",cluster=", cluster)
    Summary_ALARM     = alarm_lst
    Summary_TYPE_DICT = type_dict
@@ -555,7 +555,7 @@ function createTableHeader (table, titles_dict, rows) {
 }
 
 //data is a list of dict
-function createTable (data, titles_dict, table_id, parent_id, pre_data_func, type_dict, cluster="Flatiron") {
+function createTable (data, titles_dict, table_id, parent_id, pre_data_func, type_dict, cluster="Iron") {
         console.log("createTable table_id=", table_id, " data=", data, " titles_dict=", titles_dict, ",type_dict=", type_dict)
         var table         = d3.select('#'+parent_id).append('table').property('id', table_id);
 
@@ -653,7 +653,7 @@ function filterDict2NestList (data_dict, req_fields)
 //input: data_dict is a dictionary with {key: value}, 
 //       disp_dict is a dictionary {display_key: display_text}, 
 //       type_dict is {key: display_type}
-function createNoHeaderTable (data_dict, disp_dict, type_dict, parent_id, table_id, prepare_data_func=filterDict2NestList, cluster="Flatiron"){
+function createNoHeaderTable (data_dict, disp_dict, type_dict, parent_id, table_id, prepare_data_func=filterDict2NestList, cluster="Iron"){
     console.log('createNoHeaderTable: data_dict=', data_dict, ',disp_dict=', disp_dict, ",type_dict=", type_dict, ",cluster=", cluster)
     var data  = prepare_data_func(data_dict, Object.keys(disp_dict))
     var table = d3.select(parent_id).append('table').property('id', table_id)
@@ -698,7 +698,7 @@ function createUserJobHistoryTable (job_history, array_het_jids, job_history_tab
    createTable (job_history, j_h_titles,  job_history_table_id, parent_id, undefined, {'JobID':'job_step', 'JobIDRaw':'job_step','JobName':'job_name','wall_clock':'period', 'cpu_eff':'cpu_eff', 'mem_eff':'mem_eff'})
 }
 
-function createUserPartTable (part_info, part_table_id, parent_id, cluster="Flatiron") {
+function createUserPartTable (part_info, part_table_id, parent_id, cluster="Iron") {
    const part_titles    = {'name': 'Part.', 'flag_shared':'Sharable',
                            'user_avail_nodes':'Node', 'user_avail_cpus':'CPU', 'user_avail_gpus': 'GPU',
                            'user_lmt_nodes'  :'Node', 'user_lmt_cpus'  :'CPU', 'user_lmt_gpus'  :'GPU',

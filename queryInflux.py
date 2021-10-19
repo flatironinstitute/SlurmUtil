@@ -15,7 +15,7 @@ logger   = config.logger
 APP_CONF = config.APP_CONFIG
 ONE_DAY_SECS = 86400
 
-CLUSTER_DB = {"Flatiron":"slurmdb_2", "Popeye":"popeye"}
+CLUSTER_DB = {"Iron":"slurmdb_2", "Popeye":"popeye"}
 class InfluxQueryClient:
     Interval = 61
     LOCAL_TZ = timezone(timedelta(hours=-4))
@@ -28,7 +28,7 @@ class InfluxQueryClient:
 
         return cls.CLIENT_INS
 
-    def __init__(self, cluster="Flatiron", influxServer=None):
+    def __init__(self, cluster="Iron", influxServer=None):
         self.cluster = cluster
         if not influxServer:
            influxServer = APP_CONF['influxdb']['host']
@@ -88,12 +88,12 @@ class InfluxQueryClient:
 
         t1         = time.time()
         rlt        = defaultdict(list)
-        first_time = None
         count      = 0
         points     = [p for p in results.get_points() if p['jid']==jid]
         first_time,last_time = 0,0
         if points:
            first_time = points[0]['time']
+           last_time  = points[-1]['time'] 
            for point in points:
                pid    = int(point['pid'])
                rlt[pid].append ((point['time'], 
@@ -102,7 +102,6 @@ class InfluxQueryClient:
                               point.get('io_read_bytes',0),
                               point.get('io_write_bytes',0)))
                count += 1
-           last_time = point['time'] 
         logger.info("Data transform take time {} and return {} points".format(time.time()-t1, count))
 
         return first_time, last_time, rlt
@@ -273,18 +272,6 @@ class InfluxQueryClient:
               return uid2seq, start_time, stop_time
 
         return None, start_time, stop_time
-
-
-    # return list [[ts, run_time] ... ]
-    def getSlurmJobRuntimeHistory (self, jobid, start_time, stop_time):
-        query   = "select * from autogen.slurm_job_mon where job_id = '{}'".format(jobid)
-        query   = self.extendQuery (query, start_time, stop_time)
-        results = self.query(query)
-        points  = results.get_points()
-        nodeDataDict    = {}
-        for point in points:
-            nodeDataDict[point['time']] = point['run_time']
-        return nodeDataDict
     
     def getSavedNodeHistory (self, filename='nodeHistory', days=7):
         with open('./data/{}_{}_{}.pickle'.format(self.cluster, filename, days), 'rb') as f:
@@ -345,39 +332,54 @@ class InfluxQueryClient:
         return rltSet 
 
     def savJobRequestHistory      (self, filename='jobRequestHistory', days=7):
-        st,et  = MyTool.getStartStopTS (days=days)
-        rltSet = self.getJobRequestHistory(st, et) 
+        st,et  = MyTool.getStartStopTS (days=days, setStop=False)
+        rltSet = self.getJobRequestHistory(st) 
         with open('./data/{}_{}_{}.pickle'.format(self.cluster, filename, days), 'wb') as f:
              pickle.dump(rltSet, f)
-  
-    def getJobRequestHistory(self, st, et):
-        query= "select * from autogen.slurm_job_mon1 where time >= " + str(int(st)) + "000000000 and time <= " + str(int(et)) + "000000000"
+
+    def getSlurmJobMon (self, st, et=None):  
+        query      = "select * from autogen.slurm_job_mon1 where "
+        query      = self.extendQuery(query, st, et, first_flag=True) #where time >= " + str(int(st)) + "000000000 and time <= " + str(int(et)) + "000000000"
         results    = self.query(query, epoch='ms')
-        points     = list(results.get_points())
- 
-        runJidSet      = set()   #use set to remove duplicate ids
-        pendJidSet     = set()   #use set to remove duplicate ids
-        ts2ReqNodeCnt  = defaultdict(int)
-        ts2ReqCPUCnt   = defaultdict(int)
+
+        return results
+
+    def getJobRequestHistory(self, st, et=None):
+        results           = self.getSlurmJobMon (st, et)
+
+        runJidSet         = set()   #use set to remove duplicate ids
+        pendJidSet        = set()
+        ts2AllocNodeCnt   = defaultdict(int)   # {ts:allocNodeCnt, ...
+        ts2AllocCPUCnt    = defaultdict(int)
         ts2PendReqNodeCnt = defaultdict(int)
+        ts2QoSPendReqNode = defaultdict(int)
         ts2PendReqCPUCnt  = defaultdict(int)
-        for point in points:
-            ts  = point['time']
-            jid = point['job_id']
+        start             = None
+        for point in results.get_points():
+            ts        = point['time']
+            if not start:
+               start  = int(ts/1000)
+            jid       = point['job_id']
+            uid       = point['user_id']
             tres_dict = MyTool.str2dict(point.get('tres_req_str', None))
                
             if point['job_state'] in ['RUNNING']: # running state
                runJidSet.add(jid)
                if tres_dict:
-                  ts2ReqNodeCnt[ts] += int(tres_dict.get('node', 1))
-                  ts2ReqCPUCnt[ts]  += int(tres_dict.get('cpu', point.get('num_cpus',28)))
+                  ts2AllocNodeCnt[ts] += int(tres_dict.get('node', 1))
+                  ts2AllocCPUCnt[ts]  += int(tres_dict.get('cpu', point.get('num_cpus',28)))
             elif point['job_state'] in ['PENDING']: # pending state
                pendJidSet.add(jid)
                if tres_dict:
-                  ts2PendReqNodeCnt[ts] += int(tres_dict.get('node', 1))
+                  nodeCnt                = int(tres_dict.get('node', 1))
+                  ts2PendReqNodeCnt[ts] += nodeCnt
                   ts2PendReqCPUCnt[ts]  += int(tres_dict.get('cpu', point.get('num_cpus',28)))
+                  if point['state_reason'] and point['state_reason'].startswith("QOS"):
+                     ts2QoSPendReqNode[ts] += nodeCnt
+        stop = int(ts/1000)
 
-        return runJidSet, ts2ReqNodeCnt, ts2ReqCPUCnt, pendJidSet, ts2PendReqNodeCnt, ts2PendReqCPUCnt
+        logger.info("{}".format(ts2QoSPendReqNode))
+        return start, stop, runJidSet, ts2AllocNodeCnt, ts2AllocCPUCnt, pendJidSet, ts2PendReqNodeCnt, ts2QoSPendReqNode, ts2PendReqCPUCnt
        
     # query autogen.slurm_pending and return {ts_in_sec:{state_reason:count}], ...}  
     def getPendingCount (self, st, et=None):
@@ -397,7 +399,7 @@ class InfluxQueryClient:
         for point in results.get_points():
             ts           = point['time']
             if not first_ts:
-               first_ts = ts/1000
+               first_ts = int(ts/1000)
             state_reason = point['state_reason']
 
             if state_reason and ('Resources' in state_reason):
@@ -416,7 +418,7 @@ class InfluxQueryClient:
             #  tsPart2pri[ts][point['partition']].append (point)
             #else:
             #  tsPart2noPri[ts][point['partition']].append(point)  #non-priority is saved by parition
-        last_ts = point['time']/1000
+        last_ts = int(point['time']/1000)
              
         # for each Priority or None job, check the jobs(same user and partition) before it
         #for ts, part2pri in tsPart2pri.items():
@@ -528,7 +530,7 @@ class InfluxQueryClient:
         query_rlt  = app.query(query)
 
     def daily():
-      for cluster in ["Flatiron", "Popeye"]:
+      for cluster in ["Iron", "Popeye"]:
        app  = InfluxQueryClient(cluster)
     
        app.savNodeHistory      ()  # default is 7 days

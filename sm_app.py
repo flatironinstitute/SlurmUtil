@@ -53,7 +53,7 @@ if __name__ == '__main__':
    }
 
    print("config={}".format(config.APP_CONFIG))
-   sm_flatiron  = SLURMMonitorData('Flatiron')
+   sm_flatiron  = SLURMMonitorData('Iron')
    print("create /data")
    sm_popeye    = SLURMMonitorData('Popeye')
    print("create /popeye")

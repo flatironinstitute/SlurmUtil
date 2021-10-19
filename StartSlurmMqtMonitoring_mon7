@@ -1,0 +1,92 @@
+#!/bin/bash
+
+ScriptDir=$(readlink -f $(dirname $0))
+
+pidfilestale () {
+    pidfile=$1
+    [[ -s ${pidfile} ]] || return 0
+    fdate=$(stat -c %Y ${pidfile})
+    pdate=$(date --date="$(ps -h --format lstart $(cat ${pidfile}) || echo Jan 1 1970 UTC)" +%s)
+    delta=$(( pdate - fdate ))
+    [[ -10 -lt delta ]] &&  [[ delta -lt 10 ]] && return 1
+    return 0
+}
+
+
+[[ -s /etc/slurm/slurm.conf ]] || { echo "No slurm.conf file." ; exit 1 ; }
+cm=$(grep ControlMachine /etc/slurm/slurm.conf)
+cm=${cm/ControlMachine=/}
+[[ -z ${cm+_} ]] && { echo "slurm.conf file lacks ControlMachine entry." ; exit 1 ; }
+
+# We use these mappings to ensure the same database is used when we failover the control machine.
+#declare -A CMAliases=( [bcm1]=bcm [bcm2]=bcm [ironbcm1]=ironbcm [ironbcm2]=ironbcm )
+#[[ ${CMAliases[${cm}]+_} ]] && cm=${CMAliases[${cm}]}
+
+# "borrowed" from module
+    CmSlurmRoot=/cm/shared/apps/slurm/current
+    export PATH=${CmSlurmRoot}/bin:$PATH
+    export PATH=${CmSlurmRoot}/sbin:$PATH
+    export LD_LIBRARY_PATH=${CmSlurmRoot}/lib64:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=${CmSlurmRoot}/lib64/slurm:$LD_LIBRARY_PATH
+    PLHACK="LD_PRELOAD=${CmSlurmRoot}/lib64/slurm/libslurmfull.so"
+
+    # activate python virutal environment
+    . /mnt/home/yliu/projects/slurm/utils/env_slurm20_python37/bin/activate
+echo "Using: $(which python)"
+
+logDir="./log"
+mkdir -p ${logDir}  || { echo "Failed to create support directory." ; exit 1 ; }
+
+#pData="/mnt/ceph/users/yliu/tmp/mqtMonTest"
+#pData="/mnt/home/yliu/projects/slurm/utils/mqtMonStreamRecord"
+#mkdir -p $(dirname ${pData}) || { echo "Failed to create support directory." ; exit 1 ; }
+#link to share public and data directory
+[ -d "./public" ] || ln -s /mnt/home/yliu/projects/slurm/utils/public/ public
+[ -d "./data" ]   || ln -s /mnt/home/yliu/projects/slurm/utils/data/ data
+
+if pidfilestale ${cm}_web_mqt.pid 
+then
+    while [[ 1 ]]
+    do
+	python ${ScriptDir}/sm_app.py &                 #default configuration file config/json.config
+	pid=$!
+	echo ${pid} > ${cm}_web_mqt.pid
+	wait ${pid}
+	echo "Monitor returned: $(date). Restarting in 60 seconds."
+	sleep 60
+    done  > "${logDir}/smcpsun_${cm}_mqt_$(date +%Y%m%d_%T).log" 2>&1 &
+else
+    echo "web server is already running ($(cat ${cm}_web_mqt.pid))."
+fi
+
+if pidfilestale ${cm}_monitor_mqt.pid
+then
+    while [[ 1 ]] 
+    do
+	python ${ScriptDir}/mqttMonStream.py 2>&1 &       #default configuration file config/json.config
+	pid=$!
+	echo ${pid} > ${cm}_monitor_mqt.pid
+	wait ${pid}
+	echo "Monitor returned: $(date). Restarting in 60 seconds."
+	sleep 60
+    done  > "${logDir}/mms_${cm}_$(date +%Y%m%d_%T).log" 2>&1 &
+else
+    echo "monitor is already running ($(cat ${cm}_monitor_mqt.pid))."
+fi
+
+# start the mqtt to influx
+if pidfilestale ${cm}_monitor_mqt_influx.pid
+then
+    while [[ 1 ]] 
+    do
+	python ${ScriptDir}/mqttMon2Influx.py 2>&1 &
+	pid=$!
+	echo ${pid} > ${cm}_monitor_mqt_influx.pid
+	wait ${pid}
+	echo "Monitor returned: $(date). Restarting in 60 seconds."
+	sleep 60
+    done  > "${logDir}/ifx_${cm}_$(date +%Y%m%d_%T).log" 2>&1 &
+else
+    echo "monitor and convertor to Influx is already running ($(cat ${cm}_monitor_mqt_influx.pid))."
+fi
+

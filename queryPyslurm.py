@@ -19,9 +19,9 @@ class PyslurmQuery():
         return pyslurm.node().get()
     
     @staticmethod
-    def getQoSDict (cluster="Flatiron", pyslurmData=None):
+    def getQoSDict (cluster="Iron", pyslurmData=None):
       qos    = pyslurmData.get("qos", {}) if pyslurmData else {}
-      if cluster=="Flatiron":          # local cluster
+      if cluster=="Iron":          # local cluster
          qos = pyslurm.qos().get()
       return qos
  
@@ -183,9 +183,9 @@ PEND_EXP={
 }
 
 class SlurmEntities:
-  def __init__ (self, cluster="Flatiron", pyslurmData={}):
+  def __init__ (self, cluster="Iron", pyslurmData={}):
     self.cluster = cluster
-    if cluster=="Flatiron":           #local realtime pyslurm
+    if cluster=="Iron":           #local realtime pyslurm
         self.getPyslurmData ()
         self.updateTS = int(time.time())
     else:
@@ -195,7 +195,7 @@ class SlurmEntities:
 
     self.part_node_cpu  = {}  # {'gen': [40, 28], 'ccq': [40, 28], 'ib': [44, 28], 'gpu': [40, 36, 28], 'mem': [96], 'bnl': [40], 'bnlx': [40], 'genx': [44, 40, 28], 'amd': [128, 64]}
     for pname,part in self.partition_dict.items():
-        self.part_node_cpu[pname] = sorted(set([self.node_dict[name]['cpus'] for name in MyTool.nl2flat(part['nodes'])]), reverse=True)
+        self.part_node_cpu[pname] = sorted(set([self.node_dict[name]['cpus'] for name in MyTool.nl2flat(part['nodes']) if name in self.node_dict]), reverse=True)
 
     # extend node_dict by adding running_jobs, gpu_total, gpu_used
     self.extendNodeDict ()

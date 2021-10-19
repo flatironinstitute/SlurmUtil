@@ -20,7 +20,7 @@ def getAllUsers():
     lst = pwd.getpwall()
     return [p[0] for p in lst]
 
-SLURM_USERS = {"Flatiron":["./data/users.csv",0, {'name':'user'}, {}, {}], 
+SLURM_USERS = {"Iron":["./data/users.csv",0, {'name':'user'}, {}, {}], 
                "Popeye":  ["./data/sdsc.csv", 0, {},              {}, {}]}   #file_name, modify_time, rename_column, uid2record, user2record
                                                                              #popeye is for users that does not have the same id as in FI 
 def refreshUsers (cluster):
@@ -84,25 +84,25 @@ def getUserRecord (user, cluster):
     user2rec = getUser2Record(cluster);
     return user2rec.get(user, None)
     
-def getUid (user, cluster="Flatiron"):
+def getUid (user, cluster="Iron"):
     record = getUserRecord (user, cluster);
     if record:
        return record["uid"]
-    elif cluster != "Flatiron":
-       record = getUserRecord (user, "Flatiron");
+    elif cluster != "Iron":
+       record = getUserRecord (user, "Iron");
        if record:
           return record["uid"]
     return None
 
-def getUser (uid, cluster="Flatiron", fakeName=True):
+def getUser (uid, cluster="Iron", fakeName=True):
     if uid == None:
        return None
 
     uid      = int(uid)
-    uid2user = getUid2User("Flatiron")
+    uid2user = getUid2User("Iron")
     if uid in uid2user:
        return uid2user[uid]['user']
-    elif cluster!="Flatiron":     # popeye is for exception
+    elif cluster!="Iron":     # popeye is for exception
        uid2user = getUid2User(cluster)
        if uid in uid2user:
           return uid2user[uid]['user']
@@ -119,8 +119,8 @@ def getUser (uid, cluster="Flatiron", fakeName=True):
     #return None
 
 def getUserFullName(user):
-    refreshUsers("Flatiron")
-    records = SLURM_USERS["Flatiron"][4]
+    refreshUsers("Iron")
+    records = SLURM_USERS["Iron"][4]
     if user in records:
        r = records[user]
        print(r)

@@ -19,7 +19,7 @@ function getGRESType (gres_lst) {
     }
     return rlt
 };
-function getDisplayFile (file_cmd, cluster="Flatiron") {
+function getDisplayFile (file_cmd, cluster="Iron") {
     file_cmd = file_cmd.trimEnd()
     var last_idx = file_cmd.lastIndexOf(" ") 
     if (last_idx != -1 )
@@ -38,17 +38,17 @@ function percent2str(percent) {
 function getInfoAlarmHtml (str) {
     return '<em class="inform">'+str+'</em>';
 };
-function getJobDetailHref (jid, cluster="Flatiron") {
+function getJobDetailHref (jid, cluster="Iron") {
     return './jobDetails?jid=' + jid + '&cluster=' + cluster
 };
-function getJobDetailHtml (jid, cluster="Flatiron") {
+function getJobDetailHtml (jid, cluster="Iron") {
     return '<a href=./jobDetails?jid=' + jid + '&cluster=' + cluster + '>' + jid + '</a>'
 };
-function getJobListHtml(lst, cluster="Flatiron") {
+function getJobListHtml(lst, cluster="Iron") {
     var html_list = lst.map( function(p) {return getJobDetailHtml(p, cluster);} )
     return html_list.join(', ')
 }
-function getJobListSummaryHtml(lst, cluster="Flatiron") {
+function getJobListSummaryHtml(lst, cluster="Iron") {
     var detail_lst = (lst.length>10) ? lst.slice(0,10) : lst
     var html_list = detail_lst.map( function(p) {return getJobDetailHtml(p, cluster);} )
     var html_str  = html_list.join(',')
@@ -60,7 +60,7 @@ function getJobNameHtml(name) {
     else
        return '<a href=./jobByName?name=' + name + '>' + name + '</a>'
 }
-function getJob_StepHtml(d_value, cluster="Flatiron") {
+function getJob_StepHtml(d_value, cluster="Iron") {
     if ((d_value.toString().indexOf('.') == -1) && (d_value.toString().indexOf('_')==-1))   // not jobstep
        return '<a href=./jobDetails?jid=' + d_value+'&cluster=' + cluster + '>' + d_value + '</a>'
     return d_value
@@ -75,7 +75,7 @@ function getJobArrayDetail (jids_array) {
         str  = str + ' ' + getJobDetailHtml(jid)
     return str
 }
-function getPartDetailHtml (pid, cluster="Flatiron") {
+function getPartDetailHtml (pid, cluster="Iron") {
     return '<a href=./partitionDetail?partition=' + pid +'&cluster=' + cluster + '>' + pid + '</a>'
 }
 function getPartAvailString(p) {
@@ -90,20 +90,20 @@ function getPartListAvailString (p_list) {
     var str_list = p_list.map( function(p) {return getPartAvailString(p);} )
     return str_list.join(', ')
 }
-function getPartitionListHtml(p_list, cluster="Flatiron") {
+function getPartitionListHtml(p_list, cluster="Iron") {
     var html_list = p_list.map( function(p) {return getPartDetailHtml(p, cluster);} )
     return html_list.join(',')
 }
-function getNodeDetailHref (id, cluster="Flatiron") {
+function getNodeDetailHref (id, cluster="Iron") {
    return './nodeDetails?node=' + id + '&cluster=' + cluster
 }
-function getNodeDetailHtml (id, cluster="Flatiron") {
+function getNodeDetailHtml (id, cluster="Iron") {
     return '<a href=./nodeDetails?node=' + id + '&cluster=' + cluster + '>' + id + '</a>'
 }
-function getQoSDetailHtml (id, cluster="Flatiron") {
+function getQoSDetailHtml (id, cluster="Iron") {
     return '<a href=./qosDetail?qos=' + id + '&cluster=' + cluster + '>' + id + '</a>'
 }
-function getNodeJobProcHref (node, job_id, cluster="Flatiron") {
+function getNodeJobProcHref (node, job_id, cluster="Iron") {
    return './nodeJobProcGraph?node=' + node + '&jid=' + job_id + '&cluster=' + cluster;
 }
 function getJobGraphHref (job_id, cluster) {

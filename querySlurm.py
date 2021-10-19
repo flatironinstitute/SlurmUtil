@@ -31,7 +31,7 @@ class SlurmCmdQuery:
     TS_ASSOC   = 0
     DICT_ASSOC = {}  # {'user':'account'}
     SET_ACCT   = set()
-    USER_ASSOC = {"Flatiron":["./data/sacctmgr_assoc.csv",        0, {}],
+    USER_ASSOC = {"Iron":["./data/sacctmgr_assoc.csv",        0, {}],
                   "Popeye":  ["./data/sacctmgr_assoc_popeye.csv", 0, {}]}   #file_name, modify_time, user2record
                                #User|Def Acct|Admin|Cluster|Account|Partition|Share|Priority|MaxJobs|MaxNodes|MaxCPUs|MaxSubmit|MaxWall|MaxCPUMins|QOS|Def QOS
 
@@ -194,7 +194,7 @@ class SlurmCmdQuery:
            SlurmCmdQuery.SET_ACCT   = set([item['Def Acct'] for item in d.values()])
 
     @staticmethod
-    def getAllUserAssoc (cluster="Flatiron"):
+    def getAllUserAssoc (cluster="Iron"):
         SlurmCmdQuery.refreshUserAssoc (cluster)
         return SlurmCmdQuery.USER_ASSOC[cluster][2]
 
@@ -208,7 +208,7 @@ def test1():
     print("rlt={}".format(rlt))
 
 def test2():
-    for cluster in ["Flatiron", "Popeye"]:
+    for cluster in ["Iron", "Popeye"]:
         ins = SlurmCmdQuery(cluster)
         print(ins.getUserAssoc("aarora"))
 

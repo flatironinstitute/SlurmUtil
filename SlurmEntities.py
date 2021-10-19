@@ -44,7 +44,7 @@ MAX_LIMIT = 2**32 - 1  #429496729, biggest integer
 class SlurmEntities:
   #two's complement -1
 
-  def __init__ (self, cluster="Flatiron", pyslurmData={}):
+  def __init__ (self, cluster="Iron", pyslurmData={}):
     self.cluster = cluster
     if pyslurmData:
         pass

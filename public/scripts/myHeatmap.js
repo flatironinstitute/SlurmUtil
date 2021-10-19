@@ -148,7 +148,7 @@ function getGroupID_popeye (name) {
       return i;
 }
 
-////{"Flatiron":[node_ts, workers, jobs, users, gpu_ts, gpudata]
+////{"Iron":[node_ts, workers, jobs, users, gpu_ts, gpudata]
 function prepareNodeData (data, cntPerLine) {
    var rlt = new Object();
    for (const key in data) {
@@ -158,9 +158,9 @@ function prepareNodeData (data, cntPerLine) {
    return rlt;
 }
 
-GID_FUNC = {"Flatiron": getGroupID, "Popeye": getGroupID_popeye}
+GID_FUNC = {"Iron": getGroupID, "Popeye": getGroupID_popeye}
 function prepareNodeData_1 (cluster, nodeData, gpu_obj, cntPerLine) {  // nodeData is sorted by 'name
-        console.log("prepareNodeData_1 ", nodeData, gpu_obj)
+        console.log("prepareNodeData_1 ", cluster, nodeData, gpu_obj)
         if (nodeData.length == 0)
            return NaN;
 
@@ -271,7 +271,7 @@ function getColorScale(d, useAccountColor) {
        return colorScale
 };
 
-function createGPUHeatMap(svg, gpuData, acctColor, gridSize, cluster="Flatiron") 
+function createGPUHeatMap(svg, gpuData, acctColor, gridSize, cluster="Iron") 
 {
    console.log("createGPUHeatMap, gpuData=", gpuData);
           var cards = svg.selectAll(".gpu")

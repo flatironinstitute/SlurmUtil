@@ -28,17 +28,15 @@
       var thisPath = window.location.pathname;
       $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
 
-      var heatmapData = %(heatmapData)s;                            //{"Flatiron":[node_ts, workers, jobs, users, gpu_ts, gpudata]
+      var heatmapData = %(heatmapData)s;                            //{"Iron":[node_ts, workers, jobs, users, gpu_ts, gpudata]
       console.log("heatmapData=", heatmapData)
       var cntPerLine  = 32;                                         //count per line
-      var nodes_data  = prepareNodeData(heatmapData, cntPerLine);   //{"Flatiron":[nodeData, line_label]
+      var nodes_data  = prepareNodeData(heatmapData, cntPerLine);   //{"Iron":[nodeData, line_label]
       var gpus_data   = prepareGPUData (heatmapData)
       
       const clusters = Object.keys(heatmapData);
       var cluter, jobs_data, users_data;
       var workers_data, labels, gpu_data, gpu_labels;
-      setCluster (clusters[0])
-      console.log("workers_data=",workers_data, "gpu_data=",gpu_data);
 
       var margin      = { top: 10, right: 0, bottom: 50, left: 120 },
           gpu_margin  = { top: 100, right: 0, bottom: 50, left: 120 },
@@ -48,9 +46,13 @@
       var legend_width  = width + margin.left + margin.right,
           legend_height = 110;
 
+      setCluster (clusters[0])
+      console.log("workers_data=",workers_data, "gpu_data=",gpu_data);
+
       var gridSize     = Math.floor(width / cntPerLine);
       var svg_width    = width+margin.left+margin.right;
       var svg_height   = labels.length*gridSize +margin.top+margin.bottom
+      console.log("svg_height=", svg_height, ", height=", height, ", labels=", labels)
 
       //var gpu_gridSize = Math.floor(width / gpu_labels.length)
       var gpu_gridSize = Math.max(gridSize /2, Math.floor(width / gpu_labels.length)) 
@@ -87,6 +89,7 @@
           labels      = nodes_data[cluster][1]
           gpu_data    = gpus_data[cluster][0]
           gpu_labels  = gpus_data[cluster][1]
+          svg_height  = labels.length*gridSize +margin.top+margin.bottom
       }
 
       $("#cluster").change(function () {

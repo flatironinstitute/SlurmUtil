@@ -40,8 +40,8 @@ DATE_DISPLAY_FORMAT= '%m/%d/%y'
 @cherrypy.expose
 class SLURMMonitorUI(object):
     def __init__(self, monData, monData2):
-        self.monDataDict     = {"Flatiron":monData,                   "Popeye":monData2}
-        self.slurmCmdDict    = {"Flatiron":SlurmCmdQuery("Flatiron"), "Popeye":SlurmCmdQuery("Popeye")}
+        self.monDataDict     = {"Iron":monData,               "Popeye":monData2}
+        self.slurmCmdDict    = {"Iron":SlurmCmdQuery("Iron"), "Popeye":SlurmCmdQuery("Popeye")}
         self.monData         = monData
         self.monData2        = monData2
         self.config          = config.APP_CONFIG
@@ -59,7 +59,7 @@ class SLURMMonitorUI(object):
         return self.userDetails(user)
 
     @cherrypy.expose
-    def qosDetail(self, qos, cluster="Flatiron"):
+    def qosDetail(self, qos, cluster="Iron"):
         pyslurmData   = self.monDataDict[cluster].pyslurmData
         qosData       = PyslurmQuery.getQoSDict(cluster,pyslurmData).get(qos, {'name':qos, 'note':"No data yet. Please come back to check."})
         htmlTemp      = os.path.join(config.APP_DIR, 'qosDetail.html')
@@ -69,7 +69,7 @@ class SLURMMonitorUI(object):
         return htmlStr
 
     @cherrypy.expose
-    def partitionDetail(self, partition, cluster="Flatiron"):
+    def partitionDetail(self, partition, cluster="Iron"):
         monData       = self.monDataDict[cluster]
         ins           = SlurmEntities(monData.cluster, monData.pyslurmData)
         p_info, nodes = ins.getPartitionAndNodes (partition)
@@ -225,13 +225,38 @@ class SLURMMonitorUI(object):
         h = open(htmlTemp).read().format(cluster=cluster, accounts=f_lst)
         return h
 
+    
     @cherrypy.expose
-    def clusterHistory(self, cluster="Flatiron", start='', stop='', days=7):
-        start, stop  = MyTool.getStartStopTS (start, stop)
+    def test(self, cluster="Iron", days=7):
+        start, stop  = MyTool.getStartStopTS ('', '')
 
         influxClient = InfluxQueryClient(cluster)
         ts2AllocNodeCnt, ts2MixNodeCnt, ts2IdleNodeCnt, ts2DownNodeCnt, ts2AllocCPUCnt, ts2MixCPUCnt, ts2IdleCPUCnt, ts2DownCPUCnt= influxClient.getSavedNodeHistory(days=days)
-        runJidSet, ts2ReqNodeCnt, ts2ReqCPUCnt, pendJidSet, ts2PendReqNodeCnt, ts2PendReqCPUCnt = influxClient.getSavedJobRequestHistory (days=days)
+        start, stop, runJidSet, ts2ReqNodeCnt, ts2ReqCPUCnt, pendJidSet, ts2PendReqNodeCnt, ts2QoSPendReqCnt, ts2PendReqCPUCnt = influxClient.getSavedJobRequestHistory (days=days)
+
+        series  = [
+                     {'name': 'Allocated Nodes',                  'data':[[ts, cnt+ts2MixNodeCnt[ts]] for ts, cnt in ts2AllocNodeCnt.items()], 'step':'left'},
+                     {'name': 'Running Job Requested Nodes',      'data':[[ts, cnt] for ts, cnt in ts2ReqNodeCnt.items()],                     'step':'left'},
+                     {'name': 'Idle Nodes',                       'data':[[ts, cnt] for ts, cnt in ts2IdleNodeCnt.items()],                    'step':'left'},
+                     {'name': 'Pending Job Requested Nodes',      'data':[[ts, cnt] for ts, cnt in ts2PendReqNodeCnt.items()],                 'step':'left'},
+                     {'name': 'QoS Pending Job Requested Nodes',  'data':[[ts, cnt] for ts, cnt in ts2QoSPendReqCnt.items()],                  'step':'left'},
+                  ]
+        htmlTemp = os.path.join(config.APP_DIR, 'seriesHC.html')
+        h        = open(htmlTemp).read()%{
+                                   'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
+                                   'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
+                                   'series1': series, 'title1': 'Title', 'ylabel1': '', 
+                                   'series2': series, 'title2': 'Title', 'ylabel2': ''}
+
+        return h
+
+    @cherrypy.expose
+    def clusterHistory(self, cluster="Iron", start='', stop='', days=7):
+        #start, stop  = MyTool.getStartStopTS (start, stop, days=7)
+
+        influxClient = InfluxQueryClient(cluster)
+        ts2AllocNodeCnt, ts2MixNodeCnt, ts2IdleNodeCnt, ts2DownNodeCnt, ts2AllocCPUCnt, ts2MixCPUCnt, ts2IdleCPUCnt, ts2DownCPUCnt= influxClient.getSavedNodeHistory(days=days)
+        start, stop, runJidSet, ts2ReqNodeCnt, ts2ReqCPUCnt, pendJidSet, ts2PendReqNodeCnt, ts2QoSPendReqCnt, ts2PendReqCPUCnt = influxClient.getSavedJobRequestHistory (days=days)
         del influxClient
 
         #it is more difficult to get the node number from running jobs as they may share
@@ -279,10 +304,9 @@ class SLURMMonitorUI(object):
         return 'Other'
 
     @cherrypy.expose
-    def pending_history(self, cluster="Flatiron", start='', stop='', days=7):
+    def pending_history(self, cluster="Iron", start='', stop='', days=7):
         note         = ''
-        days         = int(days)
-        start, stop  = MyTool.getStartStopTS (start, stop, days, setStop=False)
+        start, stop  = MyTool.getStartStopTS (start, stop, days=int(days), setStop=False)
 
         influxClient = InfluxQueryClient(cluster)
         start, stop, tsReason2Cnt = influxClient.getPendingCount(start, stop)
@@ -309,7 +333,7 @@ class SLURMMonitorUI(object):
 
         cate2title = {'Resource':'Queued by Resource', 'GPU':'Queued by GPU Resource', 'QoSGrp':'Queued by Group QoS', 'QoS':'Queued by User QoS', 'Sched':'Queued by Job Defination', 'Other':'Queued by Other'}  #order matters
         cates_sort = [cate for cate in cate2title.keys() if cate in cates]
-        series1    = [{'name':cate2title[cate], 'data':cate2ts_cnt[cate]} for cate in cates_sort]
+        series1    = [{'name':cate2title[cate], 'data':cate2ts_cnt[cate], 'step':'left'} for cate in cates_sort]
         htmlTemp   = os.path.join(config.APP_DIR, 'pendingJobReport.html')
         h          = open(htmlTemp).read().format(start=time.strftime(DATE_DISPLAY_FORMAT, time.localtime(start)),
                                                   stop =time.strftime(DATE_DISPLAY_FORMAT, time.localtime(stop)),
@@ -553,7 +577,7 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def utilHeatmap(self, **args):
-        if not self.monDataDict["Flatiron"].hasData():   #Allow popeye data to be empty
+        if not self.monDataDict["Iron"].hasData():   #Allow popeye data to be empty
             return self.getNoDataPage ('Host Utilization Heatmap', 'utilHeatmap')
 
         avg_minute, weight   = self.getHeatMapSetting()
@@ -563,7 +587,7 @@ class SLURMMonitorUI(object):
 
             gpu_nodes,max_gpu_cnt= PyslurmQuery.getGPUNodes(monData.pyslurmNodes)
             #logger.debug ("gpu_nodes={}".format(gpu_nodes))
-            if name == "Flatiron":
+            if name == "Iron":
                gpu_ts, gpudata   = self.bright.getAllGPUAvg (gpu_nodes, minutes=avg_minute["gpu"], max_gpu_cnt=max_gpu_cnt)
             else:
                gpu_ts, gpudata   = 0, {}
@@ -624,7 +648,7 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def index(self, **args):
-        if not self.monDataDict["Flatiron"].hasData():   #Allow popeye data to be empty
+        if not self.monDataDict["Iron"].hasData():   #Allow popeye data to be empty
            return self.getNoDataPage ('Tabular Summary', 'index')
 
         column    = [key for key, val in self.getSummaryColumn().items() if val]
@@ -636,7 +660,7 @@ class SLURMMonitorUI(object):
             logger.info("monData {}".format(monData.cluster))
             gpudata     = None
             gpu_jid2data= None
-            if name == "Flatiron":   
+            if name == "Iron":   
               if 'gpu_util' in column:
                gpu_nodes,max_gpu_cnt   = monData.getCurrJobGPUNodes()
                logger.info("max_gpu_cnt={},gpu_nodes={}".format(max_gpu_cnt, gpu_nodes))
@@ -828,9 +852,9 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def user_fileReport(self, uid, start='', stop='', days=180, cluster="Flatiron"):
+    def user_fileReport(self, uid, start='', stop='', days=180, cluster="Iron"):
         # click from File Usage
-        start, stop   = MyTool.getStartStopTS (start, stop, '%Y-%m-%d', int(days))
+        start, stop   = MyTool.getStartStopTS (start, stop, '%Y-%m-%d', days=int(days))
         fc_seq,bc_seq = fs2hc.gendata_user(int(uid), start, stop)
 
         htmlTemp = os.path.join(config.APP_DIR, 'userFile.html')
@@ -912,7 +936,7 @@ class SLURMMonitorUI(object):
         else:
            return None
 
-    def nodeGraph_influx(self, node, start, stop, cluster="Flatiron"):
+    def nodeGraph_influx(self, node, start, stop, cluster="Iron"):
         # highcharts
         influxClient = InfluxQueryClient(cluster)
         uid2seq,start,stop = influxClient.getSlurmNodeMonData(node,start,stop)
@@ -939,7 +963,7 @@ class SLURMMonitorUI(object):
         return start, stop, cpu_all_seq, mem_all_seq, io_all_seq
 
     @cherrypy.expose
-    def nodeDetails(self, node, cluster="Flatiron"):
+    def nodeDetails(self, node, cluster="Iron"):
         monData = self.monDataDict[cluster]
         if not monData.hasData():
            return self.getWaitMsg() # error of some sort.
@@ -968,7 +992,7 @@ class SLURMMonitorUI(object):
         return htmlStr
 
     def getUserDoneJob (self, user, cluster, days):
-        if cluster != "Flatiron":     #TODO: Popeye
+        if cluster != "Iron":     #TODO: Popeye
            return []
 
         past_job  = SlurmCmdQuery.getUserDoneJobReport(user, days=int(days))
@@ -1005,8 +1029,7 @@ class SLURMMonitorUI(object):
               userAssoc['tres_alloc_str'] = "{},gpu={}".format(userAssoc['tres_alloc_str'], alloc_gpus)
 
 
-    @cherrypy.expose
-    def test(self):
+    def new_ui(self):
         htmlTemp   = os.path.join(config.APP_DIR, '../slurm-util-ui/index.html')
         return open(htmlTemp).read()
 
@@ -1017,10 +1040,10 @@ class SLURMMonitorUI(object):
            monData       = self.monDataDict[cluster]
            userAssoc     = self.slurmCmdDict[cluster].getUserAssoc(user)
         
-           if not userAssoc and (cluster=="Flatiron"):
+           if not userAssoc and (cluster=="Iron"):
               return 'Cannot find user {}!'.format(user)
            uid           = MyTool.getUid(user, cluster)
-           if not uid and (cluster=="Flatiron"):
+           if not uid and (cluster=="Iron"):
               return 'Cannot find uid of user {}!'.format(user)
            userAssoc['uid'] = uid
 
@@ -1034,7 +1057,7 @@ class SLURMMonitorUI(object):
                    if v == MAX_LIMIT: p[k]='n/a'
            userAssoc['partitions'] = [p for p in part if p['user_avail_cpus']>0 or p['user_avail_gpus']>0]
 
-           if cluster=="Flatiron":
+           if cluster=="Iron":
               userAssoc['file_usage'] = {'home':MyTool.df_cmd(user)} 
               fs_data                 = fs2hc.gendata_user_latest(uid, file_systems=['ceph_full']) 
               if 'ceph_full' in fs_data:
@@ -1058,7 +1081,7 @@ class SLURMMonitorUI(object):
 
            detailData[cluster] = [uid, userAssoc, ins.updateTS, user_jobs, part, array_het_jids, past_job]
     
-        detail = detailData["Flatiron"]
+        detail = detailData["Iron"]
         htmlTemp   = os.path.join(config.APP_DIR, 'userDetail.html')
         htmlStr    = open(htmlTemp).read().format(data        =json.dumps(detailData),
                                                   user        =MyTool.getUserFullName(user),  
@@ -1151,7 +1174,7 @@ class SLURMMonitorUI(object):
                                    'series2'   : json.dumps(series2)}
         return h
 
-    def getDoneJobProc (self, jid, job_report, cluster="Flatiron"):
+    def getDoneJobProc (self, jid, job_report, cluster="Iron"):
         if job_report['End'] == 'Unknown':
            return {}, [], 'Can not find end time for a finished job'
 
@@ -1169,7 +1192,7 @@ class SLURMMonitorUI(object):
         return ['PID', 'Avg CPU Util', 'RSS',  'VMS', 'IO Rate', 'Command'], worker2proc, ''
 
     @cherrypy.expose
-    def jobDetails(self, jid, cluster="Flatiron"):
+    def jobDetails(self, jid, cluster="Iron"):
         if ',' in jid: jid         = jid.split(',')[0]
         jid            = int(jid)
         ts             = int(time.time())
@@ -1341,7 +1364,7 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def jobGraph(self, jid, history="FULL", start="", stop="", cluster="Flatiron"):
+    def jobGraph(self, jid, history="FULL", start="", stop="", cluster="Iron"):
         jobid = int(jid)
         if history != "FULL":
            start, stop = MyTool.getStartStopTS(start, stop, formatStr='%Y-%m-%dT%H:%M')
@@ -1386,7 +1409,7 @@ class SLURMMonitorUI(object):
                                    'iseries_rw': msg[4]}
         return h
 
-    def jobGraph_file(self, jobid, cluster="Flatiron"):
+    def jobGraph_file(self, jobid, cluster="Iron"):
         if jobid in self.monData.currJobs:
            job = self.monData.currJobs[jobid]
            if 'user' not in job:
@@ -1407,13 +1430,13 @@ class SLURMMonitorUI(object):
         else:
            return start, stop, cpu_all_seq, mem_all_seq, io_all_seq
 
-    def jobGraph_influx(self, jobid, start=None, stop=None, cluster="Flatiron"):
+    def jobGraph_influx(self, jobid, start=None, stop=None, cluster="Iron"):
         jobid        = int(jobid)
         influxClient = InfluxQueryClient(cluster)
         queryRlt     = influxClient.getJobMonData_hc(jobid, start, stop)
         return queryRlt
 
-    def jobGraph_cache(self, jobid, start=None, stop=None, cluster="Flatiron"):
+    def jobGraph_cache(self, jobid, start=None, stop=None, cluster="Iron"):
         jobid  = int(jobid)
         #job, cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes= self.monData.inMemCache.queryJob(jobid)
         jobRlt = self.monDataDict[cluster].inMemCache.queryJob(jobid, start, stop)
@@ -1548,7 +1571,7 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def nodeJobProcGraph(self, node, jid, days=3, cluster="Flatiron"):
+    def nodeJobProcGraph(self, node, jid, days=3, cluster="Iron"):
         jobid      = int(jid)
         job        = self.monDataDict[cluster].getJob (jobid, req_fields=['start_time'])
         start,stop = MyTool.getStartStopTS(days=days)
@@ -1585,7 +1608,7 @@ class SLURMMonitorUI(object):
         return h
 
     #return jobstarttime, data, datadescription
-    def getUserJobProc (self, uid, cluster="Flatiron"):
+    def getUserJobProc (self, uid, cluster="Iron"):
         # get the current jobs of uid
         monData = self.monDataDict[cluster]
         uid     = int(uid)
@@ -1641,7 +1664,7 @@ class SLURMMonitorUI(object):
         return WAIT_MSG + repr(elapse_time) + " seconds since server restarted."
 
     @cherrypy.expose
-    def userJobGraph(self,user,start='', stop='',cluster="Flatiron"):
+    def userJobGraph(self,user,start='', stop='',cluster="Iron"):
         #if not self.monData.hasData(): return self.getWaitMsg()
 
         #{jid: df, ...}
@@ -1677,7 +1700,7 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def userGraph(self,user,start='', stop='', cluster="Flatiron"):
+    def userGraph(self,user,start='', stop='', cluster="Iron"):
         uid          = MyTool.getUid(user, cluster)
         start, stop  = MyTool.getStartStopTS (start, stop, formatStr='%Y-%m-%d')
 
@@ -1718,7 +1741,7 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def sunburst(self):
-        if not self.monDataDict["Flatiron"].hasData():   #Allow popeye data to be empty
+        if not self.monDataDict["Iron"].hasData():   #Allow popeye data to be empty
            return self.getNoDataPage ('Tabular Summary', 'sunburst')
 
         data = {}
@@ -1795,7 +1818,7 @@ class SLURMMonitorUI(object):
         return open("back2.html").read()
 
     @cherrypy.expose
-    def displayFile(self, fname, cluster='Flatiron'):
+    def displayFile(self, fname, cluster='Iron'):
         sav_name     = fname
         if cluster=='Popeye':
             basename = os.path.basename(fname)
