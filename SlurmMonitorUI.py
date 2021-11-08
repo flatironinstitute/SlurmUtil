@@ -1096,7 +1096,6 @@ class SLURMMonitorUI(object):
     def jobByName(self, name='script', curr_jid=None):
         fields    =['id_job','job_name', 'id_user','state', 'nodelist', 'time_start','time_end', 'exit_code', 'tres_req', 'tres_alloc', 'gres_req', 'gres_alloc', 'work_dir']
         data      = SlurmDBQuery.getJobByName(name, fields)  #user, duration is added by the function
-        d_flds    = {'id_job':'Job ID', 'state':'State', 'user':'User', 'nodelist':'Alloc Node', 'time_start':'Start', 'time_end':'End', 'duration':'Duration', 'exit_code':'Exit', 'tres_req':'Req Tres', 'gres_req':'Req Gres', 'work_dir':'Work Dir'}
         total_cnt = len(data)
         if len(data) > 100:
            data=data[-100:]
@@ -1105,7 +1104,7 @@ class SLURMMonitorUI(object):
            d['time_end']   = MyTool.getTsString(d['time_end'])
 
         htmlTemp   = os.path.join(config.APP_DIR, 'jobByName.html')
-        htmlStr    = open(htmlTemp).read().format(job_name=name, job_cnt=total_cnt, job_list=data, job_title=d_flds)
+        htmlStr    = open(htmlTemp).read().format(job_name=name, job_cnt=total_cnt, job_list=data)
         return htmlStr
         #return '{}\n{}'.format(fields, data)
 

@@ -10,8 +10,11 @@
     <script type="text/javascript" src="static/scripts/myFunc.js"></script>
     <script type="text/javascript" src="static/scripts/myTable.js"></script>
     <script type="text/javascript">
+      tbl_title  = {{'id_job':'Job ID', 'state':'State', 'user':'User', 'nodelist':'Alloc Node', 'time_start':'Start', 'time_end':'End', 'duration':'Duration', 'exit_code':'Exit', 'tres_req':'Req Tres', 'gres_req':'Req Gres', 'work_dir':'Work Dir'}}
+      tbl_type  = {{'id_job':'job', 'user':'user'}}
+
       $(document).ready(function () {{
-          createTable({job_list}, {job_title}, 'job_table', 'job_list');
+          createTable({job_list}, tbl_title, 'job_table', 'job_list', undefined, tbl_type);
         }});
     </script>
   </head>
