@@ -28,7 +28,7 @@ function getDisplayFile (file_cmd, cluster="Iron") {
        filename = file_cmd
     if (filename.startsWith("/"))
        return file_cmd.substring(0, last_idx+1) + '<a href=./displayFile?fname=' + filename + '&cluster=' + cluster + '>' + filename + '</a>'
-    else
+    else                       // if it is a file, then relative to the work dir
        return file_cmd
 }
 

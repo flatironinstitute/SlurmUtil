@@ -1196,29 +1196,30 @@ class SLURMMonitorUI(object):
         jid            = int(jid)
         ts             = int(time.time())
 
-        monData        = self.monDataDict[cluster]
+        # get job_report from sacct command line
         jobstep_report = SlurmCmdQuery.sacct_getJobReport(jid)
         if not jobstep_report:
            return "Cannot find job {} from sacct.".format(jid)
         job_report     = jobstep_report[0]
-        job            = monData.pyslurmJobs.get(jid,None)
-        if not job:
-           job         = PyslurmQuery.getSlurmDBJob(jid)
-        job['cluster'] = cluster
+        job_report['ArrayJobID']         = job_report['JobID'] if '_' in job_report['JobID'] else None
+        job_report['HeterogeneousJobID'] = job_report['JobID'] if '+' in job_report['JobID'] else None
 
+        # get job from pyslurm
+        monData        = self.monDataDict[cluster]
+        job            = monData.pyslurmJobs.get(jid,None)
+        if not job:      # not an active job
+           job         = PyslurmQuery.getSlurmDBJob(jid)
+
+        # get job process information
         msg_note       = ''
         worker2proc    = {}
         proc_disp_field= []
         if not job:
-           msg_note    = "Cannot find job {} from slurmdb.".format(jid)
-        elif job['job_state'] not in ['RUNNING','PENDING']:           #job is not running or pending
-           job_name    = job_report['JobName']
-           proc_disp_field, worker2proc, msg_note = self.getDoneJobProc(jid, job_report)   #get result from influx
-        else:                                                                    #running job's proc is in self.data
-           job_name    = job['name']
-           if job['job_state'] == 'RUNNING':
+            msg_note    = "Cannot find job {} from pyslurm.".format(jid)
+        else:
+            if job['job_state'] == 'RUNNING':              #running job's proc is in self.data
               if not monData.hasData():
-                 msg_note = getWaitMsg()
+                 msg_note = self.getWaitMsg()
               else: # should in the data
                  ts                           = monData.updateTS
                  proc_disp_field, worker2proc = monData.getJobProc (jid)
@@ -1227,22 +1228,33 @@ class SLURMMonitorUI(object):
                  else:
                     if len(worker2proc) != int(job_report['AllocNodes']):
                        msg_note='WARNING: Job {} is running on {} nodes, which is less than {} allocated nodes.'.format(jid, len(worker2proc), job_report['AllocNodes'])
-        job_report['ArrayJobID']         = job_report['JobID'] if '_' in job_report['JobID'] else None
-        job_report['HeterogeneousJobID'] = job_report['JobID'] if '+' in job_report['JobID'] else None
+            elif job['job_state'] != 'PENDING':             #job is not running or pending
+               proc_disp_field, worker2proc, msg_note = self.getDoneJobProc(jid, job_report)   #get result from influx
+
         if job:
+           job['cluster']                = cluster
            job['user']                   = MyTool.getUser(job['user_id'], cluster)
            job['ArrayJobID']             = job_report['ArrayJobID']
            job['HeterogeneousJobID']     = job_report['HeterogeneousJobID']
+           if job.get('name', None) == 'disBatch' and 'command' in job:
+            cmd_arr        = job['command'].split(' ')
+            disBatch_fname = os.path.join(job['work_dir'],cmd_arr[-1])
+            cmd_arr[-1]    = disBatch_fname
+            job['command'] = ' '.join(cmd_arr)
+
+           job_info                      = {}
+        else:
+           job_info                      = job_report
 
         #grafana_url = 'http://mon8:3000/d/jYgoAfiWz/yanbin-slurm-node-util?orgId=1&from={}{}&var-jobID={}&theme=light'.format(start*1000, '&var-hostname=' + '&var-hostname='.join(MyTool.nl2flat(job_report['NodeList'])), jid)
 
         htmlTemp   = os.path.join(config.APP_DIR, 'jobDetail.html')
         htmlStr    = open(htmlTemp).read().format(cluster    = cluster,
                                                   job_id     = jid,
-                                                  job_name   = job_name,
+                                                  job_name   = job_report['JobName'],
                                                   update_time= datetime.datetime.fromtimestamp(ts).ctime(),
                                                   job        = json.dumps(job),
-                                                  job_info   = json.dumps(job_report),
+                                                  job_info   = json.dumps(job_info),
                                                   title_list = proc_disp_field,
                                                   proc_cnt   = sum([val[1] for val in worker2proc.values()]),
                                                   worker_proc= json.dumps(worker2proc),
