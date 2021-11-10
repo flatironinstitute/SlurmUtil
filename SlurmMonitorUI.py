@@ -1094,17 +1094,21 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def jobByName(self, name='script', curr_jid=None):
-        fields    =['id_job','job_name', 'id_user','state', 'nodelist', 'time_start','time_end', 'exit_code', 'tres_req', 'tres_alloc', 'gres_req', 'gres_alloc', 'work_dir']
-        data      = SlurmDBQuery.getJobByName(name, fields)  #user, duration is added by the function
-        total_cnt = len(data)
-        if len(data) > 100:
-           data=data[-100:]
-        for d in data:
-           d['time_start'] = MyTool.getTsString(d['time_start'])
-           d['time_end']   = MyTool.getTsString(d['time_end'])
+        #data      = SlurmDBQuery.getJobByName(name, fields)  #user, duration is added by the function
+        data      = PyslurmQuery.getDBJobsByName (name)
+        cnt_limit = 100
+        if len(data) > cnt_limit:
+           data=data[-cnt_limit:]
+        else:
+           fields    =['id_job', 'job_name', 'id_user', 'state', 'nodelist', 'time_start','time_end', 'exit_code', 'tres_req', 'tres_alloc', 'gres_req', 'gres_alloc', 'work_dir']
+           total_cnt, data2  = SlurmDBQuery.getJobsByName(name, fields, cnt_limit-len(data))
+           data.extend(data2)
+        #for d in data:
+        #   d['time_start'] = MyTool.getTsString(d['time_start'])
+        #   d['time_end']   = MyTool.getTsString(d['time_end'])
 
         htmlTemp   = os.path.join(config.APP_DIR, 'jobByName.html')
-        htmlStr    = open(htmlTemp).read().format(job_name=name, job_cnt=total_cnt, job_list=data)
+        htmlStr    = open(htmlTemp).read().format(job_name=name, job_list=json.dumps(data))
         return htmlStr
         #return '{}\n{}'.format(fields, data)
 

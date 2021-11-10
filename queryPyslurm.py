@@ -158,6 +158,29 @@ class PyslurmQuery():
                logger.error("Cannot find/map reqested job field {} in job {}".format(f, job))
         return job
 
+    PYSLURMDB_2_SLURMDB={'jobid':'id_job', 'jobname':'job_name', 'state_str':'state', 'nodes':'nodelist', 'start_time':'time_start', 'end_time':'time_end', 'exitcode':'exit_code', 'tres_req_str':'tres_req', 'tres_alloc_str':'tres_alloc','used_gres':'gres_alloc'} 
+    #'alloc_gres':'gres_detail'?
+    @staticmethod
+    def getJobsByName (name):  # 07:00AM is when running daily.sh to retrieve data from slurmdb
+        jobs       = pyslurm.job().get()
+        jobsByName = [job for jid,job in jobs.items() if job['name']==name]
+        for job in jobsByName:
+            job['user'] = MyTool.getUser(job['user_id'])
+        return jobsByName
+
+    PYSLURMDB_2_PYSLURM={'alloc_nodes':'num_nodes', 'alloc_gres':'gres_detail', 'end':'end_time', 'exitcode':'exit_code', 'jobid':'job_id', 'jobname':'name', 'start':'start_time','state_str':'job_state', 'submit':'submit_time', 'uid':'user_id'}
+    @staticmethod
+    def getDBJobsByName (name, start_time=b"07:00AM", cvt_dict=PYSLURMDB_2_PYSLURM):  # 07:00AM is when running daily.sh to retrieve data from slurmdb
+        #['id_job','job_name', 'id_user','state', 'nodelist', 'time_start','time_end', 'exit_code', 'tres_req', 'tres_alloc', 'gres_req', 'gres_alloc', 'work_dir']
+        jobs       = pyslurm.slurmdb_jobs().get(starttime=start_time)
+        jobsByName = [cvtJobAttrName(job, cvt_dict) for jid,job in jobs.items() if job['jobname']==name]
+        return jobsByName
+
+def cvtJobAttrName (job, cvt_dict):
+    for before,after in cvt_dict.items():
+        if before in job:
+           job[after] = job[before]
+    return job
 
 #TODO: job['num_tasks'] what is it
 PEND_EXP={

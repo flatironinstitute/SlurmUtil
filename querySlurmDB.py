@@ -19,6 +19,8 @@ for i in range(1,10):
         f        = (i*10+j)/10       
         LOG_BUCKET[f]=round(math.pow(10,f))
 
+SLURMDB_2_PYSLURM={'job_name':'name', 'id_job':'job_id', 'id_user':'user_id', 'nodelist':'nodes', 'state':'job_state', 'time_start':'start_time', 'time_end':'end_time', 'tres_req':'tres_req_str', 'tres_alloc':'tres_alloc_str', 'gres_alloc':'gres_detail'}
+
 #truncate csv file, removing lines with create_time bigger than ts
 def truncUsageFile (inFile, outFile, ts):
     print("Truncate {} file and save to {}".format(inFile, outFile))
@@ -251,16 +253,19 @@ class SlurmDBQuery:
 
         return df[['id_job', 'user', 'time_start', 'time_end', 'time_suspended']]
 
-    def getJobByName (job_name, fields=['id_job','job_name', 'id_user','state', 'nodes_alloc','nodelist', 'time_start','time_end', 'tres_req', 'gres_req']):
-        lst = []    # TODO: in time order
-        for cluster in ['slurm_cluster', 'slurm']: 
-            lst.extend(SlurmDBQuery.getJobByName_cluster (job_name, cluster, fields))
 
-        return lst
+    # count defines how many records should be returned
+    def getJobsByName (job_name, fields, count=None):
+        #lst = []    # TODO: in time order
+        #for cluster in ['slurm_cluster', 'slurm']: 
+        for cluster in ['slurm']: 
+            curr_len, curr_lst = SlurmDBQuery.getJobByName_cluster (job_name, cluster, fields, rename_columns=SLURMDB_2_PYSLURM, count=count)
+
+        return curr_len, curr_lst
 
     # return jobs with the given job_name
     # add fields user, duration
-    def getJobByName_cluster (job_name, cluster, fields):
+    def getJobByName_cluster (job_name, cluster, fields, rename_columns=None, count=None):
         start,stop,df  = SlurmDBQuery.readJobTable(cluster, fld_lst=fields)
         df             = df[df['job_name']==job_name]
         df['state']    = df['state'].map  (lambda x: SLURM_STATE_DICT.get(x, x))
@@ -268,8 +273,13 @@ class SlurmDBQuery:
         df['duration'] = df['time_end'] - df['time_start']
         df['duration'] = df['duration'].map(lambda x: x if x >0 else 0)
         df             = df.fillna('Not Defined')
+        total          = len(df.index)
+        if count:
+            df         = df[-count:]
+        if rename_columns:
+            df         = df.rename (columns=rename_columns)
         lst            = df.to_dict(orient='records')
-        return lst
+        return total, lst
 
     # return jobs after the given start time, TODO: no cluster as parameter
     def getJobByStartTime (self, start_time, fields=['id_job','job_name', 'id_user','state', 'nodes_alloc','nodelist', 'time_start','time_end', 'tres_req', 'gres_req']):
@@ -538,7 +548,7 @@ def truncUsageFiles():
         truncUsageFile (in_f, out_f, ts)
 
 def test1():
-    SlurmDBQuery.getJobByName("jupyter-notebook")
+    SlurmDBQuery.getJobsByName("jupyter-notebook")
 
 def test2():
     client = SlurmDBQuery()
