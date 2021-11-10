@@ -477,7 +477,7 @@ class InfluxQueryClient:
     def queryJobProc(self, jid, nodelist, start_time, stop_time):
         t1=time.time()
 
-        query     = "select * from short_term.node_proc_info1 where jid = " + str(jid) #jid is integer, show field keys from autogen.node_proc_info
+        query     = "select * from short_term.node_proc_info2 where jid = " + str(jid) #jid is integer, show field keys from autogen.node_proc_info
         query     = self.extendQuery (query, start_time, stop_time, nodelist)
         query_rlt = self.query(query, epoch='s') 
         rlt       = {}

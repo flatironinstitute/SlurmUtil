@@ -94,6 +94,8 @@ class IndexedHostData(object):
         cpu_all_seq, mem_all_seq, io_all_seq = [], [], []
         for node in nodes:
             lst = self.queryData (node, start, end, uname)
+            if not lst:
+               continue
             if lst[0]['data']:
                cpu_all_seq.append(lst[0])
             if lst[1]['data']:
@@ -107,6 +109,7 @@ class IndexedHostData(object):
         fname = self.getDataFileName(hostname)
         if not os.path.isfile(fname):
            logger.error("Cannot locate file {}".format(fname))
+           return None
 
         with open(fname, 'rb') as df:
           idx      = SearchIndex(self.getIndexFileName(hostname), 40)
