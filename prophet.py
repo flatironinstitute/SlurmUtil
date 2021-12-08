@@ -164,7 +164,7 @@ class MyProphet:
            plt.title  ('CPU Seconds Forecast MAPE (mean absolute percent error)')
            plt.savefig(IMG_DIR + name + '_forecastCV.png')
 
-def daily (clusters):
+def daily (clusters=['slurm', 'slurm_plus']):
     for cluster in clusters:
        print("--- Cluseter {} ---".format(cluster))
        fname1 = "{}/{}_day_{}".format(CSV_DIR, cluster, "cpuAllocDF.csv")
