@@ -220,9 +220,9 @@ class InMemCache:
             if end_ts and end_ts >= self.nodes[node]['last_ts']-300:
                idx = bisect_right(seq, (end_ts,))
                seq = user_usage[:idx-1]
-            cpu_rlt.append ({'name':user, 'data':[ [ts*1000, usage[InMemCache.CPU_IDX]] for (ts, usage) in seq ]})       
-            mem_rlt.append ({'name':user, 'data':[ [ts*1000, usage[InMemCache.RSS_IDX]] for (ts, usage) in seq ]})       
-            io_rlt.append  ({'name':user, 'data':[ [ts*1000, usage[11]] for (ts, usage) in seq ]})       
+            cpu_rlt.append ({'name':user, 'data':[ [ts, usage[InMemCache.CPU_IDX]] for (ts, usage) in seq ]})       
+            mem_rlt.append ({'name':user, 'data':[ [ts, usage[InMemCache.RSS_IDX]] for (ts, usage) in seq ]})       
+            io_rlt.append  ({'name':user, 'data':[ [ts, usage[11]] for (ts, usage) in seq ]})       
 
         logger.debug("\tnode={}:cpu_rlt={}".format(self.nodes[node], cpu_rlt))
         return self.nodes[node], cpu_rlt, mem_rlt, io_rlt
