@@ -24,6 +24,6 @@ def setSetting (key,settings):
        cherrypy.session['settings'][key] = settings
        savUserSettings (cherrypy.session['user'],cherrypy.session['settings'])
     else:
-       APP_CONFIG["settings"][key]= settings
+       config.APP_CONFIG["settings"][key]= settings
 
 
