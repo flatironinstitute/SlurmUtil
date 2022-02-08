@@ -42,15 +42,13 @@ class InfluxWriter (threading.Thread):
 
     def writeInflux (self, points, ret_policy="autogen", t_precision="s"):
         try:
-           logger.info  ("writeInflux {} {} pts".format(ret_policy, len(points)))
+           logger.info  ("writeInflux {} points with ret_policy={}\n".format(len(points), ret_policy))
            if self.test_mode:
-              logger.info("writeInflux {} points with ret_policy={}\n".format(len(points), ret_policy))
               for idx in range(min(len(points),5)):
                   logger.info("{}".format(points[idx]))
                   logger.info("...")
               return True
            else:
-              #ret = self.influx_client.write_points (points,  retention_policy=ret_policy, time_precision=t_precision, batch_size=BATCH_SIZE)
               ret = self.influx_client.write_points (points,  retention_policy=ret_policy, time_precision=t_precision, batch_size=InfluxWriter.MAX_SIZE)
               logger.info("writeInflux return {}".format(ret))
               return ret
@@ -64,6 +62,7 @@ class InfluxWriter (threading.Thread):
     def addSource(self, source):
         self.source.append(source)
 
+    # category source_points by retention policy
     def addSourcePoints (self, rp_points, source_points):
         for rp, point_lst in source_points.items():
             if rp in rp_points:
@@ -79,7 +78,6 @@ class InfluxWriter (threading.Thread):
         time.sleep (10)
         while True:
           for s in self.source:
-              #points.extend(s.retrieveInfluxPoints ())
               self.addSourcePoints (rp_points, s.retrieveInfluxPoints ())
               sum_s = sum([len(points) for points in rp_points.values()])
               logger.info ("InfluxWriter have {} points after checking source {}".format(sum_s, s))
@@ -93,9 +91,6 @@ class InfluxWriter (threading.Thread):
               rp_points[rp].clear()
               #if ret:
               #   rp_points[rp].clear()
-              #else: 
-                 # show the users list, still failed, reconnect with it
-              #   logger.error("write_points return False")
 
           self.influx_client.close()
           time.sleep (self.interval)
@@ -208,7 +203,7 @@ class MQTTReader (threading.Thread):
 
         #autogen.cpu_proc_info, job_proc_mon
         hostproc_msgs = self.consume_hostproc_msgs()
-        ignore_count  = 0
+        ignore_count  = 0           # increased in hostproc2point only
         self.process_list_add(rp_points, hostproc_msgs, self.hostproc2point)
         logger.debug("MQTTReader generate {} {} points after adding hostproc, ignore {} points".format(len(rp_points['autogen']), len(rp_points['short_term']), ignore_count))
 
@@ -222,7 +217,9 @@ class MQTTReader (threading.Thread):
         return rp_points
 
     def filter_hostproc_msgs (self, hostproc_msgs):
+        
         logger.debug ("before filter {} msgs".format(len(hostproc_msgs)))
+        # for each proc, only add one latest message for each slurm node
         hostproc_msgs.sort(key=lambda msg: msg['hdr']['msg_ts'], reverse=True)   #latest msg first
         host_dict = {}
         rlt       = []
@@ -297,9 +294,13 @@ class MQTTReader (threading.Thread):
         #...
         #'hdr': {'hostname': 'worker1000', 'msg_process': 'cluster_host_mon', 'msg_type': 'cluster/hostprocesses', 'msg_ts': 1528901819.82538}} 
         #pdb.set_trace()
-        ts   = (int)(msg['hdr']['msg_ts'])
-        node = msg['hdr']['hostname']
-        if ( len(msg['processes']) == 0 ):   return {}
+        ts       = (int)(msg['hdr']['msg_ts'])
+        node     = msg['hdr']['hostname']
+        proc_cnt = len(msg['processes'])
+        if ( proc_cnt == 0 ):   return {}
+
+        too_many_proc  = True if proc_cnt > (self.nodeData[node]['cpus']+10) else False
+        cpu_delta_thld = 1    if not too_many_proc else 5
 
         new_procs, cont_procs, pre_cont_procs, pre_done_procs, pre_ts = self.node2tsPidsCache.addMQTTMsg(node, ts, msg)
         if (not new_procs) and (not cont_procs):
@@ -315,15 +316,15 @@ class MQTTReader (threading.Thread):
         if cont_pids != pre_pids:
             logger.info("Missing some items in pre_cont_procs {} or cont_procs {}".format(pre_cont_procs,cont_procs))
             check    = False
-        for idx_proc, proc in enumerate(cont_procs):
+        for idx_proc, proc in enumerate(cont_procs):  # continued proc
             if check:
                pre_proc  = pre_cont_procs[idx_proc] if idx_proc<len(pre_cont_procs) else None
                cpu_delta = proc.get('cpu',{}).get('system_time',0)+proc.get('cpu',{}).get('user_time',0) - pre_proc.get('cpu',{}).get('system_time',0)-pre_proc.get('cpu',{}).get('user_time',0) 
             else:
-               cpu_delta = 10
-            if cpu_delta > 1:
+               cpu_delta = 20
+            if abs(cpu_delta) > cpu_delta_thld:
                rp_points['short_term'].append(self.createProcMonPoint  (node, ts, proc))
-            else:
+            else:   # ingore the points that does not change much from previous one
                ignore_count += 1
 
         for proc in new_procs:
@@ -675,9 +676,6 @@ def main(influxServer, influxPort, influxDB, ifx_interval, py_interval, mqttServ
 if __name__=="__main__":
    #Usage: python mqtMon2Influx.py
    parser = argparse.ArgumentParser (description='Start a deamon to save mqtt and pyslurm information to InfluxDB.')
-   #parser.add_argument('influxServer', help='The hostname of an InfluxDB server.')
-   #parser.add_argument('-l', '--logfile',  help='The name of the logfile.')
-   #parser.add_argument('--debug',       action='store_true', help='Enable debug mode in which data will not be saved to InfluxDB.')
    parser.add_argument('-c',     '--configFile',  help='The name of the config file.')
    parser.add_argument('--test', action='store_true',  help='The name of the config file.')
    args         = parser.parse_args()
