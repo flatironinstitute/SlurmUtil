@@ -28,22 +28,21 @@
           var cluster         = {cluster}
           // Create node detail table
           var node_data       = {node_data}
-          var node_info       = {node_info}
           var array_het_jids  = {array_het_jids}
           const proc_title    = ['PID', 'Avg CPU Util', 'RSS', 'VMS','IO Rate', 'Command']
           const proc_type     = [null,  'Float',        'B',   'B',  'Bps',      null]
 
           // title line
-          var htmlStr = cluster + ' Node ' + node_info.name + ' : ' + node_info.state 
-                            + " <small>(<a href='nodeGraph?node=" + node_info.name + "'> Last 3 Days' Usage Graph</a>";
+          var htmlStr = cluster + ' Node ' + node_data.name + ' : ' + node_data.state 
+                            + " <small>(<a href='nodeGraph?node=" + node_data.name + "'> Last 3 Days' Usage Graph</a>";
           if (node_data["gpus"])
-              htmlStr = htmlStr + ", <a href='nodeGPUGraph?node=" + node_info.name + "'>GPU Graph</a>";
+              htmlStr = htmlStr + ", <a href='nodeGPUGraph?node=" + node_data.name + "'>GPU Graph</a>";
           htmlStr     = htmlStr + ')</small>'
 
           $("#node_title").html(htmlStr);
 
           // node information
-          createNoHeaderTable (node_info, 
+          createNoHeaderTable (node_data, 
                  {{'features':'Features','partitions':'Partitions','tres_fmt_str':'TRES','gres':'GRES','boot_time':'Boot Time','alloc_cpus':'Alloc CPUs','alloc_mem':'Alloc Mem','alloc_gpus':'Alloc GPUs','running_jobs':'Running Jobs'}}, 
                  {{'boot_time':'timestamp','alloc_mem':'M', 'partitions':'partition_list','running_jobs':'job_list'}}, 
                  '#div_node_info', 'node_info', filterDict2NestList, cluster)
@@ -51,8 +50,10 @@
           // running job 
           if (node_data["jobCnt"])
              $("#summary").text("Total " +node_data["jobCnt"]+" running Jobs with " + node_data["procCnt"] + " Processes, allocating "+node_data["alloc_cpus"] +" CPUs and " + node_data["alloc_gpus"] + " GPUs")
+          else if (node_data['updateTS'])
+             $("#summary").text("No running jobs at this time");
           else
-             $("#summary").text("No running jobs at this time")
+             $("#summary").text("No monitoring data for the node");
           createMultiTable2 (node_data["jobProc"], '#div_job', proc_title, node_data["name"], proc_type)
 
           // job history

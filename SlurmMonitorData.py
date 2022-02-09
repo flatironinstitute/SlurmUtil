@@ -69,7 +69,7 @@ class SLURMMonitorData(object):
                pid      = p[0]
                cpu_time = p[3] + p[4]
                if savProcs[pid]['cpu_time'] > cpu_time:
-                  logger.error("cpu_time of job {}'s process {} is decreasing from {}:{} to {}:{}".format(jobid, pid, savTs, savProcs[pid]['cpu_time'], ts, cpu_time))
+                  logger.warning("Job {} on node {}, the cpu time of process {} is decreasing from {}:{} to {}:{}".format(jobid, node, pid, savTs, savProcs[pid]['cpu_time'], ts, cpu_time))
                
                savProcs[pid]['cpu_time']     = cpu_time
                savProcs[pid]['mem_rss_K']    = int(p[5]/1024)
@@ -418,7 +418,7 @@ class SLURMMonitorData(object):
         low_nodes  = []
         for nm in empty_nodes:
             jobs     = self.getNode2Jobs(nm)
-            avg_util = sum([job['job_avg_util'] for job in jobs])
+            avg_util = sum([job.get('job_avg_util',0) for job in jobs])
             avg_mem  = sum([job['job_mem_util'] for job in jobs])
             u_set    = set([job['user_id'] for job in jobs])
             u_lst    = [MyTool.getUser(uid) for uid in u_set]
@@ -550,13 +550,14 @@ class SLURMMonitorData(object):
         return updateTS, nodeData, currJobs, node2jids, pyslurmData
 
     def getNodeProc (self, node):
-        if node not in self.data:
-           return None
-
         #get node data from self.pyslurmNodes
-        pyslurmNodes = self.pyslurmNodes[node]  #'name', 'state', 'cpus', 'alloc_cpus',
-        newNode      = MyTool.sub_dict(pyslurmNodes, ['name','cpus','alloc_cpus'])
-        newNode['gpus'],newNode['alloc_gpus'] = MyTool.getGPUCount(pyslurmNodes['gres'], pyslurmNodes['gres_used'])
+        newNode      = self.pyslurmNodes[node]  #'name', 'state', 'cpus', 'alloc_cpus',
+        #newNode     = MyTool.sub_dict(pyslurmNode, ['name','cpus','alloc_cpus'])
+        newNode['gpus'],newNode['alloc_gpus'] = MyTool.getGPUCount(newNode['gres'], newNode['gres_used'])
+
+        if node not in self.data:
+           newNode['updateTS'] = None
+           return newNode
 
         #get data from self.data
         newNode['state']    = self.data[node][0]
@@ -579,9 +580,10 @@ class SLURMMonitorData(object):
                newNode['jobProc'][jid]['job'] = dict((k,v) for k, v in self.currJobs[jid].items() if v and v != True)
             else:
                logger.warning("Job {} on node {}({}) is not in self.currJobs={}".format(jid, node, list(newNode['jobProc'].keys()), list(self.currJobs.keys())))
-        newNode['jobProc']=dict(newNode['jobProc'])  #convert from defaultdict to dict
-        newNode['jobCnt'] =len(newNode['jobProc'])
-        newNode['alloc_cpus'] =sum([self.currJobs[jid]['cpus_allocated'][node] for jid in newNode['jobProc'] if jid in self.currJobs])
+        newNode['jobProc']      = dict(newNode['jobProc'])  #convert from defaultdict to dict
+        newNode['jobCnt']       = len(newNode['jobProc'])
+        newNode['alloc_cpus']   = sum([self.currJobs[jid]['cpus_allocated'][node] for jid in newNode['jobProc'] if jid in self.currJobs])
+        newNode['running_jobs'] = list(newNode['jobProc'].keys())
 
         jobCPUAlloc = dict([(jid, self.currJobs[jid]['cpus_allocated'][node]) for jid in self.node2jids[node]])  #'cpus_allocated': {'worker1011': 28}
 

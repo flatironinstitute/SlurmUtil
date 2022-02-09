@@ -289,6 +289,7 @@ function createSummaryTable (data, titles_dict, table_id, parent_id, type_dict, 
    var allData = sortSummaryTable   (tbody, data, 'status', true, titles_dict, type_dict, summary_type)
    createSummaryTbody (tbody, allData, 'status', titles_dict, type_dict, summary_type)
    createSummaryThead (table, titles_dict, tbody, data, type_dict, summary_type)
+   // sort by status in increasing order
    setSummaryTableBehavior ('status', true)
 }
 

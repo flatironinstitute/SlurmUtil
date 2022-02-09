@@ -462,7 +462,9 @@ class SLURMMonitorUI(object):
             if status.endswith(('@','+','$','#','~','*')):  #format status diaplay, sinfo explain 
                status = status[:-1]
             if 'DOWN' in status:                            #or modify javascript equalOnCol 
-               status = 'DOWN'
+               #status = 'DOWN'
+               continue                                   # not displaying down nodes
+
             if ( node in node2jobs) and node2jobs[node]:  # node has running jobs
                for jid in node2jobs[node]:                # for each job on the node, add one item
                   job_user    = MyTool.getUser(jobData[jid]['user_id'], cluster=cluster)
@@ -967,26 +969,23 @@ class SLURMMonitorUI(object):
         monData = self.monDataDict[cluster]
         if not monData.hasData():
            return self.getWaitMsg() # error of some sort.
-        nodeData    = monData.getNodeProc(node)
-
-        nodeDisplay = monData.pyslurmNodes.get(node,None)
-        if not nodeDisplay:
+        if node not in monData.pyslurmNodes:
            return "Node {} is not a slurm node".format(node)
-        if nodeData['gpus']:
-           nodeDisplay['gpus']         = nodeData['gpus']
-        if nodeData['alloc_gpus']:
-           nodeDisplay['alloc_gpus']   = nodeData['alloc_gpus']
-        if nodeData['jobProc']:
-           nodeDisplay['running_jobs'] = list(nodeData['jobProc'].keys())
+
+        nodeData    = monData.getNodeProc(node)
+        if not nodeData['updateTS']:
+           logger.warning("Node {} has no monitoring data".format(node))
+           update_time = "No monitoring data"
+        else:
+           update_time = MyTool.getTsString(nodeData['updateTS'])
 
         nodeReport     = SlurmCmdQuery.getNodeDoneJobReport(node, days=3)
         array_het_jids = [ job['JobID'] for job in nodeReport if '_' in job['JobID'] or '+' in job['JobID']]
 
         htmlTemp       = os.path.join(config.APP_DIR, 'nodeDetail.html')
         htmlStr        = open(htmlTemp).read().format(cluster        = json.dumps(cluster),
-                                                      update_time    = MyTool.getTsString(nodeData['updateTS']),
-                                                      node_data      = nodeData,
-                                                      node_info      = json.dumps(nodeDisplay),
+                                                      update_time    = update_time,
+                                                      node_data      = json.dumps(nodeData),
                                                       array_het_jids = array_het_jids,
                                                       node_report    = nodeReport)
         return htmlStr
@@ -1181,18 +1180,20 @@ class SLURMMonitorUI(object):
         if job_report['End'] == 'Unknown':
            return {}, [], 'Can not find end time for a finished job'
 
+        # this took around 50+ seconds
         influxClient = InfluxQueryClient(cluster)
         node2procs   = influxClient.queryJobProc (jid, MyTool.nl2flat(job_report['NodeList']), MyTool.str2ts(job_report['Start']), MyTool.str2ts(job_report['End']))
         if not node2procs:
-           return "WARNING: no record of user's process has been saved in the database.", {}
+           return "WARNING: no record of user's process has been saved in the database.", {}, ''
 
         worker2proc    = {}
         for node, procs in node2procs.items():
             worker2proc[node]=[0,len(procs),0,0,0,[],0]  #[alloc_core_cnt, proc_cnt, total_cpu, t_rss, t_vms, rlt_procs, t_io]
             for proc in procs:
-                worker2proc[node][5].append([proc['pid'], '{:.2f}'.format(proc['avg_util']), MyTool.getDisplayKB(proc.get('mem_rss_K',0)), MyTool.getDisplayKB(proc.get('mem_vms_K',0)), MyTool.getDisplayBps(proc.get('avg_io',0)), proc['cmdline']])
+                worker2proc[node][5].append([proc['pid'], proc['time'], proc['end_time'], '{:.2f}'.format(proc['cpu_user_time']+proc['cpu_system_time']), MyTool.getDisplayB(proc.get('mem_rss',0)), 
+                    MyTool.getDisplayB(proc.get('mem_vms',0)), MyTool.getDisplayI(proc.get('io_read_bytes',0)+proc.get('io_write_bytes',0)), proc['cmdline']])
 
-        return ['PID', 'Avg CPU Util', 'RSS',  'VMS', 'IO Rate', 'Command'], worker2proc, ''
+        return ['PID', 'Start Time', 'End Time', 'CPU Time (sec)', 'RSS',  'VMS', 'IO Bytes', 'Command'], worker2proc, ''
 
     @cherrypy.expose
     def jobDetails(self, jid, cluster="Iron"):
@@ -1251,6 +1252,10 @@ class SLURMMonitorUI(object):
            job_info                      = job_report
 
         #grafana_url = 'http://mon8:3000/d/jYgoAfiWz/yanbin-slurm-node-util?orgId=1&from={}{}&var-jobID={}&theme=light'.format(start*1000, '&var-hostname=' + '&var-hostname='.join(MyTool.nl2flat(job_report['NodeList'])), jid)
+        if worker2proc:
+           proc_cnt   = sum([val[1] for val in worker2proc.values()])
+        else:
+           proc_cnt   = 0
 
         htmlTemp   = os.path.join(config.APP_DIR, 'jobDetail.html')
         htmlStr    = open(htmlTemp).read().format(cluster    = cluster,
@@ -1260,7 +1265,7 @@ class SLURMMonitorUI(object):
                                                   job        = json.dumps(job),
                                                   job_info   = json.dumps(job_info),
                                                   title_list = proc_disp_field,
-                                                  proc_cnt   = sum([val[1] for val in worker2proc.values()]),
+                                                  proc_cnt   = proc_cnt,
                                                   worker_proc= json.dumps(worker2proc),
                                                   note       = msg_note,
                                                   job_report = json.dumps(jobstep_report))
