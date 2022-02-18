@@ -88,10 +88,10 @@ def getUid (user, cluster="Iron"):
     record = getUserRecord (user, cluster);
     if record:
        return record["uid"]
-    elif cluster != "Iron":
-       record = getUserRecord (user, "Iron");
-       if record:
-          return record["uid"]
+    #elif cluster != "Iron":
+    #   record = getUserRecord (user, "Iron");
+    #   if record:
+    #      return record["uid"]
     return None
 
 def getUser (uid, cluster="Iron", fakeName=True):

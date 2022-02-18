@@ -1036,20 +1036,28 @@ class SLURMMonitorUI(object):
     def userDetails(self, user, days=3):
         detailData = {}
         for cluster, monData in self.monDataDict.items():
-           monData       = self.monDataDict[cluster]
+           # for cluster
+           # add user information
            userAssoc     = self.slurmCmdDict[cluster].getUserAssoc(user)
-        
-           if not userAssoc and (cluster=="Iron"):
-              return 'Cannot find user {}!'.format(user)
-           uid           = MyTool.getUid(user, cluster)
-           if not uid and (cluster=="Iron"):
-              return 'Cannot find uid of user {}!'.format(user)
+           if not userAssoc:
+              logger.warning('Cannot find user {} in cluster {}!'.format(user, cluster))
+              userAssoc  = {'User': user}
+           uid              = MyTool.getUid(user, cluster)   # users.csv or sdsc.csv
            userAssoc['uid'] = uid
+           if not uid:
+              logger.warning('Cannot find uid of user {} in cluster {}!'.format(user, cluster))
+              userAssoc['uid'] = 'undefined'
 
+           # add user's job
            ins           = SlurmEntities(cluster, monData.pyslurmData)
-           user_jobs     = ins.getUserJobsByState (uid)  # can also get from sacct -u user -s 'RUNNING, PENDING'
-           self.updateUserAssoc(userAssoc, user_jobs)
+           if monData.hasData():
+              user_jobs  = monData.getUserJobsByState (uid)  # can also get from sacct -u user -s 'RUNNING, PENDING'
+              updateTS   = monData.updateTS
+           else:
+              user_jobs  = ins.getUserJobsByState (uid)
+              updateTS   = ins.updateTS
 
+           self.updateUserAssoc(userAssoc, user_jobs)
            part          = ins.getAccountPartition (userAssoc['Account'], uid)
            for p in part:  #replace big number with n/a
                for k,v in p.items():
@@ -1069,16 +1077,12 @@ class SLURMMonitorUI(object):
            #   userworker = monData.getUserNodeProc(user)  #[alloc_core_cnt, proc_cnt, t_cpu, t_rss, t_vms, procs, t_io]
            #   core_cnt   = sum([val[0] for val in userworker.values()])
            #   proc_cnt   = sum([val[1] for val in userworker.values()])
-           #else:
-           #   note       = 'Note: {}'.format("No monitored data received yet")
-           #   userworker = {}
-           #   core_cnt   = 0
-           #   proc_cnt   = 0
+
            # get done job of the user
            past_job      = self.getUserDoneJob(user, cluster, days)
            array_het_jids= [job['JobID'] for job in past_job if '_' in job['JobID'] or '+' in job['JobID']]  # array of heterogenour job
 
-           detailData[cluster] = [uid, userAssoc, ins.updateTS, user_jobs, part, array_het_jids, past_job]
+           detailData[cluster] = [uid, userAssoc, updateTS, user_jobs, part, array_het_jids, past_job]
     
         detail = detailData["Iron"]
         htmlTemp   = os.path.join(config.APP_DIR, 'userDetail.html')

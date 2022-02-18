@@ -39,7 +39,7 @@ class SLURMMonitorData(object):
         self.pyslurmJobs       = {}
         self.pyslurmNodes      = {}
         self.pyslurmData       = {}
-        self.jobNode2ProcRecord= defaultdict(lambda: defaultdict(lambda: (0, defaultdict(lambda: defaultdict(int))))) # jid: node: (ts, {pid: cpu_time})
+        self.jobNode2ProcRecord= defaultdict(lambda: defaultdict(lambda: (0, defaultdict(lambda: defaultdict(int))))) # jid: node: (ts, {pid: {'cpu_time':, 'mem_rss_K', ...}})
                                                       # one 'ts' kept for each pid
                                                       # modified through updateJobNode2ProcRecord only
         self.inMemCache        = inMemCache.InMemCache()
@@ -77,7 +77,7 @@ class SLURMMonitorData(object):
                savProcs[pid]['cpu_util_curr']= p[1]                    #bytes per sec
                savProcs[pid]['jid']          = p[PROC_JID_IDX]
            else:
-             logger.info("{}: no proc for job {} on node {}".format(ts, jobid, node))
+             logger.info("At {}: no proc for job {} on node {}".format(ts, jobid, node))
              savProcs = defaultdict(lambda: defaultdict(int))
            self.jobNode2ProcRecord[jobid][node] = (ts, savProcs)  # modify self.jobNode2ProcRecord
            #remove done job
@@ -128,28 +128,6 @@ class SLURMMonitorData(object):
            logger.warning('uid2jid user {} has multiple slurm jobs {} on node {}'.format(uid, jids, node))
 
         return jids
-
-    def getJobUsageOnNode (self, jid, job, node):
-        job_uid = job['user_id']
-        if len(node) > USER_INFO_IDX:
-           #09/09/2019 add jid
-           #calculate each job's
-           user_proc = [userInfo for userInfo in node[USER_INFO_IDX:] if userInfo[1]==job_uid ]
-           if len(user_proc) != 1:
-              logger.error("User {} has {} record on {}. Ignore".format(job_uid, len(user_proc), node))
-              return None, None, None, None, None, None
-
-           job_proc = [proc for proc in user_proc[0][7] if proc[PROC_JID_IDX]==jid]
-           # summary data in job_proc
-           # [pid, CPURate, 'create_time', 'user_time', 'system_time', 'rss', vms, cmdline, IOBps, jid]
-           cpuUtil  = sum([proc[1]         for proc in job_proc])
-           rss      = sum([proc[5]         for proc in job_proc])
-           vms      = sum([proc[6]         for proc in job_proc])
-           iobps    = sum([proc[8]         for proc in job_proc])
-           fds      = sum([proc[10]        for proc in job_proc])
-           return cpuUtil, rss, vms, iobps, len(job_proc), fds
-        else:
-           return 0, 0, 0, 0, 0, 0
 
     def getJobGPUUtil_node (self, job, nodename, gpudata):
         if not gpudata:
@@ -323,9 +301,9 @@ class SLURMMonitorData(object):
         #check self.currJobs and locate those jobs in question
         #TODO: 09/09/2019: add jid
         for jid, job in jobs.items():
-            period                   = ts - job['start_time']
-            if period < 0.01:
-               logger.warning("Job {} has an invaild period {}-{}={}. Ignore the update.".format(jid, ts, job['start_time'], period))
+            job_period                   = ts - job['start_time']
+            if job_period < 0.01:
+               logger.warning("Job {} has an invaild period {}-{}={}. Ignore the update.".format(jid, ts, job['start_time'], job_period))
                continue
 
             total_cpu_time           = 0
@@ -333,58 +311,60 @@ class SLURMMonitorData(object):
             total_node_mem           = 0           #proportional mem for shared nodes
             total_io_bps             = 0
             total_cpu_util_curr      = 0
+            job['node_cpu_time']     = {}
             job['node_cpu_util_avg'] = {}
             job['node_rss_util']     = {}
             job['node_io_bps_curr']  = {}
             job['node_cpu_util_curr']= {}
-            job['num_proc']          = {}
+            job['node_num_proc']     = {}
             job['user']              = MyTool.getUser(job['user_id'], self.cluster)
 
             for node in job['cpus_allocated']:
                 node_cpu_time, node_rss, node_mem, node_io_bps_curr, node_cpu_util_curr = 0,0,0,0,0
-                #check self.jobNode2ProcRecord to add up cpu_time and get utilization
                 if (jid in self.jobNode2ProcRecord) and (node in self.jobNode2ProcRecord[jid]):
+                   #check self.jobNode2ProcRecord 
+                   #add up proc cpu_time to get node and job cpu_time
                    savTs, procs        = self.jobNode2ProcRecord[jid][node]
-                   node_cpu_time       = sum([ts_proc['cpu_time']      for pid,ts_proc in procs.items()])
-                   node_rss            = sum([ts_proc['mem_rss_K']     for pid,ts_proc in procs.items()])
-                   node_io_bps_curr    = sum([ts_proc['io_bps_curr']   for pid,ts_proc in procs.items()])
-                   node_cpu_util_curr  = sum([ts_proc['cpu_util_curr'] for pid,ts_proc in procs.items()])
+                   node_cpu_time       = sum([ts_proc['cpu_time']      for ts_proc in procs.values()])
+                   node_rss            = sum([ts_proc['mem_rss_K']     for ts_proc in procs.values()])
+                   node_io_bps_curr    = sum([ts_proc['io_bps_curr']   for ts_proc in procs.values()])
+                   node_cpu_util_curr  = sum([ts_proc['cpu_util_curr'] for ts_proc in procs.values()])
                    total_cpu_time     += node_cpu_time
                    total_rss          += node_rss
                    total_io_bps       += node_io_bps_curr
                    total_cpu_util_curr+= node_cpu_util_curr
+                   #deal with mem
+                   node_tres           = MyTool.getTresDict(pyslurmNodes[node]['tres_fmt_str'])
+                   if 'mem' in node_tres:   # memory is shared
+                      ratio            = job['cpus_allocated'][node] / node_tres['cpu'] if 'cpu' in node_tres else 1
+                      total_node_mem  += MyTool.convert2K(node_tres['mem']) * ratio
+                   else:
+                      logger.error('ERROR: Node {} does not have mem {} in tres_fmt_str {}'.format(node, d, s))
+
+                   #calculate and assign cpu avg util
+                   job['node_cpu_time'][node]     = node_cpu_time 
                    if job['cpus_allocated'][node]:
-                      job['node_cpu_util_avg'][node] = node_cpu_time / period / job['cpus_allocated'][node]
+                      job['node_cpu_util_avg'][node] = node_cpu_time / job_period / job['cpus_allocated'][node]
                    else:
                       logger.warning ("Job {}'s allocated CPUs on node{} is 0".format(jid, node))
                       job['node_cpu_util_avg'][node] = 0
                    job['node_rss_util'][node]     = node_rss
                    job['node_io_bps_curr'][node]  = node_io_bps_curr
                    job['node_cpu_util_curr'][node]= node_cpu_util_curr
-                   job['num_proc'][node]          = len(procs)
+                   job['node_num_proc'][node]     = len(procs)
 
-                   node_tres           = MyTool.getTresDict(pyslurmNodes[node]['tres_fmt_str'])
-                   if 'mem' in node_tres:   # memory is shared
-                      prop             = job['cpus_allocated'][node] / node_tres['cpu'] if 'cpu' in node_tres else 1
-                      total_node_mem  += MyTool.convert2K(node_tres['mem']) * prop
-                      #total_node_mem  += MyTool.convert2K(node_tres['mem'])
-                   else:
-                      logger.error('ERROR: Node {} does not have mem {} in tres_fmt_str {}'.format(node, d, s))
                 elif ts - job['start_time'] > DELAY_SECS*3 : #allow 60*3 seconds delay
                    if jid not in self.jobNode2ProcRecord:
                       logger.error('ERROR: Job {} (start at {} on {}) is not in self.jobNode2ProcRecord'.format(jid, job['start_time'], job['nodes']))
                    else:
                       logger.error('ERROR: Node {} of Job {} (start at {} on {}) is not in self.jobNode2ProcRecord'.format(node, jid, job['start_time'], job['nodes']))
 
-            job['job_io_bps']   = total_io_bps
-            job['job_inst_util']= total_cpu_util_curr / job['num_cpus']
-            if total_cpu_time: # has process informatoin
-                job['job_avg_util'] = total_cpu_time / period / job['num_cpus']
-                job['job_mem_util'] = total_rss / total_node_mem
-            else: # no process information
-                #print('WARNING: Job {} does not have proc on nodes {}'.format(jid, job['nodes']))
-                job['job_avg_util'] = 0
-                job['job_mem_util'] = 0
+            #calculate and assign job level util
+            job['job_cpu_time']   = total_cpu_time
+            job['job_inst_util']  = total_cpu_util_curr / job['num_cpus']
+            job['job_avg_util']   = total_cpu_time / job_period / job['num_cpus']
+            job['job_io_bps']     = total_io_bps
+            job['job_mem_util']   = total_rss / total_node_mem
             job['gpus_allocated'] = SLURMMonitorData.getJobAllocGPU(job, pyslurmNodes)
 
         return jobs
@@ -419,7 +399,7 @@ class SLURMMonitorData(object):
         for nm in empty_nodes:
             jobs     = self.getNode2Jobs(nm)
             avg_util = sum([job.get('job_avg_util',0) for job in jobs])
-            avg_mem  = sum([job['job_mem_util'] for job in jobs])
+            avg_mem  = sum([job.get('job_mem_util',0) for job in jobs])
             u_set    = set([job['user_id'] for job in jobs])
             u_lst    = [MyTool.getUser(uid) for uid in u_set]
             low_nodes.append({'name':nm, 'msg':'Node is allocated to job {} of user {}. The average cpu utilization is {} and the average memory utiization is {}.'.format([job['job_id'] for job in jobs], u_lst, avg_util, avg_mem)})
@@ -516,7 +496,7 @@ class SLURMMonitorData(object):
         currJobs                       = dict([(jid,job) for jid, job in pyslurmJobs.items() if job['job_state'] in ['RUNNING', 'CONFIGURING']])
         node2jids                      = SLURMMonitorData.createNode2Jids (currJobs)
 
-        nodeData  = {}
+        nodeData  = {}                         #assign to self.data later
         for node,nInfo in hn2info.items():
             if updateTS - int(nInfo[2]) > 600: # Ignore data
                logger.debug("ignore old data of node {} at {}.".format(node, MyTool.getTsString(nInfo[2])))
@@ -543,7 +523,7 @@ class SLURMMonitorData(object):
                #update the latest cpu_time for each proc
             elif len(nInfo) > USER_INFO_IDX and nInfo[USER_INFO_IDX]:  # no-allocated node has proc
                u_lst = [procsByUser[0] for procsByUser in nInfo[USER_INFO_IDX:]]
-               logger.warning("{}-{}: User {} has proc running on the node.".format(node, nInfo[0], u_lst))
+               logger.warning("{}-{}: User {} has proc running on un-allocted node.".format(node, nInfo[0], u_lst))
 
         self.addJobsAttr      (updateTS, currJobs, pyslurmNodes)          #add attribute job_avg_util, job_mem_util, job_io_bps
 
@@ -781,11 +761,11 @@ class SLURMMonitorData(object):
 
     #get the total cpu time of uid on node
     def getJobNodeTotalCPUTime(self, jid, node):
-        time_lst = [ d['cpu_time'] for d in self.jobNode2ProcRecord[jid][node][1].values() ]
+        time_lst = [ d['cpu_time'] for d in self.jobNode2ProcRecord[jid][node][1].values() ]   # {jid, node, (ts, {})}
 
         return sum(time_lst)
 
-    # return cpuUtil, rss, vms, iobps, len(job_proc), fds
+    # return cpuUtil, rss, vms, iobps, len(job_proc), fds, not related to history
     def getJobUsageOnNode (self, jid, job, n_name, node):
         uid = job['user_id']
         if len(node) > USER_INFO_IDX:
@@ -808,6 +788,13 @@ class SLURMMonitorData(object):
         else:
            logger.warning("Job {} has no proc record on node {}.".format(jid, n_name))
            return 0, 0, 0, 0, 0, 0
+
+    def getUserJobsByState (self, uid):
+        result    = defaultdict(list)  #{state:[job...]}
+        jobs      = [job for job in self.pyslurmJobs.values() if job['user_id']==uid]
+        for job in jobs:
+            result[job['job_state']].append (job)
+        return dict(result)
 
     @cherrypy.expose
     def index(self):

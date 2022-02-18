@@ -189,7 +189,7 @@ function getSummaryHtml (d, key, summary_type, sortCol)
 }
 
 DISPLAY_FUNC={'user': getUserDetailHtml, 
-              "timestamp":getTS_LString, 'float':getDisplayF, "M":getDisplayM,
+              "timestamp":getTS_LString, 'float':getDisplayF, "M":getDisplayM,"bigInt":getDisplayI,
               'partition':getPartDetailHtml,'partition_list_avail':getPartListAvailString,"partition_list": getPartitionListHtml, 
               'qos':getQoSDetailHtml, 
               'job':getJobDetailHtml,'job_name':getJobNameHtml,'job_step':getJob_StepHtml,'job_list':getJobListHtml,'job_list_summary':getJobListSummaryHtml,
