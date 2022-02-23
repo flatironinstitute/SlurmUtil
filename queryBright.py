@@ -21,10 +21,8 @@ class BrightRestClient:
         #? use session
         self.base_url  = url
         self.cert      = ('./prometheus.cm/cert.pem', './prometheus.cm/cert.key')
-        self.gpu_ts    = 0
-        self.mem_ts    = 0
+        self.gpu_ts    = 0        # cache data of getAllGPUAvg
         self.gpu_data  = None
-        self.mem_data  = None
   
     #latest compared with dump, dump, then average, is easier to get consistent result
     #r = requests.get('https://ironbcm:8081/rest/v1/monitoring/latest?measurable=gpu_utilization:gpu0', verify=False, cert=('/mnt/home/yliu/projects/bright/prometheus.cm/cert.pem', '/mnt/home/yliu/projects/bright/prometheus.cm/cert.key'))
@@ -45,8 +43,14 @@ class BrightRestClient:
            # intervals=0 (default, = raw data), that is  
            q_str    = '{}/dump?entity={}&measurable={}&start=-{}m&epoch=1'.format(self.base_url,entities,measures,minutes)
                               #epoch: time stamp as unix epoch
+        
         logger.info("query_str={}".format(q_str))
-        r     = requests.get(q_str, verify=False, cert=self.cert)
+        try:
+           r     = requests.get(q_str, verify=False, cert=self.cert)
+        except Exception as e:
+           logger.error("Cannot connect to Bright. Exception {}".format(e))
+           return ts, {}
+
         # divide raw data by node and gpu
         d     = defaultdict(lambda:defaultdict(list)) 
         for item in r.json().get('data',[]):
@@ -92,7 +96,7 @@ class BrightRestClient:
     # get all gpu data on node_list, return avg util of last {minutes} minutes
     # reture ['query_time': , {'gpu0':{'workergpu00':0.34 ... },} ]
     # called by heatmap
-    def getAllGPUAvg (self, node_list, minutes=5, max_gpu_cnt=4, intervalFlag=False):
+    def getAllGPUAvg (self, node_list, minutes, max_gpu_cnt=4, intervalFlag=False):
         if (int(time.time())- self.gpu_ts) < 60:
             logger.info ("less than 60 seconds from last query, return saved gpu data")
             return self.gpu_ts, self.gpu_data
