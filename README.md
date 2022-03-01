@@ -2,16 +2,16 @@
 
 This project is to monitor a slurm cluster and to provide a set of user interfaces to display the monitoring data.
 
-## Monitoring
+## Monitoring Framework
 On each node of the slurm cluster, a deamon cluster_host_mon.py is running and reporting the monitored data (running processes' user, slurm_job_id, cpu, memory, io ...) to a MQTT server (for example, mon5.flatironinstitute.org).
 
-A InfluxDB server (for example, worker1090.flatironinstitute.org) is set up to save data.
+An InfluxDB server (for example, worker1090.flatironinstitute.org) is set up to store the monitoring data.
 
-In the monitoring server, we use Phao Python Client to subscribe to the MQTT server and receive data from it. We also use PySlurm to retrieve data from slurm server periodically. Theese incoming data will be 
+A monitoring server (for example, mon7.flatironinstiute.org) is set up to receive, forward and display the monitoring data. We use Phao Python Client to subscribe to the MQTT server and thus receive data from it. We also use PySlurm to retrieve data from slurm server periodically. These incoming data will be 
 1) parsed and indexed; 
 2) saved to data file (${hostname}_sm.p) and index file (${hostname}_sm.px); 
-3) saved to a measurement (for example, slurmdb_1) in InfluxDB
-3) sent to the web interface (http://${webserver}:8126/updateSlurmData) to refresh the displayed data
+3) saved to a measurement (for example, slurmdb_2) in InfluxDB
+3) sent to the web interface (http://${webserver}:8126/updateSlurmData) to display
 
 ## Web Interface
 Web server is built using CherryPy. You can see an example of it at http://mon7:8126/. The set of user interfaces includes:
@@ -102,35 +102,35 @@ By default, InfluxDB uses the following network ports:
 All port mappings can be modified through the configuration file, which is located at /etc/influxdb/influxdb.conf for default installations.
 
 ## Environment setup
-### Python3 and etc
+### Python and etc
 You can use module to add needed packages and libraries in SF environment.
 ```
-module add slurm gcc/10.1.0 python3
+module add slurm gcc/10.1.0 python/3.9.9
 Currently Loaded Modulefiles:
- 1) slurm/20.02.5   2) gcc/10.1.0   3) python3/3.7.3  
+ 1) slurm/20.02.5   2) gcc/10.1.0   3) python3/3.9.9  
 ```
 
 ### Create a python virutal environment:
 ```
 cd <dir>
-python3 -m venv env_slurm20_python37
-source ./env_slurm20_python37/bin/activate
+python -m venv env_slurm21_python39
+source ./env_slurm21_python39/bin/activate
 ```
 
 ### Install pyslurm
 #### Download pyslurm source
-Check release information at https://pypi.org/project/pyslurm/#history and https://github.com/PySlurm/pyslurm/releases.
+Check release information at https://github.com/PySlurm/pyslurm/releases and https://pypi.org/project/pyslurm/#history (outdated).
 ```
-wget https://files.pythonhosted.org/packages/a6/c1/5c998931cf075be7426907d975499085d78c3d43b541ee1946d19dc6ee14/pyslurm-18.8.0.1.tar.gz
-tar -xzvf pyslurm-18.8.0.1.tar.gz
+wget https://github.com/PySlurm/pyslurm/archive/refs/tags/v20.11.8-1.tar.gz
+tar -xzvf v20.11.8-1.tar.gz
 ```
 
-For version 20.02
+Or,
 ```
 git clone https://github.com/PySlurm/pyslurm.git
 ```
 
-#### Modify pyslurm source (20.02.0):
+#### Modify pyslurm source (20.11.8):
 Modify pyslurm/pyslurm.pyx
 ```
 2027d2026
@@ -156,45 +156,35 @@ Modify pyslurm/pyslurm.pyx
 <                 Job_dict[u'pack_job_id_set'] = slurm.stringOrNone(self._record.het_job_id_set, '')
 ```
 
-#### Modify pyslurm source (18.08.0):
-In pyslurm/pyslurm.pyx, changed line 1884 to:
+#### Modify setup.py ####
+Make pyslurm work with slurm v21.08
 ```
-        self._ShowFlags = slurm.SHOW_DETAIL | slurm.SHOW_DETAIL2 | slurm.SHOW_ALL
-```
-Other changes:
-```
-2320a2321,2326
->             gres_detail = []
->             for x in range(min(self._record.num_nodes, self._record.gres_detail_cnt)):
->                 gres_detail.append(slurm.stringOrNone(self._record.gres_detail_str[x],''))
->                                    
->             Job_dict[u'gres_detail'] = gres_detail
-> 
-5365a5372
->                 JOBS_info[u'state_str'] = slurm.slurm_job_state_string(job.state)
-modify pyslurm to add state_reason_desc 02/27/2020
-2274                 Job_dict[u'state_reason_desc'] = self._record.state_desc.decode("UTF-8").replace(" ", "_")
-2199                 Job_dict[u'pack_job_id_set'] = slurm.stringOrNone(self._record.pack_job_id_set, '')
+...
+SLURM_VERSION = "21.08"
+...
+        try:
+            slurm_inc_ver = self.read_inc_version(
+                "{0}/slurm/slurm_version.h".format(self.slurm_inc)
+            )
+        except IOError:
+            slurm_inc_ver = self.read_inc_version("{0}/slurm_version.h".format(self.slurm_inc))
+...
 ```
 
 #### Build and Install pyslurm:
+Inside the python virtual environment
 ```
 pip install Cython
 cd <pyslurm_source_dir>
 python setup.py build --slurm=/cm/shared/apps/slurm/current
 python setup.py install
 ```
-[comment]: Note: need to  
-[comment]: module rm python3
-[comment]: source env_slurm20_python37/bin/activate
-[comment]: python setup.py install
-[comment]: Note: setup.py change slurm version
 
 ### Install python packages
 #### Install fbprophet
 ```
-pip install -I pystan==2.18 --no-cache
-pip install plotly
+pip install -I pystan==2.19.1.1 --no-cache
+?pip install plotly
 pip install fbprophet --no-cache
 ```
 Note: The installation of fbprophet need to pip install -I pystan==2.18 first.
@@ -206,10 +196,10 @@ pip install cherrypy
 pip install paho-mqtt
 pip install influxdb
 pip install python-ldap
-pip install seaborn
-pip install python-dateutil
-pip install holidays
-pip install matplotlib
+?pip install seaborn
+?pip install python-dateutil
+?pip install holidays
+?pip install matplotlib
 ```
 
 Python virtual environment with packages:
@@ -253,10 +243,9 @@ zc.lockfile                   1.4
 ## Others:
 ### Rebuild pyslurm
 ```
-. env_slurm18/bin/activate
-python setup.py build
+. env_slurm21_python39/bin/activate
+python setup.py build --slurm=/cm/shared/apps/slurm/current
 python setup.py install
-pip install -e ../pyslurm
 ```
 
 ```
