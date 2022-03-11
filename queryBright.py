@@ -17,9 +17,10 @@ cert_dir= config.APP_CONFIG["bright"]["cert_dir"]
 class BrightRestClient:
     bright_base_url  = url
     bright_cert      = ('./prometheus.cm/cert.pem', './prometheus.cm/cert.key')
-    def __init__(self):
+    def __init__(self, url_input=None):
         #? use session
-        self.base_url  = url
+        self.base_url  = url if not url_input else url_input
+        print("URL is {}".format(self.base_url))
         self.cert      = ('./prometheus.cm/cert.pem', './prometheus.cm/cert.key')
         self.gpu_ts    = 0        # cache data of getAllGPUAvg
         self.gpu_data  = None
@@ -28,6 +29,10 @@ class BrightRestClient:
     #r = requests.get('https://ironbcm:8081/rest/v1/monitoring/latest?measurable=gpu_utilization:gpu0', verify=False, cert=('/mnt/home/yliu/projects/bright/prometheus.cm/cert.pem', '/mnt/home/yliu/projects/bright/prometheus.cm/cert.key'))
     #r = requests.get('https://ironbcm:8081/rest/v1/monitoring/latest?entity={}&measurable=gpu_utilization:{}'.format(node,gpuId), verify=False, cert=self.cert)
     #r       = requests.get('https://ironbcm:8081/rest/v1/monitoring/dump?entity={}&measurable=gpu_utilization:{}&start=-{}h'.format(node,gpuId,hours), verify=False, cert=cert_files)
+    #REST API: page 56 of https://support.brightcomputing.com/manuals/9.0/developer-manual.pdf
+    #Fixed time format: [YY/MM/DD]HH:MM[:SS], enclised in double quotes, unix epoch time
+    #                   now
+    #                   realtive time: startime can use "-" (earlier than the fixed end time), endtime can use "+" (time later to the fixed start time), seconds(s), minutes(m), hours(h), days(d)
     #[{'entity': 'workergpu16', 'measurable': 'gpu_utilization:gpu0', 'raw': 0.3096027944984667, 'time': 1584396000000, 'value': '31.0%'},
 
     # query bright all gpu data on node_list
@@ -136,7 +141,7 @@ class BrightRestClient:
         if not gpu_list:
            gpu_list = list(range(0, max_gpu_id+1))
         gpus_util = ','.join(['gpu_utilization:gpu{}'.format(i) for i in gpu_list])
-        req_str   = 'https://ironbcm:8081/rest/v1/monitoring/dump?entity={}&measurable={}&start={}&epoch=1'.format(nodes,gpus_util,start_ts)
+        req_str   = '{}/dump?entity={}&measurable={}&start={}&epoch=1'.format(self.base_url, nodes,gpus_util,start_ts)
         r         = requests.get(req_str, verify=False, cert=self.cert)
         d         = r.json()['data']   #[{'entity': 'workergpu16', 'measurable': 'gpu_utilization:gpu0', 'raw': 0.3096027944984667, 'time': 1584396000000, 'value': '31.0%'}, 
         rlt       = defaultdict(list)                 #{'workergpu16.gpu0':[[ts,val],]
@@ -219,9 +224,30 @@ def test7():
     d      = client.getNodeGPU_Mem (node_list, 1)
     print(d)
 
+def test8():
+        client = BrightRestClient()
+
+        minutes = 5
+        max_gpu_cnt = 4
+        start    = time.time()
+        measures = ','.join(['gpu_utilization:gpu{}'.format(i) for i in range(max_gpu_cnt)])
+        ts       = int(time.time())
+        # intervals=0 (default, = raw data), that is  
+        q_str    = '{}/dump?measurable={}&start=-{}m&epoch=1'.format(client.base_url,measures,minutes)
+        logger.info("query_str={}".format(q_str))
+        try:
+           r     = requests.get(q_str, verify=False, cert=client.cert)
+        except Exception as e:
+           logger.error("Cannot connect to Bright. Exception {}".format(e))
+           return ts, {}
+
+        # divide raw data by node and gpu
+        d     = defaultdict(lambda:defaultdict(list)) 
+       
+
 def main():
     t1=time.time()
-    test7 ()
+    test8 ()
     #if len(sys.argv) < 3:
     #   test5(int(sys.argv[1]), False)
     #else:
