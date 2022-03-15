@@ -488,6 +488,7 @@ class PyslurmReader (threading.Thread):
     def run(self):
         #pdb.set_trace()
         logger.info("Start running PyslurmReader ...")
+        pyslurm.slurm_init()
         while True:
           # pyslurm query
           ts       = int(datetime.now().timestamp())

@@ -22,6 +22,7 @@ class PyslurmQuery():
     def getQoSDict (cluster="Iron", pyslurmData=None):
       qos    = pyslurmData.get("qos", {}) if pyslurmData else {}
       if cluster=="Iron":          # local cluster
+         pyslurm.slurm_init()
          qos = pyslurm.qos().get()
       return qos
  
@@ -128,6 +129,7 @@ class PyslurmQuery():
 
     @staticmethod
     def getSlurmDBClusters ():
+        pyslurm.slurm_init()
         c_dict = pyslurm.slurmdb_clusters().get()
         return c_dict
 
@@ -139,6 +141,8 @@ class PyslurmQuery():
     DEF_REQ_FLD = COMMON_FLD + list(MAP_JOB2DBJ.keys())
     @staticmethod
     def getSlurmDBJob (jid, req_fields=DEF_REQ_FLD):
+     
+        pyslurm.slurm_init()
         job = pyslurm.slurmdb_jobs().get(jobids=[jid]).get(jid, None)
         if not job:   # cannot find
            return None
@@ -172,6 +176,7 @@ class PyslurmQuery():
     @staticmethod
     def getDBJobsByName (name, start_time=b"07:00AM", cvt_dict=PYSLURMDB_2_PYSLURM):  # 07:00AM is when running daily.sh to retrieve data from slurmdb
         #['id_job','job_name', 'id_user','state', 'nodelist', 'time_start','time_end', 'exit_code', 'tres_req', 'tres_alloc', 'gres_req', 'gres_alloc', 'work_dir']
+        pyslurm.slurm_init()
         jobs       = pyslurm.slurmdb_jobs().get(starttime=start_time)
         jobsByName = [cvtJobAttrName(job, cvt_dict) for jid,job in jobs.items() if job['jobname']==name]
         return jobsByName
@@ -207,6 +212,7 @@ PEND_EXP={
 
 class SlurmEntities:
   def __init__ (self, cluster="Iron", pyslurmData={}):
+    pyslurm.slurm_init()
     self.cluster = cluster
     if cluster=="Iron":           #local realtime pyslurm
         self.getPyslurmData ()

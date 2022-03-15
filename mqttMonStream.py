@@ -86,6 +86,7 @@ class FileWebUpdater(threading.Thread):
 
     def getPyslurmData (self):
         if self.extra_pyslurm:
+           pyslurm.slurm_init()
            pyslurmData    = {'jobs':pyslurm.job().get(), 'nodes':pyslurm.node().get(), 'partition':pyslurm.partition().get(), 'qos':pyslurm.qos().get(), 'reservation':pyslurm.reservation().get(), 'extra_pyslurm':True}
         else:
            pyslurmData    = {'jobs':pyslurm.job().get(), 'nodes':pyslurm.node().get(), 'extra_pyslurm':False}
@@ -195,7 +196,7 @@ class FileWebUpdater(threading.Thread):
                resp = urllib2.urlopen(urllib2.Request(url, zps, {'Content-Type': 'application/octet-stream'}))
                logger.debug("{}:{}: sendUpdate to {} with return code {}".format(threading.currentThread().ident, MyTool.getTsString(ts), url, resp))
            except Exception as e:
-               logger.error( 'Failed to update slurm data {}: {}'.format(url, e))
+               logger.error( 'Failed to update slurm data {} with exception {}'.format(url, e))
 
     def discardMessage(self, msgs):
         hdiscard, mmdiscard = 0, 0

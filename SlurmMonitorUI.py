@@ -87,6 +87,7 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def pending(self, start='', stop='', state=3):
+     try:
         pendingData = {}
         for cluster, monData in self.monDataDict.items():
            monData    = self.monDataDict[cluster]
@@ -104,6 +105,8 @@ class SLURMMonitorUI(object):
         htmlTemp   = os.path.join(config.APP_DIR, 'pending.html')
         htmlStr    = open(htmlTemp).read().format(data              =json.dumps(pendingData))
         return htmlStr
+     except Exception as e:
+        return "Exception {}".format(e)
 
     @cherrypy.expose
     def cdfTimeReport(self, cluster, upper=90, start='', stop='', state=3):
@@ -969,23 +972,26 @@ class SLURMMonitorUI(object):
         monData = self.monDataDict[cluster]
         if not monData.hasData():
            return self.getWaitMsg() # error of some sort.
-        if node not in monData.pyslurmNodes:
-           return "Node {} is not a slurm node".format(node)
-
         nodeData    = monData.getNodeProc(node)
-        if not nodeData['updateTS']:
-           logger.warning("Node {} has no monitoring data".format(node))
-           update_time = "No monitoring data"
-        else:
-           update_time = MyTool.getTsString(nodeData['updateTS'])
+
+        nodeDisplay = monData.pyslurmNodes.get(node,None)
+        if not nodeDisplay:
+           return "Node {} is not a slurm node".format(node)
+        if nodeData['gpus']:
+           nodeDisplay['gpus']         = nodeData['gpus']
+        if nodeData['alloc_gpus']:
+           nodeDisplay['alloc_gpus']   = nodeData['alloc_gpus']
+        if nodeData['jobProc']:
+           nodeDisplay['running_jobs'] = list(nodeData['jobProc'].keys())
 
         nodeReport     = SlurmCmdQuery.getNodeDoneJobReport(node, days=3)
         array_het_jids = [ job['JobID'] for job in nodeReport if '_' in job['JobID'] or '+' in job['JobID']]
 
         htmlTemp       = os.path.join(config.APP_DIR, 'nodeDetail.html')
         htmlStr        = open(htmlTemp).read().format(cluster        = json.dumps(cluster),
-                                                      update_time    = update_time,
-                                                      node_data      = json.dumps(nodeData),
+                                                      update_time    = MyTool.getTsString(nodeData['updateTS']),
+                                                      node_data      = nodeData,
+                                                      node_info      = json.dumps(nodeDisplay),
                                                       array_het_jids = array_het_jids,
                                                       node_report    = nodeReport)
         return htmlStr
@@ -996,6 +1002,7 @@ class SLURMMonitorUI(object):
 
         past_job  = SlurmCmdQuery.getUserDoneJobReport(user, days=int(days))
         past_jids = [job['JobID'] for job in past_job]
+        pyslurm.slurm_init()
         py_jobs   = pyslurm.slurmdb_jobs().get(jobids=past_jids)
         for job in past_job:
                job.update(py_jobs[int(job['JobIDRaw'])])
@@ -1036,28 +1043,20 @@ class SLURMMonitorUI(object):
     def userDetails(self, user, days=3):
         detailData = {}
         for cluster, monData in self.monDataDict.items():
-           # for cluster
-           # add user information
+           monData       = self.monDataDict[cluster]
            userAssoc     = self.slurmCmdDict[cluster].getUserAssoc(user)
-           if not userAssoc:
-              logger.warning('Cannot find user {} in cluster {}!'.format(user, cluster))
-              userAssoc  = {'User': user}
-           uid              = MyTool.getUid(user, cluster)   # users.csv or sdsc.csv
+        
+           if not userAssoc and (cluster=="Iron"):
+              return 'Cannot find user {}!'.format(user)
+           uid           = MyTool.getUid(user, cluster)
+           if not uid and (cluster=="Iron"):
+              return 'Cannot find uid of user {}!'.format(user)
            userAssoc['uid'] = uid
-           if not uid:
-              logger.warning('Cannot find uid of user {} in cluster {}!'.format(user, cluster))
-              userAssoc['uid'] = 'undefined'
 
-           # add user's job
            ins           = SlurmEntities(cluster, monData.pyslurmData)
-           if monData.hasData():
-              user_jobs  = monData.getUserJobsByState (uid)  # can also get from sacct -u user -s 'RUNNING, PENDING'
-              updateTS   = monData.updateTS
-           else:
-              user_jobs  = ins.getUserJobsByState (uid)
-              updateTS   = ins.updateTS
-
+           user_jobs     = ins.getUserJobsByState (uid)  # can also get from sacct -u user -s 'RUNNING, PENDING'
            self.updateUserAssoc(userAssoc, user_jobs)
+
            part          = ins.getAccountPartition (userAssoc['Account'], uid)
            for p in part:  #replace big number with n/a
                for k,v in p.items():
@@ -1077,12 +1076,16 @@ class SLURMMonitorUI(object):
            #   userworker = monData.getUserNodeProc(user)  #[alloc_core_cnt, proc_cnt, t_cpu, t_rss, t_vms, procs, t_io]
            #   core_cnt   = sum([val[0] for val in userworker.values()])
            #   proc_cnt   = sum([val[1] for val in userworker.values()])
-
+           #else:
+           #   note       = 'Note: {}'.format("No monitored data received yet")
+           #   userworker = {}
+           #   core_cnt   = 0
+           #   proc_cnt   = 0
            # get done job of the user
            past_job      = self.getUserDoneJob(user, cluster, days)
            array_het_jids= [job['JobID'] for job in past_job if '_' in job['JobID'] or '+' in job['JobID']]  # array of heterogenour job
 
-           detailData[cluster] = [uid, userAssoc, updateTS, user_jobs, part, array_het_jids, past_job]
+           detailData[cluster] = [uid, userAssoc, ins.updateTS, user_jobs, part, array_het_jids, past_job]
     
         detail = detailData["Iron"]
         htmlTemp   = os.path.join(config.APP_DIR, 'userDetail.html')
