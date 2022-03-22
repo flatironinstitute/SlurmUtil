@@ -17,16 +17,26 @@
        "mqttMon2Influx"        : "logging.INFO"
    },
    "bright": {
-       "url"                   : "https://ironbcm:8081/rest/v1/monitoring/",
+       "url"                   : "https://rusty-mgr1:8081/rest/v1/monitoring/",
        "cert_dir"              : "./prometheus.cm/"
    },
    "email": {
        "flag"                  : true
    },
    "mqtt": {
-       "host"                  : "mon5.flatironinstitute.org",
+       "host"                  : "cephsvc01.flatironinstitute.org",
        "file_dir"              : "/mnt/ceph/users/yliu/mqtMonStreamRecord",
        "writeFile"             : false
    },
-   "test":  false
+   "test":  false,
+   "display_default": {
+       "low_util_job":      {"cpu": 1, "gpu": 10, "mem": 30, "run_time_hour": 24, "alloc_cpus": 30, "email": false},
+       "low_util_node":     {"cpu": 1, "gpu": 10, "mem": 30, "alloc_time_min": 64},
+       "summary_column":    {"node": true, "status": true, "delay": false, "node_mem_M": true, "job": true, "user": true, "alloc_cpus": true, "run_time": true, "proc_count": true, "cpu_util": true, "avg_cpu_util": true, "rss": true, "vms": true, "io": true, "fds": true, "alloc_gpus": true, "gpu_util": true, "avg_gpu_util": false},
+       "summary_low_util":  {"cpu_util": 1, "avg_cpu_util": 1, "rss": 1, "gpu_util": 10, "avg_gpu_util": 10, "type": "inform"},
+       "summary_high_util": {"cpu_util": 90, "avg_cpu_util": 90, "rss": 90, "gpu_util": 90, "avg_gpu_util": 90, "type": "alarm"},
+       "heatmap_avg":       {"cpu": 0, "gpu": 5},
+       "heatmap_weight":    {"cpu": 50, "mem": 50},
+       "part_avail":        {"node": 10, "cpu": 10, "gpu": 10}
+   }
 }
