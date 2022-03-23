@@ -24,6 +24,7 @@ import inMemCache
 from SlurmMonitorData import SLURMMonitorData
 
 logger  = MyTool.getFileLogger(__name__, logging.DEBUG) 
+#logger  = config.logger
 
 # Directory where processed monitoring data lives.
 SACCT_WINDOW_DAYS  = 3 # number of days of records to return from sacct.
@@ -52,7 +53,7 @@ class SLURMMonitorUI(object):
         self.startTime       = time.time()
         self.data            = 'No data received yet. Please wait a minute and come back.'
         self.pyslurmNode     = None
-        self.bright          = BrightRestClient()
+        self.bright          = BrightRestClient.getInstance()
 
     @cherrypy.expose
     def default(self, user):
@@ -444,6 +445,7 @@ class SLURMMonitorUI(object):
 
     def getSummaryTableData(monData, gpudata=None, gpu_jid2data=None):
         #logger.info("monData {}={}".format(monData.cluster, monData.data.keys()))
+        logger.info("gpudata={}".format(gpudata))
         cluster     = monData.cluster
         hostData    = monData.data
         jobData     = monData.currJobs
@@ -590,11 +592,11 @@ class SLURMMonitorUI(object):
         for name, monData in self.monDataDict.items():
             logger.info("monData {}".format(monData.cluster))
 
+            #get gpu_nodes and max_gpu_cnt from pyslurm
             gpu_nodes,max_gpu_cnt= PyslurmQuery.getGPUNodes(monData.pyslurmNodes)
-            #logger.debug ("gpu_nodes={}".format(gpu_nodes))
             if name == "Iron":
                gpu_ts, gpudata   = self.bright.getAllGPUAvg (gpu_nodes, minutes=avg_minute["gpu"], max_gpu_cnt=max_gpu_cnt)
-            else:
+            else: #TODO: add popeye GPU data
                gpu_ts, gpudata   = 0, {}
             workers,jobs,users   = self.getHeatmapData (monData, gpudata, weight, avg_minute["cpu"])
             heatmapData[name]    = (monData.updateTS, workers, jobs, users, gpu_ts, gpudata)
@@ -656,6 +658,7 @@ class SLURMMonitorUI(object):
         if not self.monDataDict["Iron"].hasData():   #Allow popeye data to be empty
            return self.getNoDataPage ('Tabular Summary', 'index')
 
+
         column    = [key for key, val in self.getSummaryColumn().items() if val]
         alarms    = self.getSummaryUtilAlarm()
         user      = sessionConfig.getUser()
@@ -670,17 +673,15 @@ class SLURMMonitorUI(object):
                gpu_nodes,max_gpu_cnt   = monData.getCurrJobGPUNodes()
                logger.info("max_gpu_cnt={},gpu_nodes={}".format(max_gpu_cnt, gpu_nodes))
                if max_gpu_cnt:
-                  avg_minute, ignore   = self.getHeatMapSetting()
-                  gpu_ts, gpudata      = self.bright.getAllGPUAvg (gpu_nodes, minutes=avg_minute, max_gpu_cnt=max_gpu_cnt)
+                  gpu_ts, gpudata      = self.bright.getAllGPUAvg (gpu_nodes, max_gpu_cnt=max_gpu_cnt)  # avg period is the one set in the configuration
               if 'avg_gpu_util' in column:
                min_start_ts, gpu_detail= monData.getCurrJobGPUDetail()   #gpu_detail include job's start_time
-               minutes                 = int(int(time.time()) - min_start_ts)/60
-               gpu_ts_d, gpu_jid2data  = self.bright.getAllGPUAvg_jobs(gpu_detail, minutes)
-            else:                     # TODO: popeye no GPU data
-              if 'gpu_util' in column:
-               column.remove('gpu_util')
-              if 'avg_gpu_util' in column:
-               column.remove('avg_gpu_util')
+               gpu_ts_d, gpu_jid2data  = self.bright.getAllGPUAvg_jobs(gpu_detail, min_start_ts)
+            #else:                     # TODO: popeye no GPU data
+            #  if 'gpu_util' in column:
+            #   column.remove('gpu_util')
+            #  if 'avg_gpu_util' in column:
+            #   column.remove('avg_gpu_util')
 
             lst_lst  = SLURMMonitorUI.getSummaryTableData (monData, gpudata, gpu_jid2data)
             data     = [dict(zip(config.SUMMARY_TABLE_COL, lst)) for lst in lst_lst]

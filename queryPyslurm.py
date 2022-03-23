@@ -44,6 +44,19 @@ class PyslurmQuery():
         return gpu_nodes, max_gpu_cnt
 
     @staticmethod
+    def getJobGPUDetail (jobs):
+        rlt       = defaultdict(lambda: defaultdict())   # {'workergpu00':{'gpu0':job,...}
+        min_start = int(time.time())                          # earliest start time of jobs
+        for job in jobs.values():
+            if job['gpus_allocated']:
+               for gpuNode, gpuList in job['gpus_allocated'].items():
+                   for gpuIdx in gpuList:
+                       gpu = 'gpu{}'.format(gpuIdx)
+                       rlt[gpuNode][gpu] = job
+                       if job['start_time'] < min_start:  min_start = job['start_time']
+        return min_start, rlt
+
+    @staticmethod
     def getUserCurrJobs (user_id, jobs=None):
         if not jobs:
            jobs = pyslurm.job().get()

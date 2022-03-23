@@ -278,19 +278,7 @@ class SLURMMonitorData(object):
         return PyslurmQuery.getJobGPUNodes(self.currJobs, self.pyslurmNodes)
 
     def getCurrJobGPUDetail (self):
-        return self.getJobGPUDetail(self.currJobs)
-    # jobs is self.currJobs
-    def getJobGPUDetail (self, jobs):
-        rlt       = defaultdict(lambda: defaultdict())   # {'workergpu00':{'gpu0':job,...}
-        min_start = int(time.time())                          # earliest start time of jobs
-        for job in jobs.values():
-            if job['gpus_allocated']:
-               for gpuNode, gpuList in job['gpus_allocated'].items():
-                   for gpuIdx in gpuList:
-                       gpu = 'gpu{}'.format(gpuIdx)
-                       rlt[gpuNode][gpu] = job
-                       if job['start_time'] < min_start:  min_start = job['start_time']
-        return min_start, rlt
+        return PyslurmQuery.getJobGPUDetail(self.currJobs)
 
     @cherrypy.expose
     def getJobNode2ProcRecord (self, jid):
@@ -301,14 +289,16 @@ class SLURMMonitorData(object):
         #check self.currJobs and locate those jobs in question
         #TODO: 09/09/2019: add jid
         for jid, job in jobs.items():
-            job_period                   = ts - job['start_time']
+            job_period                   = int(ts) - job['start_time']
             if job_period < 0.01:
                logger.warning("Job {} has an invaild period {}-{}={}. Ignore the update.".format(jid, ts, job['start_time'], job_period))
                continue
 
             total_cpu_time           = 0
             total_rss                = 0
-            total_node_mem           = 0           #proportional mem for shared nodes
+            #total_node_mem           = 0           #proportional mem for shared nodes
+            total_node_mem           = MyTool.getTresDict(job['tres_alloc_str']).get('mem',0)
+            total_node_mem           = MyTool.convert2M(total_node_mem)
             total_io_bps             = 0
             total_cpu_util_curr      = 0
             job['node_cpu_time']     = {}
@@ -333,13 +323,13 @@ class SLURMMonitorData(object):
                    total_rss          += node_rss
                    total_io_bps       += node_io_bps_curr
                    total_cpu_util_curr+= node_cpu_util_curr
-                   #deal with mem
-                   node_tres           = MyTool.getTresDict(pyslurmNodes[node]['tres_fmt_str'])
-                   if 'mem' in node_tres:   # memory is shared
-                      ratio            = job['cpus_allocated'][node] / node_tres['cpu'] if 'cpu' in node_tres else 1
-                      total_node_mem  += MyTool.convert2K(node_tres['mem']) * ratio
-                   else:
-                      logger.error('ERROR: Node {} does not have mem {} in tres_fmt_str {}'.format(node, d, s))
+                   #deal with mem, unnessary as job['tres_alloc_str'] has it
+                   #node_tres           = MyTool.getTresDict(pyslurmNodes[node]['tres_fmt_str'])
+                   #if 'mem' in node_tres:   # memory is shared
+                   #   ratio            = job['cpus_allocated'][node] / node_tres['cpu'] if 'cpu' in node_tres else 1
+                   #   total_node_mem  += MyTool.convert2K(node_tres['mem']) * ratio
+                   #else:
+                   #   logger.error('ERROR: Node {} does not have mem {} in tres_fmt_str {}'.format(node, d, s))
 
                    #calculate and assign cpu avg util
                    job['node_cpu_time'][node]     = node_cpu_time 
@@ -364,14 +354,17 @@ class SLURMMonitorData(object):
             job['job_inst_util']  = total_cpu_util_curr / job['num_cpus']
             job['job_avg_util']   = total_cpu_time / job_period / job['num_cpus']
             job['job_io_bps']     = total_io_bps
-            job['job_mem_util']   = total_rss / total_node_mem
+            job['job_mem_util']   = total_rss / total_node_mem / 1024
             job['gpus_allocated'] = SLURMMonitorData.getJobAllocGPU(job, pyslurmNodes)
+            job['cpu_eff']        = {'core-wallclock':job['num_cpus']*job_period, 'cpu_time':total_cpu_time}   #ATTENTION: currently, cpu_eff only appear for finished job, if it will be included in the running jobs, need to make modification
+            #tres_alloc_str
+            job['mem_eff']        = {'alloc_mem_MB':total_node_mem, 'alloc_nodes':job['num_nodes'], 'mem_KB':total_rss}
 
         return jobs
 
     def getJobAllocGPU (job, node_dict):
         node_list      = [node_dict[node] for node in job['cpus_allocated']]
-        gpus_allocated = MyTool.getGPUAlloc_layout(node_list, job['gres_detail'])
+        gpus_allocated = MyTool.getGPUAlloc_layout(node_list, job['gres_detail']) if job['gres_detail'] else {}
         return gpus_allocated
 
     def getUserAllocGPU (uid, node_dict):
@@ -469,8 +462,13 @@ class SLURMMonitorData(object):
                job['node_cpu_stdev'],job['node_rss_stdev'], job['node_io_stdev'] = 0,0,0
 
     @cherrypy.expose
+    def test(self, **args):
+        return "hello"
+
+    @cherrypy.expose
     def updateSlurmData(self, **args):
         #updated the data
+        logger.debug("{} start".format(self.cluster))
         d =  cherrypy.request.body.read()
         self.updateTS, self.data, self.currJobs, self.node2jids, self.pyslurmData = self.extractSlurmData(d)
         self.pyslurmData['updateTS'] = self.updateTS;        # used in SlurmEntities
@@ -482,11 +480,11 @@ class SLURMMonitorData(object):
         #if (cherrypy.session['settings']['low_util_job']['email'] ):
         luj_settings = sessionConfig.getSetting('low_util_job')
         if luj_settings['email']:
-           if not self.checkTS or (datetime.datetime.fromtimestamp(self.checkTS).hour != datetime.datetime.fromtimestamp(self.updateTS).hour): 
-              # check at start and later hourly
+           if not self.checkTS or (datetime.datetime.fromtimestamp(self.checkTS).hour != datetime.datetime.fromtimestamp(self.updateTS).hour): # check at start and later hourly
               low_util    = self.getCurrLUJobs (luj_settings)
               logger.info('low_util={}'.format(low_util.keys()))
               self.jobNoticeSender.sendNotice(self.updateTS, low_util)
+        logger.debug("{} done".format(self.cluster))
 
     def extractSlurmData (self, d):
         updateTS, hn2info, pyslurmData = cPickle.loads(zlib.decompress(d))
