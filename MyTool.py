@@ -639,16 +639,17 @@ def getGPUCount (gres_list, gres_used_list=[]):
     if not gpu_total:
        return 0, 0
 
-    gpu_used  = getNodeGresUsedGPUCount (gres_used_list)
+    gpu_used  = getNodeGresUsedGPUCount (gres_used_list) if gres_used_list else 0
     return gpu_total, gpu_used
 
 #gpu:v100-16gb(IDX:0-1) or gpu(IDX:0-3) or gpu(IDX:0,3), in job['gres_detail']
+#TODO: check node format
 def parse_gpu_detail(gpu_str):
+    rlt = []
     m = re.match('gpu.*\(IDX:(.+)\)', gpu_str)
     if not m or not m.group(1):
-       return None
+       return rlt
     # idx_str 0-1 or 0
-    rlt = []
     lst1 = m.group(1).split(',')
     for i1 in lst1:
        lst2 = [eval(item) for item in i1.split('-')]
@@ -664,6 +665,8 @@ def getGPUAlloc_layout (node_iter, gpu_detail_iter):
     result  = collections.defaultdict(list)
     idx     = 0
     for node in node_iter:
+        if not node['gres']:
+            continue
         gpu_total, gpu_used = getGPUCount(node['gres'])
         if gpu_total:  #gpu node
            if idx >= len(gpu_detail_iter):
@@ -773,13 +776,15 @@ def sumOfListWithUnit (lst):
     return str(total) + postfix
     
 def convert2M (mem_unit):
-    if mem_unit[-1] in ['K','M','G']:
+    if mem_unit[-1] in ['K','M','G', 'T']:
        mem,unit = float(mem_unit[:-1]),mem_unit[-1]
     else:
        mem      = float(mem_unit)
        unit     = ''
     mem_MB   = mem
-    if unit == 'G':
+    if unit == 'T':
+       mem_MB = mem * 1024 * 1024
+    elif unit == 'G':
        mem_MB = mem * 1024
     elif unit == 'K':
        mem_MB = mem / 1024
