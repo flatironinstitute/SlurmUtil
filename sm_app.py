@@ -5,6 +5,7 @@ from cherrypy.lib import auth_digest
 from SlurmMonitorUI   import SLURMMonitorUI
 from SlurmMonitorData import SLURMMonitorData
 
+#not used 
 def validate_password(realm, username, passwd):
     cherrypy.session['user']=username
     if queryLDAP.ldap_validate(username, passwd):

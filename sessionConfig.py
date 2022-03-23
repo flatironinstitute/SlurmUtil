@@ -17,13 +17,13 @@ def getSettings():
     if 'user' in cherrypy.session:
        return cherrypy.session["settings"];
     else:
-       return config.APP_CONFIG["settings"]
+       return config.APP_CONFIG["display_default"]
 
 def setSetting (key,settings):
     if 'user' in cherrypy.session:
        cherrypy.session['settings'][key] = settings
        savUserSettings (cherrypy.session['user'],cherrypy.session['settings'])
     else:
-       config.APP_CONFIG["settings"][key]= settings
+       config.APP_CONFIG["display_default"][key]= settings
 
 
