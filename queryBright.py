@@ -14,7 +14,6 @@ bright_url  = config.APP_CONFIG["bright"]["url"]
 cert_dir    = config.APP_CONFIG["bright"]["cert_dir"]
 bright_cert = ('{}/cert.pem'.format(cert_dir), '{}/cert.key'.format(cert_dir))
 gpu_avg_period = config.APP_CONFIG["display_default"]["heatmap_avg"]["gpu"]
-print("*{}".format(gpu_avg_period))
 
 class BrightRestClient:
     _instance        = None
@@ -74,13 +73,13 @@ class BrightRestClient:
             logger.info ("less than 60 seconds from last query, return saved gpu data")
             return self.gpu_ts, self.gpu_data
 
-        measures = ','.join(['gpu_utilization:gpu{}'.format(i) for i in range(max_gpu_cnt)])
+        #measures = ','.join(['gpu_utilization:gpu{}'.format(i) for i in range(max_gpu_cnt)])
         if intervalFlag:
            intervals= self.gpu_avg_period* 6            # bright returns one sample per 10 seconds at most, use intervals will leave None at the end, this is for comparison and test purpose 
-           q_str    = 'dump?measurable={}&start=-{}m&intervals={}'.format(measures,self.gpu_avg_period,intervals)
+           q_str    = 'dump?measurable=gpu_utilization:gpu[0-9]&start=-{}m&intervals={}'.format(self.gpu_avg_period,intervals)
         else:
            # intervals=0 (default, = raw data), that is  
-           q_str    = 'dump?measurable={}&start=-{}m'.format(measures,self.gpu_avg_period)
+           q_str    = 'dump?measurable=gpu_utilization:gpu[0-9]&start=-{}m'.format(self.gpu_avg_period)
                               #epoch: time stamp as unix epoch
         
         ts, q_rlt = self.query(q_str)
@@ -98,8 +97,8 @@ class BrightRestClient:
         start    = time.time()
 
         entities = ','.join(node_list)
-        measures = ','.join(['gpu_utilization:gpu{}'.format(i) for i in range(max_gpu_cnt)])
-        q_str    = 'dump?entity={}&measurable={}&start={}'.format(entities,measures,int(start_ts))
+        #measures = ','.join(['gpu_utilization:gpu{}'.format(i) for i in range(max_gpu_cnt)])
+        q_str    = 'dump?entity={}&measurable=gpu_utilization:gpu[0-9]&start={}'.format(entities,int(start_ts))
         ts, q_rlt= self.query(q_str)
         
         d        = defaultdict(lambda:defaultdict(list)) 
@@ -188,8 +187,8 @@ class BrightRestClient:
         nodes     = ','.join(node_list)
         if not gpu_list:
            gpu_list = list(range(0, max_gpu_id+1))
-        gpus_util = ','.join(['gpu_utilization:gpu{}'.format(i) for i in gpu_list])
-        req_str   = '{}/dump?entity={}&measurable={}&start={}&epoch=1'.format(self.base_url, nodes,gpus_util,start_ts)
+        #gpus_util = ','.join(['gpu_utilization:gpu{}'.format(i) for i in gpu_list])
+        req_str   = '{}/dump?entity={}&measurable=gpu_utilization:gpu[0-9]&start={}&epoch=1'.format(self.base_url, nodes, start_ts)
         r         = requests.get(req_str, verify=False, cert=self.cert)
         d         = r.json()['data']   #[{'entity': 'workergpu16', 'measurable': 'gpu_utilization:gpu0', 'raw': 0.3096027944984667, 'time': 1584396000000, 'value': '31.0%'}, 
         rlt       = defaultdict(list)                 #{'workergpu16.gpu0':[[ts,val],]
@@ -201,15 +200,15 @@ class BrightRestClient:
 
         return dict(rlt)
 
-    # get last hours data for node_list
-    def getNodesGPU_Mem (self, node_list, start, gpu_list=[], max_gpu_id=3, msec=True):
-        if not gpu_list:
-           gpu_list = list(range(max_gpu_id+1))
-        mea_list  = ['gpu_utilization', 'gpu_fb_used']
-        req_str   = self.getNodeGPURequest (node_list, gpu_list, mea_list, start)
-        r         = requests.get(req_str, verify=False, cert=self.cert)
-        d         = r.json()['data']   #[{'entity': 'workergpu16', 'measurable': 'gpu_utilization:gpu0', 'raw': 0.3096027944984667, 'time': 1584396000000, 'value': '31.0%'}, 
-        rlt       = {}
+    # get gpu and mem usage starting from start in seconds
+    def getNodesGPU_Mem (self, node_list, start, gpu_list=[], msec=True):
+        entities = ','.join(node_list)
+        mea_list = ['gpu_utilization', 'gpu_fb_used']
+        measures = ','.join(['{}:gpu[0-9]'.format(m) for m in mea_list])
+        q_str    = 'dump?entity={}&measurable={}&start={}&epoch=1'.format(entities,measures,start)
+        q_ts, d  = self.query(q_str)
+        
+        rlt      = {}
         for m in mea_list:
             rlt[m] = defaultdict(list)                #{'workergpu16.gpu0':[[ts,val],]
         for item in d:
@@ -220,8 +219,14 @@ class BrightRestClient:
         for m in mea_list:
             for seq in rlt[m].values():
                 start_ts = start * 1000 if msec else start_ts
-                if seq[0][0]<start_ts:                # smaller means the same value last
-                   seq[0][0] = start_ts
+                idx = 0
+                while seq[idx][0]<start_ts:                # smaller means the same value last
+                   seq[idx][0] = start_ts
+                   idx += 1
+                while idx > 1:                             # remove earlier ones
+                   print ("{}: {}".format(idx, seq)) 
+                   seq.pop(0)
+                   idx -= 1
 
         return dict(rlt)
 
@@ -235,24 +240,20 @@ class BrightRestClient:
 
 def test1():
     client = BrightRestClient()
+    q_str  = 'dump?measurable=gpu_utilization:gpu[0-9],gpu_fb_used:gpu[0-9]&start=-5m'
+    print('query: {}'.format(q_str))
+    r = client.query(q_str)
+    print('result: {}'.format(r))
 
-def test2(node, hours=1):
+def test2():
     client = BrightRestClient()
-    rlt    = client.getDumpNodeGPU(node, hours=hours)
-    cnt    = sum([len(item['data']) for item in rlt['data']])
-    print('{}: {} samples'.format(node, cnt))
+    curr   = int(time.time())
+    rlt    = client.getNodesGPU_Mem(['workergpu34'], 1647882272)
     print('{}'.format(rlt))
     return rlt
 
 def test3():
     client = BrightRestClient()
-    cnt    = 0
-    for i in range(0, 43):
-        node = 'workergpu{:0>2d}'.format(i)
-        rlt  = test2(node)
-        cnt += sum([len(item['data']) for item in rlt['data']])
-
-    print('Total: {} samples'.format(cnt))
         
 def test5(minutes, flag):
     client = BrightRestClient()
@@ -282,14 +283,14 @@ def test8():
 
     client.query(query)
 
+
 def main():
     t1=time.time()
-    test8 ()
+    test2 ()
     #if len(sys.argv) < 3:
     #   test5(int(sys.argv[1]), False)
     #else:
     #   test5(int(sys.argv[1]), True)
-    #test2(sys.argv[1])
     #test3()
     #test4(sys.argv[1])
     print("main take time " + str(time.time()-t1))

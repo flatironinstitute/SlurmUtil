@@ -991,7 +991,7 @@ class SLURMMonitorUI(object):
         htmlTemp       = os.path.join(config.APP_DIR, 'nodeDetail.html')
         htmlStr        = open(htmlTemp).read().format(cluster        = json.dumps(cluster),
                                                       update_time    = MyTool.getTsString(nodeData['updateTS']),
-                                                      node_data      = nodeData,
+                                                      node_data      = json.dumps(nodeData),
                                                       node_info      = json.dumps(nodeDisplay),
                                                       array_het_jids = array_het_jids,
                                                       node_report    = nodeReport)
@@ -1127,8 +1127,8 @@ class SLURMMonitorUI(object):
            return "User {} does not have running jobs using GPU.".format(user)
 
         start_ts     = min([job['start_time'] for job in jobs_gpu])
-        max_gpu_id   = max([i for id_lst in jobs_gpu_alloc.values() for i in id_lst])
-        d            = self.bright.getNodesGPU_Mem(list(jobs_gpu_alloc.keys()), start_ts, max_gpu_id=max_gpu_id, msec=True)
+        #max_gpu_id   = max([i for id_lst in jobs_gpu_alloc.values() for i in id_lst])
+        d            = self.bright.getNodesGPU_Mem(list(jobs_gpu_alloc.keys()), start_ts, msec=True)
         gpu_dict     = d['gpu_utilization']
         mem_dict     = d['gpu_fb_used']
 
