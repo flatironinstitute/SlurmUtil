@@ -89,6 +89,8 @@ class BrightRestClient:
         for item in q_rlt:
             gpu_id   = item['measurable'].split(':')[1]  # remove gpu_utilization: gpu0, gpu1...
             d[gpu_id][item['entity']].append(item)
+
+        self.gpu_ts, self.gpu_data = ts, dict(d)
         logger.debug("query take time {}".format(time.time()-ts))
         return ts, dict(d)
 
@@ -160,7 +162,6 @@ class BrightRestClient:
                    rlt[gpu][node]  = BrightRestClient._calculateRawAvg(seq, ts-minutes*60, ts)
 
         rlt   = dict(rlt)
-        self.gpu_ts, self.gpu_data = ts,rlt
         return ts, rlt
 
     #node_dict {'workergpu00':{'gpu0':job}...}
@@ -224,7 +225,6 @@ class BrightRestClient:
                    seq[idx][0] = start_ts
                    idx += 1
                 while idx > 1:                             # remove earlier ones
-                   print ("{}: {}".format(idx, seq)) 
                    seq.pop(0)
                    idx -= 1
 
@@ -254,10 +254,15 @@ def test2():
 
 def test3():
     client = BrightRestClient()
+    node_list = ['workergpu{}'.format(idx) for idx in range(34,39)]
+    r = client.getAllGPUAvg (node_list)
+    print('result: {}'.format(r))
+    time.sleep(5)
+    r = client.getAllGPUAvg (node_list)
+    print('result: {}'.format(r))
         
 def test5(minutes, flag):
     client = BrightRestClient()
-    node_list = ['workergpu{}'.format(idx) for idx in range(17,18)]
     rlt       = client.getAllGPUAvg(node_list, minutes, intervalFlag=flag) 
     print(rlt)
     
@@ -286,7 +291,7 @@ def test8():
 
 def main():
     t1=time.time()
-    test2 ()
+    test3 ()
     #if len(sys.argv) < 3:
     #   test5(int(sys.argv[1]), False)
     #else:

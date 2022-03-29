@@ -1162,8 +1162,8 @@ class SLURMMonitorUI(object):
         if not job['gres_detail']:
            return "No GPU Alloc for job {}".format(jid)
         job_gpu_alloc= SLURMMonitorData.getJobAllocGPU(job, pyslurm.node().get())  #{'workergpu01':[0,1]
-        max_gpu_id   = max([i for id_lst in job_gpu_alloc.values() for i in id_lst])
-        d            = self.bright.getNodesGPU_Mem (list(job_gpu_alloc.keys()), job_start, max_gpu_id=max_gpu_id, msec=True)
+        #max_gpu_id   = max([i for id_lst in job_gpu_alloc.values() for i in id_lst])
+        d            = self.bright.getNodesGPU_Mem (list(job_gpu_alloc.keys()), job_start, msec=True)
         gpu_dict     = d['gpu_utilization']
         mem_dict     = d['gpu_fb_used']
 
@@ -1272,10 +1272,10 @@ class SLURMMonitorUI(object):
                                                   update_time= datetime.datetime.fromtimestamp(ts).ctime(),
                                                   job        = json.dumps(job),
                                                   job_info   = json.dumps(job_info),
-                                                  title_list = proc_disp_field,
+                                                  title_list = json.dumps(proc_disp_field),
                                                   proc_cnt   = proc_cnt,
                                                   worker_proc= json.dumps(worker2proc),
-                                                  note       = msg_note,
+                                                  note       = json.dumps(msg_note),
                                                   job_report = json.dumps(jobstep_report))
         return htmlStr
 
