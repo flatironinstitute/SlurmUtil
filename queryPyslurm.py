@@ -153,7 +153,9 @@ class PyslurmQuery():
     MAP_JOB2DBJ = {'submit_time':'submit', 'start_time':'start','end_time':'end', 'exitcode':'exit_code', 'jobid':'job_id', 'job_state':'state_str','name':'jobname'}
     DEF_REQ_FLD = COMMON_FLD + list(MAP_JOB2DBJ.keys())
     @staticmethod
-    def getSlurmDBJob (jid, req_fields=DEF_REQ_FLD):
+    def getSlurmDBJob (jid, req_fields=DEF_REQ_FLD, cluster="Iron"):
+        if cluster != "Iron":
+           return None
      
         pyslurm.slurm_init()
         job = pyslurm.slurmdb_jobs().get(jobids=[jid]).get(jid, None)

@@ -1186,7 +1186,7 @@ class SLURMMonitorUI(object):
 
     def getDoneJobProc (self, jid, job_report, cluster="Iron"):
         if job_report['End'] == 'Unknown':
-           return {}, [], 'Can not find end time for a finished job'
+           return {}, [], 'Can not find end time for a finished job {}'.format(job_report)
 
         # this took around 50+ seconds
         influxClient = InfluxQueryClient(cluster)
@@ -1198,66 +1198,69 @@ class SLURMMonitorUI(object):
         for node, procs in node2procs.items():
             worker2proc[node]=[0,len(procs),0,0,0,[],0]  #[alloc_core_cnt, proc_cnt, total_cpu, t_rss, t_vms, rlt_procs, t_io]
             for proc in procs:
-                worker2proc[node][5].append([proc['pid'], proc['time'], proc['end_time'], '{:.2f}'.format(proc['cpu_user_time']+proc['cpu_system_time']), MyTool.getDisplayB(proc.get('mem_rss',0)), 
-                    MyTool.getDisplayB(proc.get('mem_vms',0)), MyTool.getDisplayI(proc.get('io_read_bytes',0)+proc.get('io_write_bytes',0)), proc['cmdline']])
+                cpu_user_time = proc['cpu_user_time']   if proc['cpu_user_time']   != None else 0
+                cpu_sys_time  = proc['cpu_system_time'] if proc['cpu_system_time'] != None else 0
+                io_read_bytes = proc['io_read_bytes']   if proc['io_read_bytes']   != None else 0
+                io_write_bytes= proc['io_write_bytes']  if proc['io_write_bytes']  != None else 0
+                mem_rss       = proc['mem_rss']         if proc['mem_rss']         != None else 0
+                mem_vms       = proc['mem_vms']         if proc['mem_vms']         != None else 0
+                worker2proc[node][5].append([proc['pid'], proc['time'], proc['end_time'], '{:.2f}'.format(cpu_user_time+cpu_sys_time), MyTool.getDisplayB(mem_rss), 
+                    MyTool.getDisplayB(mem_vms), MyTool.getDisplayI(io_read_bytes+io_write_bytes), proc['cmdline']])
 
         return ['PID', 'Start Time', 'End Time', 'CPU Time (sec)', 'RSS',  'VMS', 'IO Bytes', 'Command'], worker2proc, ''
 
     @cherrypy.expose
     def jobDetails(self, jid, cluster="Iron"):
         if ',' in jid: jid         = jid.split(',')[0]
-        jid            = int(jid)
-        ts             = int(time.time())
+        jid           = int(jid)
+        ts            = int(time.time())
+        msg_note      = ""
+
+        # get job from pyslurm
+        monData       = self.monDataDict[cluster]
+        job           = monData.pyslurmJobs.get(jid,None)
+        # if not an active job, try to query pyslurmdb
+        if not job:      # not an active job
+           job        = PyslurmQuery.getSlurmDBJob(jid, cluster=cluster)
+           msg_note   = msg_note + "Cannot find job {} of cluster {} from pyslurm. ".format(jid, cluster)
+        if not job:
+           msg_note   = msg_note + "Cannot find job {} of cluster {} from pyslurmdb. ".format(jid, cluster)
 
         # get job_report from sacct command line
-        jobstep_report = SlurmCmdQuery.sacct_getJobReport(jid)
+        jobstep_report = SlurmCmdQuery.sacct_getJobReport(jid, cluster=cluster)
         if not jobstep_report:
-           return "Cannot find job {} from sacct.".format(jid)
+           return "Cannot find job {} of cluster {} from sacct. Please verify that the jid is valid. ".format(jid)
         job_report     = jobstep_report[0]
         job_report['ArrayJobID']         = job_report['JobID'] if '_' in job_report['JobID'] else None
         job_report['HeterogeneousJobID'] = job_report['JobID'] if '+' in job_report['JobID'] else None
 
-        # get job from pyslurm
-        monData        = self.monDataDict[cluster]
-        job            = monData.pyslurmJobs.get(jid,None)
-        if not job:      # not an active job
-           job         = PyslurmQuery.getSlurmDBJob(jid)
-
         # get job process information
-        msg_note       = ''
         worker2proc    = {}
         proc_disp_field= []
-        if not job:
-            msg_note    = "Cannot find job {} from pyslurm.".format(jid)
-        else:
-            if job['job_state'] == 'RUNNING':              #running job's proc is in self.data
+        if job and job['job_state'] == 'RUNNING':              #running job's proc is in self.data
               if not monData.hasData():
-                 msg_note = self.getWaitMsg()
+                 msg_note += self.getWaitMsg()
               else: # should in the data
                  ts                           = monData.updateTS
                  proc_disp_field, worker2proc = monData.getJobProc (jid)
                  if not worker2proc:
-                    msg_note = "Cannot find Job {} in the current data".format(jid)
+                    msg_note += "Cannot find Job {} in the current data".format(jid)
                  else:
-                    if len(worker2proc) != int(job_report['AllocNodes']):
-                       msg_note='WARNING: Job {} is running on {} nodes, which is less than {} allocated nodes.'.format(jid, len(worker2proc), job_report['AllocNodes'])
-            elif job['job_state'] != 'PENDING':             #job is not running or pending
-               proc_disp_field, worker2proc, msg_note = self.getDoneJobProc(jid, job_report)   #get result from influx
+                    if len(worker2proc) != job['num_nodes']:
+                       msg_note+='WARNING: Job {} is running on {} nodes, which is less than {} allocated nodes.'.format(jid, len(worker2proc), job['num_nodes'])
+        elif (not job) or (job['job_state'] != 'PENDING'):             #job is not running or pending
+               proc_disp_field, worker2proc, note = self.getDoneJobProc(jid, job_report, cluster=cluster)   #get result from influx
+               msg_note += note
 
         if job:
            job['cluster']                = cluster
            job['user']                   = MyTool.getUser(job['user_id'], cluster)
-           job['ArrayJobID']             = job_report['ArrayJobID']
-           job['HeterogeneousJobID']     = job_report['HeterogeneousJobID']
            if job.get('name', None) == 'disBatch' and 'command' in job:
             cmd_arr        = job['command'].split(' ')
             disBatch_fname = os.path.join(job['work_dir'],cmd_arr[-1])
             cmd_arr[-1]    = disBatch_fname
             job['command'] = ' '.join(cmd_arr)
 
-           job_info                      = {}
-        else:
-           job_info                      = job_report
 
         #grafana_url = 'http://mon8:3000/d/jYgoAfiWz/yanbin-slurm-node-util?orgId=1&from={}{}&var-jobID={}&theme=light'.format(start*1000, '&var-hostname=' + '&var-hostname='.join(MyTool.nl2flat(job_report['NodeList'])), jid)
         if worker2proc:
@@ -1271,7 +1274,7 @@ class SLURMMonitorUI(object):
                                                   job_name   = job_report['JobName'],
                                                   update_time= datetime.datetime.fromtimestamp(ts).ctime(),
                                                   job        = json.dumps(job),
-                                                  job_info   = json.dumps(job_info),
+                                                  job_info   = json.dumps(job_report),
                                                   title_list = json.dumps(proc_disp_field),
                                                   proc_cnt   = proc_cnt,
                                                   worker_proc= json.dumps(worker2proc),

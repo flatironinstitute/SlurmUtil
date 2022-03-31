@@ -30,16 +30,20 @@
           var j_h_titles     = {{'JobID':'Job ID', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
           if (("ArrayJobID" in j_info) || ('HeterogeneousJobID' in j_info) )
              j_h_titles     = {{'JobIDRaw':'Job ID', 'JobID':'Job ID(Report)', 'JobName':'Name','AllocCPUS':'Alloc CPU','State':'State','ExitCode':'Exit Code','NodeList':'Alloc Node','Start':'Start','End':'End'}}
+          const display_type      = {{'user':'user','partition':'partition','submit_time':'timestamp','eligible_time':'timestamp','start_time':'timestamp', 'end_time':'timestamp', 'qos':'qos', 'tres_req_str':'tres', 'tres_alloc_str':'tres', 'command':'job_command', 'array_job_id':'job', 'het_job_id':'job', 
+                                      'User':'user','Partition':'partition', 'QOS':'qos','ReqTRES':'tres', 'AllocTRES':'tres'}}
 
+          console.log("j_info=", j_info)
           if (job)
+             //het_job_id, het_job_id_set, het_job_offset
              createNoHeaderTable (job,
-                 {{'user':'User','job_state':'Job State','state_reason':'State Reason','partition':'Partition','qos':'QOS','num_tasks':'Number of Tasks','ntasks_per_node':'Tasks Per Node','tres_req_str':'Req TRES','exc_nodes':'Exclude Nodes','shared':'Shared','features':'Features','tres_alloc_str':'Alloc TRES','nodes':'Alloc Nodes', 'submit_time':'Submit Time','start_time':'Start Time', 'end_time':'End Time','CPUTime':'CPU Time','time_limit_str':'Time Limit','command':'Command','work_dir':'Work Dir','exit_code':'Exit Code','ArrayJobID':'Array Job','HeterogeneousJobID':'Heterogeneous Job'}},
-                 {{'user':'user','partition':'partition','submit_time':'timestamp','eligible_time':'timestamp','start_time':'timestamp', 'end_time':'timestamp', 'qos':'qos', 'tres_req_str':'tres', 'tres_alloc_str':'tres', 'command':'job_command'}},
+                 {{'user':'User','job_state':'Job State','state_reason':'State Reason','partition':'Partition','qos':'QOS','num_tasks':'Number of Tasks','ntasks_per_node':'Tasks Per Node','tres_req_str':'Req TRES','exc_nodes':'Exclude Nodes','shared':'Shared','features':'Features','tres_alloc_str':'Alloc TRES','nodes':'Alloc Nodes', 'submit_time':'Submit Time','start_time':'Start Time', 'end_time':'End Time','CPUTime':'CPU Time','time_limit_str':'Time Limit','command':'Command','work_dir':'Work Dir','exit_code':'Exit Code','array_job_id':'Array Job','array_task_id':'Array Task ID', 'het_job_id':'Heterogeneous Job'}},
+                 display_type,
                  '#div_job_info', 'job_info', filterDict2NestList, cluster)
           else
              createNoHeaderTable (j_info,
-                 {{'State':'State','User':'User','QOS':'QOS','ReqTRES':'Req TRES','AllocTRES':'Alloc TRES','Start':'Start Time', 'End':'End Time','CPUTime':'CPU Time','WorkDir':'Work Dir','ExitCode':'Exit Code','ArrayJobID':'Array Job','HeterogeneousJobID':'Heterogeneous Job'}},
-                 {{'User':'user', 'QOS':'qos'}},
+                 {{'User':'User','State':'State',        'Reason':'Reason',             'Partition':'Partition','QOS':'QOS','NTasks':'Number of Tasks',                                     'ReqTRES':'Req TRES',                                                                         'AllocTRES':'Alloc TRES',     'NodeList':'Alloc Nodes','Submit':'Submit Time',   'Start':'Start Time',       'End':'End Time',    'CPUTime':'CPU Time','Timelimit':'Time Limit',                          'WorkDir':'Work Dir','ExitCode':'Exit Code', 'ArrayJobID':'Array Job',                                   'HeterogeneousJobID':'Heterogeneous Job'}},
+                 display_type,
                  '#div_job_info', 'job_info', filterDict2NestList, cluster)
 
           if ({worker_proc}) {{
@@ -49,9 +53,10 @@
           $("#node_cnt").text(j_info['AllocNodes'])
           $("#cpu_cnt").text (j_info['AllocCPUS'])
 
-          if (job['job_state'] != 'PENDING') {{
+          if (j_info['job_state'] != 'PENDING') {{
              var html_str = '<a href="' + getJobGraphHref({job_id}, cluster) + '">CPU Usage Graph</a>'
-             if (('gres_detail' in job && job['gres_detail'].length) || j_info['AllocGRES']) // finished job cannot find GPU idx
+             //if (('gres_detail' in job && job['gres_detail'].length) || j_info['AllocGRES']) // finished job cannot find GPU idx
+             if (j_info['State']=='RUNNING' && j_info['AllocTRES'].includes('gres\/gpu')) // finished job cannot find GPU idx
                 html_str = html_str + ", <a href='jobGPUGraph?jid=" + {job_id} + "'>GPU Usage Graph</a>"
              $("#usageLink").html("(" + html_str + ")")
           }}

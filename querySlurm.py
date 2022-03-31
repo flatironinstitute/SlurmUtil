@@ -34,6 +34,8 @@ class SlurmCmdQuery:
     USER_ASSOC = {"Iron":["./data/sacctmgr_assoc.csv",        0, {}],
                   "Popeye":  ["./data/sacctmgr_assoc_popeye.csv", 0, {}]}   #file_name, modify_time, user2record
                                #User|Def Acct|Admin|Cluster|Account|Partition|Share|Priority|MaxJobs|MaxNodes|MaxCPUs|MaxSubmit|MaxWall|MaxCPUMins|QOS|Def QOS
+    SSH_CMD    = {"Iron":   None, 
+                  "Popeye": 'ssh -i /mnt/home/yliu/.ssh/id_sdsc popeye.sdsc.edu'}
 
     def __init__(self, cluster):
         self.cluster    = cluster;
@@ -98,17 +100,17 @@ class SlurmCmdQuery:
         return jobs
  
     @staticmethod
-    def sacct_getJobReport (jobid, skipJobStep=False):
-        output = 'JobID,JobIDRaw,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocNodes,NodeList'
+    def sacct_getJobReport (jobid, cluster="Iron", skipJobStep=True):
+        #output = 'JobID,JobIDRaw,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocNodes,NodeList,AllocTRES'
         # may include sub jobs
-        jobs   = SlurmCmdQuery.sacct_getReport(['-j', str(jobid)], days=None, output=output, skipJobStep=skipJobStep)
+        jobs   = SlurmCmdQuery.sacct_getReport(['-j', str(jobid)], days=None, output="ALL", cluster=cluster, skipJobStep=skipJobStep)
         if not jobs:
            return None
         return jobs
 
     # return [jid:jinfo, ...}
     @staticmethod
-    def sacct_getReport (criteria, days=3, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End', skipJobStep=True):
+    def sacct_getReport (criteria, days=3, cluster="Iron", output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End', skipJobStep=True):
         #print('sacct_getReport {} {} {}'.format(criteria, days, skipJobStep))
         if days:
            t = date.today() + timedelta(days=-days)
@@ -116,7 +118,7 @@ class SlurmCmdQuery:
            criteria  = ['-S', startDate] + criteria
 
         #Constraints has problem
-        field_str, sacct_rlt = SlurmCmdQuery.sacctCmd (criteria, output)
+        field_str, sacct_rlt = SlurmCmdQuery.sacctCmd (criteria, output, cluster)
         keys                 = field_str.split(sep='|')
         jobs                 = []
         jid_idx              = keys.index('JobID')
@@ -148,13 +150,17 @@ class SlurmCmdQuery:
         return jobs
 
     @staticmethod
-    def sacctCmd (criteria, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End'):
+    def sacctCmd (criteria, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End', cluster="Iron"):
         #has problem with constrains such as skylank|broadwell
-        cmd = ['sacct', '-P', '-o', output] + criteria
+        cmd   = ['sacct', '-P', '-o', output] + criteria
+        shell = False
+        if SlurmCmdQuery.SSH_CMD[cluster]:
+           cmd   = '{} "{}"'.format(SlurmCmdQuery.SSH_CMD[cluster], ' '.join(cmd)) 
+           shell = True
         #print('{}'.format(cmd)) 
         try:
             #TODO: capture standard error separately?
-            d = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+            d = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=shell)
         except subprocess.CalledProcessError as e:
             return 'Command "%s" returned %d with output %s.<br>'%(' '.join(cmd), e.returncode, repr(e.output))
         fields, *rlt = d.decode('utf-8').splitlines()
@@ -213,8 +219,9 @@ def test2():
         print(ins.getUserAssoc("aarora"))
 
 def test4():
-    jobs=SlurmCmdQuery.sacct_getJobReport(927525)
-    print(repr(jobs))
+    for cluster in ["Iron", "Popeye"]:
+        jobs=SlurmCmdQuery.sacct_getJobReport(890501, cluster=cluster)
+        print("---{}---\njob={}".format(cluster, jobs))
 
 def test5():
     jobs=SlurmCmdQuery.sacct_getNodeReport('workergpu00')
@@ -222,7 +229,7 @@ def test5():
 
 def main():
     t1=time.time()
-    test2()
+    test4()
     print("main take time " + str(time.time()-t1))
 
 if __name__=="__main__":
