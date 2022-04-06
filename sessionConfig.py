@@ -11,7 +11,7 @@ def getSetting(attr):
     if 'user' in cherrypy.session:
        return cherrypy.session["settings"][attr];
     else:
-       return config.APP_CONFIG["settings"][attr]
+       return config.APP_CONFIG["display_default"][attr]
 
 def getSettings():
     if 'user' in cherrypy.session:
