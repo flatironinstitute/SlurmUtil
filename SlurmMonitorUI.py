@@ -1002,7 +1002,7 @@ class SLURMMonitorUI(object):
            return []
 
         past_job  = SlurmCmdQuery.getUserDoneJobReport(user, days=int(days))
-        past_jids = [job['JobID'] for job in past_job]
+        past_jids = [int(job['JobIDRaw']) for job in past_job]
         pyslurm.slurm_init()
         py_jobs   = pyslurm.slurmdb_jobs().get(jobids=past_jids)
         for job in past_job:
@@ -1054,9 +1054,14 @@ class SLURMMonitorUI(object):
               return 'Cannot find uid of user {}!'.format(user)
            userAssoc['uid'] = uid
 
-           ins           = SlurmEntities(cluster, monData.pyslurmData)
-           user_jobs     = ins.getUserJobsByState (uid)  # can also get from sacct -u user -s 'RUNNING, PENDING'
-           self.updateUserAssoc(userAssoc, user_jobs)
+           if monData:
+              ins           = SlurmEntities(cluster, monData.pyslurmData)
+              user_jobs     = ins.getUserJobsByState (uid)  # can also get from sacct -u user -s 'RUNNING, PENDING'
+              logger.info ("user jobs={}".format(user_jobs))
+              self.updateUserAssoc(userAssoc, user_jobs)
+           else:
+              userAssoc["running_jobs"] = self.getWaitMsg()
+              userAssoc["pending_jobs"] = self.getWaitMsg()
 
            part          = ins.getAccountPartition (userAssoc['Account'], uid)
            for p in part:  #replace big number with n/a
