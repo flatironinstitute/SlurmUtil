@@ -1,4 +1,4 @@
-import os, ssl, sys 
+import os, ssl, re, sys 
 import sched, requests, threading, time
 from collections import defaultdict
 from flask import Flask, request
@@ -10,9 +10,10 @@ BRIGHT_URL = config.APP_CONFIG["bright"]["url"]
 CERT_DIR   = config.APP_CONFIG["bright"]["cert_dir"]
 BRIGHT_CERT= ('{}/cert.pem'.format(CERT_DIR), '{}/cert.key'.format(CERT_DIR))
 SEVEN_DAYS = 7 * 24 * 3600
-QUERY_INTERVAL = 180   # query bright at least every 3 minutes
-INC_INTERVAL   = 120   # query bright if last query returns 0
+QUERY_INTERVAL = 300   # query bright at least every 3 minutes
+INC_INTERVAL   = 50    # query bright if last query returns 0
 FLUSH_INTERVAL = 3600  # flush memory every 1 hour
+FIVE_MINUTES   = 300
 
 app      = Flask(__name__)
 logger   = config.logger
@@ -85,13 +86,18 @@ class QueryBrightThread (threading.Thread):
            with self.lock:
                 self.savGPULoads (ts, rlt)
  
-    def getGPULoads (self, start, stop, step):
-        s_print("getGPULoads {} {} {}".format(start, stop, step))
+    def getGPULoads (self, start, stop, step, regex_nodes=None):
+        s_print("getGPULoads {} {} {} {}".format(start, stop, step, regex_nodes))
         rlt = defaultdict(dict)
-        for node, node_data in self.gpu_data.items():
+        nodes = self.gpu_data.keys()
+        s_print("all nodes:{}".format(nodes))
+        if regex_nodes:
+            p     = re.compile(regex_nodes)
+            nodes = [n for n in nodes if p.fullmatch(n)]
+            s_print("nodes match {}:{}".format(regex_nodes, nodes))
+        for node in nodes:
             s_print("--{}".format(node))
-            for gpu_id, data_lst in node_data.items():
-                s_print("----{} {} {}".format(node, gpu_id, len(data_lst)))
+            for gpu_id, data_lst in self.gpu_data[node].items():
                 curr_lst = []
                 curr_ts  = start
                 idx      = 0
@@ -120,13 +126,22 @@ def index():
 @app.route('/getGPULoads', methods=['GET', 'POST'])
 def getGPULoads():
     s_print("getGPULoads {}".format(request.args))
-    start, stop, step = int(request.args.get('start')), int(request.args.get('stop')), int(request.args.get('step'))
-    rlt               = q_thrd.getGPULoads(start, stop, step)
+    start, stop, step = int(request.args.get('start',0)), int(request.args.get('stop',0)), int(request.args.get('step',0))
+    nodes             = request.args.get('nodes',None)
+    if stop == 0:
+       stop = int(time.time())
+    if start == 0:
+       start = stop - 3600
+    if step == 0:
+       step = FIVE_MINUTES
+    s_print("getGPULoads {} {} {} {}".format(start, stop, step, nodes))
+    rlt               = q_thrd.getGPULoads(start, stop, step, nodes)
 
     return '{} {} {}: {}'.format(start, stop, step, rlt)
 
-@app.route('/getAllGPULoads', methods=['GET', 'POST'])
-def getAllGPULoads():
+#test
+@app.route('/test', methods=['GET', 'POST'])
+def test():
     node='workergpu001'
     try:
        last_ts  = q_thrd.last_ts
