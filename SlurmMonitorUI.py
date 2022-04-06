@@ -998,10 +998,7 @@ class SLURMMonitorUI(object):
         return htmlStr
 
     def getUserDoneJob (self, user, cluster, days):
-        if cluster != "Iron":     #TODO: Popeye
-           return []
-
-        past_job  = SlurmCmdQuery.getUserDoneJobReport(user, days=int(days))
+        past_job  = SlurmCmdQuery.getUserDoneJobReport(user, days=int(days), cluster=cluster)
         past_jids = [int(job['JobIDRaw']) for job in past_job]
         pyslurm.slurm_init()
         py_jobs   = pyslurm.slurmdb_jobs().get(jobids=past_jids)
@@ -1054,20 +1051,20 @@ class SLURMMonitorUI(object):
               return 'Cannot find uid of user {}!'.format(user)
            userAssoc['uid'] = uid
 
-           if monData:
-              ins           = SlurmEntities(cluster, monData.pyslurmData)
-              user_jobs     = ins.getUserJobsByState (uid)  # can also get from sacct -u user -s 'RUNNING, PENDING'
-              logger.info ("user jobs={}".format(user_jobs))
-              self.updateUserAssoc(userAssoc, user_jobs)
-           else:
-              userAssoc["running_jobs"] = self.getWaitMsg()
-              userAssoc["pending_jobs"] = self.getWaitMsg()
-
+           ins           = SlurmEntities(cluster, monData.pyslurmData)
            part          = ins.getAccountPartition (userAssoc['Account'], uid)
            for p in part:  #replace big number with n/a
-               for k,v in p.items():
-                   if v == MAX_LIMIT: p[k]='n/a'
+                  for k,v in p.items():
+                      if v == MAX_LIMIT: p[k]='n/a'
            userAssoc['partitions'] = [p for p in part if p['user_avail_cpus']>0 or p['user_avail_gpus']>0]
+
+           if monData.hasData():
+              user_jobs     = ins.getUserJobsByState (uid)  # can also get from sacct -u user -s 'RUNNING, PENDING'
+              logger.info ("{} user {} {} jobs={}".format(cluster, user, uid, user_jobs))
+              self.updateUserAssoc(userAssoc, user_jobs)
+           else:
+              user_jobs     = []
+              userAssoc['note'] = self.getWaitMsg()
 
            if cluster=="Iron":
               userAssoc['file_usage'] = {'home':MyTool.df_cmd(user)} 
@@ -1075,18 +1072,8 @@ class SLURMMonitorUI(object):
               if 'ceph_full' in fs_data:
                  userAssoc['file_usage']['ceph'] = fs_data['ceph_full']
               userAssoc['tres_usage'] = SlurmDBQuery.getUserTresUsage(user)  
-           #else: TODO: popeye
+           #else: TODO: popeye file usage information
         
-           #if monData.hasData():
-           #   note       = ''
-           #   userworker = monData.getUserNodeProc(user)  #[alloc_core_cnt, proc_cnt, t_cpu, t_rss, t_vms, procs, t_io]
-           #   core_cnt   = sum([val[0] for val in userworker.values()])
-           #   proc_cnt   = sum([val[1] for val in userworker.values()])
-           #else:
-           #   note       = 'Note: {}'.format("No monitored data received yet")
-           #   userworker = {}
-           #   core_cnt   = 0
-           #   proc_cnt   = 0
            # get done job of the user
            past_job      = self.getUserDoneJob(user, cluster, days)
            array_het_jids= [job['JobID'] for job in past_job if '_' in job['JobID'] or '+' in job['JobID']]  # array of heterogenour job

@@ -26,18 +26,17 @@
           $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
 
           var detailData     = {data}
-          console.log(detailData)
-
           var uid            = detailData['Iron'][1]['uid']
           //create table job_table and part_table
-          var r_j_titles     = {{'job_id':'Job ID', 'name':'Job Name', 'partition':'Partition', 'nodes':'Nodes', 'submit_time':'Submit Time', 'start_time':'Start Time', 'tres_req_str':'Tres Req', 'tres_alloc_str':'Tres Alloc', 'job_avg_util':'Avg CPU Util','job_mem_util':'Mem Util', 'job_io_bps':'IO bps'}}
+          var r_j_titles     = {{'job_id':'Job ID', 'name':'Job Name', 'partition':'Partition', 'nodes':'Nodes', 'submit_time':'Submit Time', 'start_time':'Start Time', 'tres_req_str':'Tres Req', 'tres_alloc_str':'Tres Alloc', 'cpu_eff':'CPU Efficiency','mem_eff':'Mem Efficiency', 'job_io_bps':'IO bps'}}
           var p_j_titles     = {{'job_id':'Job ID', 'name':'Job Name', 'partition':'Partition', 'submit_time':'Submit Time', 'tres_req_str':'Tres Req', 'state_reason':'Pending Reason'}}
-          var job_type_dict  = {{'job_id':'job', 'partition':'partition','name':'job_name', 'submit_time':'timestamp','start_time':'timestamp', 'tres_req_str':'TresShort', 'tres_alloc_str':'TresShort', 'job_avg_util':'float', 'job_mem_util':'float', 'job_io_bps':'bigInt'}}
+          var job_type_dict  = {{'job_id':'job', 'partition':'partition','name':'job_name', 'submit_time':'timestamp','start_time':'timestamp', 'tres_req_str':'TresShort', 'tres_alloc_str':'TresShort', 'job_avg_util':'float', 'job_mem_util':'float', 'job_io_bps':'bigInt', 'cpu_eff':'cpu_eff', 'mem_eff':'mem_eff'}}
           var u_fields_title = {{'uid':'User ID', 'Account':'Account', 'MaxSubmit':'Max Submit', 'MaxJobs':'Max Jobs', 'MaxNodes':'Max Nodes', 'MaxCPUs':'Max CPUs', 'MaxWall':'Max Wall Time', 'MaxCPUMins':'Max CPU min', 
                                  'tres_alloc_str':'Alloc Res.', 
                                  'tres_usage':'<a href="user_tresReport?uname={uname}">Res YTD Time</a>',
                                  'file_usage':'<a href="user_fileReport?uid='+uid+'&days=30">File Systems</a>', //TODO: popeye
-                                 'partitions':'<a href="#div_partition">Avail Partitions</a>','running_jobs':'<a href="#div_running_job">Running Jobs<a>','pending_jobs':'<a href="#div_pending_job">Pending Jobs<a>'}}
+                                 'partitions':'<a href="#div_partition">Avail Partitions</a>','running_jobs':'<a href="#div_running_job">Running Jobs<a>','pending_jobs':'<a href="#div_pending_job">Pending Jobs<a>',
+                                 'note':'Note'}}
 
           const clusters     = Object.keys(detailData);
           addSelectOption ('cluster', clusters)
@@ -91,8 +90,6 @@
                 $("#job_history_len").text (job_history.length)
              }} else
                 $("#job_history_len").text (0)
-             if (cluster == "Popeye") 
-                $("#past_job .table_title").text("Popeye data of finished jobs is coming soon...")
 
              $("#userJobGraph_link").attr("href", "userJobGraph?cluster=" + cluster + "&user={uname}")
           }}

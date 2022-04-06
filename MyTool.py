@@ -88,10 +88,10 @@ def getUid (user, cluster="Iron"):
     record = getUserRecord (user, cluster);
     if record:
        return record["uid"]
-    #elif cluster != "Iron":
-    #   record = getUserRecord (user, "Iron");
-    #   if record:
-    #      return record["uid"]
+    elif cluster != "Iron":  # sdsc.csv only include names that have the same name and uid
+       record = getUserRecord (user, "Iron");
+       if record:
+          return record["uid"]
     return None
 
 def getUser (uid, cluster="Iron", fakeName=True):
@@ -881,7 +881,9 @@ def test4():
     print(user)
     user = getUser(519052)
     print(user)
-    uid  = getUid("ajamieson")
+    uid  = getUid("aojha", "Iron")
+    print(uid)
+    uid  = getUid("aojha", "Popeye")
     print(uid)
     name = getUserFullName("yliu")
     print(name)
