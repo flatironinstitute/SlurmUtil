@@ -14,11 +14,10 @@ pidfilestale () {
 
 
 [[ -s /etc/slurm/slurm.conf ]] || { echo "No slurm.conf file." ; exit 1 ; }
-cm=$(grep ControlMachine /etc/slurm/slurm.conf)
-cm=${cm/ControlMachine=/}
+cm=$(grep -m1 SlurmctldHost /etc/slurm/slurm.conf)
+cm=${cm/SlurmctldHost=/}
 [[ -z ${cm+_} ]] && { echo "slurm.conf file lacks ControlMachine entry." ; exit 1 ; }
 
-echo "*"
 # We use these mappings to ensure the same database is used when we failover the control machine.
 #declare -A CMAliases=( [bcm1]=bcm [bcm2]=bcm [ironbcm1]=ironbcm [ironbcm2]=ironbcm )
 #[[ ${CMAliases[${cm}]+_} ]] && cm=${CMAliases[${cm}]}
@@ -42,49 +41,28 @@ mkdir -p ${logDir}  || { echo "Failed to create support directory." ; exit 1 ; }
 #pData="/mnt/home/yliu/projects/slurm/utils/mqtMonStreamRecord"
 #mkdir -p $(dirname ${pData}) || { echo "Failed to create support directory." ; exit 1 ; }
 
-if pidfilestale ${cm}_web_mqt.pid 
-then
-    while [[ 1 ]]
-    do
-	python ${ScriptDir}/sm_app.py &                 #default configuration file config/json.config
-	pid=$!
-	echo ${pid} > ${cm}_web_mqt.pid
-	wait ${pid}
-	echo "Monitor returned: $(date). Restarting in 60 seconds."
-	sleep 60
-    done  > "${logDir}/smcpsun_${cm}_mqt_$(date +%Y%m%d_%T).log" 2>&1 &
-else
-    echo "web server is already running ($(cat ${cm}_web_mqt.pid))."
-fi
+cmds=("python ${ScriptDir}/sm_app.py" "python ${ScriptDir}/mqttMonStream.py" "ssh -i /mnt/home/yliu/.ssh/id_sdsc -N -R 8127:localhost:8126 popeye-login2.sdsc.edu" "python ${ScriptDir}/brightRelay.py")
+ids=("webServer" "mqttMonitor" "sshPopeye" "brightRelay")
 
-if pidfilestale ${cm}_monitor_mqt.pid
-then
+for i in ${!cmds[@]}; do
+  cmd=${cmds[$i]}
+  cmd_id=${ids[$i]}
+  pid_file="${cm}_${cmd_id}.pid"
+    
+  if pidfilestale ${pid_file}
+  then
     while [[ 1 ]] 
     do
-	python ${ScriptDir}/mqttMonStream.py 2>&1 &       #default configuration file config/json.config
+        eval "$cmd 2>&1 &"
 	pid=$!
-	echo ${pid} > ${cm}_monitor_mqt.pid
+	echo ${pid} > ${pid_file}
 	wait ${pid}
-	echo "Monitor returned: $(date). Restarting in 60 seconds."
+	echo "ssh returned: $(date). Restarting in 60 seconds."
 	sleep 60
-    done  > "${logDir}/mms_${cm}_$(date +%Y%m%d_%T).log" 2>&1 &
-else
-    echo "monitor is already running ($(cat ${cm}_monitor_mqt.pid))."
-fi
-
-# start the mqtt to influx
-#if pidfilestale ${cm}_monitor_mqt_influx.pid
-#then
-#    while [[ 1 ]] 
-#    do
-#	python ${ScriptDir}/mqttMon2Influx.py 2>&1 &
-#	pid=$!
-#	echo ${pid} > ${cm}_monitor_mqt_influx.pid
-#	wait ${pid}
-#	echo "Monitor returned: $(date). Restarting in 60 seconds."
-#	sleep 60
-#    done  > "${logDir}/ifx_${cm}_$(date +%Y%m%d_%T).log" 2>&1 &
-#else
-#    echo "monitor and convertor to Influx is already running ($(cat ${cm}_monitor_mqt_influx.pid))."
-#fi
+    done  > "${logDir}/${cmd_id}_${cm}_$(date +%Y%m%d_%T).log" 2>&1 &
+    echo "${cmd_id} is started."
+  else
+    echo "${cmd_id} is already running ($(cat ${pid_file}))."
+  fi
+done
 
