@@ -3,6 +3,7 @@ import sched, requests, threading, time
 from collections import defaultdict
 from flask import Flask, request
 import config
+from RWLock import RWLock_2_1
 
 requests.packages.urllib3.disable_warnings()
 
@@ -31,7 +32,7 @@ class QueryBrightThread (threading.Thread):
         self.last_ts    = int(time.time()) - SEVEN_DAYS
         self.last_cut   = self.last_ts
         self.gpu_data   = defaultdict(lambda:defaultdict(list))  # {'workergpu001':{'gpu0':[[ts, val], ...], ...}...}
-        self.lock       = threading.Lock()
+        self.lock       = RWLock_2_1()
 
     def run(self):
         while True:
@@ -43,12 +44,15 @@ class QueryBrightThread (threading.Thread):
                s_print("Interval {}: sleep query".format(int(time.time()) - self.last_ts ) )
                time.sleep (QUERY_INTERVAL)
             if self.last_cut - int(time.time()) > SEVEN_DAYS + FLUSH_INTERVAL:
+               self.lock.writer_acquire()
                self.flushGPULoads ()
+               self.lock.writer_release()
             
     # get rid of older data
     def flushGPULoads (self):
         cut_ts = int(time.time()) - SEVEN_DAYS
         s_print ("***flushGPULoads before {}".format(cut_ts))
+
         for node, node_data in self.gpu_data.values():
             for gpu_id, data_lst in node_data.values():
                 for idx in range(0, len(data_lst)):
@@ -83,10 +87,14 @@ class QueryBrightThread (threading.Thread):
         rlt     = r.json().get('data', [])
         s_print("After interval {}, return {} rlts".format(ts-self.last_ts, len(rlt)))
         if len(rlt):
-           with self.lock:
-                self.savGPULoads (ts, rlt)
+           self.lock.writer_acquire()
+           self.savGPULoads (ts, rlt)
+           self.lock.writer_release()
  
     def getGPULoads (self, start, stop, step, regex_nodes=None):
+
+        self.lock.reader_acquire()
+
         s_print("getGPULoads {} {} {} {}".format(start, stop, step, regex_nodes))
         rlt = defaultdict(dict)
         nodes = self.gpu_data.keys()
@@ -114,6 +122,7 @@ class QueryBrightThread (threading.Thread):
                 rlt[node][gpu_id] = curr_lst       
                        
         print('{}'.format(rlt))
+        self.lock.reader_release()
         return rlt
 
 q_thrd = QueryBrightThread ()
