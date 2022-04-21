@@ -27,7 +27,7 @@ class RWLock_2_1:
        self.rmutex.release()
        self.readTry.release()
 
-   def reader_acquire(self):
+   def reader_release(self):
        self.rmutex.acquire()              # protect self.readCount --
        self.readCount -= 1
        if (self.readCount == 0):         
