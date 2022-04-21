@@ -57,7 +57,7 @@ for i in ${!cmds[@]}; do
 	pid=$!
 	echo ${pid} > ${pid_file}
 	wait ${pid}
-	echo "ssh returned: $(date). Restarting in 60 seconds."
+	echo "${cmd_id} returned: $(date). Restarting in 60 seconds."
 	sleep 60
     done  > "${logDir}/${cmd_id}_${cm}_$(date +%Y%m%d_%T).log" 2>&1 &
     echo "${cmd_id} is started."
