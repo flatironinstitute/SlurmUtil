@@ -181,7 +181,7 @@ class SLURMMonitorData(object):
        return job_gpus
 
     # return #{'gpu0':{'label':,'state':}}
-    def getNodeGPULabel (self, gpudata, node_name, node_state, state_str, node_gpus, alloc_jobs):
+    def getNodeGPURecord (self, gpudata, node_name, node_state, state_str, node_gpus, alloc_jobs):
         if not node_gpus:
            return {}
         if not gpudata:
@@ -204,16 +204,18 @@ class SLURMMonitorData(object):
                if node_name not in jobInfo['cpus_allocated']:
                   logger.error("jobInfo not including {} -{}".format(node_name, jobInfo['cpus_allocated']))
                # sometimes, queryBright cannot get some gpu's data, in that case, use 0
-               gpu_label = '{}_{}: gpu_util={:.1%}, job=({},{},{} cpu, {})'.format(node_name, gpu_name, gpudata.get(gpu_name,{}).get(node_name,0), jid, MyTool.getUser(jobInfo['user_id']), jobInfo['cpus_allocated'][node_name], gpu_alloc)
+               gpu_util  = gpudata.get(node_name, {}).get(gpu_name,0)
+               gpu_label = '{}_{}: gpu_util={:.1%}, job=({},{},{} cpu, {})'.format(node_name, gpu_name, gpu_util, jid, MyTool.getUser(jobInfo['user_id']), jobInfo['cpus_allocated'][node_name], gpu_alloc)
             else:
+               gpu_util  = 0
                gpu_label = '{}_{}: state={}'.format(node_name, gpu_name, state_str)
-            gpus[gpu_name] = {'label':gpu_label, 'state': gpu_state, 'job': jid}
+            gpus[gpu_name] = {'label':gpu_label, 'state': gpu_state, 'job': jid, 'util':gpu_util}
         return gpus
 
     
     def getHeatmapWorkerData (self, gpudata, weight, avg_minute=0):
-        node2job= self.node2jids
-        workers = []  #dataset1 in heatmap
+        node2job = self.node2jids
+        workers  = []  #dataset1 in heatmap
         if self.cluster == 'Popeye':
             sorted_d = sorted(self.data, key=lambda x: x[4:].zfill(5))
         else:
@@ -231,7 +233,7 @@ class SLURMMonitorData(object):
             else:
                node_cpu_util = self.inMemCache.queryNodeAvg(hostname, avg_minute)
             node_mem_util= (node_mem_M-pyslurmNode['free_mem']) / node_mem_M  if pyslurmNode['free_mem'] else 0 #ATTN: from slurm, not monitor, if no free_mem, in general, node is DOWN so return 0. TODO: Not saving memory information in cache. The sum of proc's RSS does not reflect the real value.
-            node_record  = self.getHeatmapNodeLabelRecord(hostname, hostinfo, alloc_jobs, node_cpu_util, node_mem_util, gpudata)
+            node_record  = self.getHeatmapNodeRecord(hostname, hostinfo, alloc_jobs, node_cpu_util, node_mem_util, gpudata)
             node_record['comb_util'] = (weight['cpu']*node_record['util'] + weight['mem']*node_record['mem_util'])/(weight['cpu'] + weight['mem'])
             workers.append(node_record)
               #{'name':hostname, 'stat':state, 'core':node_cores, 'util':node_cpu_util/node_cores, 'mem_util':node_mem_util, 'jobs':alloc_jobs, 'acct':job_accounts, 'labl':nodeLabel, 'gpus':gpuLabel, 'gpuCount':node_gpus})
@@ -241,7 +243,7 @@ class SLURMMonitorData(object):
     def nodeAllocated (hostinfo):
         return 'ALLOCATED' in hostinfo[0] or 'MIXED' in hostinfo[0]
 
-    def getHeatmapNodeLabelRecord (self, hostname, hostinfo, alloc_jobs, node_cpu_util, node_mem_util, gpudata):
+    def getHeatmapNodeRecord (self, hostname, hostinfo, alloc_jobs, node_cpu_util, node_mem_util, gpudata):
         pyslurmNode  = self.pyslurmNodes[hostname]
         node_cores   = pyslurmNode['cpus']
         node_gpus    = MyTool.getNodeGresGPUCount     (pyslurmNode['gres'])
@@ -260,14 +262,14 @@ class SLURMMonitorData(object):
               job_gpus  = self.getNodeJobGPULabelList (hostname, alloc_jobs)
               lst       = list(zip(alloc_jobs, job_users, ['{} cpu'.format(jc) for jc in job_cores], job_gpus))
               nodeLabel = '{} ({} cpu, {} gpu, {}GB): cpu_util={:.1%}, used_gpu={}, mem_util={:.1%}, jobs={}'.format(hostname, node_cores, node_gpus, int(node_mem_M/1024), node_cpu_util/node_cores, MyTool.getNodeGresUsedGPUCount (pyslurmNode['gres_used']), node_mem_util, lst)
-              gpus = self.getNodeGPULabel (gpudata, hostname, state, hostinfo[0], node_gpus, alloc_jobs)
+              gpus = self.getNodeGPURecord (gpudata, hostname, state, hostinfo[0], node_gpus, alloc_jobs)
         else:      # node not in use
            state        = 0 if 'IDLE' in hostinfo[0] else -1
            if not node_gpus:
               nodeLabel = '{} ({} cpu, {}GB): state={}'.format        (hostname, node_cores, int(node_mem_M/1024), hostinfo[0])
            else:
               nodeLabel = '{} ({} cpu, {} gpu, {}GB): state={}'.format(hostname, node_cores, node_gpus, int(node_mem_M/1024), hostinfo[0])
-              gpus = self.getNodeGPULabel (gpudata, hostname, state, hostinfo[0], node_gpus, [])
+              gpus = self.getNodeGPURecord (gpudata, hostname, state, hostinfo[0], node_gpus, [])
         rlt = {'name':hostname, 'stat':state, 'core':node_cores, 'util':node_cpu_util/node_cores, 'mem_util':node_mem_util, 'jobs':alloc_jobs, 'acct':job_accounts, 'labl':nodeLabel, 'gpus':gpus, 'gpuCount':node_gpus}
         #TODO: add comb_util
 

@@ -4,9 +4,8 @@ import time
 import os, requests, sys
 import urllib3
 from collections import defaultdict
-from statistics  import mean   #fmean faster than mean, but not until 3.8
 
-import MyTool, config, sessionConfig
+import config
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logger      = config.logger
@@ -14,6 +13,30 @@ bright_url  = config.APP_CONFIG["bright"]["url"]
 cert_dir    = config.APP_CONFIG["bright"]["cert_dir"]
 bright_cert = ('{}/cert.pem'.format(cert_dir), '{}/cert.key'.format(cert_dir))
 gpu_avg_period = config.APP_CONFIG["display_default"]["heatmap_avg"]["gpu"]
+
+relay_url   = config.APP_CONFIG["bright"]["relay_url"]
+class BrightRelayClient:
+    def __init__(self, url_input=relay_url, gpu_avg_period=gpu_avg_period):
+        self.base_url  = url_input
+        self.gpu_avg_period=gpu_avg_period
+        print("URL is {}".format(self.base_url))
+
+    # query bright all gpu data 
+    def getLatestGPUAvg (self, node_list=None, node_regex=None, minutes=gpu_avg_period):
+        url = "http://{}/getLatestGPUAvg?minutes={}".format(self.base_url, self.gpu_avg_period)
+        if node_list:
+           url = "{}&nodeList={}".format(url, node_list)
+        elif node_regex:
+           url = "{}&nodes={}".format(url, node_regex)
+
+        try:
+            r     = requests.get(url)
+        except Exception as e:
+            print("Cannot connect to Bright Relay Server {}. Exception {}".format(url, e))
+            return None
+        print("Return {}".format(r.json()))
+        
+        return int(time.time()), r.json()
 
 class BrightRestClient:
     _instance        = None
@@ -146,7 +169,7 @@ class BrightRestClient:
     # get all gpu data on node_list, return avg util of last {minutes} minutes
     # reture ['query_time': , {'gpu0':{'workergpu00':0.34 ... },} ]
     # called by index and heatmap
-    def getAllGPUAvg (self, node_list, minutes=gpu_avg_period, max_gpu_cnt=4, intervalFlag=False):
+    def getLatestGPUAvg (self, node_list, minutes=gpu_avg_period, max_gpu_cnt=4, intervalFlag=False):
         if (minutes != self.gpu_avg_period):
            self.set_gpu_avg_period (minutes)
 
@@ -255,15 +278,15 @@ def test2():
 def test3():
     client = BrightRestClient()
     node_list = ['workergpu{}'.format(idx) for idx in range(34,39)]
-    r = client.getAllGPUAvg (node_list)
+    r = client.getLatestGPUAvg (node_list)
     print('result: {}'.format(r))
     time.sleep(5)
-    r = client.getAllGPUAvg (node_list)
+    r = client.getLatestGPUAvg (node_list)
     print('result: {}'.format(r))
         
 def test5(minutes, flag):
     client = BrightRestClient()
-    rlt       = client.getAllGPUAvg(node_list, minutes, intervalFlag=flag) 
+    rlt       = client.getLatestGPUAvg(node_list, minutes, intervalFlag=flag) 
     print(rlt)
     
 def test6():
@@ -288,10 +311,13 @@ def test8():
 
     client.query(query)
 
+def test9():
+    client = BrightRelayClient()
+    client.getLatestGPUAvg (node_regex='workergpu00.*')
 
 def main():
     t1=time.time()
-    test3 ()
+    test9 ()
     #if len(sys.argv) < 3:
     #   test5(int(sys.argv[1]), False)
     #else:

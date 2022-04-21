@@ -152,15 +152,14 @@ function getGroupID_popeye (name) {
 function prepareNodeData (data, cntPerLine) {
    var rlt = new Object();
    for (const key in data) {
-       console.log(key);
-       rlt[key]   = prepareNodeData_1 (key, data[key][1], data[key][5], cntPerLine);
+       rlt[key]   = prepareNodeData_cluster (key, data[key][1], cntPerLine);
    }
    return rlt;
 }
 
 GID_FUNC = {"Iron": getGroupID, "Popeye": getGroupID_popeye}
-function prepareNodeData_1 (cluster, nodeData, gpu_obj, cntPerLine) {  // nodeData is sorted by 'name
-        console.log("prepareNodeData_1 ", cluster, nodeData, gpu_obj)
+function prepareNodeData_cluster (cluster, nodeData, cntPerLine) {  // nodeData is sorted by 'name
+        console.log("prepareNodeData_cluster ", cluster, nodeData, gpuData)
         if (nodeData.length == 0)
            return NaN;
 
@@ -192,43 +191,33 @@ function prepareNodeData_1 (cluster, nodeData, gpu_obj, cntPerLine) {  // nodeDa
           name2idx[obj['name']] = i;
         }
 
-        // gpu data
-        for (let [gpuID, gpuNodes] of Object.entries(gpu_obj)) {
-            if (gpuID == "time") continue;
-            for ( let [node, util] of Object.entries(gpuNodes) ) {
-                if (name2idx[node] != undefined)
-                   //console.log(gpuID, gpuNodes, node, name2idx[node], nodeData[name2idx[node]])
-                   nodeData[name2idx[node]][gpuID] = util
-            }
-        }
-
         return [nodeData, line_label]
 };
 
 function prepareGPUData (data) {
    var rlt = new Object();
    for (const key in data) {
-       console.log(key);
-       rlt[key]   = prepareGPUData_1 (key, data[key][1]);
+       rlt[key]   = prepareGPUData_cluster (key, data[key][1]);
    }
    return rlt;
 }
 
 //gpu_labels follow nodeData's sort
-function prepareGPUData_1 (cluster, nodeData)
+function prepareGPUData_cluster (cluster, nodeData)
 {
-   console.log("prepareGPUData_1 cluster=", cluster)
+   console.log("prepareGPUData_cluster ", cluster, "nodeData=", nodeData)
    var gpu_labels = []
    var gpuData    = [];             // data that will be used later
    var node_idx   = 0;
    for (d of nodeData) {
-       if (d['gpuCount']) {
-          for (i=0; i<d['gpuCount']; i++) {
+       if (d['gpuCount']) {         // it is a GPU node
+          for (i=0; i<d['gpuCount']; i++) {    // a record for each GPU
               di = Object.assign({}, d)
               di['gpuIdx']   = i
               if (d['gpus'].hasOwnProperty('gpu'+i)) {
                  di['gpuLabel'] = d['gpus']['gpu'+i]['label']
                  di['stat']     = d['gpus']['gpu'+i]['state']
+                 di['gpuUtil']  = d['gpus']['gpu'+i]['util']
                  job            = d['gpus']['gpu'+i]['job']
                  di.x = node_idx
                  di.y = i
@@ -285,7 +274,7 @@ function createGPUHeatMap(svg, gpuData, acctColor, gridSize, cluster="Iron")
               .attr("width",  gridSize)
               .attr("height", gridSize)
               .attr("title", function (d) {return d["name"]})
-              .attr("value", function (d) {return d["gpu"+d["gpuIdx"]]})
+              .attr("value", function (d) {return d["gpuUtil"]})
               .on("dblclick", function(d) {
                               if (d3,event.ctrlKey) {
                                  location.href=getJobDetailHref(d["jobs"], cluster)
@@ -294,7 +283,6 @@ function createGPUHeatMap(svg, gpuData, acctColor, gridSize, cluster="Iron")
                               }})
               .on("click", function(d) {
                               var keyArr=d["jobs"];
-                              console.log ("---keyArr", keyArr)
                               keyArr.forEach(function(e) {
                                                $(".bordered").removeClass("popout");
                                                $(`.${e}`).addClass("popout")});
@@ -304,7 +292,7 @@ function createGPUHeatMap(svg, gpuData, acctColor, gridSize, cluster="Iron")
               .style("fill", function(d) { var currColorS = getColorScale(d, acctColor);
                                            if (d["stat"]==0) return "gray";
                                            else if (d["stat"]==-1) return "black";
-                                           else return currColorS(d["gpu"+d["gpuIdx"]]); });
+                                           else return currColorS(d["gpuUtil"]); });
           cards.append("title");
           cards.select("title").text(function(d) {return d["gpuLabel"]});
           cards.exit().remove();
