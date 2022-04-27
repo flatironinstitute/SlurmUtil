@@ -12,7 +12,7 @@
 
       $(document).ready(function(){{
           var qos          = {qos}
-          var qos_disp_fld = {{'priority':'Priority','max_tres_pu':'Max TRES per User','max_jobs_pu':'Max Jobs per User','max_tres_pj':'Max Tres per Job', 'max_wall_pj':'Max Wall Time per Job','min_tres_pj':'Min TRES/Job','preempt_mode':'Preempt', 'note':'Note'}}
+          var qos_disp_fld = {{'priority':'Priority','max_tres_pu':'Max TRES per User','max_jobs_pu':'Max Jobs per User','max_tres_pj':'Max Tres per Job', 'max_wall_pj':'Max Wall Time per Job','min_tres_pj':'Min TRES/Job','grp_tres':'Group TRES', 'grp_jobs':'Group Jobs', 'preempt_mode':'Preempt', 'note':'Note'}}
 
           $("#qos_name").text(qos.name)
           createNoHeaderTable  (qos,   qos_disp_fld, {{'max_tres_pu':'tres','max_tres_pj':'tres','min_tres_pj':'tres', 'max_wall_pj':'period_min'}}, '#details');
