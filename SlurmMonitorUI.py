@@ -469,32 +469,35 @@ class SLURMMonitorUI(object):
                status = status[:-1]
             if 'DOWN' in status:                            #or modify javascript equalOnCol 
                #status = 'DOWN'
-               continue                                   # not displaying down nodes
+               continue                                     # not displaying down nodes
 
-            if ( node in node2jobs) and node2jobs[node]:  # node has running jobs
-               for jid in node2jobs[node]:                # for each job on the node, add one item
-                  job_user    = MyTool.getUser(jobData[jid]['user_id'], cluster=cluster)
-                  job_coreCnt = jobData[jid]['cpus_allocated'][node]
-                  job_runTime = int(ts)-jobData[jid]['start_time']
-                  if job_runTime < 0:
+            node_info = [node, status, delay, node_mem_M]
+            if (node not in node2jobs):                     # node has no allocated jobs
+               result.append(node_info)
+               continue
+
+            # else node has running jobs
+            for jid in node2jobs[node]:                # for each job on the node, add one item
+                job_user    = MyTool.getUser(jobData[jid]['user_id'], cluster=cluster)
+                job_coreCnt = jobData[jid]['cpus_allocated'][node]
+                job_runTime = int(ts)-jobData[jid]['start_time']
+                if job_runTime < 0:
                      logger.warning("job {} rumTime <0 {}-{}".format(jid, ts, jobData[jid]['start_time']))
-                  # check job proc information
-                  job_cpuUtil, job_rss, job_vms, job_iobyteps, job_procCnt, job_fds = monData.getJobUsageOnNode(jid, jobData[jid], node, nodeInfo)
-                  if job_procCnt and (job_runTime>0):     # has proc information
-                     job_avg_cpu = monData.getJobNodeTotalCPUTime(jid, node) / job_runTime if jobData[jid]['start_time'] > 0 else 0
-                     job_info    = [node, status, delay, node_mem_M, jid, job_user, job_coreCnt, job_runTime, job_procCnt, job_cpuUtil, job_avg_cpu, job_rss, job_vms, job_iobyteps, job_fds]
-                  else:
-                     job_info    = [node, status, delay, node_mem_M, jid, job_user, job_coreCnt, job_runTime, 0,           0,           0,           0,       0,       0,            0]
-                  # check job gpu information
-                  #logger.info("jobData{}={}".format(jid, jobData[jid]))
-                  job_gpuCnt  = len(jobData[jid]['gpus_allocated'][node]) if node in jobData[jid].get('gpus_allocated',{}) else 0
-                  if job_gpuCnt:
+                # check job proc information
+                job_cpuUtil, job_rss, job_vms, job_iobyteps, job_procCnt, job_fds = monData.getJobUsageOnNode(jid, jobData[jid], node, nodeInfo)
+                if job_procCnt and (job_runTime>0):     # has proc information
+                   job_avg_cpu = monData.getJobNodeTotalCPUTime(jid, node) / job_runTime if jobData[jid]['start_time'] > 0 else 0
+                   job_info    = [jid, job_user, job_coreCnt, job_runTime, job_procCnt, job_cpuUtil, job_avg_cpu, job_rss, job_vms, job_iobyteps, job_fds]
+                else:
+                   job_info    = [jid, job_user, job_coreCnt, job_runTime, 0,           0,           0,           0,       0,       0,            0]
+                # check job gpu information
+                #logger.info("jobData{}={}".format(jid, jobData[jid]))
+                job_gpuCnt  = len(jobData[jid]['gpus_allocated'][node]) if node in jobData[jid].get('gpus_allocated',{}) else 0
+                if job_gpuCnt:
                      job_gpuUtil    = SLURMMonitorUI.getJobGPUUtil_node(jobData[jid], node, gpudata) if gpudata else 0
                      job_avgGPUUtil = gpu_jid2data[node][jid]                              if gpu_jid2data and node in gpu_jid2data else 0
                      job_info.extend ([job_gpuCnt, job_gpuUtil, job_avgGPUUtil])
-                  result.append(job_info)
-            else:                                          # node has no allocated jobs
-               result.append([node, status, delay, node_mem_M])
+                result.append(node_info + job_info)
 
         return result
 
@@ -503,7 +506,7 @@ class SLURMMonitorUI(object):
            return 0
         #gpudata[gpuname][nodename]
         if nodename in job['gpus_allocated']:
-           return sum([gpudata['gpu{}'.format(idx)].get(nodename,0) for idx in job['gpus_allocated'][nodename]])
+           return sum([gpudata.get(nodename,{}).get('gpu{}'.format(idx),0) for idx in job['gpus_allocated'][nodename]])
         else:
            return 0
 
@@ -598,9 +601,7 @@ class SLURMMonitorUI(object):
             gpu_nodes,max_gpu_cnt= PyslurmQuery.getGPUNodes(monData.pyslurmNodes)
             if name == "Iron":
                gpu_ts, gpudata   = self.bright1.getLatestGPUAvg (minutes=avg_minute["gpu"])
-               #logger.info("gpudata={}".format(gpudata))
                #gpu_ts, gpudata   = self.bright.getLatestGPUAvg (gpu_nodes,minutes=avg_minute["gpu"])
-               #logger.info("gpudata={}".format(gpudata))
             else: #TODO: add popeye GPU data
                gpu_ts, gpudata   = 0, {}
             workers,jobs,users   = self.getHeatmapData (monData, gpudata, weight, avg_minute["cpu"])
@@ -675,13 +676,13 @@ class SLURMMonitorUI(object):
             gpu_jid2data= None
             if name == "Iron":   
               if 'gpu_util' in column:
-               gpu_nodes,max_gpu_cnt   = monData.getCurrJobGPUNodes()
-               logger.info("max_gpu_cnt={},gpu_nodes={}".format(max_gpu_cnt, gpu_nodes))
-               if max_gpu_cnt:
-                  gpu_ts, gpudata      = self.bright.getLatestGPUAvg (gpu_nodes, max_gpu_cnt=max_gpu_cnt)  # avg period is the one set in the configuration
+                  gpu_ts, gpudata   = self.bright1.getLatestGPUAvg ()       #avg period is the one set in the configuration
+                  #gpu_ts, gpudata      = self.bright.getLatestGPUAvg (gpu_nodes, max_gpu_cnt=max_gpu_cnt)  # avg period is the one set in the configuration
               if 'avg_gpu_util' in column:
-               min_start_ts, gpu_detail= monData.getCurrJobGPUDetail()   #gpu_detail include job's start_time
-               gpu_ts_d, gpu_jid2data  = self.bright.getLatestGPUAvg_jobs(gpu_detail, min_start_ts)
+                  gpu_jobs             = dict([(jid,job) for jid, job in monData.currJobs.items() if job['gres_detail']])
+                  gpu_ts, gpu_jid2data = self.bright1.getNodeJobGPUAvg (gpu_jobs)
+                  #min_start_ts, gpu_detail= monData.getCurrJobGPUDetail()   #gpu_detail include job's start_time
+                  #gpu_ts_d, gpu_jid2data  = self.bright.getAllGPUAvg_jobs(gpu_detail, min_start_ts)
             #else:                     # TODO: popeye no GPU data
             #  if 'gpu_util' in column:
             #   column.remove('gpu_util')
@@ -1117,35 +1118,40 @@ class SLURMMonitorUI(object):
         #return '{}\n{}'.format(fields, data)
 
     @cherrypy.expose
-    def userGPUGraph (self, user):
-        uid                     = MyTool.getUid (user)
-        jobs_gpu_alloc,jobs_gpu = SLURMMonitorUI.getUserAllocGPU(uid, pyslurm.node().get())  #{'workergpu01':[0,1]
-        if not jobs_gpu_alloc:                            #TODO: done jobs
-           return "User {} does not have running jobs using GPU.".format(user)
+    def userGPUGraph (self, user, cluster="Iron"):
+        monData  = self.monDataDict[cluster]
+        if not monData.hasData():
+           return self.getWaitMsg()
 
-        start_ts     = min([job['start_time'] for job in jobs_gpu])
-        #max_gpu_id   = max([i for id_lst in jobs_gpu_alloc.values() for i in id_lst])
-        d            = self.bright.getNodesGPU_Mem(list(jobs_gpu_alloc.keys()), start_ts, msec=True)
-        gpu_dict     = d['gpu_utilization']
-        mem_dict     = d['gpu_fb_used']
+        uid      = MyTool.getUid (user, cluster)
+        jobs     = [job for job in monData.currJobs.values() if job['user_id']==uid]
+        if not jobs:                #TODO: done jobs
+           return "User {} does not have running jobs at this time.".format(user)
 
-        series       = []
-        series2      = []
-        idx          = 0
-        for node,gpu_list in jobs_gpu_alloc.items():
-            for gpu_id in gpu_list:
-                gpu_name = '{}.gpu{}'.format(node, gpu_id)
-                name     = '{} ({})'.format (jobs_gpu[idx]['job_id'], gpu_name)
-                series.append  ({'name':name, 'data':gpu_dict[gpu_name]})
-                series2.append ({'name':name, 'data':mem_dict[gpu_name]})
-            idx +=1
+        jobs     = [job for job in jobs if job['gpus_allocated'] and job['start_time']]
+        if not jobs:                #TODO: done jobs
+           return "User {} does not have running GPU jobs at this time.".format(user)
 
+        gpu_alloc= dict([(node, [job['start_time'],job.get('end_time',None)]) for job in jobs for node in job['gpus_allocated'] ])
+        gm_data  = self.bright1.getNodesGPULoad_1(gpu_alloc)
+
+        series   = defaultdict(list)
+        for measure, m_data in gm_data.items():
+          for job in jobs:
+              for node,gpu_lst in job['gpus_allocated'].items():
+                  for gpu in gpu_lst:
+                      gpu_data = m_data[node]['gpu{}'.format(gpu)]
+                      series[measure].append({'name':'{} ({}.gpu{})'.format(job["job_id"], node, gpu), 'step':'right', 'data':[[ts*1000, val] for [ts,val] in gpu_data]})
+
+        #d            = self.bright.getNodesGPU_Mem(list(gpu_alloc.keys()), start_ts, msec=True)
+
+        min_ts   = min([job['start_time'] for job in jobs])
         htmltemp = os.path.join(config.APP_DIR, 'gpuGraph.html')
         h = open(htmltemp).read()%{'spec_title': ' of User {}'.format(user),
-                                   'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(start_ts)),
+                                   'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(min_ts)),
                                    'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(int(time.time()))),
-                                   'series'    : json.dumps(series),
-                                   'series2'   : json.dumps(series2)}
+                                   'series'    : json.dumps(series["gpu"]),
+                                   'series2'   : json.dumps(series["mem"])}
         return h
 
     @cherrypy.expose
@@ -1154,31 +1160,25 @@ class SLURMMonitorUI(object):
         job = PyslurmQuery.getCurrJob(jid)
         if not job:                            #TODO: done jobs
            return "Job {} is not running/pending or done in last 600 seconds(slurm.conf::MinJobAge.)".format(jid)
-
-        job_start    = job['start_time']
-        if not job['gres_detail']:
+        if not job['gres_detail']: 
            return "No GPU Alloc for job {}".format(jid)
+        #GPU job
         job_gpu_alloc= SLURMMonitorData.getJobAllocGPU(job, pyslurm.node().get())  #{'workergpu01':[0,1]
-        #max_gpu_id   = max([i for id_lst in job_gpu_alloc.values() for i in id_lst])
-        d            = self.bright.getNodesGPU_Mem (list(job_gpu_alloc.keys()), job_start, msec=True)
-        gpu_dict     = d['gpu_utilization']
-        mem_dict     = d['gpu_fb_used']
+        gm_data      = self.bright1.getNodesGPULoad(list(job_gpu_alloc.keys()),  job['start_time'])
+        series       = defaultdict(list)
+        for measure, m_data in gm_data.items():
+          for node, node_data in m_data.items():
+            for gpu in job_gpu_alloc[node]:
+                gpu_data = node_data["gpu{}".format(gpu)]
+                series[measure].append({'name':'{}.{}'.format(node,gpu), 'step':'right', 'data':[[ts*1000, val] for [ts,val] in gpu_data]})
 
-        #display only the allocated gid
-        series       = []
-        series2      = []
-        for node,gpu_list in job_gpu_alloc.items():
-            for gpu_id in gpu_list:
-                name = '{}.gpu{}'.format(node, gpu_id)
-                series.append  ({'name':name, 'data':gpu_dict[name]})
-                series2.append ({'name':name, 'data':mem_dict[name]})
-
+        #d            = self.bright.getNodesGPU_Mem (list(job_gpu_alloc.keys()), job_start, msec=True)
         htmltemp = os.path.join(config.APP_DIR, 'gpuGraph.html')
         h = open(htmltemp).read()%{'spec_title': ' of Job {}'.format(jid),
-                                   'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(job_start)),
+                                   'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(job['start_time'])),
                                    'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(int(time.time()))),
-                                   'series'    : json.dumps(series),
-                                   'series2'   : json.dumps(series2)}
+                                   'series'    : json.dumps(series["gpu"]),
+                                   'series2'   : json.dumps(series["mem"])}
         return h
 
     def getDoneJobProc (self, jid, job_report, cluster="Iron"):
@@ -1578,24 +1578,22 @@ class SLURMMonitorUI(object):
         if not nodeData[node]['gres']:
            return 'Node {} does not have gres resource'.format(node)
         stop      = int(time.time())
-        start     = stop - hours * 60 * 60
-        data      = self.bright.getNodesGPU_Mem({node:[0,1,2,3]}, start, msec=True)
-        util_data = data['gpu_utilization']
-        mem_data  = data['gpu_fb_used']
-   
-        series  = []
-        for node_gpu,s in util_data.items():
-            series.append({'name':node_gpu, 'data':s})
-        series2  = []
-        for node_gpu,s in mem_data.items():
-            series2.append({'name':node_gpu, 'data':s})
+        start     = stop - hours * ONE_HOUR_SECS
+        gm_data   = self.bright1.getNodesGPULoad([node], start)
+        series    = defaultdict(list)
+        for measure, m_data in gm_data.items():
+          for node, node_data in m_data.items():
+            for gpu, gpu_data in node_data.items():
+                series[measure].append({'name':'{}.{}'.format(node,gpu), 'step':'right', 'data':[[ts*1000, val] for [ts,val] in gpu_data]})
+
+        #data      = self.bright.getNodesGPU_Mem({node:[0,1,2,3]}, start, msec=True)
 
         htmltemp = os.path.join(config.APP_DIR, 'gpuGraph.html')
         h = open(htmltemp).read()%{'spec_title': ' on {}'.format(node),
                                    'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(start)),
                                    'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(stop)),
-                                   'series'    : json.dumps(series),
-                                   'series2'    : json.dumps(series2)}
+                                   'series'    : json.dumps(series["gpu"]),
+                                   'series2'   : json.dumps(series["mem"])}
         return h
 
     @cherrypy.expose

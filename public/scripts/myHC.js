@@ -135,7 +135,7 @@ function graphSeries(dataSeries, chartTag, title, xType, xMax, xLabel, yLabel, p
 
 //series with x-Axis as time
 //aSeries is used to annote event
-function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit='', chart_type='area', yAxis_max=null) {
+function timeSeriesWithAnnotation(series, chartTag, title, yCap, aSeries, aUnit='', chart_type='area', yAxis_max=null, step=undefined) {
     console.log(title, yAxis_max)
     console.log(series)
     if ( aSeries.length > 0 ) {
@@ -232,7 +232,7 @@ function crtLabel (vx, vy, txt, aUnit='') {
             text: txt.toString().concat(aUnit) }
 }
 function timeSeriesPlot(series, chartType, chartTag, title, yCap, aSeries=[], pf_func=pointFormat_func) {
-   console.log('timeSeriesPlot chartType=", chartType, ",series=', series, ",aSeries=", aSeries)
+   console.log('timeSeriesPlot chartType=', chartType, ',series=', series, ",aSeries=", aSeries)
    if ( aSeries.length > 0 ) {
                 baseY = series[0]['data'][0][1]
                 cus_labels = aSeries.map(function(x) {return crtLabel(x[0], baseY, x[1])})
