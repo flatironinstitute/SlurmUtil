@@ -37,6 +37,7 @@ ONE_HOUR_SECS      = 3600
 ONE_DAY_SECS       = 86400
 TIME_DISPLAY_FORMAT= '%m/%d/%y %H:%M'
 DATE_DISPLAY_FORMAT= '%m/%d/%y'
+DEFAULT_CLUSTER    = "Iron"
 
 @cherrypy.expose
 class SLURMMonitorUI(object):
@@ -231,6 +232,10 @@ class SLURMMonitorUI(object):
         return h
 
     
+    @cherrypy.expose
+    def test1(self):
+        return "hello"
+
     @cherrypy.expose
     def test(self, cluster="Iron", days=7):
         start, stop  = MyTool.getStartStopTS ('', '')
@@ -980,16 +985,8 @@ class SLURMMonitorUI(object):
         if not monData.hasData():
            return self.getWaitMsg() # error of some sort.
         nodeData    = monData.getNodeProc(node)
-
-        nodeDisplay = monData.pyslurmNodes.get(node,None)
-        if not nodeDisplay:
+        if not nodeData:
            return "Node {} is not a slurm node".format(node)
-        if nodeData['gpus']:
-           nodeDisplay['gpus']         = nodeData['gpus']
-        if nodeData['alloc_gpus']:
-           nodeDisplay['alloc_gpus']   = nodeData['alloc_gpus']
-        if nodeData['jobProc']:
-           nodeDisplay['running_jobs'] = list(nodeData['jobProc'].keys())
 
         nodeReport     = SlurmCmdQuery.getNodeDoneJobReport(node, days=3)
         array_het_jids = [ job['JobID'] for job in nodeReport if '_' in job['JobID'] or '+' in job['JobID']]
@@ -998,7 +995,6 @@ class SLURMMonitorUI(object):
         htmlStr        = open(htmlTemp).read().format(cluster        = json.dumps(cluster),
                                                       update_time    = MyTool.getTsString(nodeData['updateTS']),
                                                       node_data      = json.dumps(nodeData),
-                                                      node_info      = json.dumps(nodeDisplay),
                                                       array_het_jids = array_het_jids,
                                                       node_report    = nodeReport)
         return htmlStr
@@ -1043,14 +1039,29 @@ class SLURMMonitorUI(object):
         htmlTemp   = os.path.join(config.APP_DIR, '../slurm-util-ui/index.html')
         return open(htmlTemp).read()
 
+
+    @cherrypy.expose
+    def userJobHistory(self, user, cluster=DEFAULT_CLUSTER, days=3):
+        # get done job of the user
+        logger.info("user={}".format(user))
+        past_job      = self.getUserDoneJob(user, cluster, days)
+        logger.info("past_job={}".format(past_job))
+        array_het_jids= [job['JobID'] for job in past_job if '_' in job['JobID'] or '+' in job['JobID']]  # array of heterogenour job
+
+        htmlTemp   = os.path.join(config.APP_DIR, 'jobHistory.html')
+        htmlStr    = open(htmlTemp).read().format(jobs = json.dumps(past_job), array_het_jids=json.dumps(array_het_jids))
+        return htmlStr
+
     @cherrypy.expose
     def userDetails(self, user, days=3):
         detailData = {}
+        ts  = time.time()
         for cluster, monData in self.monDataDict.items():
            monData       = self.monDataDict[cluster]
            userAssoc     = self.slurmCmdDict[cluster].getUserAssoc(user)
+           logger.info("get userAssoc {}".format(time.time()-ts))
         
-           if not userAssoc and (cluster=="Iron"):
+           if not userAssoc and (cluster==DEFAULT_CLUSTER):
               return 'Cannot find user {}!'.format(user)
            uid           = MyTool.getUid(user, cluster)
            if not uid and (cluster=="Iron"):
@@ -1063,6 +1074,7 @@ class SLURMMonitorUI(object):
                   for k,v in p.items():
                       if v == MAX_LIMIT: p[k]='n/a'
            userAssoc['partitions'] = [p for p in part if p['user_avail_cpus']>0 or p['user_avail_gpus']>0]
+           logger.info("get partition {}".format(time.time()-ts))
 
            if monData.hasData():
               user_jobs     = ins.getUserJobsByState (uid)  # can also get from sacct -u user -s 'RUNNING, PENDING'
@@ -1071,6 +1083,7 @@ class SLURMMonitorUI(object):
            else:
               user_jobs     = []
               userAssoc['note'] = self.getWaitMsg()
+           logger.info("get user_jobs {}".format(time.time()-ts))
 
            if cluster=="Iron":
               userAssoc['file_usage'] = {'home':MyTool.df_cmd(user)} 
@@ -1078,13 +1091,17 @@ class SLURMMonitorUI(object):
               if 'ceph_full' in fs_data:
                  userAssoc['file_usage']['ceph'] = fs_data['ceph_full']
               userAssoc['tres_usage'] = SlurmDBQuery.getUserTresUsage(user)  
+           logger.info("get file data {}".format(time.time()-ts))
            #else: TODO: popeye file usage information
         
            # get done job of the user
-           past_job      = self.getUserDoneJob(user, cluster, days)
-           array_het_jids= [job['JobID'] for job in past_job if '_' in job['JobID'] or '+' in job['JobID']]  # array of heterogenour job
+           #past_job      = self.getUserDoneJob(user, cluster, days)
+           #past_job = []
+           #array_het_jids= [job['JobID'] for job in past_job if '_' in job['JobID'] or '+' in job['JobID']]  # array of heterogenour job
+           #logger.info("get past jobs {}".format(time.time()-ts))
 
-           detailData[cluster] = [uid, userAssoc, ins.updateTS, user_jobs, part, array_het_jids, past_job]
+           #detailData[cluster] = [uid, userAssoc, ins.updateTS, user_jobs, part, array_het_jids, past_job]
+           detailData[cluster] = [uid, userAssoc, ins.updateTS, user_jobs, part]
     
         detail = detailData["Iron"]
         htmlTemp   = os.path.join(config.APP_DIR, 'userDetail.html')
@@ -1155,30 +1172,35 @@ class SLURMMonitorUI(object):
         return h
 
     @cherrypy.expose
-    def jobGPUGraph (self, jid):
-        jid = int(jid)
-        job = PyslurmQuery.getCurrJob(jid)
+    def jobGPUGraph (self, jid, cluster=DEFAULT_CLUSTER):
+        monData  = self.monDataDict[cluster]
+        if not monData.hasData():
+           return self.getWaitMsg()
+
+        jid   = int(jid)
+        job   = monData.currJobs[jid]
         if not job:                            #TODO: done jobs
            return "Job {} is not running/pending or done in last 600 seconds(slurm.conf::MinJobAge.)".format(jid)
-        if not job['gres_detail']: 
+        if not job['gpus_allocated']: 
            return "No GPU Alloc for job {}".format(jid)
         #GPU job
-        job_gpu_alloc= SLURMMonitorData.getJobAllocGPU(job, pyslurm.node().get())  #{'workergpu01':[0,1]
-        gm_data      = self.bright1.getNodesGPULoad(list(job_gpu_alloc.keys()),  job['start_time'])
+        #job_gpu_alloc= SLURMMonitorData.getJobAllocGPU(job, pyslurm.node().get())  #{'workergpu01':[0,1]
+        gpu_alloc    = job['gpus_allocated']
+        gm_data      = self.bright1.getNodesGPULoad(list(gpu_alloc.keys()),  job['start_time'])
         series       = defaultdict(list)
         for measure, m_data in gm_data.items():
           for node, node_data in m_data.items():
-            for gpu in job_gpu_alloc[node]:
+            for gpu in gpu_alloc[node]:
                 gpu_data = node_data["gpu{}".format(gpu)]
                 series[measure].append({'name':'{}.{}'.format(node,gpu), 'step':'right', 'data':[[ts*1000, val] for [ts,val] in gpu_data]})
 
-        #d            = self.bright.getNodesGPU_Mem (list(job_gpu_alloc.keys()), job_start, msec=True)
+        #d            = self.bright.getNodesGPU_Mem (list(gpu_alloc.keys()), job_start, msec=True)
         htmltemp = os.path.join(config.APP_DIR, 'gpuGraph.html')
-        h = open(htmltemp).read()%{'spec_title': ' of Job {}'.format(jid),
-                                   'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(job['start_time'])),
-                                   'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(int(time.time()))),
-                                   'series'    : json.dumps(series["gpu"]),
-                                   'series2'   : json.dumps(series["mem"])}
+        h = open(htmltemp).read().format(spec_title= ' of Job {}'.format(jid),
+                                         start     = time.strftime(TIME_DISPLAY_FORMAT, time.localtime(job['start_time'])),
+                                         stop      = time.strftime(TIME_DISPLAY_FORMAT, time.localtime(int(time.time()))),
+                                         series    = json.dumps(series["gpu"]),
+                                         series2   = json.dumps(series["mem"]))
         return h
 
     def getDoneJobProc (self, jid, job_report, cluster="Iron"):
@@ -1589,11 +1611,11 @@ class SLURMMonitorUI(object):
         #data      = self.bright.getNodesGPU_Mem({node:[0,1,2,3]}, start, msec=True)
 
         htmltemp = os.path.join(config.APP_DIR, 'gpuGraph.html')
-        h = open(htmltemp).read()%{'spec_title': ' on {}'.format(node),
-                                   'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(start)),
-                                   'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(stop)),
-                                   'series'    : json.dumps(series["gpu"]),
-                                   'series2'   : json.dumps(series["mem"])}
+        h = open(htmltemp).read().format(spec_title = ' on {}'.format(node),
+                                         start      = time.strftime(TIME_DISPLAY_FORMAT, time.localtime(start)),
+                                         stop       = time.strftime(TIME_DISPLAY_FORMAT, time.localtime(stop)),
+                                         series     = json.dumps(series["gpu"]),
+                                         series2    = json.dumps(series["mem"]))
         return h
 
     @cherrypy.expose

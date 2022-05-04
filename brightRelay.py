@@ -243,6 +243,8 @@ class QueryBrightThread (threading.Thread):
 
         gpu_data=self.gpu_data if not mem else self.mem_data
 
+        if stop and (int(time.time())-stop < 10):       # if stop is < 10 seconds earlier, then just search all the way to now
+           stop = None
         rlt   = defaultdict(dict)
         nodes = self.getGPUNodes_unsafe (node_regex=node_regex, node_list=node_list)
         #print('matched nodes={}'.format(nodes))
@@ -384,6 +386,23 @@ def getNodesGPULoad ():
 
     gpu_load    = q_thrd.getGPULoads_safe(start,stop,node_list=node_list)
     mem_load    = q_thrd.getGPULoads_safe(start,stop,node_list=node_list, mem=True)
+
+    return {"gpu":gpu_load, "mem":mem_load}
+
+#return the gpu history during the period defined by {node: [start, stop]} for a list of nodes 
+#no default value for start
+@app.route('/getNodesGPULoad_1', methods=['GET', 'POST'])
+def getNodesGPULoad_1 ():
+    nodes       = request.args.get('nodeDict',None)
+    if nodes:
+       nodes    = json.loads(nodes)
+
+    gpu_load    = {}
+    mem_load    = {}
+    for node, period in nodes.items():
+        start, stop = period
+        gpu_load.update (q_thrd.getGPULoads_safe(start,stop,node_list=[node]))
+        mem_load.update (q_thrd.getGPULoads_safe(start,stop,node_list=[node], mem=True))
 
     return {"gpu":gpu_load, "mem":mem_load}
 

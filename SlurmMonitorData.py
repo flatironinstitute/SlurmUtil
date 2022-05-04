@@ -529,45 +529,47 @@ class SLURMMonitorData(object):
 
         return updateTS, nodeData, currJobs, node2jids, pyslurmData
 
-    def getNodeProc (self, node):
-        #get node data from self.pyslurmNodes
-        newNode      = self.pyslurmNodes[node]  #'name', 'state', 'cpus', 'alloc_cpus',
-        #newNode     = MyTool.sub_dict(pyslurmNode, ['name','cpus','alloc_cpus'])
-        newNode['gpus'],newNode['alloc_gpus'] = MyTool.getGPUCount(newNode['gres'], newNode['gres_used'])
+    #add new proc data to self.pyslurmNodes[nodeName]
+    def getNodeProc (self, nodeName):
+        #get nodeName data from self.pyslurmNodes
+        node      = self.pyslurmNodes[nodeName]  #'name', 'state', 'cpus', 'alloc_cpus',
+        node['gpus'],node['alloc_gpus'] = MyTool.getGPUCount(node['gres'], node['gres_used'])
 
-        if node not in self.data:
-           newNode['updateTS'] = None
-           return newNode
-
+        if nodeName not in self.data:
+           node['updateTS'] = None
+           return node
+        if 'mon_state' in node: #alreay added 
+           return node
+       
         #get data from self.data
-        newNode['state']    = self.data[node][0]
-        newNode['updateTS'] = self.data[node][2]
+        node['mon_state'] = self.data[nodeName][0]                                #state already there
+        node['updateTS']  = self.data[nodeName][2]
         #organize procs by job
-        newNode['jobProc']  = defaultdict(lambda: {'job':{}, 'procs':[]})       #jid, {'job': , 'procs': }
-        newNode['procCnt']  = 0
-        for user in sorted(self.data[node][USER_INFO_IDX:]):
+        node['jobProc']   = defaultdict(lambda: {'job':{}, 'procs':[]})       #jid, {'job': , 'procs': }
+        node['procCnt']   = 0
+        for user in sorted(self.data[nodeName][USER_INFO_IDX:]):
             for proc in user[7]:                          #user, uid, cpuCnt, procCnt, totCPURate, totRSS, totVMS, procs, totIOBps, totCPUTime
-                newNode['jobProc'][proc[PROC_JID_IDX]]['procs'].append([proc[i] for i in [0,1,5,6,8,7]])  #[pid(0), CPURate/1, create_time, user_time, system_time, rss/5, 'vms'/6, cmdline/7, IOBps/8, jid, read_bytes, write_bytes]
-                newNode['procCnt'] += 1
+                node['jobProc'][proc[PROC_JID_IDX]]['procs'].append([proc[i] for i in [0,1,5,6,8,7]])  #[pid(0), CPURate/1, create_time, user_time, system_time, rss/5, 'vms'/6, cmdline/7, IOBps/8, jid, read_bytes, write_bytes]
+                node['procCnt'] += 1
 
-        if -1 in newNode['jobProc']:  #TODO: deal with -1 jodid
-           newNode['jobProc']['undefined'] = newNode['jobProc'][-1]
-           del newNode['jobProc'][-1]
+        if -1 in node['jobProc']:  #TODO: deal with -1 jodid
+           node['jobProc']['undefined'] = node['jobProc'][-1]
+           del node['jobProc'][-1]
 
         #get data from self.currJobs
-        for jid in newNode['jobProc']:
+        for jid in node['jobProc']:
             if jid in self.currJobs:
-               newNode['jobProc'][jid]['job'] = dict((k,v) for k, v in self.currJobs[jid].items() if v and v != True)
+               node['jobProc'][jid]['job'] = dict((k,v) for k, v in self.currJobs[jid].items() if v and v != True)
             else:
-               logger.warning("Job {} on node {}({}) is not in self.currJobs={}".format(jid, node, list(newNode['jobProc'].keys()), list(self.currJobs.keys())))
-        newNode['jobProc']      = dict(newNode['jobProc'])  #convert from defaultdict to dict
-        newNode['jobCnt']       = len(newNode['jobProc'])
-        newNode['alloc_cpus']   = sum([self.currJobs[jid]['cpus_allocated'][node] for jid in newNode['jobProc'] if jid in self.currJobs])
-        newNode['running_jobs'] = list(newNode['jobProc'].keys())
+               logger.warning("Job {} on node {}({}) is not in self.currJobs={}".format(jid, nodeName, list(node['jobProc'].keys()), list(self.currJobs.keys())))
+        node['jobProc']      = dict(node['jobProc'])  #convert from defaultdict to dict
+        node['jobCnt']       = len(node['jobProc'])
+        node['alloc_cpus']   = sum([self.currJobs[jid]['cpus_allocated'][nodeName] for jid in node['jobProc'] if jid in self.currJobs])
+        node['running_jobs'] = list(node['jobProc'].keys())
 
-        jobCPUAlloc = dict([(jid, self.currJobs[jid]['cpus_allocated'][node]) for jid in self.node2jids[node]])  #'cpus_allocated': {'worker1011': 28}
+        jobCPUAlloc = dict([(jid, self.currJobs[jid]['cpus_allocated'][nodeName]) for jid in self.node2jids[nodeName]])  #'cpus_allocated': {'worker1011': 28}
 
-        return newNode
+        return node
 
     #return dict (workername, workerinfo)
     def getUserNodeProc (self, user):

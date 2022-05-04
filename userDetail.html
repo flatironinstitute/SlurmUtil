@@ -38,10 +38,11 @@
                                  'partitions':'<a href="#div_partition">Avail Partitions</a>','running_jobs':'<a href="#div_running_job">Running Jobs<a>','pending_jobs':'<a href="#div_pending_job">Pending Jobs<a>',
                                  'note':'Note'}}
 
+          const uname        = "{uname}"
           const clusters     = Object.keys(detailData);
           addSelectOption ('cluster', clusters)
 
-          var cluster,update_time,running_jobs,pending_jobs,part_info,job_history,user_assoc,array_het_jids;
+          var cluster,update_time,running_jobs,pending_jobs,part_info,user_assoc;
           display(clusters[0])
 
           //$('.table_title + table').hide()
@@ -85,32 +86,25 @@
              createUserPartTable   (part_info,   'part_table',     'div_partition', cluster)
              $("#part_len").text        (part_info.length)
 
-             if (job_history && job_history.length >0) {{
-                createUserJobHistoryTable (job_history, array_het_jids, 'job_history_table', 'past_job')
-                $("#job_history_len").text (job_history.length)
-             }} else
-                $("#job_history_len").text (0)
-
              $("#userJobGraph_link").attr("href", "userJobGraph?cluster=" + cluster + "&user={uname}")
+
+             $("#job_history").attr("src", "http://scclin011:8126/userJobHistory?user="+uname+"&cluster="+cluster)
           }}
 
           function clearDisplay () {{
              $("#div_user_info *").remove()    //TODO: use detach
              $("#run_job_table").remove()
              $("#pend_job_table").remove()
-             $("#part_table").remove()
              $("#job_history_table").remove()
           }}
 
           function setClusterData (c) {{
-             cluster        = c // [uid, userAssoc, ins.updateTS, user_jobs, part, array_het_jids, past_job]
+             cluster        = c // [uid, userAssoc, ins.updateTS, user_jobs, part]
              user_assoc     = detailData[cluster][1]
              update_time    = getTS_String(detailData[cluster][2])
              running_jobs   = detailData[cluster][3]['RUNNING']   
              pending_jobs   = detailData[cluster][3]['PENDING']
              part_info      = detailData[cluster][4]
-             array_het_jids = detailData[cluster][5]
-             job_history    = detailData[cluster][6]
           }}
 
       }});
@@ -168,7 +162,8 @@
       <section class="section">
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div" id="past_job">
-            <h3 class="table_title">Total <span id="job_history_len"></span> Finished Jobs during Last {day_cnt} Days</h3>
+            <h3 class="table_title">Finished Jobs during Last {day_cnt} Days</h3>
+            <iframe id="job_history" title="Job History" style="border:none;overflow:hidden;width:100%" scrolling="yes" src="http://scclin011:8126/userJobHistory?user={uname}">
           </div>
         </div>
       </section>

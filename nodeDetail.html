@@ -61,7 +61,7 @@
              exclude_gpu = false
           else
              exclude_gpu = true
-          createJobHistoryTable ({node_report}, array_het_jids, 'node_history_table', 'div_sacct_report', exclude_gpu)
+          createJobHistoryTable ({node_report}, array_het_jids, 'node_history_table', 'div_sacct_report', exclude_gpu, excludeEff=true)
       }});
     </script>
   </head>

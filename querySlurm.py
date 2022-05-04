@@ -68,6 +68,7 @@ class SlurmCmdQuery:
            return u_assoc[user]
         return {}
 
+    #seff needs to be called for every job and thus is time consuming when many jobs
     @staticmethod
     def getUserDoneJobReport (user, days=3, output='JobID,JobIDRaw,JobName,AllocCPUS,AllocTRES,State,ExitCode,User,NodeList,Start,End', cluster="Iron"):
         job_list = SlurmCmdQuery.sacct_getReport(['-u', user], days, output, skipJobStep=True, cluster=cluster)
@@ -81,6 +82,7 @@ class SlurmCmdQuery:
             rlt.append(job)
         return rlt
 
+    #seff needs to be called for every job and thus is time consuming when many jobs
     @staticmethod
     def getNodeDoneJobReport (node, days=3, output='JobID,JobIDRaw,JobName,AllocCPUS,AllocTRES,State,ExitCode,User,NodeList,Start,End'):
         job_list = SlurmCmdQuery.sacct_getReport(['-N', node], days, output, skipJobStep=True)
@@ -88,9 +90,9 @@ class SlurmCmdQuery:
         for job in job_list:
             if job['State'] in ['RUNNING','PENDING']:
                continue
-            eff = SlurmCmdQuery.seff_cmd(job['JobID'])
-            eff.pop("State")
-            job.update(eff)
+            #eff = SlurmCmdQuery.seff_cmd(job['JobID'])
+            #eff.pop("State")
+            #job.update(eff)
             rlt.append(job)
         return rlt
 

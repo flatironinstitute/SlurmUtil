@@ -677,7 +677,7 @@ function createNoHeaderTable (data_dict, disp_dict, type_dict, parent_id, table_
                         return d; })
 }
 
-function createJobHistoryTable (job_history, array_het_jids, job_history_table_id, parent_id, excludeGPU=false) {
+function createJobHistoryTable (job_history, array_het_jids, job_history_table_id, parent_id, excludeGPU=false, excludeEff=false) {
    if (array_het_jids.length)
       tmp = {'JobIDRaw':'Job ID', 'JobID':'Job ID(Report)'}
    else 
@@ -685,6 +685,10 @@ function createJobHistoryTable (job_history, array_het_jids, job_history_table_i
    const j_h_titles = Object.assign(tmp, {'JobName':'Job Name','State':'State','NodeList':'Alloc Node','AllocCPUS':'Alloc CPU','AllocGPUS':'Alloc GPU','Start':'Start Time','End':'End Time','Job Wall-clock time':'Wall-clock time','CPU Efficiency':'CPU Efficiency','Memory Efficiency':'Memory Efficiency'})
    if (excludeGPU)
       delete j_h_titles.AllocGPUS
+   if (excludeEff)
+      delete j_h_titles['Job Wall-clock time']
+      delete j_h_titles['CPU Efficiency']
+      delete j_h_titles['Memory Efficiency']
    createTable (job_history, j_h_titles,  job_history_table_id, parent_id, undefined, {'JobID':'job_step', 'JobIDRaw':'job_step','JobName':'job_name'})
 }
 

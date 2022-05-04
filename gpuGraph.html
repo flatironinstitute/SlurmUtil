@@ -2,7 +2,9 @@
 <html lang="en">
     <head>
 	<script type="text/javascript" src="static/scripts/jquery-2.1.3.min.js"></script>
-	<script type="text/javascript" src="static/scripts/highcharts.js"></script>
+	<!--<script type="text/javascript" src="static/scripts/highcharts.js"></script>
+        -->
+	<script type="text/javascript" src="https://code.highcharts.com/stock/highstock.js"></script>
 	<script type="text/javascript" src="static/scripts/annotations.js"></script>
 	<script type="text/javascript" src="static/scripts/exporting.js"></script>
     <script type="text/javascript" src="static/scripts/myFunc.js"></script>
@@ -12,7 +14,29 @@
 	<div id="chart"  style="min-width: 1000px; height: 400px; margin: 0 auto"></div>
 	<div id="chart2" style="min-width: 1000px; height: 400px; margin: 0 auto"></div>
 	<script>
-	 timeSeriesPlot (%(series)s,  "line", "chart",  "GPU Utilization  %(spec_title)s from %(start)s to %(stop)s", "Util",[]);
-	 timeSeriesPlot (%(series2)s, "line", "chart2", "Memoery          %(spec_title)s from %(start)s to %(stop)s", "Mem", []);
+         function addDataGrouping(series) {{
+           for (var s of series) {{
+             s.dataGrouping={{
+                approximation: 'average',
+                enabled: true,
+                groupPixelWidth: 5,
+                units: [
+                    ['second', [10, 20, 30]],
+                    ['minute', [1, 2, 5, 10, 15, 30]],
+                    ['hour',   [1, 2, 4, 8, 12]]
+                ]
+            }}
+         }}
+         }};
+
+         var series  = {series}
+         var series2 = {series2}
+         addDataGrouping(series)
+         addDataGrouping(series2)
+
+         console.log("---")
+	 timeSeriesPlot (series,  "line", "chart",  "GPU Utilization  {spec_title} from {start} to {stop}", "Util",[]);
+	 timeSeriesPlot (series2, "line", "chart2", "Memoery        {spec_title} from {start} to {stop}", "Mem", []);
 	</script>
 </html>
+<!--https://api.highcharts.com/highstock/plotOptions.series.dataGrouping.approximation-->
