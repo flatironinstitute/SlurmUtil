@@ -28,10 +28,10 @@
       var thisPath = window.location.pathname;
       $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
 
-      var heatmapData = %(heatmapData)s;                            //{"Iron":[node_ts, workers, jobs, users, gpu_ts, gpudata]
+      var heatmapData = %(heatmapData)s;                            //{"cluster":[node_ts, workers, jobs, users, gpu_ts, gpudata]
       console.log("heatmapData=", heatmapData)
       var cntPerLine  = 32;                                         //count per line
-      var nodes_data  = prepareNodeData(heatmapData, cntPerLine);   //{"Iron":[nodeData, line_label]
+      var nodes_data  = prepareNodeData(heatmapData, cntPerLine);   //{"cluster":[nodeData, line_label]
       var gpus_data   = prepareGPUData (heatmapData)
       
       const clusters = Object.keys(heatmapData);

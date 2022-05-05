@@ -26,7 +26,7 @@
           $('#crumbmenu').load('/getBreadcrumbs?path=' + thisPath);
 
           var detailData     = {data}
-          var uid            = detailData['Iron'][1]['uid']
+          var uid            = detailData['Rusty'][1]['uid']
           //create table job_table and part_table
           var r_j_titles     = {{'job_id':'Job ID', 'name':'Job Name', 'partition':'Partition', 'nodes':'Nodes', 'submit_time':'Submit Time', 'start_time':'Start Time', 'tres_req_str':'Tres Req', 'tres_alloc_str':'Tres Alloc', 'cpu_eff':'CPU Efficiency','mem_eff':'Mem Efficiency', 'job_io_bps':'IO bps'}}
           var p_j_titles     = {{'job_id':'Job ID', 'name':'Job Name', 'partition':'Partition', 'submit_time':'Submit Time', 'tres_req_str':'Tres Req', 'state_reason':'Pending Reason'}}

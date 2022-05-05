@@ -31,10 +31,10 @@ class SlurmCmdQuery:
     TS_ASSOC   = 0
     DICT_ASSOC = {}  # {'user':'account'}
     SET_ACCT   = set()
-    USER_ASSOC = {"Iron":["./data/sacctmgr_assoc.csv",        0, {}],
+    USER_ASSOC = {"Rusty":["./data/sacctmgr_assoc.csv",        0, {}],
                   "Popeye":  ["./data/sacctmgr_assoc_popeye.csv", 0, {}]}   #file_name, modify_time, user2record
                                #User|Def Acct|Admin|Cluster|Account|Partition|Share|Priority|MaxJobs|MaxNodes|MaxCPUs|MaxSubmit|MaxWall|MaxCPUMins|QOS|Def QOS
-    SSH_CMD    = {"Iron":   None, 
+    SSH_CMD    = {"Rusty":   None, 
                   "Popeye": 'ssh -i /mnt/home/yliu/.ssh/id_sdsc popeye.sdsc.edu'}
 
     def __init__(self, cluster):
@@ -70,7 +70,7 @@ class SlurmCmdQuery:
 
     #seff needs to be called for every job and thus is time consuming when many jobs
     @staticmethod
-    def getUserDoneJobReport (user, days=3, output='JobID,JobIDRaw,JobName,AllocCPUS,AllocTRES,State,ExitCode,User,NodeList,Start,End', cluster="Iron"):
+    def getUserDoneJobReport (user, days=3, output='JobID,JobIDRaw,JobName,AllocCPUS,AllocTRES,State,ExitCode,User,NodeList,Start,End', cluster="Rusty"):
         job_list = SlurmCmdQuery.sacct_getReport(['-u', user], days, output, skipJobStep=True, cluster=cluster)
         rlt      = []
         for job in job_list:
@@ -102,7 +102,7 @@ class SlurmCmdQuery:
         return jobs
  
     @staticmethod
-    def sacct_getJobReport (jobid, cluster="Iron", skipJobStep=True):
+    def sacct_getJobReport (jobid, cluster="Rusty", skipJobStep=True):
         #output = 'JobID,JobIDRaw,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End,AllocNodes,NodeList,AllocTRES'
         # may include sub jobs
         jobs   = SlurmCmdQuery.sacct_getReport(['-j', str(jobid)], days=None, output="ALL", cluster=cluster, skipJobStep=skipJobStep)
@@ -112,7 +112,7 @@ class SlurmCmdQuery:
 
     # return [jid:jinfo, ...}
     @staticmethod
-    def sacct_getReport (criteria, days=3, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End', skipJobStep=True, cluster="Iron"):
+    def sacct_getReport (criteria, days=3, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End', skipJobStep=True, cluster="Rusty"):
         #print('sacct_getReport {} {} {}'.format(criteria, days, skipJobStep))
         if days:
            t = date.today() + timedelta(days=-days)
@@ -154,7 +154,7 @@ class SlurmCmdQuery:
         return jobs
 
     @staticmethod
-    def sacctCmd (criteria, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End', cluster="Iron"):
+    def sacctCmd (criteria, output='JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End', cluster="Rusty"):
         #has problem with constrains such as skylank|broadwell
         cmd   = ['sacct', '-P', '-o', output] + criteria
         shell = False
@@ -204,7 +204,7 @@ class SlurmCmdQuery:
            SlurmCmdQuery.SET_ACCT   = set([item['Def Acct'] for item in d.values()])
 
     @staticmethod
-    def getAllUserAssoc (cluster="Iron"):
+    def getAllUserAssoc (cluster="Rusty"):
         SlurmCmdQuery.refreshUserAssoc (cluster)
         return SlurmCmdQuery.USER_ASSOC[cluster][2]
 
@@ -218,17 +218,17 @@ def test1():
     print("rlt={}".format(rlt))
 
 def test2():
-    for cluster in ["Iron", "Popeye"]:
+    for cluster in ["Rusty", "Popeye"]:
         ins = SlurmCmdQuery(cluster)
         print(ins.getUserAssoc("aarora"))
 
 def test3():
-    for cluster in ["Iron", "Popeye"]:
+    for cluster in ["Rusty", "Popeye"]:
         ins = SlurmCmdQuery(cluster)
         print(ins.getUserDoneJobReport("aojha", cluster=cluster))
 
 def test4():
-    for cluster in ["Iron", "Popeye"]:
+    for cluster in ["Rusty", "Popeye"]:
         jobs=SlurmCmdQuery.sacct_getJobReport(890501, cluster=cluster)
         print("---{}---\njob={}".format(cluster, jobs))
 

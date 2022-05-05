@@ -148,7 +148,7 @@ function getGroupID_popeye (name) {
       return i;
 }
 
-////{"Iron":[node_ts, workers, jobs, users, gpu_ts, gpudata]
+////{"cluster":[node_ts, workers, jobs, users, gpu_ts, gpudata]
 function prepareNodeData (data, cntPerLine) {
    var rlt = new Object();
    for (const key in data) {
@@ -157,9 +157,9 @@ function prepareNodeData (data, cntPerLine) {
    return rlt;
 }
 
-GID_FUNC = {"Iron": getGroupID, "Popeye": getGroupID_popeye}
+GID_FUNC = {"Rusty": getGroupID, "Popeye": getGroupID_popeye}
 function prepareNodeData_cluster (cluster, nodeData, cntPerLine) {  // nodeData is sorted by 'name
-        console.log("prepareNodeData_cluster ", cluster, nodeData, gpuData)
+        console.log("prepareNodeData_cluster ", cluster, nodeData)
         if (nodeData.length == 0)
            return NaN;
 

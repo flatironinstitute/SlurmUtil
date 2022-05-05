@@ -19,9 +19,9 @@ class PyslurmQuery():
         return pyslurm.node().get()
     
     @staticmethod
-    def getQoSDict (cluster="Iron", pyslurmData=None):
+    def getQoSDict (cluster="Rusty", pyslurmData=None):
       qos    = pyslurmData.get("qos", {}) if pyslurmData else {}
-      if cluster=="Iron":          # local cluster
+      if cluster=="Rusty":          # local cluster
          pyslurm.slurm_init()
          qos = pyslurm.qos().get()
       return qos
@@ -153,8 +153,8 @@ class PyslurmQuery():
     MAP_JOB2DBJ = {'submit_time':'submit', 'start_time':'start','end_time':'end', 'exitcode':'exit_code', 'jobid':'job_id', 'job_state':'state_str','name':'jobname'}
     DEF_REQ_FLD = COMMON_FLD + list(MAP_JOB2DBJ.keys())
     @staticmethod
-    def getSlurmDBJob (jid, req_fields=DEF_REQ_FLD, cluster="Iron"):
-        if cluster != "Iron":
+    def getSlurmDBJob (jid, req_fields=DEF_REQ_FLD, cluster="Rusty"):
+        if cluster != "Rusty":
            return None
      
         pyslurm.slurm_init()
@@ -226,10 +226,10 @@ PEND_EXP={
 }
 
 class SlurmEntities:
-  def __init__ (self, cluster="Iron", pyslurmData={}):
+  def __init__ (self, cluster="Rusty", pyslurmData={}):
     pyslurm.slurm_init()
     self.cluster = cluster
-    if cluster=="Iron":           #local realtime pyslurm
+    if cluster=="Rusty":           #local realtime pyslurm
         self.getPyslurmData ()
         self.updateTS = int(time.time())
     else:

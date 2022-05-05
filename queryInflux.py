@@ -15,7 +15,7 @@ logger   = config.logger
 APP_CONF = config.APP_CONFIG
 ONE_DAY_SECS = 86400
 
-CLUSTER_DB = {"Iron":"slurmdb_2", "Popeye":"popeye"}
+CLUSTER_DB = {"Rusty":"slurmdb_2", "Popeye":"popeye"}
 class InfluxQueryClient:
     Interval = 61
     LOCAL_TZ = timezone(timedelta(hours=-4))
@@ -28,7 +28,7 @@ class InfluxQueryClient:
 
         return cls.CLIENT_INS
 
-    def __init__(self, cluster="Iron", influxServer=None):
+    def __init__(self, cluster="Rusty", influxServer=None):
         self.cluster = cluster
         if not influxServer:
            influxServer = APP_CONF['influxdb']['host']
@@ -355,6 +355,7 @@ class InfluxQueryClient:
         ts2QoSPendReqNode = defaultdict(int)
         ts2PendReqCPUCnt  = defaultdict(int)
         start             = None
+        ts                = 0
         for point in results.get_points():
             ts        = point['time']
             if not start:
@@ -480,6 +481,9 @@ class InfluxQueryClient:
         query     = "select * from short_term.node_proc_info2 where jid = " + str(jid) #jid is integer, show field keys from autogen.node_proc_info
         query     = self.extendQuery (query, start_time, stop_time, nodelist)
         query_rlt = self.query(query, epoch='s') 
+        if not query_rlt:
+           return {}
+
         rlt       = {}
         for node in nodelist:
             points = query_rlt.get_points(tags={'hostname':node})
@@ -530,7 +534,7 @@ class InfluxQueryClient:
         query_rlt  = app.query(query)
 
     def daily():
-      for cluster in ["Iron", "Popeye"]:
+      for cluster in ["Rusty", "Popeye"]:
        app  = InfluxQueryClient(cluster)
     
        app.savNodeHistory      ()  # default is 7 days
