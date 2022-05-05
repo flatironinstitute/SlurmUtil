@@ -18,7 +18,8 @@
    },
    "bright": {
        "url"                   : "https://rusty-mgr1:8081/rest/v1/monitoring/",
-       "cert_dir"              : "./prometheus.cm/"
+       "cert_dir"              : "./prometheus.cm/",
+       "relay_url"             : "http://localhost:12345/"
    },
    "email": {
        "flag"                  : true
