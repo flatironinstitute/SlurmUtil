@@ -1069,12 +1069,12 @@ class SLURMMonitorUI(object):
            userAssoc['uid'] = uid
 
            ins           = SlurmEntities(cluster, monData.pyslurmData)
-           part          = ins.getAccountPartition (userAssoc['Account'], uid)
-           for p in part:  #replace big number with n/a
+           partition     = ins.getAccountPartition (userAssoc['Account'], uid)
+           for p in partition:  #replace big number with n/a
                   for k,v in p.items():
-                      if v == MAX_LIMIT: p[k]='n/a'
-           userAssoc['partitions'] = [p for p in part if p['user_avail_cpus']>0 or p['user_avail_gpus']>0]
-           #logger.info("get partition {}".format(time.time()-ts))
+                      if v == MAX_LIMIT: p[k]='-'
+           userAssoc['partitionitions'] = [p for p in partition if p['user_avail_cpus']>0 or p['user_avail_gpus']>0]
+           #logger.info("get partitionition {}".format(time.time()-ts))
 
            if monData.hasData():
               user_jobs     = ins.getUserJobsByState (uid)  # can also get from sacct -u user -s 'RUNNING, PENDING'
@@ -1094,7 +1094,7 @@ class SLURMMonitorUI(object):
            #logger.info("get file data {}".format(time.time()-ts))
            #else: TODO: popeye file usage information
         
-           detailData[cluster] = [uid, userAssoc, ins.updateTS, user_jobs, part]
+           detailData[cluster] = [uid, userAssoc, ins.updateTS, user_jobs, partition]
     
         detail = detailData["Rusty"]
         htmlTemp   = os.path.join(config.APP_DIR, 'userDetail.html')

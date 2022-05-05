@@ -406,7 +406,7 @@ class SlurmEntities:
             nodes             = []
             avail_nodes       = []
 
-         avail_cpus_cnt,lst1  = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)
+         avail_cpus_cnt,lst1  = SlurmEntities.getIdleCores (self.node_dict, avail_nodes)           #avail_nodes depend on whether shared
          p['nodes_flat']      = nodes
          p['avail_nodes_cnt'] = len(avail_nodes)
          p['avail_nodes']     = avail_nodes
@@ -826,66 +826,86 @@ class SlurmEntities:
 
   #check access control 'allow_groups', 'allow_accounts'
   #check qos 
+  #return partition information of account such as ccq
   def getAccountPartition (self, account, uid):
     result    = []
     for pname, part in self.partition_dict.items():
-        if (part.get('allow_groups', []) == 'ALL') or set(part.get('allow_groups',[])).intersection(account):
-           if (part.get('allow_accounts', []) == 'ALL') or (account in part.get('allow_accounts',[])): #deny_accounts
-              # user is allowed to access the partition
-              # partition and user's current usage
-              partJobs = [ job for job in self.job_dict.values() if job['job_state']=='RUNNING' and job['partition'] == pname ]
-              grpJobs  = [ job for job in partJobs               if job['account'] == account]
-              userJobs = [ job for job in partJobs               if job['user_id'] == uid]
-              gpuFlag  = True if part['total_gpus'] else False
-              gNodeCnt, gCpuCnt, gGpuCnt = SlurmEntities.getJobAlloc  (grpJobs,  gpuFlag)
-              uNodeCnt, uCpuCnt, uGpuCnt = SlurmEntities.getJobAlloc  (userJobs, gpuFlag)
+        allow_groups = part.get('allow_groups', [])
+        if (allow_groups != 'ALL') and (account not in allow_groups):   # this partition does not allow account
+           logger.info("Partition {} does not allow {}.".format(pname, account))
+           continue
+        allow_groups = part.get('allow_accounts', [])
+        if (allow_groups != 'ALL') and (account not in allow_groups):   # this partition does not allow account
+           logger.info("Partition {} does not allow account {}.".format(pname, account))
+           continue
 
-              # qos limit & partitin lmt
-              qos_char = part['qos_char']
-              if qos_char:
-                 qos = self.qos_dict[qos_char]
-                 gNodeLmt, gCpuLmt, gGpuLmt = SlurmEntities.getQoSTresLimit(qos.get('grp_tres',    '')) 
-                 uNodeLmt, uCpuLmt, uGpuLmt = SlurmEntities.getQoSTresLimit(qos.get('max_tres_pu', ''))
-              else:
-                 gNodeLmt, gCpuLmt, gGpuLmt = MAX_LIMIT,MAX_LIMIT,MAX_LIMIT
-                 uNodeLmt, uCpuLmt, uGpuLmt = MAX_LIMIT,MAX_LIMIT,MAX_LIMIT
+        # user is allowed to access the partition
+        # partition and user's current usage
+        pJobs    = [ job for job in self.job_dict.values() if job['job_state']=='RUNNING' and job['partition'] == pname ]
+        grpJobs  = [ job for job in pJobs                  if job['account'] == account]
+        userJobs = [ job for job in pJobs                  if job['user_id'] == uid]
+        gpuFlag  = True if part['total_gpus'] else False
+        gNodeCnt, gCpuCnt, gGpuCnt = SlurmEntities.getJobAlloc  (grpJobs,  gpuFlag)
+        uNodeCnt, uCpuCnt, uGpuCnt = SlurmEntities.getJobAlloc  (userJobs, gpuFlag)
 
-              # user avail
-              availNodeCnt   = min(part['avail_nodes_cnt'],  gNodeLmt-gNodeCnt, uNodeLmt-uNodeCnt)
-              availCpuCnt    = min(part['avail_cpus_cnt'],   gCpuLmt-gCpuCnt,   uCpuLmt-uCpuCnt)
-              availGpuCnt    = 0
-              if part['total_gpus']:
-                 availGpuCnt = min(part['avail_gpus_cnt'],   gGpuLmt-gGpuCnt,   uGpuLmt-uGpuCnt)
-              if availCpuCnt < part['avail_cpus_cnt']:
-                 if part['flag_shared'] == 'NO':
-                    #if not shared partition, extra constraint on availNodeCnt imposed by availCpuCnt
-                    avail_cpus_inc = part['avail_cpus'].copy()
-                    avail_cpus_inc.sort()
-                    count=0
-                    for i in range(len(avail_cpus_inc)):  # range starts at 0, stops at end-1
-                        count += avail_cpus_inc[i]
-                        if count > availCpuCnt:           
-                           availNodeCnt = i               # biggest node possible
-                           #availCpuCnt  = count - avail_cpus_inc[i]
-                           break
-                    availCpuCnt=min(availCpuCnt, sum(avail_cpus_inc[-availNodeCnt:]))  #biggest cpu possible
-                 else:
-                    availNodeCnt = min(availNodeCnt, availCpuCnt)
-              elif availNodeCnt < part['avail_nodes_cnt']:  #availCpuCnt == part['avail_cpus']
-                    #if not shared partition, extra constraint on availCpuCnt imposed by availNodeCnt
-                    avail_cpus_dec = part['avail_cpus'].copy()
-                    avail_cpus_dec.sort(reverse=True)
-                    count          = sum(avail_cpus_dec[0:availNodeCnt])
-                    availCpuCnt    = max(count, availCpuCnt)
-            
-              result.append({'name':pname, 'flag_shared':part['flag_shared'], 
-                             'total_nodes':part['total_nodes'], 'total_cpus':part['total_cpus'], 'total_gpus':part['total_gpus'],
-                             'avail_nodes_cnt':part['avail_nodes_cnt'], 'avail_cpus_cnt':part['avail_cpus_cnt'], 'avail_gpus_cnt':part['avail_gpus_cnt'],
-                             'user_alloc_nodes': uNodeCnt,  'user_alloc_cpus': uCpuCnt, 'user_alloc_gpus': uGpuCnt,
-                             'grp_alloc_nodes': gNodeCnt,   'grp_alloc_cpus': gCpuCnt,  'grp_alloc_gpus':  gGpuCnt,
-                             'user_lmt_nodes': uNodeLmt,    'user_lmt_cpus': uCpuLmt, 'user_lmt_gpus': uGpuLmt,
-                             'grp_lmt_nodes': gNodeLmt,     'grp_lmt_cpus': gCpuLmt, 'grp_lmt_gpus': gGpuLmt,
-                             'user_avail_nodes':availNodeCnt, 'user_avail_cpus':availCpuCnt, 'user_avail_gpus':availGpuCnt})
+        # qos limit & partitin lmt
+        qos_char = part.get('qos_char', None)
+        if qos_char:
+           qos = self.qos_dict[qos_char]
+           gNodeLmt, gCpuLmt, gGpuLmt = SlurmEntities.getQoSTresLimit(qos.get('grp_tres',    MAX_LIMIT)) 
+           uNodeLmt, uCpuLmt, uGpuLmt = SlurmEntities.getQoSTresLimit(qos.get('max_tres_pu', MAX_LIMIT))
+
+        # group avail
+        grpAvailNode = part['avail_nodes_cnt']
+        grpAvailCpu  = part['avail_cpus_cnt']
+        grpAvailGpu  = part['avail_gpus_cnt']
+        if qos_char:       # QoS constrait, may have result < 0
+           grpAvailNode = min(grpAvailNode, gNodeLmt-gNodeCnt)
+           grpAvailCpu  = min(grpAvailCpu,  gCpuLmt-gCpuCnt)
+           grpAvailGpu  = min(grpAvailGpu,  gGpuLmt-gGpuCnt)
+ 
+        # user avail
+        usrAvailNode = grpAvailNode
+        usrAvailCpu  = grpAvailCpu
+        usrAvailGpu  = grpAvailGpu
+        if qos_char:       # QoS constrait, may have result < 0
+           usrAvailNode = min(usrAvailNode, uNodeLmt-uNodeCnt)
+           usrAvailCpu  = min(usrAvailCpu,  uCpuLmt-uCpuCnt)
+           usrAvailGpu  = min(usrAvailGpu,  uGpuLmt-uGpuCnt)
+
+        if (usrAvailNode<=0):              # no node, then no cpu gpu gpu gpu gpu
+           usrAvailCpu  = min(0, usrAvailCpu)
+           usrAvailGpu  = min(0, usrAvailGpu)
+        elif (usrAvailCpu<=0):             # has node, no cpu, then no node
+           usrAvailNode = min(0, usrAvailNode)
+        else:                              # has node and cpu
+           avail_cpus_inc = sorted(part['avail_cpus'])       # sort idle nodes' cpu count increasingly
+           if part['flag_shared'] == 'NO': # partition can not be shared
+              # check node's constraint on cpu
+              usrAvailCpu    = min(usrAvailCpu, sum(avail_cpus_inc[-usrAvailNode:]))     # cpu's upper limit posed by node
+              
+              # check cpu's constraint on node
+              count          = 0
+              for i in range(len(avail_cpus_inc)):  # range starts at 0, stops at end-1
+                  count += avail_cpus_inc[i]
+                  if count > usrAvailCpu:           
+                     break
+              usrAvailNode   = min(usrAvailNode, sum(avail_cpus_inc[:i+1]))                  # node's upper limit posed by cpu
+           else:                          # partition can be shared
+              # check node's constraint on cpu
+              usrAvailCpu    = min(usrAvailCpu, sum(avail_cpus_inc[-usrAvailNode:]))     # cpu's upper limit posed by node
+              # check cpu's constraint on node
+              usrAvailNode   = min(usrAvailNode, usrAvailCpu)                  # node's upper limit posed by cpu
+ 
+        result.append({'name':pname, 'flag_shared':part['flag_shared'], 
+                             'total_nodes':part['total_nodes'],     'total_cpus':part['total_cpus'],     'total_gpus':part['total_gpus'],       # partition total
+                             'avail_nodes':part['avail_nodes_cnt'], 'avail_cpus':part['avail_cpus_cnt'], 'avail_gpus':part['avail_gpus_cnt'],   # partition avail
+                             'grp_lmt_nodes': gNodeLmt,     'grp_lmt_cpus': gCpuLmt, 'grp_lmt_gpus': gGpuLmt,                                   # group QoS
+                             'grp_alloc_nodes': gNodeCnt,   'grp_alloc_cpus': gCpuCnt,  'grp_alloc_gpus':  gGpuCnt,                             # groupo alloc
+                             'grp_avail_nodes': grpAvailNode,   'grp_avail_cpus': grpAvailCpu,  'grp_avail_gpus':  grpAvailGpu,                             # groupo alloc
+                             'user_lmt_nodes': uNodeLmt,    'user_lmt_cpus': uCpuLmt, 'user_lmt_gpus': uGpuLmt,                                 # user QoS
+                             'user_alloc_nodes': uNodeCnt,  'user_alloc_cpus': uCpuCnt, 'user_alloc_gpus': uGpuCnt,                             # user alloc
+                             'user_avail_nodes':usrAvailNode, 'user_avail_cpus':usrAvailCpu, 'user_avail_gpus':usrAvailGpu})                    # user avail
 
     return result
 

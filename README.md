@@ -69,7 +69,7 @@ Check the configuration file at SlurmUtil/config/config.json. Make sure "writeFi
 ```
 
 ```
-module add slurm gcc/10.1.0 python3
+module add slurm gcc/11.2.0 python3
 cd SlurmUtil
 ./StartSlurmMqtMonitoring_1
 ```  
@@ -105,9 +105,7 @@ All port mappings can be modified through the configuration file, which is locat
 ### Python and etc
 You can use module to add needed packages and libraries in SF environment.
 ```
-module add slurm gcc/10.1.0 python/3.9.9
-Currently Loaded Modulefiles:
- 1) slurm/20.02.5   2) gcc/10.1.0   3) python3/3.9.9  
+module add slurm gcc/11.2.0 python/3.9.9
 ```
 
 ### Create a python virutal environment:
@@ -183,12 +181,10 @@ python setup.py install
 ### Install python packages
 #### Install fbprophet
 ```
-pip install -I pystan==2.19.1.1 --no-cache
-?pip install plotly
+pip install pystan==2.19.1.1 --no-cache
 pip install fbprophet --no-cache
 ```
-Note: The installation of fbprophet need to pip install -I pystan==2.18 first.
-The installation of fbprophet may need to pip uninstall numpy; pip install numpy; to solve error of import pandas 
+Note: The installation of fbprophet may need to pip uninstall numpy; pip install numpy; to solve error of import pandas 
 
 #install other packages
 ```
@@ -196,6 +192,7 @@ pip install cherrypy
 pip install paho-mqtt
 pip install influxdb
 pip install python-ldap
+?pip install plotly
 ?pip install seaborn
 ?pip install python-dateutil
 ?pip install holidays

@@ -139,7 +139,7 @@ class QueryBrightThread (threading.Thread):
                          insert_idx += 1
                       else:         #lst[insert_idx][TS] > new_lst[new_idx][TS], if same value, modifiy original ts to include new one, otherwise, insert new one
                          if lst[insert_idx][VAL] == new_lst[new_idx][VAL]:
-                            logger.error("Extend same values in old data at differnt time {} {}".format(lst[insert_idx], new_lst[new_idx])) 
+                            logger.info("Extend same values in old data at differnt time {} {}".format(lst[insert_idx], new_lst[new_idx])) 
                             lst[insert_idx][TS] = new_lst[new_idx][TS]
                          else:
                             lst.insert(insert_idx, new_lst[new_idx])

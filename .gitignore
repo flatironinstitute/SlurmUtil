@@ -1,3 +1,8 @@
+prometheus.cm/*
+cluster_host_mon.py
+\#*
+*.cache
+*.pickle
 *.log
 *.log.*
 *.note
@@ -31,4 +36,5 @@ mon7
 mysqldump-to-csv/*
 old/*
 data/*
+docker
 env_*

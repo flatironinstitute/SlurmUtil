@@ -196,7 +196,8 @@ class FileWebUpdater(threading.Thread):
                resp = urllib2.urlopen(urllib2.Request(url, zps, {'Content-Type': 'application/octet-stream'}))
                logger.debug("{}:{}: sendUpdate to {} with return code {}".format(threading.currentThread().ident, MyTool.getTsString(ts), url, resp))
            except Exception as e:
-               logger.error( 'Failed to update slurm data {} with exception {}'.format(url, e))
+               body = e
+               logger.error( 'Failed to update slurm data {}: {}\n{}'.format(url, e, body))
 
     def discardMessage(self, msgs):
         hdiscard, mmdiscard = 0, 0

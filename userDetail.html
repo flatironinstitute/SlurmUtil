@@ -54,7 +54,7 @@
              $(this).next().toggleClass('hide')
           }});
 
-          if (user_assoc['tres_alloc_str'].includes("gpu"))
+          if (('tres_alloc_str' in user_assoc) && user_assoc['tres_alloc_str'].includes("gpu"))
              $("#gpu_link").html (", <a href='userGPUGraph?user={uname}'>GPU Usage Graph </a>")
 
           $('#cluster').change(function() {{ 
