@@ -231,19 +231,33 @@ function crtLabel (vx, vy, txt, aUnit='') {
                      y    : vy},
             text: txt.toString().concat(aUnit) }
 }
+function addDataGrouping(value, idx, array) {
+    value.dataGrouping={
+                approximation: 'average',
+                enabled: true,
+                groupPixelWidth: 5,
+                units: [
+                    ['second', [10, 20, 30]],
+                    ['minute', [1, 2, 5, 10, 15, 30]],
+                    ['hour',   [1, 2, 4, 8, 12]]
+                ]
+    }
+}
+
 function timeSeriesPlot(series, chartType, chartTag, title, yCap, aSeries=[], pf_func=pointFormat_func) {
+   series.forEach(addDataGrouping)
    console.log('timeSeriesPlot chartType=', chartType, ',series=', series, ",aSeries=", aSeries)
    if ( aSeries.length > 0 ) {
-                baseY = series[0]['data'][0][1]
-                cus_labels = aSeries.map(function(x) {return crtLabel(x[0], baseY, x[1])})
-                cus_anno = [{
-                   labelOptions: {
+      baseY      = series[0]['data'][0][1]
+      cus_labels = aSeries.map(function(x) {return crtLabel(x[0], baseY, x[1])})
+      cus_anno   = [{
+                      labelOptions: {
                         backgroundColor: 'rgba(255,255,255,0.5)',
-                    },
-                    labels: cus_labels
-                 }]
+                      },
+                      labels: cus_labels
+                   }]
    } else
-                cus_anno = []
+      cus_anno = []
 
    if (pf_func == pointFormat_func_KB) {
       Highcharts.setOptions({

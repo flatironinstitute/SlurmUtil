@@ -14,27 +14,9 @@
 	<div id="chart"  style="min-width: 1000px; height: 400px; margin: 0 auto"></div>
 	<div id="chart2" style="min-width: 1000px; height: 400px; margin: 0 auto"></div>
 	<script>
-         function addDataGrouping(series) {{
-           for (var s of series) {{
-             s.dataGrouping={{
-                approximation: 'average',
-                enabled: true,
-                groupPixelWidth: 5,
-                units: [
-                    ['second', [10, 20, 30]],
-                    ['minute', [1, 2, 5, 10, 15, 30]],
-                    ['hour',   [1, 2, 4, 8, 12]]
-                ]
-            }}
-         }}
-         }};
-
          var series  = {series}
          var series2 = {series2}
-         addDataGrouping(series)
-         addDataGrouping(series2)
 
-         console.log("---")
 	 timeSeriesPlot (series,  "line", "chart",  "GPU Utilization  {spec_title} from {start} to {stop}", "Util",[]);
 	 timeSeriesPlot (series2, "line", "chart2", "Memoery        {spec_title} from {start} to {stop}", "Mem", []);
 	</script>
