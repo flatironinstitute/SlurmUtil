@@ -13,7 +13,7 @@ BRIGHT_CERT= ('{}/cert.pem'.format(CERT_DIR), '{}/cert.key'.format(CERT_DIR))
 SEVEN_DAYS = 7 * 24 * 3600
 QUERY_INTERVAL = 300   # query bright at least every 3 minutes
 INC_INTERVAL   = 50    # query bright if last query returns 0
-FLUSH_INTERVAL = 3600  # flush memory every 1 hour
+FLUSH_INTERVAL = 7200  # flush memory every 2 hours
 FIVE_MINUTES   = 300
 TS             = 0
 VAL            = 1
@@ -50,24 +50,29 @@ class QueryBrightThread (threading.Thread):
             else:
                s_print("Interval {}: sleep query".format(int(time.time()) - self.last_ts ) )
                time.sleep (QUERY_INTERVAL)
-            if self.last_cut - int(time.time()) > SEVEN_DAYS + FLUSH_INTERVAL:
+            if int(time.time()) - self.last_cut > SEVEN_DAYS + FLUSH_INTERVAL:
                self.flushGPULoads()
             
     # get rid of older data
     def flushGPULoads(self):
         self.rwlock.writer_acquire()
+        logger.info("flushGPULoads")
 
         cut_ts = int(time.time()) - SEVEN_DAYS
-        for node, node_data in self.gpu_data.values():
-            for gpu_id, data_lst in node_data.values():
+        for measure, m_data in self.data.items():
+          logger.info("measure={}".format(measure))
+          for node, node_data in m_data.items():
+            for gpu_id, data_lst in node_data.items():
                 for idx in range(0, len(data_lst)):
                     if data_lst[idx][TS] > cut_ts:
                        break
                 #0, idx-1 <= cut_ts
                 count = idx-1       # remove 0 .. idx-2
+                logger.info("remove {} from {}".format(count, len(data_lst)))
                 while count > 0:
-                   val.pop(0)
+                   data_lst.pop(0)
                    count -= 1
+                logger.info("done {}".format(len(data_lst)))
         self.last_cut = cut_ts
 
         self.rwlock.writer_release()
@@ -148,37 +153,6 @@ class QueryBrightThread (threading.Thread):
                 if new_idx < len(new_lst):
                    lst.extend(new_lst[new_idx:]) 
                          
-        #for item in new_data:
-        #    m, gpu_id   = item['measurable'].split(':')  # remove gpu_utilization: gpu0, gpu1#...
-        #    if item['raw'] != None:
-        #       if m == 'gpu_utilization':
-        #          lst = self.gpu_data[item['entity']][gpu_id]
-        #       else:       # gpu_fb_used
-        #          lst = self.mem_data[item['entity']][gpu_id]
-#
- #              last_ts  = lst[-1][TS] if lst else 0
-  #             curr_ts  = int(item['time']/1000)
-   #            curr_val = item['raw']
-    #           if curr_ts < last_ts:      # lst[-1] exists    
-     #             # find the place to insert
-      #            tmp_idx = max(-len(lst),-3)
-       #           logger.info("Check ({}<{}): new data {} is older than last saved data ... {}".format(curr_ts, last_ts, [curr_ts, item['raw']], lst[tmp_idx:])) 
-        #          while len(lst)>0 and curr_ts < lst[-1][TS] and curr_val == lst[-1][VAL]:   # use [curr_ts, val] to replace newer data with same value
-         #               tmpItem = lst.pop()
-          #              logger.info("\tpop item with the same value {}".format(tmpItem))
-           #       last_ts  = lst[-1][TS] if lst else 0
-#
-               # curr_ts >= last_ts
- #              if curr_ts < last_ts:
-  #                tmp_idx = max(-len(lst),-3)
-   #               logger.warning("Ignore ({}<{}): new data {} is older than last saved data ... {}".format(curr_ts, last_ts, [curr_ts, item['raw']], lst[tmp_idx:])) 
-  #             elif curr_ts == last_ts:   # lst[-1] exists
-   #               if item['raw'] - lst[-1][VAL] > 0.01:
-    #                 logger.warning("Ignore different values at {}=={}: new data {} is different from last saved data ... {}".format(curr_ts, last_ts, [curr_ts, item['raw']], lst[-1])) 
-     #             logger.warning("Ignore duplicate values at {}=={}: new data {} is different from last saved data ... {}".format(curr_ts, last_ts, [curr_ts, item['raw']], lst[-1])) 
-      #         else:
-       #           lst.append([curr_ts, item['raw']])
-                  
         self.rwlock.writer_release()
 
     #not thread safe
@@ -191,6 +165,7 @@ class QueryBrightThread (threading.Thread):
               p     = re.compile(node_regex)
               nodes = [n for n in nodes if p.fullmatch(n)]
 
+        logger.info("Nodes are {}".format(nodes))
         return nodes
 
     def getGPULoads (self, start, stop, step, node_regex=None):
@@ -278,7 +253,6 @@ class QueryBrightThread (threading.Thread):
                    curr_lst.append([stop, curr_lst[-1][VAL]])
                 rlt[node][gpu_id] = curr_lst      
              
-        logger.info('mem={}, data={}'.format(mem, rlt))
         self.rwlock.reader_release()
 
         return rlt
@@ -376,7 +350,6 @@ def getNodesGPUAvg ():
 
     gpu_load    = q_thrd.getGPULoads_safe(start,stop,node_list=nodes)
     rlt         = calculateAvg (gpu_load)
-    logger.info ("rlt={}".format(rlt))
     return rlt
 
 #return the gpu history during the period [start, stop] for a list of nodes 
