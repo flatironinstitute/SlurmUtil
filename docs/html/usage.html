@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Usage &mdash; HumanBase Pipeline 0.1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> HumanBase Pipeline
+          </a>
+              <div class="version">
+                0.1
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="authors.html">Credits</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">HumanBase Pipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Usage</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/usage.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="usage">
+<h1>Usage<a class="headerlink" href="#usage" title="Permalink to this headline"></a></h1>
+<p>The HumanBase pipeline is intended as a stand-alone project, and therefore it is not recommended that you import
+any of its modules from some other project. Doing so will likely result in some other outcome than the one you
+probably desire. Instead, the pipeline is designed to be run from the command-line using the <code class="docutils literal notranslate"><span class="pre">yenta</span></code> task-runner.
+You can read more about <code class="docutils literal notranslate"><span class="pre">yenta</span></code> at its <a class="reference external" href="https://yenta.readthedocs.io/en/latest/">project documentation</a>
+page, but most likely you will be using the <cite>run</cite> subcommand most frequently. You could, in theory, run the entire
+pipeline in a single operation simply executing</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; yenta run
+</pre></div>
+</div>
+<p>inside the virtual environment of the project. However, there are good reasons to not do this, or at least not do it
+unless you are really confident about your setup. To understand this, it helps to understand the various functions of
+the pipeline</p>
+<section id="step-1-data-collection">
+<h2>Step 1: Data Collection<a class="headerlink" href="#step-1-data-collection" title="Permalink to this headline"></a></h2>
+<p>The first step that the pipeline code must do is to collect the data. This is not a trivial operation, particularly
+when it requires interacting with remote APIs. The downloading of the data is handled by a library called
+<a class="reference external" href="https://github.com/grapesmoker/ketl">ketl</a> which provides a way to set up download targets and cache downloads
+appropriately. You are encouraged to read the documentation for <code class="docutils literal notranslate"><span class="pre">ketl</span></code> but the gist of it is that all interactions
+with external data sources pass through two phases: the first phase, initiated by the <code class="docutils literal notranslate"><span class="pre">setup()</span></code> function call
+of the API object, creates a set of database objects that represent both the files that are intended to be downloaded
+and the files that are expected to emerge from the downloaded files; these latter objects can either just be the
+downloaded files themselves or they can be files contained in downloaded archives. The second step is the actual
+download of the files into the appropriate locations and extracting them.</p>
+<p>These operations are carried out in the tasks that are prefixed by <code class="docutils literal notranslate"><span class="pre">_etl</span></code>, e.g. <code class="docutils literal notranslate"><span class="pre">biogrid_etl</span></code> and so on. In
+addition to handling the data acquisition, these tasks are also responsible for the preprocessing of data via the
+transformer mechanism, which will be explained in the next section. Be aware that the download process can take a long
+time if being run for the first time. However, any subsequent downloads will check for the presence of target files and
+only download those files which are absent, making incremental updates much faster than running <em>de novo</em>.</p>
+</section>
+<section id="step-2-preprocessing">
+<h2>Step 2: Preprocessing<a class="headerlink" href="#step-2-preprocessing" title="Permalink to this headline"></a></h2>
+<p>Before the data can be used within HumanBase, it needs to be transformed into a common form, in this case a gene
+network. Some datasets also need to be written to database tables in order to provide mappings between gene identifiers
+that will be used in downstream tasks. This is accomplished within the formalism of the <code class="docutils literal notranslate"><span class="pre">ketl</span></code> library via the
+concept of transformers, which are generic building blocks that take in a set of files and produce a Pandas dataframe.
+The specific content of the transformation is described in the appropriate function documentation; for the purposes
+of this guide, it suffices to understand that this functionality is also handled by the various <code class="docutils literal notranslate"><span class="pre">_etl</span></code> tasks,
+and can take a fairly long amount of time, depending on which dataset is being transformed.</p>
+</section>
+<section id="interlude-refinebio">
+<h2>Interlude: RefineBio<a class="headerlink" href="#interlude-refinebio" title="Permalink to this headline"></a></h2>
+<p>Most of the ETL tasks will run relatively quickly, taking only a few minutes to complete their operations. The one
+exception to this rule is the data harvesting task that is responsible for the bulk of the actual data volume, which
+is the <code class="docutils literal notranslate"><span class="pre">refine_bio_etl</span></code> task. This task crawls the API of the <a class="reference external" href="https://refine.bio/">RefineBio</a> website
+and collects both the set of files to be downloaded and the metadata related to those files, which describes the
+organisms in the samples, the sequencing platform used, etc. There are about 10,000 microarray datasets within
+RefineBio for <em>homo sapiens</em> so that should give you some idea of the size of the workload, although not all datasets
+will ultimately end up being used in the analysis.</p>
+<p>RefineBio requires special attention because it interacts with a live API that could, conceivably, change. Although
+the API is quite mature and is unlikely to change completely, there are lacunae in the data (e.g. not all fields
+of all objects will be filled) and it is being actively developed. Users of the pipeline should be aware that they
+might need to actively debug the interface to RefineBio.</p>
+</section>
+<section id="step-3-analysis">
+<h2>Step 3: Analysis<a class="headerlink" href="#step-3-analysis" title="Permalink to this headline"></a></h2>
+<p>The full extent of the analysis performed by the HumanBase pipeline is outside the scope of this specific guide and
+is detailed elsewhere in this document. There are a number of interdependent moving parts within the project, many of
+which require the use of distributed task frameworks such as Celery and Dask to leverage processing on high-performance
+computing clusters. These tasks also make use of a library called <a class="reference external" href="https://github.com/FunctionLab/grani">grani</a>,
+which implements a number of algorithms that were previously contained in a suite of command-line utilities called
+Sleipnir.</p>
+<p>The end product of the full pipeline is a set of probabilities for a given gene to be expressed in a given biological
+context. This file is a simple table that can be imported into the HumanBase backend that powers the website.</p>
+</section>
+<section id="incremental-operations-with-yenta">
+<h2>Incremental operations with Yenta<a class="headerlink" href="#incremental-operations-with-yenta" title="Permalink to this headline"></a></h2>
+<p>You will likely want to run some tasks individually so you can check their output before moving on to downstream tasks.
+Yenta provides you with a way to do that, and also to rerun tasks. Suppose I have a task <strong>foo</strong> that I wish to run again,
+and also I don’t want any of the downstream tasks of <strong>foo</strong> to run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; yenta run --force-rerun foo --up-to foo
+</pre></div>
+</div>
+<p>This will force yenta to rerun the <strong>foo</strong> task (or run it for the first time if it hasn’t been run before) and only
+run the pipeline up to and including the <strong>foo</strong> task itself, which of course will merely cause only <strong>foo</strong> to run.
+If you leave off the <strong>–up-to</strong> option, all the downstream tasks will run after foo completes, which may or may not
+be the desired result. For more information on how to use yenta, check out the documentation linked above.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2020, Jerry Vinokurov.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

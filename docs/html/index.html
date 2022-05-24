@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Or, &mdash; HumanBase Pipeline 0.1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Credits" href="authors.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="#" class="icon icon-home"> HumanBase Pipeline
+          </a>
+              <div class="version">
+                0.1
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="authors.html">Credits</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">HumanBase Pipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
+      <li>Or,</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <p># Slurm Utilites: monitoring tools and web interfaces</p>
+<p>This project is to monitor a slurm cluster and to provide a set of user interfaces to display the monitoring data.</p>
+<p>## Monitoring Framework
+On each node of the slurm cluster, a deamon cluster_host_mon.py is running and reporting the monitored data (running processes’ user, slurm_job_id, cpu, memory, io …) to a MQTT server (for example, mon5.flatironinstitute.org).</p>
+<p>An InfluxDB server (for example, worker1090.flatironinstitute.org) is set up to store the monitoring data.</p>
+<p>A monitoring server (for example, mon7.flatironinstiute.org) is set up to receive, forward and display the monitoring data. We use Phao Python Client to subscribe to the MQTT server and thus receive data from it. We also use PySlurm to retrieve data from slurm server periodically. These incoming data will be
+1) parsed and indexed;
+2) saved to data file (${hostname}_sm.p) and index file (${hostname}_sm.px);
+3) saved to a measurement (for example, slurmdb_2) in InfluxDB
+3) sent to the web interface (<a class="reference external" href="http:/">http:/</a>/${webserver}:8126/updateSlurmData) to display</p>
+<p>## Web Interface
+Web server is built using CherryPy. You can see an example of it at <a class="reference external" href="http://mon7:8126/">http://mon7:8126/</a>. The set of user interfaces includes:</p>
+<p>1) <a class="reference external" href="http:/">http:/</a>/${webserver}:8126/,
+A tabular summary of the slurm worker nodes, jobs and users.</p>
+<p>2) <a class="reference external" href="http:/">http:/</a>/${webserver}:8126/utilHeatmap,
+A heatmap graph of worker nodes’ and gpus’ utilization.</p>
+<p>3) <a class="reference external" href="http:/">http:/</a>/${webserver}:8126/pending,
+A table of pending jobs and related information.</p>
+<p>4) <a class="reference external" href="http:/">http:/</a>/${webserver}:8126/sunburst,
+A sunburst graph of the slurm accounts, users, jobs and worker nodes.</p>
+<p>5) <a class="reference external" href="http:/">http:/</a>/${webserver}:8126/usageGraph,
+A chart of the file and byte usage of users.</p>
+<p>6) <a class="reference external" href="http:/">http:/</a>/${webserver}:8126/tymor,
+A tabular summary of slurm jobs’ load statistics.</p>
+<p>7) <a class="reference external" href="http:/">http:/</a>/${webserver}:8126/bulletinboard,
+A set of tables including running jobs and allocated nodes with low resource utilization, errors reported from different components of the system, and etc.</p>
+<p>8) <a class="reference external" href="http:/">http:/</a>/${webserver}:8126/report,
+Generate reports of the cluster resource usage.</p>
+<p>9) <a class="reference external" href="http:/">http:/</a>/${webserver}:8126/search,
+Search the slurm entities’ information.</p>
+<p>10) <a class="reference external" href="http:/">http:/</a>/${webserver}:8126/settings,
+Set the settings to control the display of interfaces.</p>
+<p>11) <a class="reference external" href="http:/">http:/</a>/${webserver}:8126/forecast,
+Forecast the cluster usage in the future.</p>
+<p>Through the links embeded in these user inferfaces, you can also see the detailed informaiton and resource usage of a specific worker node, job, user, partition and so on.</p>
+<p>## Shortcut for a test run on a Simons Foundation machine
+You can have a test run using the existed python enironment and influxdb server.</p>
+<p>### Download the repository from github
+<code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">git</span> <span class="pre">clone</span> <span class="pre">https://github.com/flatironinstitute/SlurmUtil.git</span>
+<span class="pre">`</span></code></p>
+<p>### Start the web server on your node
+Check the configuration file at SlurmUtil/config/config.json. Make sure “writeFile” is set to false.
+<a href="#id1"><span class="problematic" id="id2">``</span></a><a href="#id3"><span class="problematic" id="id4">`</span></a></p>
+<blockquote>
+<div><dl class="simple">
+<dt>“fileStorage”: {</dt><dd><p>“dir”:       “/mnt/ceph/users/yliu/mqtMonStreamRecord”,
+“writeFile”: false</p>
+</dd>
+</dl>
+<p>},</p>
+</div></blockquote>
+<p><a href="#id5"><span class="problematic" id="id6">``</span></a><a href="#id7"><span class="problematic" id="id8">`</span></a></p>
+<p><code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">module</span> <span class="pre">add</span> <span class="pre">slurm</span> <span class="pre">gcc/11.2.0</span> <span class="pre">python3</span>
+<span class="pre">cd</span> <span class="pre">SlurmUtil</span>
+<span class="pre">./StartSlurmMqtMonitoring_1</span>
+<span class="pre">`</span></code></p>
+<p># Getting Started
+## Prerequisites
+The data sources of our monitoring tool are listed as the following and thus should be available to use.
+### Slurm
+Slurm configuration file can be accessed at /etc/slurm/slurm.conf.</p>
+<p>### Bright
+Birght certificates are stored under ./prometheus.cm/. Bright configuration is in config/config.json under key “bright”.</p>
+<p>### MQTT and cluster_host_mon.py
+MQTT configuration is in config/config.json under key “mqtt”.
+The host monitoring deamon (cluster_host_mon.py) should be installed on the nodes and report data to MQTT server.</p>
+<p>### Install InfluxDB
+We save monitoring data in a time-series database: InfluxDB.
+For CentOS,
+<a href="#id9"><span class="problematic" id="id10">``</span></a>`
+wget <a class="reference external" href="https://dl.influxdata.com/influxdb/releases/influxdb-1.8.1.x86_64.rpm">https://dl.influxdata.com/influxdb/releases/influxdb-1.8.1.x86_64.rpm</a>
+sudo yum install influxdb-1.8.1.x86_64.rpm</p>
+<p>service influxdb start
+<a href="#id11"><span class="problematic" id="id12">``</span></a>`
+By default, InfluxDB uses the following network ports:</p>
+<blockquote>
+<div><p>TCP port 8086 is used for client-server communication over InfluxDB’s HTTP API
+TCP port 8088 is used for the RPC service for backup and restore</p>
+</div></blockquote>
+<p>All port mappings can be modified through the configuration file, which is located at /etc/influxdb/influxdb.conf for default installations.</p>
+<p>## Environment setup
+### Python and etc
+You can use module to add needed packages and libraries in SF environment.
+<code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">module</span> <span class="pre">add</span> <span class="pre">slurm</span> <span class="pre">gcc/11.2.0</span> <span class="pre">python/3.9.9</span>
+<span class="pre">`</span></code></p>
+<p>### Create a python virutal environment:
+<code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">cd</span> <span class="pre">&lt;dir&gt;</span>
+<span class="pre">python</span> <span class="pre">-m</span> <span class="pre">venv</span> <span class="pre">env_slurm21_python39</span>
+<span class="pre">source</span> <span class="pre">./env_slurm21_python39/bin/activate</span>
+<span class="pre">`</span></code></p>
+<p>### Install pyslurm
+#### Download pyslurm source
+Check release information at <a class="reference external" href="https://github.com/PySlurm/pyslurm/releases">https://github.com/PySlurm/pyslurm/releases</a> and <a class="reference external" href="https://pypi.org/project/pyslurm/#history">https://pypi.org/project/pyslurm/#history</a> (outdated).
+<code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">wget</span> <span class="pre">https://github.com/PySlurm/pyslurm/archive/refs/tags/v20.11.8-1.tar.gz</span>
+<span class="pre">tar</span> <span class="pre">-xzvf</span> <span class="pre">v20.11.8-1.tar.gz</span>
+<span class="pre">`</span></code></p>
+<section id="or">
+<h1>Or,<a class="headerlink" href="#or" title="Permalink to this headline"></a></h1>
+<p>git clone <a class="reference external" href="https://github.com/PySlurm/pyslurm.git">https://github.com/PySlurm/pyslurm.git</a>
+<a href="#id13"><span class="problematic" id="id14">``</span></a><a href="#id15"><span class="problematic" id="id16">`</span></a></p>
+<p>#### Modify pyslurm source (20.11.8):
+Modify pyslurm/pyslurm.pyx
+<code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">2027d2026</span>
+<span class="pre">&lt;</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">#</span> <span class="pre">modify</span> <span class="pre">by</span> <span class="pre">Yanbin</span>
+<span class="pre">2029,2030c2028,2030</span>
+<span class="pre">&lt;</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Job_dict[u'state_reason_desc']</span> <span class="pre">=</span> <span class="pre">self._record.state_desc.decode(&quot;UTF-8&quot;).replace(&quot;</span> <span class="pre">&quot;,</span> <span class="pre">&quot;_&quot;)</span>
+<span class="pre">&lt;</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Job_dict[u'state_reason']</span> <span class="pre">=</span> <span class="pre">slurm.stringOrNone(</span>
+<span class="pre">---</span>
+<span class="pre">&gt;</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Job_dict[u'state_reason']</span> <span class="pre">=</span> <span class="pre">self._record.state_desc.decode(&quot;UTF-8&quot;).replace(&quot;</span> <span class="pre">&quot;,</span> <span class="pre">&quot;_&quot;)</span>
+<span class="pre">&gt;</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">else:</span>
+<span class="pre">&gt;</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Job_dict[u'state_reason']</span> <span class="pre">=</span> <span class="pre">slurm.stringOrNone(</span>
+<span class="pre">2094,2104d2093</span>
+<span class="pre">&lt;</span>
+<span class="pre">&lt;</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">#add</span> <span class="pre">gres_detail</span> <span class="pre">by</span> <span class="pre">Yanbin</span>
+<span class="pre">&lt;</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">gres_detail</span> <span class="pre">=</span> <span class="pre">[]</span>
+<span class="pre">&lt;</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">for</span> <span class="pre">x</span> <span class="pre">in</span> <span class="pre">range(min(self._record.num_nodes,</span> <span class="pre">self._record.gres_detail_cnt)):</span>
+<span class="pre">&lt;</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">gres_detail.append(slurm.stringOrNone(self._record.gres_detail_str[x],''))</span>
+<span class="pre">&lt;</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Job_dict[u'gres_detail']</span> <span class="pre">=</span> <span class="pre">gres_detail</span>
+<span class="pre">&lt;</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">#add</span> <span class="pre">pack_job</span> <span class="pre">by</span> <span class="pre">Yanbin</span>
+<span class="pre">&lt;</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">if</span> <span class="pre">self._record.het_job_id:</span>
+<span class="pre">&lt;</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Job_dict[u'pack_job_id']</span> <span class="pre">=</span> <span class="pre">self._record.het_job_id</span>
+<span class="pre">&lt;</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Job_dict[u'pack_job_offset']</span> <span class="pre">=</span> <span class="pre">self._record.het_job_offset</span>
+<span class="pre">&lt;</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Job_dict[u'pack_job_id_set']</span> <span class="pre">=</span> <span class="pre">slurm.stringOrNone(self._record.het_job_id_set,</span> <span class="pre">'')</span>
+<span class="pre">`</span></code></p>
+<p>#### Modify setup.py ####
+Make pyslurm work with slurm v21.08
+<a href="#id17"><span class="problematic" id="id18">``</span></a>`
+…
+SLURM_VERSION = “21.08”
+…</p>
+<blockquote>
+<div><dl>
+<dt>try:</dt><dd><dl class="simple">
+<dt>slurm_inc_ver = self.read_inc_version(</dt><dd><p>“{0}/slurm/slurm_version.h”.format(self.slurm_inc)</p>
+</dd>
+</dl>
+<p>)</p>
+</dd>
+<dt>except IOError:</dt><dd><p>slurm_inc_ver = self.read_inc_version(“{0}/slurm_version.h”.format(self.slurm_inc))</p>
+</dd>
+</dl>
+</div></blockquote>
+</section>
+<section id="id19">
+<h1>…<a class="headerlink" href="#id19" title="Permalink to this headline"></a></h1>
+<p>#### Build and Install pyslurm:
+Inside the python virtual environment
+<code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">pip</span> <span class="pre">install</span> <span class="pre">Cython</span>
+<span class="pre">cd</span> <span class="pre">&lt;pyslurm_source_dir&gt;</span>
+<span class="pre">python</span> <span class="pre">setup.py</span> <span class="pre">build</span> <span class="pre">--slurm=/cm/shared/apps/slurm/current</span>
+<span class="pre">python</span> <span class="pre">setup.py</span> <span class="pre">install</span>
+<span class="pre">`</span></code></p>
+<p>### Install python packages
+#### Install fbprophet
+<code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">pip</span> <span class="pre">install</span> <span class="pre">pystan==2.19.1.1</span> <span class="pre">--no-cache</span>
+<span class="pre">pip</span> <span class="pre">install</span> <span class="pre">fbprophet</span> <span class="pre">--no-cache</span>
+<span class="pre">`</span></code>
+Note: The installation of fbprophet may need to pip uninstall numpy; pip install numpy; to solve error of import pandas</p>
+<p>#install other packages
+<code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">pip</span> <span class="pre">install</span> <span class="pre">cherrypy</span>
+<span class="pre">pip</span> <span class="pre">install</span> <span class="pre">paho-mqtt</span>
+<span class="pre">pip</span> <span class="pre">install</span> <span class="pre">influxdb</span>
+<span class="pre">pip</span> <span class="pre">install</span> <span class="pre">python-ldap</span>
+<span class="pre">?pip</span> <span class="pre">install</span> <span class="pre">plotly</span>
+<span class="pre">?pip</span> <span class="pre">install</span> <span class="pre">seaborn</span>
+<span class="pre">?pip</span> <span class="pre">install</span> <span class="pre">python-dateutil</span>
+<span class="pre">?pip</span> <span class="pre">install</span> <span class="pre">holidays</span>
+<span class="pre">?pip</span> <span class="pre">install</span> <span class="pre">matplotlib</span>
+<span class="pre">`</span></code></p>
+<p>Python virtual environment with packages:
+<code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">Package</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Version</span>
+<span class="pre">-----------------------------</span> <span class="pre">----------</span>
+<span class="pre">backports.functools-lru-cache</span> <span class="pre">1.5</span>
+<span class="pre">certifi</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">2018.11.29</span>
+<span class="pre">chardet</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">3.0.4</span>
+<span class="pre">cheroot</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">6.5.2</span>
+<span class="pre">CherryPy</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">18.1.0</span>
+<span class="pre">cycler</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">0.10.0</span>
+<span class="pre">Cython</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">0.29.2</span>
+<span class="pre">fbprophet</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">0.3.post2</span>
+<span class="pre">idna</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">2.8</span>
+<span class="pre">influxdb</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">5.2.1</span>
+<span class="pre">jaraco.functools</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">1.20</span>
+<span class="pre">kiwisolver</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">1.0.1</span>
+<span class="pre">matplotlib</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">3.0.2</span>
+<span class="pre">more-itertools</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">4.3.0</span>
+<span class="pre">numpy</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">1.15.4</span>
+<span class="pre">paho-mqtt</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">1.4.0</span>
+<span class="pre">pandas</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">0.23.4</span>
+<span class="pre">pip</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">18.1</span>
+<span class="pre">portend</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">2.3</span>
+<span class="pre">pyparsing</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">2.3.0</span>
+<span class="pre">pyslurm</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">17.11.0.14</span>
+<span class="pre">pystan</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">2.18.0.0</span>
+<span class="pre">python-dateutil</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">2.7.5</span>
+<span class="pre">pytz</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">2018.7</span>
+<span class="pre">requests</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">2.21.0</span>
+<span class="pre">setuptools</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">40.6.3</span>
+<span class="pre">six</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">1.12.0</span>
+<span class="pre">tempora</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">1.14</span>
+<span class="pre">urllib3</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">1.24.1</span>
+<span class="pre">wheel</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">0.32.3</span>
+<span class="pre">zc.lockfile</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">1.4</span>
+<span class="pre">`</span></code></p>
+<p>## Others:
+### Rebuild pyslurm
+<code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">.</span> <span class="pre">env_slurm21_python39/bin/activate</span>
+<span class="pre">python</span> <span class="pre">setup.py</span> <span class="pre">build</span> <span class="pre">--slurm=/cm/shared/apps/slurm/current</span>
+<span class="pre">python</span> <span class="pre">setup.py</span> <span class="pre">install</span>
+<span class="pre">`</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">MQTT</span> <span class="pre">server</span> <span class="pre">running</span> <span class="pre">on</span> <span class="pre">mon5.flatironinstitute.org</span>
+<span class="pre">`</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">Influxdb</span> <span class="pre">running</span> <span class="pre">on</span> <span class="pre">localhost</span>
+<span class="pre">`</span></code></p>
+<p>### Installing</p>
+<p>A step by step series of examples that tell you have to get a development env running.</p>
+<p>Clone the repository to your local machine
+<code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">git</span> <span class="pre">clone</span> <span class="pre">https://github.com/flatironinstitute/SlurmUtil.git</span>
+<span class="pre">`</span></code>
+(git pull to retrieve the update)</p>
+<p>## Execute</p>
+<p>Here is how to start the system on your local machine.</p>
+<p>### StartSlurmMqtMonitoring</p>
+<p>Customerize ${CmSlurmRoot}, ${pData}, ${WebPort}, python virtual environment in the script, list the web server update interface in mqt_urls, and run
+<code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">StartSlurmMqtMonitoring</span>
+<span class="pre">`</span></code>
+It starts web server at <a class="reference external" href="http://localhost">http://localhost</a>:${WebPort} and two deamons that 1) both subscribe to MQTT 2) one update the informaton of the web server, one update influxdb (WILL MERGE TWO DEAMONS LATER)</p>
+<p>The script starts 3 python processes, such as
+<code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">python3</span> <span class="pre">/mnt/home/yliu/projects/slurm/utils/smcpgraph-html-sun.py</span> <span class="pre">8126</span> <span class="pre">/mnt/ceph/users/yliu/tmp/mqtMonTest</span>
+<span class="pre">python3</span> <span class="pre">/mnt/home/yliu/projects/slurm/utils/mqtMon2Influx.py</span>
+<span class="pre">python3</span> <span class="pre">/mnt/home/yliu/projects/slurm/utils/mqtMonStream.py</span> <span class="pre">/mnt/ceph/users/yliu/tmp/mqtMonTest</span> <span class="pre">mqt_urls</span>
+<span class="pre">`</span></code>
+## Debug and Restart</p>
+<p>Check log files for errors. Log files are saved in smcpsun_${cm}_mqt_$(date +%Y%m%d_%T).log, mms_${cm}_$(date +%Y%m%d_%T).log and ifx_${cm}_$(date +%Y%m%d_%T).log.</p>
+<p>If missed, the python process will be automatically restarted every 60 seconds.</p>
+<p>In case, you need to restart
+<code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">sudo</span> <span class="pre">service</span> <span class="pre">influxdb</span> <span class="pre">start</span>
+<span class="pre">cd</span> <span class="pre">/mnt/home/yliu/projects/slurm/utils</span>
+<span class="pre">.</span> <span class="pre">./StartSlurmMqtMonitoring</span>
+<span class="pre">`</span></code></p>
+<p># set up cron job
+Run daily.sh every day to update data.
+<code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">crontab</span> <span class="pre">-e</span>
+<span class="pre">00</span> <span class="pre">07</span> <span class="pre">*</span> <span class="pre">*</span> <span class="pre">*</span> <span class="pre">.</span> <span class="pre">/mnt/home/yliu/projects/slurm/utils/daily.sh</span> <span class="pre">&gt;</span>&#160; <span class="pre">/mnt/home/yliu/projects/slurm/utils/daily_$(date</span> <span class="pre">+%Y-%m-%d).log</span> <span class="pre">2&gt;&amp;1</span>
+<span class="pre">`</span></code>
+install fbprophet
+pip install pandas
+pip install fbprophet
+pip –use-feature=2020-resolver install python-dev-tools</p>
+<section id="contents">
+<h2>Contents:<a class="headerlink" href="#contents" title="Permalink to this headline"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="authors.html">Credits</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="authors.html#development-lead">Development Lead</a></li>
+<li class="toctree-l2"><a class="reference internal" href="authors.html#contributors">Contributors</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="feedback">
+<h2>Feedback<a class="headerlink" href="#feedback" title="Permalink to this headline"></a></h2>
+<p>If you encounter any errors or problems with <strong>HumanBase Pipeline</strong>, please open a GitHub issue at
+<a class="reference external" href="http://github.com/FunctionLab/humanbase-pipeline">http://github.com/FunctionLab/humanbase-pipeline</a>.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="authors.html" class="btn btn-neutral float-right" title="Credits" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2020, Jerry Vinokurov.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

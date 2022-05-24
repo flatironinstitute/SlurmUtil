@@ -1,0 +1,10 @@
+===
+API
+===
+
+Pipeline
+--------
+
+.. automodule:: src.tasks.pipeline
+    :members:
+    :member-order: bysource

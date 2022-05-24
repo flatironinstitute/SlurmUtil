@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cluster usage &mdash; HumanBase Pipeline 0.1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> HumanBase Pipeline
+          </a>
+              <div class="version">
+                0.1
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="authors.html">Credits</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">HumanBase Pipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Cluster usage</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/cluster.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="cluster-usage">
+<h1>Cluster usage<a class="headerlink" href="#cluster-usage" title="Permalink to this headline"></a></h1>
+<p>The HumanBase pipeline is designed to be run on the high-performance computing (HPC) cluster available at the Flatiron
+Institute, where it was developed. In principle, it is possible to run the pipeline in some other cluster environment
+or on a single workstation, but this (especially the latter) is not advised. The pipeline generates about ~10 Tb of
+data, downloads hundreds of thousands of files, and takes days to run to completion in an HPC setting. This section of
+the manual will cover what you need to know to make it run specifically on the Flatiron HPC cluster, which uses Slurm
+as its management tool.</p>
+<p>This guide will assume that you have already set up both PostgreSQL and Redis to run somewhere accessible by the
+project. Typically, if you are running this on a workstation, that is a good place to run your Redis server, but
+you can run it anywhere that can be reached from within the cluster network.</p>
+<section id="acquiring-resources">
+<h2>Acquiring resources<a class="headerlink" href="#acquiring-resources" title="Permalink to this headline"></a></h2>
+<p>The first thing we’ll want to is to get some nodes. The node configuration varies on a per-task basis, which means that
+as a practical matter you will likely not be able to just fire-and-forget the pipeline and come back in a week to find
+that it’s done all of its work. The parameters that are appropriate to each task are discussed in the documentation of
+the specific tasks, but most of the time you’ll want to grab about 8 or 10 Rome nodes, each of which has 1 Tb of RAM
+and 128 cores. You can do this by running the following sequence of commands in a bash shell on the cluster:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; module load slurm
+&gt; salloc -N <span class="m">8</span> -C rome -t <span class="m">01</span>-00:00:00 -p ccb
+</pre></div>
+</div>
+<p>The first line here loads the slurm module on the cluster and makes the <strong>salloc</strong> command available, and the
+second line requests the allocation. Once the allocation is successful, you will be granted 8 Rome nodes on the CCB
+partition for a duration of 1 day. You can increase the duration to up to 7 days; there are maximum usage limits which
+are detailed in the cluster wiki.</p>
+<p>How do you know what resources you need? Roughly speaking the biggest bottleneck to throughput is memory usage.
+Many of the tasks perform intensive computations that produce intermediate objects which consume memory. Effort has
+been taken to minimize memory usage but nevertheless, the matrices involved in the computations are quite large
+(20,000 by 20,000 genes, times 8 bytes per floating point value), so they will consume a large amount of RAM. If you
+exceed the maximum RAM consumption allowed to you on a given node, the out-of-memory (OOM) manager will simply kill
+your process and you will be left with a failed task run. Thus, for whatever task you are running, you will want to
+be sure that you will not, at any point, exceed the maximum allowed memory usage of the node. Through calculation and
+trial and error, reasonable defaults have been configured for the various tasks that use the cluster, but if you are
+introducing new tasks, you will likely need to experiment to find out which parameters are optimal for your application.</p>
+</section>
+<section id="setting-up-dask">
+<h2>Setting up Dask<a class="headerlink" href="#setting-up-dask" title="Permalink to this headline"></a></h2>
+<p>Any of the tasks that require <strong>dask</strong> will need to have the Dask scheduler set up. The scheduler can be started by
+entering the directory where the project is installed and loading the virtual environment, and then simply running</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; dask-scheduler
+</pre></div>
+</div>
+<p>on the command line. This should start up the scheduler and give you some information about the address of the scheduler
+and what port it’s listening on. Leave the scheduler running (whether in a tmux session or in a terminal if you’re
+working on the cluster workstation directly) and open a second window or tmux screen. You will now want to do the
+following:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; <span class="nb">export</span> <span class="nv">PYTHONPATH</span><span class="o">=</span>/absolute/path/to/your/pipeline/root:<span class="nv">$PYTHONPATH</span>
+&gt; srun dask-worker tcp://&lt;ip-of-scheduler&gt; --nthreads &lt;N&gt; --nprocs &lt;P&gt; --nanny --name humanbase-worker --death-timeout <span class="m">60</span> --protocol tcp://
+</pre></div>
+</div>
+<p>Angle-bracketted terms indicate parameters that will need to be set by the user. The first line here is one that you
+only need to run once; it sets the <code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code> environment (assuming you are using bash; if not, modify for your
+shell) to the root of the project. This is needed because otherwise the workers will not know how to import the
+modules they need to actually do the work and you will get errors.</p>
+<p>The <strong>srun</strong> command will run the <strong>dask-worker</strong> on every node that has been allocated to you. Here, the <strong>nthreads</strong>
+and <strong>nprocs</strong> options indicate how many worker processes should run on each node, and how many threads each of those
+processes can use. Thus, for the Rome nodes acquired above, a configuration where <em>N</em> = 16 and <em>P</em> = 8 means that 8
+processes will use 16 threads each, for a total of 128 cores, which observant readers will note is equal to the number
+of cores on each node. If your allocation is different, you will need to adjust your arguments to <strong>dask-worker</strong>
+accordingly.</p>
+<p>You should also modify the <code class="docutils literal notranslate"><span class="pre">hb.ini</span></code> config file to set the address of the Dask scheduler. Now any tasks which are
+distributed to Dask workers should run normally. You can use the Dask dashboard to monitor the progress of these tasks.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The address of the dask scheduler must be listed in absolute terms as the IP of the workstation or node
+which is running the scheduler process. That means that you cannot give <code class="docutils literal notranslate"><span class="pre">localhost</span></code> as the address, since
+this will direct the workers to look for the scheduler on the nodes on which they themselves are running,
+and not on the node where it’s actually running.</p>
+</div>
+</section>
+<section id="alternatives-to-manual-setup">
+<h2>Alternatives to manual setup<a class="headerlink" href="#alternatives-to-manual-setup" title="Permalink to this headline"></a></h2>
+<p>If you don’t want to go through the hassle of setting up the cluster, you can use the <code class="docutils literal notranslate"><span class="pre">set_up_cluster</span></code> function
+from <code class="docutils literal notranslate"><span class="pre">src.config.scheduler</span></code> with the appropriate parameters. If you choose to go this route, make sure you do not
+have a scheduler process already running.</p>
+</section>
+<section id="setting-up-celery">
+<h2>Setting up Celery<a class="headerlink" href="#setting-up-celery" title="Permalink to this headline"></a></h2>
+<p>In addition to using Dask, the pipeline also uses the Celery distributed task manager for some tasks. This is more
+appropriate for certain tasks than Dask, and in fact, all of the Dask usage in this project can be replaced with
+Celery usage for the most part. This has not been done because the need for Celery over Dask became obvious halfway
+through the project when a good deal of code that was already Dask-dependent had been written. Therefore, the project
+uses both frameworks, but it would in general be a good idea to work on replacing Dask, which is better suited for
+complex computational graphs than it is to situations where you have to do the same operation on a large number of
+datasets.</p>
+<p>Celery is configured to use Redis as a broker, so if Redis is set up, you can just fire up the workers as follows:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; <span class="nb">export</span> <span class="nv">PYTHONPATH</span><span class="o">=</span>/absolute/path/to/your/pipeline/root:<span class="nv">$PYTHONPATH</span>
+&gt; srun --propagate<span class="o">=</span>NONE celery -A src.config.celery:app worker --concurrency<span class="o">=</span><span class="m">1</span>
+</pre></div>
+</div>
+<p>As before, we set up the <code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code> environment variable so that workers will be able to import the modules.
+We then use <strong>srun</strong> to run a celery worker process on each node. The <strong>-A</strong> argument indicates the import path of the
+Celery app object which is defined in the code, and the <strong>–concurrency</strong> argument controls how many workers should
+run on each node. Unlike with Dask, you cannot control explicitly the number of threads used by the workers.</p>
+<section id="celery-worker-concurrency">
+<h3>Celery worker concurrency<a class="headerlink" href="#celery-worker-concurrency" title="Permalink to this headline"></a></h3>
+<p>The ideal concurrency of the celery worker is different for different tasks. As mentioned above, the goal is to
+maximize throughput while not exceeding the allowed memory limits; this means that we want to have as many workers as
+possible, but not so many that their individual tasks cause the whole node to run out of memory. By default, Celery
+will create workers with the same concurrency as the number of cores. Thus, on the Rome nodes described above,
+starting the workers without the <strong>–concurrency</strong> argument would result in up to 128 workers per node being available
+to run tasks. There are times when this is what you want, and times when it is not. Here are the configurations that
+I have found work for the tasks that rely on Celery:</p>
+<p>These paramters only make sense for the Rome nodes; if your allocation is different, you will have to find a different
+concurrency that works for your case. If tasks are being killed for running out of memory, reduce the concurrency.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2020, Jerry Vinokurov.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

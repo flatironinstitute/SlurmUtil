@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Complete Pipeline Description &mdash; HumanBase Pipeline 0.1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> HumanBase Pipeline
+          </a>
+              <div class="version">
+                0.1
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="authors.html">Credits</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">HumanBase Pipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Complete Pipeline Description</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/pipeline.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="complete-pipeline-description">
+<h1>Complete Pipeline Description<a class="headerlink" href="#complete-pipeline-description" title="Permalink to this headline"></a></h1>
+<p>This section of the manual constitutes a reasonably complete description of what each task of the pipeline actually
+does. Where practical, I have attempted to provide in some closed mathematical form an example of the actual resultant
+data product. Where not practical, I have attempted enough verbal description of the output to, hopefully, explain,
+in conjunction with the code and the comments within it.</p>
+<p>As mentioned elsewhere, the pipeline employs the <code class="docutils literal notranslate"><span class="pre">yenta</span></code> task runner to coordinate its operations. The job of the
+task runner is to resolve the dependencies among tasks and ensure that the proper parameters are being fed from
+upstream tasks to downstream ones. The image below shows the task graph with dependencies at the top feeding
+tasks below them.</p>
+<img alt="images/hb_task_graph.png" src="images/hb_task_graph.png" />
+<p>You can also download <code class="xref download docutils literal notranslate"><span class="pre">the</span> <span class="pre">task</span> <span class="pre">graph</span></code> to zoom in.</p>
+<section id="notation">
+<h2>Notation<a class="headerlink" href="#notation" title="Permalink to this headline"></a></h2>
+<p>The following notation is used throughout this document:</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Notation</p></th>
+<th class="head"><p>Explanation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathbf{M}\)</span></p></td>
+<td><p>a matrix</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(g_{i}\)</span></p></td>
+<td><p>the i<sup>th</sup> gene</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(D_{i}\)</span></p></td>
+<td><p>the i<sup>th</sup> dataset</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\mathbf{D}_{i}\)</span></p></td>
+<td><p>the matrix representing the i<sup>th</sup> dataset</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(C_{i}\)</span></p></td>
+<td><p>the i<sup>th</sup> context</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\mathbf{C}_{i}\)</span></p></td>
+<td><p>the matrix representing the i<sup>th</sup> context</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(T_{i}\)</span></p></td>
+<td><p>the i<sup>th</sup> Gene Ontology term</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">some_function</span></code></p></td>
+<td><p>a named task within the pipeline</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="data-sources-and-mapping">
+<h2>Data Sources and Mapping<a class="headerlink" href="#data-sources-and-mapping" title="Permalink to this headline"></a></h2>
+<p>Data sources used in HumanBase come in two types: primary and auxiliary. Primary data sources are used directly within
+the inference process, while auxiliary data sources are used to aid transformations on primary data sources
+(e.g. to map gene identifiers). The same data repository may provide both auxiliary and primary data sources;
+typically, auxiliary data sources must be processed before primary ones, since the auxiliary sources contain information
+that allows primary sources to be transformed properly.</p>
+<p>The data sources generated by any task will be summarized in a table at the end of the task description section.
+I have attempted to stick to nomenclature which matches the names of the variables used in the functions but this is
+not always convenient.</p>
+<p>The end product of every series of transformations on a primary data source is a matrix representing a gene connectivity
+network, with the value of any entry in the matrix representing the edge weight between the two genes in the network as
+quantized into one of 8 bins. That is, for any dataset <span class="math notranslate nohighlight">\(D\)</span>, the final form of the resultant matrix is
+<span class="math notranslate nohighlight">\(\mathbf{D}_{ij} \in \{0, \ldots, 7\}\)</span>. The digitization bins are specified in the respective sections.</p>
+</section>
+<section id="set-up-directories">
+<span id="id1"></span><h2>set_up_directories<a class="headerlink" href="#set-up-directories" title="Permalink to this headline"></a></h2>
+<p>The root task, which simply creates a bunch of directories in which the expected output of the other tasks will be
+placed. These directories are created locally and at some point this task should probably be changed to properly
+symlink to <code class="docutils literal notranslate"><span class="pre">ceph</span></code> on the Flatiron cluster. The names of the directories are legacies from a previous dependency
+on the Sleipnir library and correspond to the names of its various CLI tools.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>You should almost certainly never re-run this task. Since it is the root task, it will trigger all downstream
+tasks to run again, which is probably not what you want. Future developers may consider eliminating this task
+entirely and putting its logic into some one-time setup command.</p>
+</div>
+</section>
+<section id="biocyc-etl">
+<span id="id2"></span><h2>biocyc_etl<a class="headerlink" href="#biocyc-etl" title="Permalink to this headline"></a></h2>
+<p>This task is responsible for downloading and preprocessing data from the
+<a class="reference external" href="https://brg.ai.sri.com">BioCyc repository</a> which is then used to construct the gold standard. BioCyc
+contains the following data sources:</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Data Source</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>GeneMapper</p></td>
+<td><p>Auxiliary</p></td>
+<td><p>Provides a mapping between UniProt IDs and MetaCyc IDs</p></td>
+</tr>
+<tr class="row-odd"><td><p>Genes</p></td>
+<td><p>Auxiliary</p></td>
+<td><p>Provides a list of genes indexed by a MetaCyc ID</p></td>
+</tr>
+<tr class="row-even"><td><p>Pathways</p></td>
+<td><p>Auxiliary</p></td>
+<td><p>Provides a list of pathways</p></td>
+</tr>
+<tr class="row-odd"><td><p>PathwaysGenes</p></td>
+<td><p>Primary</p></td>
+<td><p>A mapping between genes and the pathways they participate in</p></td>
+</tr>
+</tbody>
+</table>
+<p>The auxiliary mapping data is written to a database table. In preprocessing, the <em>PathwaysGenes</em> data is aggregated by
+pathway with array aggregation, such that the result is a table with one column being the pathway ID and the second
+column being the list of all the genes that participate in that pathway. Any two genes that share the same pathway
+are marked as connected to each other with an edge weight of 1.</p>
+</section>
+<section id="biogrid-etl-intact-etl-mint-etl-mips-etl">
+<h2>biogrid_etl, intact_etl, mint_etl, mips_etl<a class="headerlink" href="#biogrid-etl-intact-etl-mint-etl-mips-etl" title="Permalink to this headline"></a></h2>
+<p>These tasks are responsible for the download and preprocessing of data from the
+<a class="reference external" href="https://thebiogrid.org">BioGrid</a>, <a class="reference external" href="https://www.ebi.ac.uk/">EMBL</a>, and
+<a class="reference external" href="https://www.helmholtz-munich.de/">IBIS</a> repositories.
+BioGrid, Intact, MIPS, and MINT are all “interactor” data sources. This means that the raw data from each of these
+repositories indicates, for every gene pair, which interactions connect the genes. There can be more than one row for
+any given gene pair. All four datasets are transformed in the same way, so their respective ETL tasks have been
+condensed into one section.</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Data Source</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Interactions</p></td>
+<td><p>Primary</p></td>
+<td><p>Provides a list of gene pairs and the interactions between them</p></td>
+</tr>
+</tbody>
+</table>
+<p>The <em>Interactions</em> data is aggregated over the gene pairs such that the edge weight between any two genes is the count
+of the number of distinct interaction methods that are used to confirm interactions between the two genes. The resulting
+matrix is then digitized according to the bins above.</p>
+</section>
+<section id="ncbi-etl">
+<span id="id3"></span><h2>ncbi_etl<a class="headerlink" href="#ncbi-etl" title="Permalink to this headline"></a></h2>
+<p>This task is responsible for downloading data from the <a class="reference external" href="https://www.ncbi.nlm.nih.gov/">NCBI</a> repository. It is a
+unique task in that all of its data products are auxiliary and generate mappings which are then used to translate
+identifiers from various other data sources into Entrez identifiers.</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Data Source</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>GeneInfoMIMMapper</p></td>
+<td><p>Auxiliary</p></td>
+<td><p>Provides a list of mappings between MIM IDs and Entrez IDs</p></td>
+</tr>
+<tr class="row-odd"><td><p>GeneInfoHugoMapper</p></td>
+<td><p>Auxiliary</p></td>
+<td><p>Provides a list of mappings between Hugo IDs and Entrez IDs</p></td>
+</tr>
+<tr class="row-even"><td><p>GeneInfoEnsemblMapper</p></td>
+<td><p>Auxiliary</p></td>
+<td><p>Provides a list of mappings between Ensembl IDs and Entrez IDs</p></td>
+</tr>
+<tr class="row-odd"><td><p>GeneInfoIMGTMapper</p></td>
+<td><p>Auxiliary</p></td>
+<td><p>Provides a list of mappings between IMGT IDs and Entrez IDs</p></td>
+</tr>
+<tr class="row-even"><td><p>GeneInfoMirMapper</p></td>
+<td><p>Auxiliary</p></td>
+<td><p>Provides a list of mappings between Mir IDs and Entrez IDs</p></td>
+</tr>
+<tr class="row-odd"><td><p>GeneInfoSGDMapper</p></td>
+<td><p>Auxiliary</p></td>
+<td><p>Provides a list of mappings between SGD IDs and Entrez IDs</p></td>
+</tr>
+<tr class="row-even"><td><p>GeneInfoFlybaseMapper</p></td>
+<td><p>Auxiliary</p></td>
+<td><p>Provides a list of mappings between Flybase IDs and Entrez IDs</p></td>
+</tr>
+<tr class="row-odd"><td><p>GeneInfoWormbaseMapper</p></td>
+<td><p>Auxiliary</p></td>
+<td><p>Provides a list of mappings between Wormbase IDs and Entrez IDs</p></td>
+</tr>
+<tr class="row-even"><td><p>GeneInfo</p></td>
+<td><p>Auxiliary</p></td>
+<td><p>Provides a list of Entrez gene IDs by taxon</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="gsea-etl">
+<span id="id4"></span><h2>gsea_etl<a class="headerlink" href="#gsea-etl" title="Permalink to this headline"></a></h2>
+<p>This task is responsible for downloading and preprocessing data from the <a class="reference external" href="https://www.gsea-msigdb.org/gsea/msigdb">GSEA</a>
+repository.</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Data Source</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>GSEAMotif</p></td>
+<td><p>Primary</p></td>
+<td><p>Provides a mapping between motifs and the genes that are associated through them</p></td>
+</tr>
+<tr class="row-odd"><td><p>GSEAExperiment</p></td>
+<td><p>Primary</p></td>
+<td><p>Provides a mapping between experiments and the genes that are associated through them</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="gene-ontology-etl">
+<span id="id5"></span><h2>gene_ontology_etl<a class="headerlink" href="#gene-ontology-etl" title="Permalink to this headline"></a></h2>
+<p>This task is responsible for dcownloading and preprocessing the data from the <a class="reference external" href="http://geneontology.org/">Gene Ontology</a>
+repository. The gene ontology is at the core of the operations of the pipeline as it is the thing used to derive the
+contexts and the genes that participate in them. Unlike other transformers, the gene ontology transformer turns the
+text file of the ontology into a <a class="reference external" href="https://networkx.org/">NetworkX</a> network that can be navigated with the standard
+graph algorithms. This task also generates an annotation file which allows us to</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Data Source</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>GeneOntologyNetwork</p></td>
+<td><p>Primary</p></td>
+<td><p>Provides a NetworkX network that represents the connectivity between ontology terms</p></td>
+</tr>
+<tr class="row-odd"><td><p>GeneOntologyAnnontations</p></td>
+<td><p>Auxiliary</p></td>
+<td><p>Provides annotations for which allows ontology terms to be annotated with proteins</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="refine-bio-etl">
+<span id="id6"></span><h2>refine_bio_etl<a class="headerlink" href="#refine-bio-etl" title="Permalink to this headline"></a></h2>
+<p>This task downloads and preprocesses data from the <a class="reference external" href="https://refine.bio">RefineBio</a> repository. This repository represents
+the bulk of the data that is actually used in the inference process, and consists of microarray expression data with
+each row represents a gene and each column represents the expression level in a given sample. The actual files
+downloaded from RefineBio are individual sample files that are then stitched into the PCL files that have the above
+structure, with one file for each experiment.</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Data Source</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>RefineBioPCL</p></td>
+<td><p>Primary</p></td>
+<td><p>Provides a list of PCL files representing the expression level of genes in microarray experiments.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="refine-bio-compendia-etl">
+<span id="id7"></span><h2>refine_bio_compendia_etl<a class="headerlink" href="#refine-bio-compendia-etl" title="Permalink to this headline"></a></h2>
+<p>This task downloads SeqRNA data from RefineBio and stitches the resultant Salmon files into aggregate PCL files that,
+as above, contain genes along the rows and samples along the columns. This data is not actually used in the inference
+process, but theoretically it should be straightforward to integrate it into the pipeline.</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Data Source</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>RefineBioPCL</p></td>
+<td><p>Primary</p></td>
+<td><p>Provides a list of PCL files representing the expression level of genes in microarray experiments.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="uniprot-etl">
+<span id="id8"></span><h2>uniprot_etl<a class="headerlink" href="#uniprot-etl" title="Permalink to this headline"></a></h2>
+<p>This task downloads and preprocesses data from the <a class="reference external" href="https://www.uniprot.org/">UniProt</a> to provide mappings between
+proteins and the genes responsible for coding for them. This auxiliary data is used to map protein annotations on the
+gene ontology terms to actual genes.</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Data Source</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>UniProtMap</p></td>
+<td><p>Auxiliary</p></td>
+<td><p>Provides mappings between proteins and the genes that code for them</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="ensembl-etl">
+<span id="id9"></span><h2>ensembl_etl<a class="headerlink" href="#ensembl-etl" title="Permalink to this headline"></a></h2>
+<p>This task downloads and preprocesses Ensembl data to provide a mapping between the transcript ID and the gene ID.
+That mapping is used in the <strong>refine_bio_compendia_etl</strong> task to roll up the gene expressions.</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Data Source</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>TranscriptToGeneMap</p></td>
+<td><p>Auxiliary</p></td>
+<td><p>Provides mappings between transcript IDs and gene IDs</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="biocyc-matrix">
+<span id="id10"></span><h2>biocyc_matrix<a class="headerlink" href="#biocyc-matrix" title="Permalink to this headline"></a></h2>
+<p>Turns the BioCyc data into a matrix. The data is aggregated by pathway and any two genes that share a common pathway
+are considered a positive pair. The result is a matrix of the form</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\mathbf{M}_{ij} = \begin{cases} 1 &amp; \text{two genes share a common pathway} \\ 0 &amp; \text{two genes do not share a common pathway}\\ \end{cases}\end{split}\]</div>
+</section>
+<section id="biogrid-matrix-intact-matrix-mint-matrix-mips-matrix">
+<span id="interactor-matrix"></span><h2>biogrid_matrix, intact_matrix, mint_matrix, mips_matrix<a class="headerlink" href="#biogrid-matrix-intact-matrix-mint-matrix-mips-matrix" title="Permalink to this headline"></a></h2>
+<p><strong>bins</strong>: <code class="docutils literal notranslate"><span class="pre">[0.5,</span> <span class="pre">1.5,</span> <span class="pre">2.5,</span> <span class="pre">4.5]</span></code></p>
+<p>Each of these tasks turns its respective interactor dataset into a matrix. The collected data is aggregated over the
+gene pairs such that the edge weight between any two genes is the number of distinct interaction methods used to
+connect them. The edge weights are then quantized into bins relative to the specified edges above, yielding a
+matrix of the form</p>
+<div class="math notranslate nohighlight">
+\[\mathbf{M}_{ij} = d \in \{0, 1, 2, 3\}\]</div>
+</section>
+<section id="gsea-matrix">
+<span id="id11"></span><h2>gsea_matrix<a class="headerlink" href="#gsea-matrix" title="Permalink to this headline"></a></h2>
+<p><strong>bins</strong>: <code class="docutils literal notranslate"><span class="pre">[-1.5,</span> <span class="pre">-0.5,</span> <span class="pre">0.5,</span> <span class="pre">1.5,</span> <span class="pre">2.5,</span> <span class="pre">3.5,</span> <span class="pre">4.5]</span></code></p>
+<p>Transforms the GSEA data into a matrix form. The data is transformed into two matrices indexed by gene and experiment,
+with the specific contribution in each cell scaled by the total number of genes within the experiment. In other words,
+for the <span class="math notranslate nohighlight">\(i^{th}\)</span> gene and the <span class="math notranslate nohighlight">\(j^{th}\)</span> experiment, we obtain a matrix</p>
+<div class="math notranslate nohighlight">
+\[\mathbf{D}_{ij} = \frac{1}{\sqrt{\Vert \vec{g}_{j} \Vert}}\]</div>
+<p>where <span class="math notranslate nohighlight">\(\vec{g}_{j}\)</span> is the vector of genes in the <span class="math notranslate nohighlight">\(j^{th}\)</span> experiment. Then the final matrix is obtained by</p>
+<div class="math notranslate nohighlight">
+\[\mathbf{B} = \mathbf{D}\mathbf{D}^{T}\]</div>
+<p>and quantizing according to the bins above.</p>
+</section>
+<section id="propagate-annotations">
+<span id="id12"></span><h2>propagate_annotations<a class="headerlink" href="#propagate-annotations" title="Permalink to this headline"></a></h2>
+<p>The annotation data obtained from the Gene Ontology specifies which GO terms are to be annotated with which proteins.
+Thus, for every term <span class="math notranslate nohighlight">\(T_i\)</span> there exists some set of proteins <span class="math notranslate nohighlight">\(P_i = \{p_1, p_2, \dots, p_n \}\)</span> that are
+annotated to that term. Annotations are propagated from the leaf terms (most specific) to their parents (most general)
+according to the following rules:</p>
+<ol class="arabic simple">
+<li><p>If the relation connecting the child to the parent is either <em>PART_OF</em> or <em>IS_A</em>, the all of the child’s annotations
+are propagated to the parent. In other words, if the child <span class="math notranslate nohighlight">\(T_c\)</span> has a set of genes <span class="math notranslate nohighlight">\(G_c\)</span> and parent
+<span class="math notranslate nohighlight">\(T_p\)</span> has a set of genes <span class="math notranslate nohighlight">\(G_p\)</span>, then after propagation the parent will have a set of genes given by
+<span class="math notranslate nohighlight">\(G_c \cup G_p\)</span>.</p></li>
+<li><p>If the relation connecting the child to the parent is a regulatory relation (one of <em>REGULATES</em>, <em>POSITIVELY_REGULATES</em>,
+or <em>NEGATIVELY_REGULATES</em>), then the child’s annotations are propagated to a property of the parent called
+“terminal_annotations”, which differ from the constitutitve relations in that they are not propagated further upward.
+In other words, if a term <span class="math notranslate nohighlight">\(T_1\)</span> propagates its annotations to the terminal annotations of its parent, <span class="math notranslate nohighlight">\(T_2\)</span>,
+then <span class="math notranslate nohighlight">\(T_2\)</span> <em>does not</em> propagate those same annotations to <em>its</em> parent, <span class="math notranslate nohighlight">\(T_3\)</span>. Annotations which are
+<em>not</em> terminal will still be propagated as in the first case. At the end of the propagation procedure,
+terminal annotations are merged with the other annotations for a given node.</p></li>
+</ol>
+</section>
+<section id="map-genes">
+<span id="id13"></span><h2>map_genes<a class="headerlink" href="#map-genes" title="Permalink to this headline"></a></h2>
+<p>Once all protein annotations have been properly propagated, the proteins are mapped to genes using the mappings obtained
+from the UniProt database. For each term in a set of slims, we produce a list of genes associated with that term. That
+list is written to a file, one file for each term with one gene per line of a file. This format is a consequence of
+attempts to maintain compatibility with an older codebase and should probably be changed in the future to something
+like a pickled dictionary.</p>
+</section>
+<section id="build-gold-standard-matrix">
+<span id="id14"></span><h2>build_gold_standard_matrix<a class="headerlink" href="#build-gold-standard-matrix" title="Permalink to this headline"></a></h2>
+<p>The gold standard matrix represents the known associations between genes. It is built out of both the BioCyc matrix
+data and the data produced in the <strong>map_genes</strong> step. The individual context files obtained from the <strong>map_genes</strong>
+task are converted into a matrix with the form:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\mathbf{G}_{ij} = \begin{cases} 1 &amp; \text{two genes are coannotated to a positive context}\\
+-1 &amp; \text{two genes are coannotated to a negative context}\\
+0 &amp; \text{otherwise} \end{cases}\end{split}\]</div>
+<p>This matrix is then combined with the BioCyc matrix in the following way:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\mathbf{M}_{ij} = \begin{cases} 1 &amp; \text{if either } \mathbf{G}_{ij} \text{ or } \mathbf{B}_{ij} \text{ is 1}\\
+-1 &amp; \text{if either } \mathbf{G}_{ij} \text{ or } \mathbf{B}_{ij} \text{ is -1 except as covered by the preceding case}\\
+0 &amp; \text{otherwise} \end{cases}\end{split}\]</div>
+<p>where <span class="math notranslate nohighlight">\(\mathbf{B}\)</span> is the matrix obtained in the <strong>biocyc_matrix</strong> task.</p>
+</section>
+<section id="build-context-matrices">
+<span id="id15"></span><h2>build_context_matrices<a class="headerlink" href="#build-context-matrices" title="Permalink to this headline"></a></h2>
+<p>In order to compute the counts, and therefore the conditional probability tables that will tell us what each dataset’s
+contribution is to a given context, we will need to compute the network matrix for each individual context separately.
+This procedure is identical to the one described in <strong>build_gold_standard_matrix</strong> with the difference that instead
+of combining all of the matrices together, we leave them as separate files. Thus, for every context <span class="math notranslate nohighlight">\(C_n\)</span> we
+obtain a matrix of the form</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\mathbf{C}_{ij} = \begin{cases} 1 &amp; \text{these two genes are coannotated to this context}\\
+0 &amp; \text{otherwise} \end{cases}\end{split}\]</div>
+</section>
+<section id="compute-distance-matrices">
+<span id="id16"></span><h2>compute_distance_matrices<a class="headerlink" href="#compute-distance-matrices" title="Permalink to this headline"></a></h2>
+<p><strong>bins</strong>: <code class="docutils literal notranslate"><span class="pre">[-1.5,</span> <span class="pre">-0.5,</span> <span class="pre">0.5,</span> <span class="pre">1.5,</span> <span class="pre">2.5,</span> <span class="pre">3.5,</span> <span class="pre">4.5]</span></code></p>
+<p>This task turns the PCL files built by the transformer inside the <strong>refine_bio_etl</strong> task into matrices. Consider a
+PCL file which contains genes in the rows and samples in the columns, such that for row <em>r</em> and column <em>c</em>, we have a
+matrix</p>
+<div class="math notranslate nohighlight">
+\[\mathbf{P}_{rc} = \text{expression level of gene $r$ in sample $c$}\]</div>
+<p>We then compute the Pearson correlation of the row-vectors of <span class="math notranslate nohighlight">\(\mathbf{P}\)</span>, which is then Fischer-transformed
+and z-scaled, i.e.</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{eqnarray}
+\mathbf{C} = Pearson(\mathbf{P}) \\
+\mathbf{F} = \tanh^{-1}(\mathbf{C}) \\
+\mathbf{Z} = (\mathbf{F} - \bar{\mathbf{F}}) / \sigma
+\end{eqnarray}\end{split}\]</div>
+<p>where <span class="math notranslate nohighlight">\(\sigma\)</span> is the standard deviation of <span class="math notranslate nohighlight">\(\mathbf{F}\)</span> considered as a single set of numbers, and the
+Fischer transform in the second line should be understood to operate on a per-element basis.</p>
+<p>This is a long-running task that is farmed out to the cluster. It can take as long as a day to complete if running the
+pipeline <em>de novo</em>, although partial updates should be relatively fast. For more details on setting up the cluster,
+consult the relevant section of this guide.</p>
+</section>
+<section id="compute-context-masks">
+<span id="id17"></span><h2>compute_context_masks<a class="headerlink" href="#compute-context-masks" title="Permalink to this headline"></a></h2>
+<p>In order to be able to efficiently compute the bin counts for each positive context, we first need to mask the context
+matrices themselves with the gold standard. This is an operation that can be factored out of the counts computation
+so that it can be done linearly (in the number of contexts) rather than quadratically (number of contexts times number
+of datasets).</p>
+<p>The mask is computed by first finding the “bridge genes” which are genes that are present in the gold standard but not
+in the context matrix. Then, any gene pair containing a bridge gene and a context gene is masked as <code class="docutils literal notranslate"><span class="pre">True</span></code> while
+every other pair is masked as <code class="docutils literal notranslate"><span class="pre">False</span></code>. The positive and negative counts are then computed from the positive and
+negative parts of the gold standard matrix as applied to the aforementioned mask. The resultant counts represent the
+priors for gene association within the given context.</p>
+</section>
+<section id="compute-data-positives">
+<span id="id18"></span><h2>compute_data_positives<a class="headerlink" href="#compute-data-positives" title="Permalink to this headline"></a></h2>
+<p>The data positive of a given dataset matrix is simply the part of the dataset matrix masked by the part of the
+gold standard matrix where the corresponding gene pairs are positively associated. In other words, for a given data
+matrix <span class="math notranslate nohighlight">\(\mathbf{D}\)</span>, the resultant data positive matrix is given by</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\mathbf{P}_{ij} = \begin{cases} 1 &amp; \text{if } \mathbf{G}_{ij} = 1\\ 0 &amp; \text{otherwise} \end{cases}\end{split}\]</div>
+<p>where <span class="math notranslate nohighlight">\(\mathbf{G}\)</span> is the gold standard matrix.</p>
+<p>This operation is factored out of the counts computation step because it is common to each context/dataset pair,
+which means that it can be done in linear time here rather than in quadratic time during the counts computation, just
+like the <strong>compute_counts_mask</strong> step.</p>
+</section>
+<section id="compute-counts">
+<span id="id19"></span><h2>compute_counts<a class="headerlink" href="#compute-counts" title="Permalink to this headline"></a></h2>
+<p>This is the core task that actually computes the counts that are used in the Bayesian integration algorithm for
+inferring gene function. For each set of context <span class="math notranslate nohighlight">\(\mathbf{C}_n\)</span>, associated context mask
+<span class="math notranslate nohighlight">\(\mathbf{M}_n\)</span> (from in <strong>compute_context_masks</strong>), data matrix <span class="math notranslate nohighlight">\(\mathbf{D}_m\)</span>, and associated data
+positive <span class="math notranslate nohighlight">\(\mathbf{P}_m\)</span> (from <strong>compute_data_positives</strong>), we can compute the positive and negative evidence
+counts matrices <span class="math notranslate nohighlight">\(\mathbf{E}^{+}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{E}^{-}\)</span> by:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\mathbf{E}^{+}_{ij} = \begin{cases}
+\mathbf{P}_{ij} &amp; \text{if } \mathbf{C}_{ij} = 1\\
+-1 &amp; \text{otherwise}\\
+\end{cases}\end{split}\]</div>
+<p>and</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\mathbf{E}^{-}_{ij} = \begin{cases}
+\mathbf{D}_{ij} &amp; \text{if } \mathbf{M}_{ij} = 0\\
+-1 &amp; \text{otherwise}\\
+\end{cases}\end{split}\]</div>
+<p>The positive and negative evidence counts are then obtained by summing up the bin counts in the respective evidence
+matrices.</p>
+<p>This task is computationally intensive as the number of operations is equal to the product of the number of contexts
+and the number of datasets. As an order of magnitude there are about 500 contexts and 10,000 datasets, for a total of
+about <span class="math notranslate nohighlight">\(5 \times 10^{6}\)</span> operations. These operations are distributes across the cluster and assembled into a
+single dictionary structure within the task.</p>
+</section>
+<section id="compute-mutual-information">
+<span id="id20"></span><h2>compute_mutual_information<a class="headerlink" href="#compute-mutual-information" title="Permalink to this headline"></a></h2>
+<p>Before we compute the conditional probabilities, we need to know which datasets contain the most useful signal.
+To do this, we compute the mutual information of every dataset pair via the standard mutual information formula:</p>
+<div class="math notranslate nohighlight">
+\[w_{ij} = \frac{1}{L_p} \sum \ln \frac{H(\mathbf{D}_i, \mathbf{D}_j)}{H(\mathbf{D}_i) \otimes H(\mathbf{D}_j)}\]</div>
+<p>where <span class="math notranslate nohighlight">\(L_p\)</span> is the Laplace scaling factor, <span class="math notranslate nohighlight">\(H(\mathbf{D}_i, \mathbf{D}_j)\)</span> is the joint histogram of the
+data matrices, and <span class="math notranslate nohighlight">\(H(\mathbf{D}_i)\)</span> is the histogram of one matrix. The denominator in the above expression
+is a cross product term, and this the whole division and log is on a per-element basis. The sum is over all the
+elements of the matrix.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This is an extremely expensive computation, which, like all expensive computations, are distributed onto the
+cluster. However, because of the quadratic nature of this problem, were we to recompute this afresh every time,
+we would spend many days computing <span class="math notranslate nohighlight">\(10^8\)</span> dataset pairs. We can take advantage of the fact that dataset
+matrices will never change, and only do this computation once; intermediate products of the computation are then
+stored in a large matrix with the dataset name on both axes. The task will check for the presence of a non-NaN
+entry for a given matrix pair and only compute the mutual information for that pair if it is missing. This means
+that every time beyond the first that this task runs, you will only be computing on the new datasets you have
+obtained. Of course, this operation is still going to be very expensive because any additional datasets still
+have to be paired with all of the old ones.</p>
+<p>In order to increase the efficiency of the computation, the histogram functions are written as Cython extensions.
+They are discussed in their own section of this manual.</p>
+</div>
+</section>
+<section id="calculate-alphas">
+<span id="id21"></span><h2>calculate_alphas<a class="headerlink" href="#calculate-alphas" title="Permalink to this headline"></a></h2>
+<p>Using the mutual information matrix obtained above, we can write, for a dataset <em>i</em>:</p>
+<div class="math notranslate nohighlight">
+\[\alpha_i = \frac{1}{p} 2^{\frac{\sum_{j} w_{ij} - w_{jj}}{w_{jj}}} - 1\]</div>
+<p>where <span class="math notranslate nohighlight">\(p\)</span> is the pseudocounts.</p>
+</section>
+<section id="compute-conditional-probabilities">
+<span id="id22"></span><h2>compute_conditional_probabilities<a class="headerlink" href="#compute-conditional-probabilities" title="Permalink to this headline"></a></h2>
+<p>With the alphas information, we can now translate the counts obtained in <strong>compute_counts</strong> into conditional
+probabilities. For each dataset <em>k</em>, set of counts <span class="math notranslate nohighlight">\(b_i\)</span> indexed by the bin label <span class="math notranslate nohighlight">\(i \in {0,\dots, n}\)</span>,
+where <em>n</em> is the number of bins (usually 8), given pseudocounts <span class="math notranslate nohighlight">\(p\)</span>, and total counts <span class="math notranslate nohighlight">\(T = \sum_i^n b_i\)</span>,
+we can compute the probability in the following way:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}p_i = \begin{cases} 1/n &amp; \text{if } T = 0 \text{ or } \alpha_k = 0 \\
+\frac{s \times (b_i + 1) + \alpha_k}{T + (\alpha_k \times n)} &amp; \text{otherwise}\\
+\end{cases}\end{split}\]</div>
+<p>where <span class="math notranslate nohighlight">\(s = p / T\)</span> is the scale factor, which is 1 if <span class="math notranslate nohighlight">\(p\)</span> is 0.</p>
+</section>
+<section id="align-with-gene-list">
+<span id="id23"></span><h2>align_with_gene_list<a class="headerlink" href="#align-with-gene-list" title="Permalink to this headline"></a></h2>
+<p>We are only interested in genes that either code for proteins or rRNA. For efficiency reasons we also want to align
+all of the data matrices to the same gene set. This task selects out the relevant set of genes and then reindexes the
+dataset matrices to those genes, using -1 as the fill value for missing nodes.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>If you end up doing anything that changes the list of relevant genes (which mostly means rerunning the <strong>_etl</strong>
+tasks that are responsible for importing and mapping new genes), you <em>must</em> rerun this task to make sure that the
+data matrices are aligned appropriately. Without this, downstream tasks will fail when looking for genes that end
+up missing from the data.</p>
+</div>
+</section>
+<section id="compute-aligned-posteriors">
+<span id="id24"></span><h2>compute_aligned_posteriors<a class="headerlink" href="#compute-aligned-posteriors" title="Permalink to this headline"></a></h2>
+<p>This task is the core of the Bayesian integration procedure. For each context <span class="math notranslate nohighlight">\(C_n\)</span> and dataset <span class="math notranslate nohighlight">\(D_m\)</span>,
+aligned as described above, and given the conditional probability table <span class="math notranslate nohighlight">\(CPT_{nm}\)</span> for each context/dataset pair,
+we can compute the resultant posterior context matrices corresponding to the positive and negative evidence as follows:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{eqnarray}
+\mathbf{P}^{n}_{ij} = \sum_m \ln (\mathbf{CPT}^{+}_{nm}[\mathbf{D}^{m}_{ij}]) \\
+\mathbf{N}^{n}_{ij} = \sum_m \ln (\mathbf{CPT}^{-}_{nm}[\mathbf{D}^{m}_{ij}]) \\
+\end{eqnarray}\end{split}\]</div>
+<p>Here the superscripts should be understood as indexing operations, not exponents, and the square brackets are an
+“array access” operation, so that for any value of bin <span class="math notranslate nohighlight">\(b = \mathbf{D}^{m}_{ij}\)</span>, the values
+<span class="math notranslate nohighlight">\(\mathbf{CPT}^{+}_{nm}[b]\)</span> and <span class="math notranslate nohighlight">\(\mathbf{CPT}^{-}_{nm}[b]\)</span> represent the positive and negative evidence
+respectively obtaind from the conditional probability table for the given context/dataset pair.</p>
+<p>The final evidence matrix is then given by</p>
+<div class="math notranslate nohighlight">
+\[\mathbf{E}_n = \frac{1}{1 + e^{\mathbf{N}_n - \mathbf{P}_n}}\]</div>
+<p>where the exponentiation and division is understood elementwise.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The math of this task is fairly trivial, but the actual distributed computation is extremely complex, for good
+reason. We would like to parallelize operations over the contexts in the outer loop and then over the datasets
+in the inner loop, and then distribute that work across a cluster. This is done by having one Celery worker per
+cluster node be responsible for the context; that worker then distributes the work of actually computing the
+individual pieces of evidence to sub-processes spawned from within the worker. More details are available in the
+documentation for the individual functions themselves.</p>
+</div>
+</section>
+<section id="average-context-networks">
+<span id="id25"></span><h2>average_context_networks<a class="headerlink" href="#average-context-networks" title="Permalink to this headline"></a></h2>
+<p>In this step we simply perform an arithmetic average over the <span class="math notranslate nohighlight">\(E_n\)</span> matrices obtained in the integration step.
+The result is a single network averaged over all the contexts.</p>
+</section>
+<section id="compute-gene-sets">
+<span id="id26"></span><h2>compute_gene_sets<a class="headerlink" href="#compute-gene-sets" title="Permalink to this headline"></a></h2>
+<p>Analogously to the <strong>map_genes</strong> task, we want to compute the gene sets for the positive and negative slim terms,
+and also for all of the terms together. This is done in a separate task to factor out common work.</p>
+</section>
+<section id="learn-svm-weights">
+<span id="id27"></span><h2>learn_svm_weights<a class="headerlink" href="#learn-svm-weights" title="Permalink to this headline"></a></h2>
+<p>Given the gene sets as above, for a given term <span class="math notranslate nohighlight">\(T_i\)</span>, we can now compute a set of positive and negative examples
+for the SVM to learn on. If <span class="math notranslate nohighlight">\(G\)</span> is the set of all genes annotated to any GO term in the <em>biological_process</em>
+branch of the ontology and <span class="math notranslate nohighlight">\(S\)</span> is the set of genes annotated to the negative slim that is the ancestor of
+<span class="math notranslate nohighlight">\(T_i\)</span>, then the positive examples <span class="math notranslate nohighlight">\(P\)</span> are just given by the terms annotated to <span class="math notranslate nohighlight">\(T_i\)</span> and the negative
+examples are given by <span class="math notranslate nohighlight">\(G - S\)</span>. These examples are then used to train the SVM on the averaged context network
+from above, and used to learn the scores of all the genes in the testing set. Within each context, a stratified K-fold
+is used and the scores are averaged over. The result is a set of tables in CSV format, one per GO term, which contain
+the gene and its SVM score.</p>
+</section>
+<section id="svm-to-probabilities">
+<span id="id28"></span><h2>svm_to_probabilities<a class="headerlink" href="#svm-to-probabilities" title="Permalink to this headline"></a></h2>
+<p>The SVM scores are converted to probabilities via Platt scaling. The output is a single file containing on each row
+the GO term, the gene Entrez ID, and the scaled probability of the gene being expressed in the given process. This file
+is suitable for importing directly into the HumanBase web backend.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2020, Jerry Vinokurov.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
