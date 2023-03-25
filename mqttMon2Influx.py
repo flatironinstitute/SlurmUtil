@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import argparse, json, os.path, pdb, threading, time 
+import argparse, json, os.path, pdb, socket, threading, time 
 
 from collections import defaultdict as DDict
 from datetime    import datetime, timezone, timedelta
@@ -648,6 +648,7 @@ def startMQTTThread(mqttServer, testMode):
     return mqtt_thd
 
 def main(influxServer, influxPort, influxDB, ifx_interval, py_interval, mqttServer, testMode=False):
+    hostname   = socket.gethostname()
     mqtt_thd   = startMQTTThread (mqttServer, testMode)
     time.sleep(5)
     pyslm_thd  = startPyslurmThread(py_interval)
@@ -656,8 +657,8 @@ def main(influxServer, influxPort, influxDB, ifx_interval, py_interval, mqttServ
 
     while True:
        if not mqtt_thd.is_alive():
-          EmailSender.sendMessage ("ERROR: MQTTReader thread is dead. Restart it!", "Check it!")
-          logger.error("ERROR: MQTTReader thread is dead. Restart it!")
+          EmailSender.sendMessage ("ERROR: MQTTReader thread is dead on {}. Restart it!".format(hostname), "Check it!")
+          logger.error("ERROR: MQTTReader thread is dead on {}. Restart it!".format(hostname))
           mqtt_thd   = startMQTTThread(mqttServer, testMode)
           ifx_thd    = startInfluxThread(influxServer, influxPort, influxDB, ifx_interval, mqtt_thd, pyslm_thd, testMode)
        if not pyslm_thd.is_alive():

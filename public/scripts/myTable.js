@@ -84,7 +84,7 @@ function createMultiTitle2 (data_dict, parent_id, node) {
       .attr('class', 'thick table_title')
       .html(function (d) {
                var str= "Job " + d + ': '
-               if ( d!= 'undefined') {
+               if ( d!= -1) {
                   var job = data_dict[d]["job"]
                   str += 'alloc ' + job["cpus_allocated"][node] + ' CPUs'
                   if (("gpus_allocated" in job) && (node in job["gpus_allocated"]))
@@ -93,6 +93,8 @@ function createMultiTitle2 (data_dict, parent_id, node) {
 		     str += ', have ' + data_dict[d]["procs"].length +' processes. <a href="./nodeJobProcGraph?node=' + node + '&jid=' + d + '"> (Proc Usage Graph) </a>'
                   else
 		     str += ', have no running processes.'
+               } else {
+                   str = "Processes:"
                }
                return str; })
     return pas
@@ -116,6 +118,61 @@ function expandTitle () {
        });
 }
 
+//create process table in a node
+function createProcTable (data_dict, parent_id, table_title_list, node, type_list, idx_list, cluster=DEF_CLUSTER) {
+   console.log("createProcTable: data_dict=", data_dict, "table_title_list=", table_title_list, "node=", node, "type_list=", type_list)
+   var table = d3.select(parent_id).append('table').property('id', node+'_proc').attr('class','noborder');
+	//table.append('thead')
+          //           .append('tr')
+            //         .selectAll('th')
+              //       .data(table_title_list)
+                //     .enter().append('th')
+                  //      .attr('class','noborder')
+                    //    .text(function (d,i) { return table_title_list[i]; })
+   var trs   = table.append('tbody').selectAll('tr')
+                     .data(Object.values(data_dict)).enter()
+                     .append('tr')
+                     .attr('class','noborder')
+   trs.selectAll('td')
+      .data(function(d) {return idx_list.map(x => d.at(x))})
+      .enter().append('td')
+         .attr('class', function(d,i) {return 'noborder ' + table_title_list[i]})
+         .html(function (d, i) {
+              return getTypedValueHtml(d, type_list[i], cluster);
+         })
+
+   // collapse behavior
+   var thead = createSortTableHeader_1(table, table_title_list, idx_list, trs)
+   collapseTitle ()
+}
+
+function createJobProcTable (data_dict, parent_id, table_title_list, node, type_list, idx_list, cluster=DEF_CLUSTER) {
+   console.log("createJobProcTable: data_dict=", data_dict, "table_title_list=", table_title_list, "node=", node, "type_list=", type_list)
+   var pas    = createMultiTitle2(data_dict, parent_id, node)
+   var tables = pas.append('table').property('id', function(d) {return d+'_proc'}).attr('class','noborder')
+   var theads = tables.append('thead')
+                     .append('tr')
+                     .selectAll('th')
+                     .data(table_title_list)
+                     .enter().append('th')
+                        .attr('class','noborder')
+                        .text(function (d,i) { return table_title_list[i]; })
+   var trs    = tables.append('tbody').selectAll('tr')
+                   .data(function (d,i) {if (data_dict[d]["procs"]!=undefined) {return Object.values(data_dict[d]["procs"])} else {return []}})
+                   .enter().append('tr')
+                      .attr('class','noborder')
+   trs.selectAll('td')
+      .data(function(d) {return idx_list.map(x => d.at(x))})
+      .enter().append('td')
+         .attr('class', function(d,i) {return 'noborder ' + table_title_list[i]})
+         .html(function (d, i) {
+              return getTypedValueHtml(d, type_list[i], cluster);
+         })
+
+   // collapse behavior
+   collapseTitle ()
+} //createJobProc
+
 //data_dict is a dictionary of a fixed format
 function createMultiTable2 (data_dict, parent_id, table_title_list, node, type_list) {
    console.log("createMultiTable2 data_dict=", data_dict, "table_title_list=", table_title_list, "node=", node, "type_list=", type_list)
@@ -138,6 +195,7 @@ function createMultiTable2 (data_dict, parent_id, table_title_list, node, type_l
       .enter().append('td')
          .attr('class', function(d,i) {return 'noborder ' + table_title_list[i]})
          .html(function (d, i) {
+		 
                  if (type_list && type_list[i]) {
                     if (type_list[i] == 'B')
                        return getDisplayB(d)
@@ -522,6 +580,43 @@ function createSummaryThead (table, titles_dict, tbody, data, type_dict, summary
     return thead;
 }
 
+function createSortTableHeader_1 (table, title_list, idx_list, rows_list) {
+   var sortAscending = true;
+   var tieKey        = title_list[0]   <!--use procid as tie breaker for sorting -->
+   var headers = table.append('thead').append('tr').selectAll('th')
+                      .data(title_list).enter()
+                      .append('th')
+                      .attr('id', function(d) {return d})
+                      .text(function (d) { return d; })
+                      .on('click', function (d_txt, i) {
+			       var d       = idx_list[i];
+			       console.log("click " , d, ":", d_txt)
+                               headers.attr('class', 'header');   //set all th's class
+                               // must return 0, 1, -1, return true/false will not work
+                               rows_list.sort(function(a, b) {
+			          var asc_cmp = 1;
+			          if (a.at(d) > b.at(d))
+				     asc_cmp = -1
+			          else if (a.at(d) == b.at(d)) {
+                                     if (a.at(tieKey)>b.at(tieKey)) 
+				        asc_cmp = -1
+			          } 
+				  console.log("a=", a.at(d), ", b=", b.at(d))
+				  if (sortAscending)
+				       return asc_cmp
+				  else
+				       return -asc_cmp;
+			       })
+                               if (sortAscending) {
+                                  sortAscending  = false;
+                                  this.className = 'aes';
+                               } else {
+                                  sortAscending  = true;
+                                  this.className = 'des';
+                               }
+                      });
+    return headers;
+}
 function createTableHeader (table, titles_dict, rows) {
    var sortAscending = true;
    var firstKey      = Object.keys(titles_dict)[0]   <!--use jobid as tie breaker for sorting -->
@@ -550,7 +645,6 @@ function createTableHeader (table, titles_dict, rows) {
                                   sortAscending  = true;
                                   this.className = 'des';
                                }
-                               console.log("click rows=", rows.datum())
                       });
     return headers;
 }

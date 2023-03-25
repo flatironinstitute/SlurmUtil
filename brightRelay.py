@@ -1,4 +1,4 @@
-import json, os, ssl, re, sys 
+import json, logging, os, ssl, re, sys 
 import sched, requests, threading, time
 from collections import defaultdict
 from flask import Flask, request
@@ -11,8 +11,8 @@ BRIGHT_URL = config.APP_CONFIG["bright"]["url"]
 CERT_DIR   = config.APP_CONFIG["bright"]["cert_dir"]
 BRIGHT_CERT= ('{}/cert.pem'.format(CERT_DIR), '{}/cert.key'.format(CERT_DIR))
 SEVEN_DAYS = 7 * 24 * 3600
-QUERY_INTERVAL = 300   # query bright at least every 3 minutes
-INC_INTERVAL   = 50    # query bright if last query returns 0
+QUERY_INTERVAL = 300   # query bright at least every QUERY_INTERVAL seconds
+INC_INTERVAL   = 60    # query bright if last query returns 0
 FLUSH_INTERVAL = 7200  # flush memory every 2 hours
 FIVE_MINUTES   = 300
 TS             = 0
@@ -23,6 +23,8 @@ STOP           = 1
 app      = Flask(__name__)
 logger   = config.logger
 s_print_lock = threading.Lock()
+werkzeug_logger = logging.getLogger("werkzeug")
+werkzeug_logger.setLevel(logging.ERROR)
 
 
 def s_print(*a, **b):
@@ -45,10 +47,10 @@ class QueryBrightThread (threading.Thread):
         while True:
             self.queryBright()
             if int(time.time()) - self.last_ts > INC_INTERVAL:   # normal situation this value is 0
-               s_print("Interval {}: sleep inc".format(int(time.time()) - self.last_ts ) )
+               logger.info("Interval {}: sleep inc".format(int(time.time()) - self.last_ts ) )
                time.sleep (INC_INTERVAL)
             else:
-               s_print("Interval {}: sleep query".format(int(time.time()) - self.last_ts ) )
+               logger.info("Interval {}: sleep query".format(int(time.time()) - self.last_ts ) )
                time.sleep (QUERY_INTERVAL)
             if int(time.time()) - self.last_cut > SEVEN_DAYS + FLUSH_INTERVAL:
                self.flushGPULoads()

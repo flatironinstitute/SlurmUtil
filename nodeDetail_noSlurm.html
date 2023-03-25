@@ -28,42 +28,27 @@
           var cluster         = {cluster}
           // Create node detail table
           var node_data       = {node_data}
-          var array_het_jids  = {array_het_jids}
           const proc_field    = ['PID', 'Avg CPU Util', 'RSS', 'VMS','IO Rate', 'Command']
-          const proc_type     = [null,  'Float',  'Byte', 'Byte',  'Bps', null]
-          const proc_idx      = [0, 1, 5, 6, 8, 7]
-          //PID_IDX,CPU_IDX,CREATE_TIME_IDX,USER_TIME_IDX,SYS_TIME_IDX,RSS_IDX,VMS_IDX,CMD_IDX,IO_IDX,JID_IDX,FDS_IDX,READ_IDX,WRITE_IDX,UID_IDX,THREADS_IDX   = range(15)
+          const proc_type     = [null,  'Float',        'Byte',   'Byte',  'Bps',      null]
+	  const proc_idx      = [0, 1, 5, 6, 8, 7]
+
 
           // title line
-          var htmlStr = cluster + ' Node ' + node_data.name + ' : ' + node_data.mon_state 
-                            + " <small>(<a href='nodeGraph?node=" + node_data.name + "'> Last 3 Days' Usage Graph</a>";
-          if (node_data["gpus"])
-              htmlStr = htmlStr + ", <a href='nodeGPUGraph?node=" + node_data.name + "'>GPU Graph</a>";
-          htmlStr     = htmlStr + ')</small>'
+          var htmlStr = cluster + ' Node ' + node_data.name + " : Personal Work Station <small>(<a href='nodeGraph?node=" + node_data.name + "'> Last 3 Days' Usage Graph</a>)</small>";
+          //if (node_data["gpus"])
+          //    htmlStr = htmlStr + ", <a href='nodeGPUGraph?node=" + node_data.name + "'>GPU Graph</a>";
 
           $("#node_title").html(htmlStr);
 
-          // node information
-          createNoHeaderTable (node_data, 
-                 {{'features':'Features','partitions':'Partitions','tres_fmt_str':'TRES','gres':'GRES','boot_time':'Boot Time','alloc_cpus':'Alloc CPUs','alloc_mem':'Alloc Mem','alloc_gpus':'Alloc GPUs','running_jobs':'Running Jobs'}}, 
-                 {{'boot_time':'timestamp','alloc_mem':'M', 'partitions':'partition_list','running_jobs':'job_list'}}, 
-                 '#div_node_info', 'node_info', filterDict2NestList, cluster)
+          // no node information for no slurm nodes
 
-          // running job 
-          if (node_data["jobCnt"])
-             $("#summary").text("Total " +node_data["jobCnt"]+" running Jobs with " + node_data["procCnt"] + " Processes, allocating "+node_data["alloc_cpus"] +" CPUs and " + node_data["alloc_gpus"] + " GPUs")
-          else if (node_data['updateTS'])
-             $("#summary").text("No running jobs at this time");
+	  console.log("node_data=", node_data)
+	  if (node_data['jobProc'][-1])
+             $("#summary").text("Total " + Object.keys(node_data["jobProc"][-1]["procs"]).length + " Processes running on the node.");
           else
              $("#summary").text("No monitoring data for the node");
-          createJobProcTable (node_data["jobProc"], '#div_job', proc_field, node_data["name"], proc_type, proc_idx)
 
-          // job history
-          if (node_data["gpus"])
-             exclude_gpu = false
-          else
-             exclude_gpu = true
-          createJobHistoryTable ({node_report}, array_het_jids, 'node_history_table', 'div_sacct_report', exclude_gpu, excludeEff=true)
+          createProcTable (node_data["jobProc"][-1]["procs"], '#div_proc', proc_field, node_data["name"], proc_type, proc_idx)
       }});
     </script>
   </head>
@@ -93,16 +78,9 @@
         <div class="section__inner section__inner--fullwidth">
           <div class="section__div">
             <h3 id="summary"></h3>
+	    <p>Click the table header to sort data according to that column</p>
           </div>
-          <div class="section__div" id="div_job"></div>
-        </div>
-      </section>
-      <section class="section">
-        <div class="section__inner section__inner--fullwidth">
-          <div class="section__div">
-            <h3 id="sacct_history">Last 3 Days' Jobs on Node</h3>
-            <div id="div_sacct_report"></div>
-          </div>
+          <div class="section__div" id="div_proc"></div>
         </div>
       </section>
     </div>

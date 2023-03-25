@@ -34,6 +34,7 @@
                                       'User':'user','Partition':'partition', 'QOS':'qos','ReqTRES':'tres', 'AllocTRES':'tres'}}
 
           console.log("j_info=", j_info)
+          //create job information table
           if (job)
              //het_job_id, het_job_id_set, het_job_offset
              createNoHeaderTable (job,
@@ -46,6 +47,7 @@
                  display_type,
                  '#div_job_info', 'job_info', filterDict2NestList, cluster)
 
+          // create process table
           if ({worker_proc}) {{
              createMultiTable ({worker_proc}, '#div_worker_proc', {title_list}, {job_id}, false, cluster)
           }}

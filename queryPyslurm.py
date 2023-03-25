@@ -854,6 +854,9 @@ class SlurmEntities:
            qos = self.qos_dict[qos_char]
            gNodeLmt, gCpuLmt, gGpuLmt = SlurmEntities.getQoSTresLimit(qos.get('grp_tres',    MAX_LIMIT)) 
            uNodeLmt, uCpuLmt, uGpuLmt = SlurmEntities.getQoSTresLimit(qos.get('max_tres_pu', MAX_LIMIT))
+        else:
+           gNodeLmt, gCpuLmt, gGpuLmt = MAX_LIMIT, MAX_LIMIT, MAX_LIMIT
+           uNodeLmt, uCpuLmt, uGpuLmt = MAX_LIMIT, MAX_LIMIT, MAX_LIMIT
 
         # group avail
         grpAvailNode = part['avail_nodes_cnt']
@@ -898,14 +901,14 @@ class SlurmEntities:
               usrAvailNode   = min(usrAvailNode, usrAvailCpu)                  # node's upper limit posed by cpu
  
         result.append({'name':pname, 'flag_shared':part['flag_shared'], 
-                             'total_nodes':part['total_nodes'],     'total_cpus':part['total_cpus'],     'total_gpus':part['total_gpus'],       # partition total
-                             'avail_nodes':part['avail_nodes_cnt'], 'avail_cpus':part['avail_cpus_cnt'], 'avail_gpus':part['avail_gpus_cnt'],   # partition avail
-                             'grp_lmt_nodes': gNodeLmt,     'grp_lmt_cpus': gCpuLmt, 'grp_lmt_gpus': gGpuLmt,                                   # group QoS
-                             'grp_alloc_nodes': gNodeCnt,   'grp_alloc_cpus': gCpuCnt,  'grp_alloc_gpus':  gGpuCnt,                             # groupo alloc
-                             'grp_avail_nodes': grpAvailNode,   'grp_avail_cpus': grpAvailCpu,  'grp_avail_gpus':  grpAvailGpu,                             # groupo alloc
-                             'user_lmt_nodes': uNodeLmt,    'user_lmt_cpus': uCpuLmt, 'user_lmt_gpus': uGpuLmt,                                 # user QoS
-                             'user_alloc_nodes': uNodeCnt,  'user_alloc_cpus': uCpuCnt, 'user_alloc_gpus': uGpuCnt,                             # user alloc
-                             'user_avail_nodes':usrAvailNode, 'user_avail_cpus':usrAvailCpu, 'user_avail_gpus':usrAvailGpu})                    # user avail
+                       'total_nodes':part['total_nodes'],     'total_cpus':part['total_cpus'],     'total_gpus':part['total_gpus'],       # partition total
+                       'avail_nodes':part['avail_nodes_cnt'], 'avail_cpus':part['avail_cpus_cnt'], 'avail_gpus':part['avail_gpus_cnt'],   # partition avail
+                       'grp_lmt_nodes': gNodeLmt,     'grp_lmt_cpus': gCpuLmt, 'grp_lmt_gpus': gGpuLmt,                                   # group QoS
+                       'grp_alloc_nodes': gNodeCnt,   'grp_alloc_cpus': gCpuCnt,  'grp_alloc_gpus':  gGpuCnt,                             # groupo alloc
+                       'grp_avail_nodes': grpAvailNode,   'grp_avail_cpus': grpAvailCpu,  'grp_avail_gpus':  grpAvailGpu,                 # groupo alloc
+                       'user_lmt_nodes': uNodeLmt,    'user_lmt_cpus': uCpuLmt, 'user_lmt_gpus': uGpuLmt,                                 # user QoS
+                       'user_alloc_nodes': uNodeCnt,  'user_alloc_cpus': uCpuCnt, 'user_alloc_gpus': uGpuCnt,                             # user alloc
+                       'user_avail_nodes':usrAvailNode, 'user_avail_cpus':usrAvailCpu, 'user_avail_gpus':usrAvailGpu})                    # user avail
 
     return result
 

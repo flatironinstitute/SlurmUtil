@@ -1,0 +1,7 @@
+Cython
+cherrypy
+paho-mqtt
+influxdb
+python-ldap
+pandas
+prophet

@@ -29,7 +29,7 @@ class BrightRelayClient:
         except Exception as e:
             logger.error("Cannot connect to Bright Relay Server {}-{}. Exception {}".format(url, payload, e))
             return int(time.time()), {}
-        print("Return {}".format(r.json()))
+        #print("Return {}".format(r.json()))
         
         return int(time.time()), r.json()
 
@@ -45,7 +45,7 @@ class BrightRelayClient:
                 node_gpu       = ['gpu{}'.format(i) for i in job['gpus_allocated'][node]]
                 rlt[node][jid] = sum([v for k,v in gpuData.items() if k in node_gpu])
 
-        print("Result={}".format(dict(rlt)))
+        #print("Result={}".format(dict(rlt)))
         return ts, dict(rlt)
 
     #return gpu avg on each node in node_list starting from start
@@ -53,7 +53,7 @@ class BrightRelayClient:
         url = "{}/getNodesGPUAvg".format(self.base_url)
         try:
             r     = requests.get(url, params={'nodes':json.dumps(node_list), 'start':start, 'stop':stop})
-            print("Return {}".format(r.json()))
+            #print("Return {}".format(r.json()))
         except Exception as e:
             print("Cannot connect to Bright Relay Server {}. Exception {}".format(url, e))
             return None
@@ -68,7 +68,7 @@ class BrightRelayClient:
             logger.error("Cannot connect to Bright Relay Server {}. Exception {}".format(url, e))
             return None
         d  = r.json()
-        print("type={},data={}".format(type(d),d))
+        #print("type={},data={}".format(type(d),d))
         return d
         
     # get gpu and mem usage history for each node's period defined by {node:[start, stop]}
@@ -80,7 +80,6 @@ class BrightRelayClient:
             logger.error("Cannot connect to Bright Relay Server {}. Exception {}".format(url, e))
             return None
         d  = r.json()
-        print("type={},data={}".format(type(d),d))
         return d
         
 class BrightRestClient:

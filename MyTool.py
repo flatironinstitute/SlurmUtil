@@ -1,7 +1,4 @@
-import csv, sys
-import re
-import collections
-import time
+import csv, re, sys, time
 import operator, pwd,grp,logging,subprocess
 import dateutil.parser
 import _pickle as cPickle
@@ -9,6 +6,12 @@ import os.path
 
 from datetime import datetime, timezone, timedelta
 from logging.handlers import RotatingFileHandler
+
+import collections
+if sys.version_info.major == 3 and sys.version_info.minor >= 10:
+    from collections.abc import MutableMapping
+else:
+    from collections import MutableMapping
 
 THREE_DAYS_SEC    = 3*24*3600
 ONEDAY_SECS       = 24*3600
@@ -219,7 +222,7 @@ def flatten(d, parent_key='', sep='_'):
     for k, v in d.items():
         new_key = parent_key + sep + k if parent_key else k
 
-        if isinstance(v, collections.MutableMapping):
+        if isinstance(v, MutableMapping):
            if v:
               items.extend(flatten(v, new_key, sep=sep).items())
         elif isinstance(v, list):
@@ -229,6 +232,14 @@ def flatten(d, parent_key='', sep='_'):
         else:
            items.append((new_key, v))
     return dict(items)
+
+def flatten1 (d, keys):
+    rlt = {}
+    for key in keys:
+        if not d[key]: continue
+        for k2, v2 in d[key].items():
+            rlt['{}_{}'.format(key, k2)] = v2
+    return rlt
 
 def emptyValue (v):
     return (not v) or (v in ['N/A', 'None', 'NONE', 'UNLIMITED', 'Unknown'])

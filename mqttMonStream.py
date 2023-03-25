@@ -60,15 +60,15 @@ class MQTTReader(threading.Thread):
 class FileWebUpdater(threading.Thread):
     INTERVAL   = 60
 
-    def __init__(self, source, tgt_dir, tgt_url, write_file_flag, extra_pyslurm):
+    def __init__(self, source, tgt_dir, tgt_url, write_file_flag, extra_pyslurm, cfg):
         threading.Thread.__init__(self)
         self.source          = source
         self.hostData_dir    = IndexedHostData(tgt_dir)           # write to files in the data_dir
         self.urls            = tgt_url                            # send update to urls
-        self.time            = time.time()
         self.savNode2TsProcs = DDict(lambda: (-1.0, {}, []))   #host - ts - pid - proc
         self.write_file_flag = write_file_flag
         self.extra_pyslurm   = extra_pyslurm
+        self.config          = cfg
         logger.info("Start FileWebUpdater with tgt_dir={}, urls={}, extra_pyslurm={}, write_file_flag={}".format(tgt_dir, self.urls, extra_pyslurm, write_file_flag))
 
     def run(self):
@@ -76,17 +76,14 @@ class FileWebUpdater(threading.Thread):
         while True:
             msgs       = self.source.retrieveMsgs()
             if msgs:
-               curr_ts    = time.time()
-               #slurmJobs  = pyslurm.job().get()
-               #slurmNodes = pyslurm.node().get()
+               curr_ts     = int(time.time())
                pyslurmData = self.getPyslurmData ()
                self.dealData (curr_ts, msgs, pyslurmData)
-
             time.sleep(self.INTERVAL)
 
     def getPyslurmData (self):
+        pyslurm.slurm_init()
         if self.extra_pyslurm:
-           pyslurm.slurm_init()
            pyslurmData    = {'jobs':pyslurm.job().get(), 'nodes':pyslurm.node().get(), 'partition':pyslurm.partition().get(), 'qos':pyslurm.qos().get(), 'reservation':pyslurm.reservation().get(), 'extra_pyslurm':True}
         else:
            pyslurmData    = {'jobs':pyslurm.job().get(), 'nodes':pyslurm.node().get(), 'extra_pyslurm':False}
@@ -125,7 +122,7 @@ class FileWebUpdater(threading.Thread):
             IOBps   = int((proc['io']['read_bytes']+proc['io']['write_bytes'] - i0)/d)
 
             #add jid 12/09/2019, add io_read, write 12/13/2019
-            proc_lst = [pid, CPURate, proc['create_time'], proc['cpu']['user_time'], proc['cpu']['system_time'], proc['mem']['rss'], proc['mem']['vms'], proc['cmdline'], IOBps, proc['jid'], proc['num_fds'], proc['io']['read_bytes'], proc['io']['write_bytes'], proc['uid']]
+            proc_lst = [pid, CPURate, proc['create_time'], proc['cpu']['user_time'], proc['cpu']['system_time'], proc['mem']['rss'], proc['mem']['vms'], proc['cmdline'], IOBps, proc['jid'], proc['num_fds'], proc['io']['read_bytes'], proc['io']['write_bytes'], proc['uid'], proc['num_threads']]
             uid2procs[proc['uid']].append(proc_lst)
 
         # get summary over processes of uid
@@ -139,62 +136,63 @@ class FileWebUpdater(threading.Thread):
             
         return procsByUser
 
+    def getPreData (self, hostname, host_msgs):
+        pre_ts, pre_procs, pre_nodeUserProcs = self.savNode2TsProcs[hostname]
+        if len(host_msgs) > 1: 
+           older_msg = host_msgs[-2]
+           older_ts  = older_msg['hdr']['msg_ts']
+           if (older_ts > pre_ts) and ( older_ts < host_msgs[-1]['hdr']['msg_ts'] ):  #saved value is older
+              pre_ts            = older_ts
+              pre_procs         = dict([(proc['pid'], proc) for proc in older_msg['processes']]) 
+        return pre_ts, pre_procs
+
+    def savPreData (self, hostname, msg_ts, msg_procs, nodeUserProcs):
+        self.savNode2TsProcs[hostname] = (msg_ts, msg_procs, nodeUserProcs)
+
     def dealData(self, ts, msgs, pyslurmData):
-        # faciliated data structure
-        slurmJobs       = pyslurmData['jobs']
+        print("dealData")
         slurmNodes      = pyslurmData['nodes']
-        node2uid2cpuCnt = self.getUserAllocCPUOnNode(slurmJobs)
-
-        nodeUserProcs = {} #node:state, delta, ts, [user, procs] 
+        node2uid2cpuCnt = self.getUserAllocCPUOnNode(pyslurmData['jobs'])
+        nodeUserProcs   = {} # reported data {node: [state, delta, ts, [user, procs]]} 
         #update the information using msg
-        for hostname, slurmNode in slurmNodes.items(): # need to generate a record for every host to reflect current
-                                  # SLURM status, even if we don't have a msg for it.
-            pre_ts, pre_procs, pre_nodeUserProcs = self.savNode2TsProcs[hostname]
-            if (hostname not in msgs) or (pre_ts >= msgs[hostname][-1]['hdr']['msg_ts']):
-               logger.debug ("No new data of {}. Use previous data at {}".format(hostname, MyTool.getTsString(pre_ts)))
-               if hostname in msgs:
-                  msgs.pop(hostname)
-                  logger.debug ("\tIgnore the incoming older data at {}.".format(MyTool.getTsString(msg['hdr']['msg_ts']))) 
-               if pre_ts != -1:
-                  nodeUserProcs[hostname] = pre_nodeUserProcs
-               else:
-                  nodeUserProcs[hostname] = [slurmNode.get('state', '?STATE?'), 0.0, ts]
-            else: #hostname in msgs:
-               host_msgs = msgs.pop(hostname)
-               msg       = host_msgs[-1]               # get the latest message
-               msg_ts    = msg['hdr']['msg_ts']
-               msg_procs = dict([(proc['pid'], proc) for proc in msg['processes']]) 
-               if len(host_msgs) > 1: 
-                  pre_msg = host_msgs[-2]
-                  if (pre_ts < pre_msg['hdr']['msg_ts']) and (pre_msg['hdr']['msg_ts'] < msg_ts):  #saved value is older
-                     pre_ts   = pre_msg['hdr']['msg_ts']
-                     pre_procs= dict([(proc['pid'], proc) for proc in pre_msg['processes']]) 
+        for hostname in list(msgs.keys()):
+            slurmNode   = slurmNodes.get(hostname, None)
+            if self.config.get('slurmOnly', True) and not slurmNode:
+               print("skip no-slurm node {}".format(hostname))
+               continue
+            slurm_state = slurmNode.get('state', '?STATE?') if slurmNode else 'NO_SLURM'
+            host_msgs   = msgs.pop(hostname)
+            msg         = host_msgs[-1]               # get the latest message
+            msg_ts      = msg['hdr']['msg_ts']
+            msg_procs   = dict([(proc['pid'], proc) for proc in msg['processes']]) 
+            pre_ts, pre_procs = self.getPreData(hostname, host_msgs)
+            delta       = 0.0 if -1.0 == pre_ts else msg_ts - pre_ts
+            procsByUser = self.getProcsByUser (hostname,msg_ts,msg_procs,pre_ts,pre_procs,node2uid2cpuCnt.get(hostname,{}))
+            nodeUserProcs[hostname] = [slurm_state, delta, msg_ts] + procsByUser
+            self.savPreData (hostname, msg_ts, msg_procs, nodeUserProcs[hostname])
 
-               delta                   = 0.0 if -1.0 == pre_ts else msg_ts - pre_ts
-               procsByUser             = self.getProcsByUser (hostname,msg_ts,msg_procs,pre_ts,pre_procs,node2uid2cpuCnt.get(hostname,{}))
-               nodeUserProcs[hostname] = [slurmNode.get('state', '?STATE?'), delta, msg_ts] + procsByUser
-               # upate savNode2TsProcs
-               self.savNode2TsProcs[hostname] = (msg_ts, msg_procs, nodeUserProcs[hostname])
+            #save information to files
+            #logger.debug("writeData {}:{}".format(ts, hostname)) 
+            if self.write_file_flag:
+               self.hostData_dir.writeData(hostname, ts, nodeUserProcs[hostname])
+            else:
+               logger.debug("simulate write to file")
 
-               #save information to files
-               #logger.debug("writeData {}:{}".format(ts, hostname)) 
-               if self.write_file_flag:
-                  self.hostData_dir.writeData(hostname, ts, nodeUserProcs[hostname])
-               else:
-                  logger.debug("simulate write to file")
-
-        self.discardMessage(msgs)
         self.sendUpdate    (ts, nodeUserProcs, pyslurmData)
+        self.discardMessage(msgs)
 
     def sendUpdate (self, ts, hn2data, pyslurmData):
+        if not self.config.get("sendUpdate", True):
+           print ("send data: \n{}\n{}".format(ts, hn2data.keys()))
+           return
+
         for url in self.urls:
            logger.info("compress sent data");
            zps = zlib.compress(cPickle.dumps((ts, hn2data, pyslurmData), -1))
-	   #zps = zlib.compress(cPickle.dumps((ts, hn2data, {}), -1))
            try:
                logger.debug("sendUpdate to {}".format(url))
                resp = urllib2.urlopen(urllib2.Request(url, zps, {'Content-Type': 'application/octet-stream'}))
-               logger.debug("{}:{}: sendUpdate to {} with return code {}".format(threading.currentThread().ident, MyTool.getTsString(ts), url, resp))
+               logger.debug("{}:{}: sendUpdate to {} with return code {}".format(threading.current_thread().ident, MyTool.getTsString(ts), url, resp))
            except Exception as e:
                body = e
                logger.error( 'Failed to update slurm data {}: {}\n{}'.format(url, e, body))
@@ -206,28 +204,30 @@ class FileWebUpdater(threading.Thread):
             h, value = msgs.popitem()
             hdiscard  += 1
             mmdiscard += len(value)
-        if hdiscard: logger.info('Discarding %d messages from %d hosts (e.g., %s)'%(mmdiscard, hdiscard, h))
+        if hdiscard: 
+           logger.info('Discarding %d messages from %d hosts (e.g., %s)'%(mmdiscard, hdiscard, h))
+           print('Discarding %d messages from %d hosts (e.g., %s)'%(mmdiscard, hdiscard, h))
 
-def main(uiServer, mqtt_dict, extra_pyslurm):
+def main(uiServer, mqtt_dict, extra_pyslurm, cfg):
     source = MQTTReader (mqtt_dict['host'])
     source.start()
     time.sleep(5)
-    app    = FileWebUpdater(source, mqtt_dict['file_dir'], uiServer, mqtt_dict['writeFile'], extra_pyslurm)
+    app    = FileWebUpdater(source, mqtt_dict['file_dir'], uiServer, mqtt_dict['writeFile'], extra_pyslurm, cfg)
     app.start()
 
 if __name__=="__main__":
    #Usage: python mqttMonStream.py 
    parser = argparse.ArgumentParser (description='Start a deamon to save mqtt and pyslurm information in file and report to user interface.')
    parser.add_argument('-c', '--configFile',  help='The name of the config file.')
-   args   = parser.parse_args()
-   configFile   = args.configFile
+   args       = parser.parse_args()
+   configFile = args.configFile
    if configFile:
       config.readConfigFile(configFile)
    cfg   = config.APP_CONFIG
    f_dir = cfg["mqtt"]["file_dir"]
    if f_dir and not os.path.isdir(f_dir):
       os.mkdir(f_dir)
-   main(cfg['ui']['urls'], cfg['mqtt'], cfg['ui']['extra_pyslurm_data'])
+   main(cfg['ui']['urls'], cfg['mqtt'], cfg['ui']['extra_pyslurm_data'], cfg["mqtt"])
 
  
 

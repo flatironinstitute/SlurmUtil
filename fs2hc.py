@@ -10,10 +10,10 @@ logger = config.logger
 
 FileSystems = {
     # name: Label, path to directory, suffix for summary data file, uid_idx, filecount_idx, bytecount_idx, filename_regular_exp
-    'ceph_users': ['Ceph Users', '/mnt/xfs1/home/carriero/projects/fileCensus/cephdata', '_full.sum', 0, 3, 4, '(\d{8})_full.sum'],
-    'ceph_full':  ['Ceph Full',  '/mnt/xfs1/home/carriero/projects/fileCensus/cephdata', '_full.sum', 0, 1, 2, '(\d{8})_full.sum'],
-    'home':       ['Home',       '/mnt/xfs1/home/carriero/projects/fileCensus/data',     '_full.sum', 0, 3, 4, '(\d{8})_.*_full.sum'],
-    'xfs1':       ['xfs1',       '/mnt/xfs1/home/carriero/projects/fileCensus/data',     '_full.sum', 0, 1, 2, '(\d{8})_.*_full.sum'],
+    'ceph_users': ['Ceph Users', '/mnt/home/carriero/projects/fileCensus/cephdata', '_full.sum', 0, 3, 4, '(\d{8})_full.sum'],
+    'ceph_full':  ['Ceph Full',  '/mnt/home/carriero/projects/fileCensus/cephdata', '_full.sum', 0, 1, 2, '(\d{8})_full.sum'],
+    'home':       ['Home',       '/mnt/home/carriero/projects/fileCensus/data',     '_full.sum', 0, 3, 4, '(\d{8})_.*_full.sum'],
+    'xfs1':       ['xfs1',       '/mnt/home/carriero/projects/fileCensus/data',     '_full.sum', 0, 1, 2, '(\d{8})_.*_full.sum'],
 }    
 
 def anonimize(s):
@@ -139,6 +139,7 @@ def gendata_all(fs, start='', stop='', topN=5):
         
     return uid2seq1, uid2seq2
 
+#gendata with date, whether anonomys and delta_day
 #return {fs_name: data}
 def gendata(yyyymmdd, anon=False, delta_day=1):
     users = MyTool.getAnsibleUsers(config.CSV_DIR)
@@ -164,19 +165,22 @@ def minus_list (lst1, lst2):
        return lst1
     return [lst1[i]-lst2[i] for i in range(len(lst1))]
 
-#return data for a specific filesystem fs
+#return data for a specific filesystem fs [label, data_list, yyyymmdd]
 def gendata_fs(yyyymmdd, fs, ansible_users={}, anon=False, delta_day=1):
     if fs not in FileSystems: 
-       return 'Unknown file system: {}'.format(fs)
+       return ['Unknown file system: {}'.format(fs), [], yyyymmdd]
 
     label, dataDir, suffix, uidx, fcx, bcx, rge = FileSystems[fs]
     ff  = sorted(glob.glob(dataDir+'/2*'+suffix))
+    if len(ff) == 0:
+        return ['No file under {}/2*{}'.format(dataDir, suffix), [], yyyymmdd]
+
     idx = 0
     for x, f in enumerate(ff):
         if yyyymmdd in os.path.basename(f):  #filename without dir
             idx = x
             break
-    else: 
+    else: # after for loop without break 
         idx      = len(ff)-1
         logger.warning('Date {}:{} not found. Use most recent {} instead.'.format(fs, yyyymmdd, ff[-1]))
         yyyymmdd = getDateFromFileName(rge, os.path.basename(ff[-1]))

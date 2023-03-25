@@ -1,19 +1,20 @@
 import cherrypy
 import os,sys
-import config, queryLDAP
+import config
+#import queryLDAP
 from cherrypy.lib import auth_digest
 from SlurmMonitorUI   import SLURMMonitorUI
 from SlurmMonitorData import SLURMMonitorData
 
 #not used 
-def validate_password(realm, username, passwd):
-    cherrypy.session['user']=username
-    if queryLDAP.ldap_validate(username, passwd):
-       # if user's setting file exist, get it, otherwise set to default one
-       cherrypy.session['settings'] = config.getUserSettings(username)
-       return True
-    else:
-       return False
+#def validate_password(realm, username, passwd):
+#    cherrypy.session['user']=username
+#    if queryLDAP.ldap_validate(username, passwd):
+#       # if user's setting file exist, get it, otherwise set to default one
+#       cherrypy.session['settings'] = config.getUserSettings(username)
+#       return True
+#    else:
+#       return False
 
 def error_page_500(status, message, traceback, version):
     return "Error %s - Well, I'm very sorry but the page your requested is not implemented!" % status

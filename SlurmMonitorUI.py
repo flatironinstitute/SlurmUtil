@@ -984,19 +984,22 @@ class SLURMMonitorUI(object):
         monData = self.monDataDict[cluster]
         if not monData.hasData():
            return self.getWaitMsg() # error of some sort.
-        nodeData    = monData.getNodeProc(node)
-        if not nodeData:
-           return "Node {} is not a slurm node".format(node)
+        f_slurm, nodeData= monData.getNodeProc(node)
 
-        nodeReport     = SlurmCmdQuery.getNodeDoneJobReport(node, days=3)
-        array_het_jids = [ job['JobID'] for job in nodeReport if '_' in job['JobID'] or '+' in job['JobID']]
-
-        htmlTemp       = os.path.join(config.APP_DIR, 'nodeDetail.html')
-        htmlStr        = open(htmlTemp).read().format(cluster        = json.dumps(cluster),
-                                                      update_time    = MyTool.getTsString(nodeData['updateTS']),
+        if f_slurm:
+           nodeReport     = SlurmCmdQuery.getNodeDoneJobReport(node, days=3)
+           array_het_jids = [ job['JobID'] for job in nodeReport if '_' in job['JobID'] or '+' in job['JobID']]
+           htmlTemp       = os.path.join(config.APP_DIR, 'nodeDetail.html')
+           htmlStr        = open(htmlTemp).read().format(cluster        = json.dumps(cluster),
+                                                      update_time    = MyTool.getTsString(nodeData['updateTS']) if nodeData['updateTS'] else 'NotDefined',
                                                       node_data      = json.dumps(nodeData),
                                                       array_het_jids = array_het_jids,
                                                       node_report    = nodeReport)
+        else:
+           htmlTemp       = os.path.join(config.APP_DIR, 'nodeDetail_noSlurm.html')
+           htmlStr        = open(htmlTemp).read().format(cluster        = json.dumps(cluster),
+                                                      update_time    = MyTool.getTsString(nodeData['updateTS']) if nodeData['updateTS'] else 'NotDefined',
+                                                      node_data      = json.dumps(nodeData))
         return htmlStr
 
     def getUserDoneJob (self, user, cluster, days):
@@ -1079,6 +1082,7 @@ class SLURMMonitorUI(object):
            if monData.hasData():
               user_jobs     = ins.getUserJobsByState (uid)  # can also get from sacct -u user -s 'RUNNING, PENDING'
               logger.info ("{} user {} {} jobs={}".format(cluster, user, uid, user_jobs))
+              userAssoc['note'] = ''
               self.updateUserAssoc(userAssoc, user_jobs)
            else:
               user_jobs     = []
@@ -1223,17 +1227,22 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def jobDetails(self, jid, cluster="Rusty"):
+        monData       = self.monDataDict[cluster]
+        if not monData.hasData():   #Allow popeye data to be empty
+           return self.getNoDataPage ('Input Search', 'inputSearch')
+
         if ',' in jid: jid         = jid.split(',')[0]
         jid           = int(jid)
         ts            = int(time.time())
         msg_note      = ""
 
         # get job from pyslurm
-        monData       = self.monDataDict[cluster]
         job           = monData.pyslurmJobs.get(jid,None)
         # if not an active job, try to query pyslurmdb
         if not job:      # not an active job
-           job        = PyslurmQuery.getSlurmDBJob(jid, cluster=cluster)
+           logger.info("Job {} is not an running job".format(jid))
+           job        = PyslurmQuery.getSlurmDBJob(jid, cluster=cluster)         # convert db job fields
+           logger.info("\t{}".format(job))
            msg_note   = msg_note + "Cannot find job {} of cluster {} from pyslurm. ".format(jid, cluster)
         if not job:
            msg_note   = msg_note + "Cannot find job {} of cluster {} from pyslurmdb. ".format(jid, cluster)
@@ -1247,6 +1256,7 @@ class SLURMMonitorUI(object):
         job_report['HeterogeneousJobID'] = job_report['JobID'] if '+' in job_report['JobID'] else None
 
         # get job process information
+        logger.info("Job report {}".format(job_report))
         worker2proc    = {}
         proc_disp_field= []
         if job and job['job_state'] == 'RUNNING':              #running job's proc is in self.data
@@ -1260,7 +1270,8 @@ class SLURMMonitorUI(object):
                  else:
                     if len(worker2proc) != job['num_nodes']:
                        msg_note+='WARNING: Job {} is running on {} nodes, which is less than {} allocated nodes.'.format(jid, len(worker2proc), job['num_nodes'])
-        elif (not job) or (job['job_state'] != 'PENDING'):             #job is not running or pending
+        elif (not job) or (job['job_state'] != 'PENDING'):             #job is not running or not pending
+               logger.info("getDoneJobProc {}".format(jid))
                proc_disp_field, worker2proc, note = self.getDoneJobProc(jid, job_report, cluster=cluster)   #get result from influx
                msg_note += note
 
@@ -1280,6 +1291,7 @@ class SLURMMonitorUI(object):
         else:
            proc_cnt   = 0
 
+        logger.info("prepare html")
         htmlTemp   = os.path.join(config.APP_DIR, 'jobDetail.html')
         htmlStr    = open(htmlTemp).read().format(cluster    = cluster,
                                                   job_id     = jid,
@@ -1479,8 +1491,9 @@ class SLURMMonitorUI(object):
         queryRlt     = influxClient.getJobMonData_hc(jobid, start, stop)
         return queryRlt
 
-    def jobGraph_cache(self, jobid, start=None, stop=None, cluster="Rusty"):
-        jobid  = int(jobid)
+    @cherrypy.expose
+    def jobGraph_cache(self, jid, start=None, stop=None, cluster="Rusty"):
+        jobid  = int(jid)
         #job, cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes= self.monData.inMemCache.queryJob(jobid)
         jobRlt = self.monDataDict[cluster].inMemCache.queryJob(jobid, start, stop)
 

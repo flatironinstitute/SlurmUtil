@@ -517,13 +517,14 @@ class InfluxQueryClient:
         t1=time.time()
 
         #execute query, returned time is local timestamp, epoch is for returned result, not for query
+        logger.info("influxdb query {}".format(query))
         try:
            query_rlt = self.influx_client.query(query, epoch=epoch) 
         except Exception as e:
            logger.error("ERROR: influxdb query exception {}, query={}, epoch={}".format(query, e, query, epoch))
            return None
 
-        logger.debug("influxdb query {} take time {}, return {} key".format(query, time.time()-t1, query_rlt.keys()))
+        logger.debug("\ttake time {}, return {} key".format(time.time()-t1, query_rlt.keys()))
         return query_rlt
 
     def queryJobNodeProcess ():
@@ -602,6 +603,7 @@ def test7():
 def main():
     t1=time.time()
     InfluxQueryClient.daily()
+    #test1('worker1000')
 	
     print("main take time " + str(time.time()-t1))
 
