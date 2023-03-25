@@ -134,13 +134,12 @@ class BrightRestClient:
         return ts, r.json().get('data', [])
         
     # query bright all gpu data 
-    def _getAllGPU_raw (self, max_gpu_cnt=4, intervalFlag=False):
+    def _getAllGPU_raw (self, max_gpu_cnt=32, intervalFlag=False):
         ts       = int(time.time())
         if (int(ts)- self.gpu_ts) < 60:
             logger.info ("less than 60 seconds from last query, return saved gpu data")
             return self.gpu_ts, self.gpu_data
 
-        #measures = ','.join(['gpu_utilization:gpu{}'.format(i) for i in range(max_gpu_cnt)])
         if intervalFlag:
            intervals= self.gpu_avg_period* 6            # bright returns one sample per 10 seconds at most, use intervals will leave None at the end, this is for comparison and test purpose 
            q_str    = 'dump?measurable=gpu_utilization:gpu[0-9]&start=-{}m&intervals={}'.format(self.gpu_avg_period,intervals)
@@ -162,99 +161,10 @@ class BrightRestClient:
         return ts, dict(d)
 
     # query bright gpu data on node_list
-    def _getGPU_raw (self, node_list, start_ts, max_gpu_cnt=4):
+    def _getGPU_raw (self, node_list, start_ts, max_gpu_cnt=32):
         start    = time.time()
 
         entities = ','.join(node_list)
-        #measures = ','.join(['gpu_utilization:gpu{}'.format(i) for i in range(max_gpu_cnt)])
-        q_str    = 'dump?entity={}&measurable=gpu_utilization:gpu[0-9]&start={}'.format(entities,int(start_ts))
-        ts, q_rlt= self.query(q_str)
-
-class BrightRestClient:
-    _instance        = None
-
-    @staticmethod
-    def getInstance (url_input=None, gpu_avg_period=gpu_avg_period):
-        if BrightRestClient._instance == None:
-           BrightRestClient (url_input)
-        ins = BrightRestClient._instance
-        
-        return ins
-
-    def __init__(self, url_input=None, gpu_avg_period=gpu_avg_period):
-        #? use session
-        if BrightRestClient._instance != None:
-           raise Exception("This class is a singleton!")
-        else:
-           self.base_url  = bright_url if not url_input else url_input
-           print("URL is {}".format(self.base_url))
-           self.cert      = bright_cert
-           self.gpu_ts    = 0        # cache data of getAllGPUAvg
-           self.gpu_data  = None
-           self.gpu_avg_period=gpu_avg_period
-           BrightRestClient._instance = self
-  
-    def set_gpu_avg_period (self, m):
-        self.gpu_avg_period= m
-        self.gpu_ts     = 0      # 
-
-    #latest compared with dump, dump, then average, is easier to get consistent result
-    #r = requests.get('https://ironbcm:8081/rest/v1/monitoring/latest?measurable=gpu_utilization:gpu0', verify=False, cert=('/mnt/home/yliu/projects/bright/prometheus.cm/cert.pem', '/mnt/home/yliu/projects/bright/prometheus.cm/cert.key'))
-    #r = requests.get('https://ironbcm:8081/rest/v1/monitoring/dump?entity={}&measurable=gpu_utilization:{}&start=-{}h'.format(node,gpuId,hours), verify=False, cert=cert_files)
-    #REST API: page 56 of https://support.brightcomputing.com/manuals/9.0/developer-manual.pdf
-    #Fixed time format: [YY/MM/DD]HH:MM[:SS], enclised in double quotes, unix epoch time
-    #                   now
-    #                   realtive time: startime can use "-" (earlier than the fixed end time), endtime can use "+" (time later to the fixed start time), seconds(s), minutes(m), hours(h), days(d)
-    #[{'entity': 'workergpu16', 'measurable': 'gpu_utilization:gpu0', 'raw': 0.3096027944984667, 'time': 1584396000000, 'value': '31.0%'},
-    # intervals=0 (default, = raw data), that is  
-
-    def query (self, query):
-        ts       = int(time.time())
-        q_str    = '{}/{}&epoch=1'.format(self.base_url,query)
-                              #epoch: time stamp as unix epoch
-
-        logger.info("query_str={}".format(q_str))
-        try:
-           r     = requests.get(q_str, verify=False, cert=self.cert)
-        except Exception as e:
-           logger.error("Cannot connect to Bright. Exception {}".format(e))
-           return ts, []
-        return ts, r.json().get('data', [])
-        
-    # query bright all gpu data 
-    def _getAllGPU_raw (self, max_gpu_cnt=4, intervalFlag=False):
-        ts       = int(time.time())
-        if (int(ts)- self.gpu_ts) < 60:
-            logger.info ("less than 60 seconds from last query, return saved gpu data")
-            return self.gpu_ts, self.gpu_data
-
-        #measures = ','.join(['gpu_utilization:gpu{}'.format(i) for i in range(max_gpu_cnt)])
-        if intervalFlag:
-           intervals= self.gpu_avg_period* 6            # bright returns one sample per 10 seconds at most, use intervals will leave None at the end, this is for comparison and test purpose 
-           q_str    = 'dump?measurable=gpu_utilization:gpu[0-9]&start=-{}m&intervals={}'.format(self.gpu_avg_period,intervals)
-        else:
-           # intervals=0 (default, = raw data), that is  
-           q_str    = 'dump?measurable=gpu_utilization:gpu[0-9]&start=-{}m'.format(self.gpu_avg_period)
-                              #epoch: time stamp as unix epoch
-        
-        ts, q_rlt = self.query(q_str)
-
-        # divide raw data by node and gpu
-        d     = defaultdict(lambda:defaultdict(list)) 
-        for item in q_rlt:
-            gpu_id   = item['measurable'].split(':')[1]  # remove gpu_utilization: gpu0, gpu1...
-            d[gpu_id][item['entity']].append(item)
-
-        self.gpu_ts, self.gpu_data = ts, dict(d)
-        logger.debug("query take time {}".format(time.time()-ts))
-        return ts, dict(d)
-
-    # query bright gpu data on node_list
-    def _getGPU_raw (self, node_list, start_ts, max_gpu_cnt=4):
-        start    = time.time()
-
-        entities = ','.join(node_list)
-        #measures = ','.join(['gpu_utilization:gpu{}'.format(i) for i in range(max_gpu_cnt)])
         q_str    = 'dump?entity={}&measurable=gpu_utilization:gpu[0-9]&start={}'.format(entities,int(start_ts))
         ts, q_rlt= self.query(q_str)
         
@@ -301,7 +211,7 @@ class BrightRestClient:
     # get all gpu data on node_list, return avg util of last {minutes} minutes
     # reture ['query_time': , {'gpu0':{'workergpu00':0.34 ... },} ]
     # called by index and heatmap
-    def getLatestGPUAvg (self, node_list, minutes=gpu_avg_period, max_gpu_cnt=4, intervalFlag=False):
+    def getLatestGPUAvg (self, node_list, minutes=gpu_avg_period, max_gpu_cnt=32, intervalFlag=False):
         if (minutes != self.gpu_avg_period):
            self.set_gpu_avg_period (minutes)
 
@@ -322,7 +232,7 @@ class BrightRestClient:
     #node_dict {'workergpu00':{'gpu0':job}...}
     #called by index
     #return gpu avg for the job running time
-    def getAllGPUAvg_jobs (self, node_dict, start_ts, max_gpu_cnt=4):
+    def getAllGPUAvg_jobs (self, node_dict, start_ts, max_gpu_cnt=32):
         ts,d  = self._getGPU_raw (list(node_dict.keys()), start_ts, max_gpu_cnt)
 
         rlt   = defaultdict(lambda:defaultdict(int))
@@ -340,7 +250,7 @@ class BrightRestClient:
         return self.getGPU([node], start_ts, gpu_list, msec=msec)
 
     #called by queryGPU.py
-    def getGPU (self, node_list, start_ts, gpu_list=[], max_gpu_id=3, msec=True):
+    def getGPU (self, node_list, start_ts, gpu_list=[], max_gpu_id=32, msec=True):
         nodes     = ','.join(node_list)
         if not gpu_list:
            gpu_list = list(range(0, max_gpu_id+1))

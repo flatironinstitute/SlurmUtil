@@ -1608,6 +1608,7 @@ class SLURMMonitorUI(object):
         stop      = int(time.time())
         start     = stop - hours * ONE_HOUR_SECS
         gm_data   = self.bright1.getNodesGPULoad([node], start)
+        print("gm_data={}".format(gm_data))
         series    = defaultdict(list)
         for measure, m_data in gm_data.items():
           for node, node_data in m_data.items():
@@ -1821,19 +1822,32 @@ class SLURMMonitorUI(object):
         htmlStr    = open(htmlTemp).read().format(users=userLst, jobs=jobLst, nodes=nodeLst, partitions=partLst,qos=qosLst)
         return htmlStr
 
+    def getJobGPUData (self, cluster, monData, hours=1):
+        if cluster == "Rusty":
+           gpu_nodes, max_gpu_cnt = monData.getCurrJobGPUNodes()
+           return self.bright1.getNodesGPUAvg(list(gpu_nodes), start=int(time.time()-hours*3600))
+        else:
+           return {}
+        
     @cherrypy.expose
     def bulletinboard(self):
-        bbData = {}
+        bbData       = {}
+        luj_settings = sessionConfig.getSetting('low_util_job')
         for cluster, monData in self.monDataDict.items():
+          gpuData   = self.getJobGPUData(cluster, monData)
           if monData.hasData():
-           update_time= monData.updateTS
-           low_util   = self.getLongrunLowUtilJobs(monData)
-           # node with low resource utlization
-           low_nodes  = monData.getLowUtilNodes()
+            update_time  = monData.updateTS
+            jobs         = monData.getCurrLUJobs (gpuData, luj_settings)
+            BulletinBoard.setLowUtilJobMsg (jobs)
+            low_util     = list(jobs.values())
+            # node with low resource utlization
+            low_nodes  = monData.getLowUtilNodes()
           else:
-           update_time= int(time.time())
-           low_util   = [{'name':self.getWaitMsg()}]
-           low_nodes  = [{'name':'', 'low_util_msg':self.getWaitMsg()}]
+            update_time= int(time.time())
+            low_util   = [{'name':self.getWaitMsg()}]
+            low_nodes  = [{'name':'', 'low_util_msg':self.getWaitMsg()}]
+
+
           other      = monData.inMemLog.getAllLogs () #[{'source':'', 'ts':'','msg':''}]
           bbData[cluster] = [update_time, low_util, low_nodes, other]
 

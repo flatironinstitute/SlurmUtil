@@ -250,6 +250,7 @@ class SLURMMonitorData(object):
         #return nodeLabel, gpus, state
         return rlt
 
+    # return (gpu_nodes, max_gpu_cnt)
     def getCurrJobGPUNodes (self):
         return PyslurmQuery.getJobGPUNodes(self.currJobs, self.pyslurmNodes)
 
@@ -365,23 +366,39 @@ class SLURMMonitorData(object):
             low_nodes.append({'name':nm, 'msg':'Node is allocated to job {} of user {}. The average cpu utilization is {} and the average memory utiization is {}.'.format([job['job_id'] for job in jobs], u_lst, avg_util, avg_mem)})
         return low_nodes
 
-    def getCurrLUJobs (self, luj_settings):
-        if self.updateTS == self.checkTS:
+    # return the low util jobs with settings
+    def getCurrLUJobs (self, gpu_data, luj_settings):
+        if self.updateTS == self.checkTS:   # check already
            return self.checkResult
         else:
            self.checkTS     = self.updateTS
-           result = SLURMMonitorData.getLowUtilJobs(self.updateTS, self.currJobs, luj_settings['cpu']/100, luj_settings['run_time_hour']*3600, luj_settings['alloc_cpus'], luj_settings['mem']/100)
+           result = SLURMMonitorData.getLowUtilJobs(self.updateTS, self.currJobs, gpu_data, luj_settings)
+           #, luj_settings['cpu']/100, luj_settings['run_time_hour']*3600, luj_settings['alloc_cpus'], luj_settings['mem']/100)
            self.checkResult = result
            return result
 
-    def getLowUtilJobs (ts, jobs, low_util, lmt_period, lmt_num_cpus, low_mem, exclude_acct=['scc']):
+    def getLowUtilJobs (ts, jobs, gpu_data, lmt_settings, exclude_acct=['scc']):
         #check and locate those jobs in question
         result = {}            # return {jid:job,...}
         for jid, job in jobs.items():
+            if job['account'] in exclude_acct: continue  # 
             period = ts - job['start_time']
-            if (period > lmt_period) and (job.get('num_cpus',1)>lmt_num_cpus) and (job['job_avg_util'] < low_util) and (job['job_mem_util']<low_mem) and (job['job_inst_util'] < low_util) and (job['account'] not in exclude_acct):
+            if period                < lmt_settings['run_time_hour']*3600: continue    # short job
+            if job.get('num_cpus',1) < lmt_settings['alloc_cpus']:         continue    # small job 
+            if (job['job_avg_util']  > lmt_settings['cpu']/100) or (job['job_mem_util']  > lmt_settings['mem']/100) or (job['job_inst_util'] > lmt_settings['cpu']/100): 
+               continue
+            if not job['gpus_allocated']: 
+               job['gpu_avg_util'] = 0
                result[job['job_id']] = job
-            #if job is allocated gpu, check gpu util low
+            else:
+               #if job is allocated gpu, check gpu util low
+               for node, gpu_lst in job['gpus_allocated'].items():
+                   gpu_keys = ["gpu{}".format(g) for g in gpu_lst]
+                   gpu_sum  = sum([gpu_data[node][k] for k in gpu_keys])
+                   gpu_avg  = gpu_sum / len(gpu_lst)
+                   job['gpu_avg_util'] = gpu_avg
+                   if gpu_avg < lmt_settings['gpu']/100:
+                       result[job['job_id']] = job
 
         return result
 
