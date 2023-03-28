@@ -8,6 +8,7 @@ import pandas
 from EmailSender     import JobNoticeSender
 from querySlurm      import SlurmCmdQuery
 from queryPyslurm    import PyslurmQuery
+from queryBright     import BrightRelayClient
 
 import config, sessionConfig
 import MyTool
@@ -51,6 +52,7 @@ class SLURMMonitorData(object):
         self.checkResult       = {}                   # ts: {}
         self.jobNoticeSender   = JobNoticeSender()
         self.lock              = threading.Lock()
+        self.bright1           = BrightRelayClient()
         logger.info("Create SLURMMonitorData {}".format(self.cluster))
 
     def hasData (self):
@@ -388,7 +390,8 @@ class SLURMMonitorData(object):
             if (job['job_avg_util']  > lmt_settings['cpu']/100) or (job['job_mem_util']  > lmt_settings['mem']/100) or (job['job_inst_util'] > lmt_settings['cpu']/100): 
                continue
             if not job['gpus_allocated']: 
-               job['gpu_avg_util'] = 0
+               job['gpu_avg_util'] = -1
+               job['remained_time_str']= MyTool.time_sec2str(job['time_limit']*60 - job['run_time'])
                result[job['job_id']] = job
             else:
                #if job is allocated gpu, check gpu util low
@@ -398,6 +401,7 @@ class SLURMMonitorData(object):
                    gpu_avg  = gpu_sum / len(gpu_lst)
                    job['gpu_avg_util'] = gpu_avg
                    if gpu_avg < lmt_settings['gpu']/100:
+                       job['remained_time_str']= MyTool.time_sec2str(job['time_limit']*60 - job['run_time'])
                        result[job['job_id']] = job
 
         return result
@@ -475,16 +479,29 @@ class SLURMMonitorData(object):
             if ts < (update_ts - ONE_DAY_SECS):
                noslurm.pop(node, ())
         
+    #get avg GPU util of all running jobs' GPU nodes for last n hours
+    @cherrypy.expose
+    def getJobGPUData (self, hours=1):
+        if self.cluster == "Rusty":
+           gpu_nodes, max_gpu_cnt = self.getCurrJobGPUNodes()
+           return self.bright1.getNodesGPUAvg(list(gpu_nodes), start=int(time.time()-hours*3600))
+        else:
+           return {}
+
     def checkJobs (self):
         #check hourly for long run low util jobs and send notice
-        #if (cherrypy.session['settings']['low_util_job']['email'] ):
         luj_settings = sessionConfig.getSetting('low_util_job')
+        send_hours   = [9, 10, 11, 12, 13, 14]
         if luj_settings['email']:
-           if not self.checkTS or (datetime.datetime.fromtimestamp(self.checkTS).hour != datetime.datetime.fromtimestamp(self.updateTS).hour): # check at start and later hourly
-              low_util    = self.getCurrLUJobs (luj_settings)
-              logger.debug('low_util={}'.format(low_util.keys()))
-              self.jobNoticeSender.sendNotice(self.updateTS, low_util)
-        logger.debug("{} done".format(self.cluster))
+           now = datetime.datetime.now()
+           if now.hour in send_hours and now.minute < 5:
+              if self.updateTS - self.checkTS > 600:     # at least 10 minute from last time to avoid send it twice 
+                  gpu_data    = self.getJobGPUData ()
+                  low_util    = self.getCurrLUJobs (gpu_data, luj_settings)
+                  print('low_util={}'.format(low_util.keys()))   
+                  self.jobNoticeSender.sendLUSummary(self.updateTS, low_util, luj_settings)
+                  #self.jobNoticeSender.sendNotice(self.updateTS, low_util)
+                  self.checkTS = self.updateTS
 
     @cherrypy.expose
     def updateSlurmData(self, **args):
@@ -553,14 +570,6 @@ class SLURMMonitorData(object):
             for jid, procs in jid2proc.items():
                 jobNode2Proc[jid][node]=(nInfo[TS_IDX], dict([(p[PID_IDX], p) for p in procs]))
 
-        #self.addJobsAttr (updateTS, currJobs, pyslurmData['nodes'])          #add attribute job_avg_util, job_mem_util, job_io_bps
-        #add empty data
-        #for node,nInfo in self.allData.items():
-        #    if node not in hn2info():
-        #       hn2info[node] = nInfo
-        #       if node in pyslurmNodes:
-        #          slurmData[node] = nInfo
-
         return updateTS, slurmData, currJobs, node2jids, pyslurmData, noSlurmData, jobNode2Proc
 
     def updateNodeMonAttr_noslurm (node, node_data, currJobs, jobNode2Procs):
@@ -595,7 +604,6 @@ class SLURMMonitorData(object):
         #organize procs by job: {jid: {'job': job, 'procs': [proc]}}
         node['jobProc']   = dict([(jid, {'job':currJobs.get(jid,None), 'procs':jobNode2Procs[jid][nodeName][1]}) for jid in slurm_jids])
         node['procCnt']   = sum([1 for d in node['jobProc'].values() for p in d['procs']])
-
   
     #add new proc data to self.pyslurmNodes[nodeName]
     def getNodeProc (self, nodeName):

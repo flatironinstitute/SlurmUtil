@@ -30,9 +30,9 @@
           const clusters     = Object.keys(bbData);
           addSelectOption ('cluster', clusters)
 
-          const j_title    = {{'job_id':'Job', 'name':'Job Name','user':'User', 'partition':'Partition','run_time_str':'Wall-clock Time','time_limit_str':'Wall-clock Limit','nodes':'Nodes','num_cpus':'#CPUs', 'job_avg_util':'Avg CPU Util', 'job_mem_util':'Mem Util','job_io_bps':'Avg I/O bps', 'gpu_avg_util':'Avg GPU last hour)'}};
+          const j_title    = {{'job_id':'Job', 'name':'Job Name','user':'User', 'partition':'Partition','run_time_str':'Wall-clock Time','remained_time_str':'Wall-clock Remained','nodes':'Nodes','num_cpus':'#CPUs', 'job_avg_util':'Avg CPU Util', 'job_mem_util':'Mem Util','job_io_bps':'Avg I/O bps', 'gpu_avg_util':'Avg GPU last hour'}};
           const o_title    = {{'source':'Source', 'ts':'Time', 'msg':'Message'}};
-          const type       = {{'job_id':'job_step', 'user':'user', 'ts':'timestamp', 'job_avg_util':'float','job_mem_util':'float', 'partition':'partition', 'gpu_avg_util':'float'}};
+          const type       = {{'job_id':'job_step', 'user':'user', 'ts':'timestamp', 'job_avg_util':'float','job_mem_util':'float', 'partition':'partition', 'gpu_avg_util':'noneg_float'}};
 
           var update_time, low_util, low_nodes, other;
           display(clusters[0])

@@ -247,7 +247,7 @@ function getSummaryHtml (d, key, summary_type, sortCol)
 }
 
 DISPLAY_FUNC={'user': getUserDetailHtml, 
-              "timestamp":getTS_LString, 'float':getDisplayF, "M":getDisplayM,"bigInt":getDisplayI,
+              "timestamp":getTS_LString, 'float':getDisplayF, 'noneg_float':getDisplayNonNegF, "M":getDisplayM,"bigInt":getDisplayI,
               'partition':getPartDetailHtml,'partition_list_avail':getPartListAvailString,"partition_list": getPartitionListHtml, 
               'qos':getQoSDetailHtml, 
               'job':getJobDetailHtml,'job_name':getJobNameHtml,'job_step':getJob_StepHtml,'job_list':getJobListHtml,'job_list_summary':getJobListSummaryHtml,
@@ -270,14 +270,13 @@ function getTypedValueHtml (d_value, d_type, cluster)
       if (["job","job_list", "job_list_summary", "job_step", "job_command", "node", 'partition', 'partition_list', 'qos'].includes(d_type)) {
          return func(d_value, cluster);
       }
-      else      
+      else {     
          return func(d_value);
+      }
    }
 
    if (d_type) {
-      if (d_type == 'Time')
-                       return getTS_LString(d_value)
-      else if (d_type == 'TresShort')
+      if (d_type == 'TresShort')
                        return getTres_short(d_value)
       else if (d_type == 'JobArray' && d_value)
                        return getJobArrayDetail(d_value)

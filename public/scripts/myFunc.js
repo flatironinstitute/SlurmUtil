@@ -228,6 +228,14 @@ function getDisplayF (n) {
    else
       return n.toFixed(2)
 }
+//if n is negative, return 'N/A'
+function getDisplayNonNegF (n) {
+   f = getDisplayF(n)
+   if (f < 0)
+      return 'N/A'
+   else
+      return f
+}
 function getPadStr (s) {
    return ("0" + s).slice(-2)
 }

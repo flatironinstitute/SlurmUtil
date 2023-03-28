@@ -105,22 +105,32 @@ All port mappings can be modified through the configuration file, which is locat
 ### Python and etc
 You can use module to add needed packages and libraries in SF environment.
 ```
-module add slurm gcc/11.2.0 python/3.9.9
+module add slurm gcc/11.2.0 python/3.10
 ```
 
-### Create a python virutal environment:
+### Create and activate a python virutal environment:
 ```
 cd <dir>
-python -m venv env_slurm21_python39
-source ./env_slurm21_python39/bin/activate
+python -m venv --system-site-packages env_slurm25_p310
+source ./env_slurm25_p310/bin/activate
 ```
+
+#### Install python packages
+Inside the virutal environment
+```
+pip install -r requirements.txt
+```
+
+[]: # pip install pystan==2.19.1.1 --no-cache
+[]: pip install prophet --no-cache
+[]: Note: The installation of fbprophet may need to pip uninstall numpy; pip install numpy; to solve error of import pandas 
 
 ### Install pyslurm
 #### Download pyslurm source
-Check release information at https://github.com/PySlurm/pyslurm/releases and https://pypi.org/project/pyslurm/#history (outdated).
+Check release information at https://github.com/PySlurm/pyslurm/releases.
 ```
-wget https://github.com/PySlurm/pyslurm/archive/refs/tags/v20.11.8-1.tar.gz
-tar -xzvf v20.11.8-1.tar.gz
+wget https://github.com/PySlurm/pyslurm/archive/refs/tags/v22.5.1.tar.gz
+tar -xzvf v22.5.1.tar.gz
 ```
 
 Or,
@@ -131,128 +141,55 @@ git clone https://github.com/PySlurm/pyslurm.git
 #### Modify pyslurm source (20.11.8):
 Modify pyslurm/pyslurm.pyx
 ```
-2027d2026
-<             # modify by Yanbin
-2029,2030c2028,2030
-<                 Job_dict[u'state_reason_desc'] = self._record.state_desc.decode("UTF-8").replace(" ", "_")
-<             Job_dict[u'state_reason'] = slurm.stringOrNone(
----
->                 Job_dict[u'state_reason'] = self._record.state_desc.decode("UTF-8").replace(" ", "_")
->             else:
->                 Job_dict[u'state_reason'] = slurm.stringOrNone(
-2094,2104d2093
-< 
-<             #add gres_detail by Yanbin
-<             gres_detail = []
-<             for x in range(min(self._record.num_nodes, self._record.gres_detail_cnt)):
-<                  gres_detail.append(slurm.stringOrNone(self._record.gres_detail_str[x],''))
-<             Job_dict[u'gres_detail'] = gres_detail
-<             #add pack_job by Yanbin
-<             if self._record.het_job_id:
-<                 Job_dict[u'pack_job_id'] = self._record.het_job_id
-<                 Job_dict[u'pack_job_offset'] = self._record.het_job_offset
-<                 Job_dict[u'pack_job_id_set'] = slurm.stringOrNone(self._record.het_job_id_set, '')
+2139             #Yanbin: add state_reason_desc
+2140             if self._record.state_desc:
+2141                 Job_dict['state_reason'] = self._record.state_desc.decode("UTF-8").replace(" ", "_")
+2142             Job_dict['state_reason'] = slurm.stringOrNone(
+2143                     slurm.slurm_job_reason_string(
+2144                         <slurm.job_state_reason>self._record.state_reason
+2145                     ), ''
+2146                 )
+
+2192             #Yanbin: add gres_detail
+2193             gres_detail = []
+2194             for x in range(min(self._record.num_nodes, self._record.gres_detail_cnt)):
+2195                 gres_detail.append(slurm.stringOrNone(self._record.gres_detail_str[x],''))
+2196             Job_dict[u'gres_detail'] = gres_detail
 ```
 
-#### Modify setup.py ####
-Make pyslurm work with slurm v21.08
-```
-...
-SLURM_VERSION = "21.08"
-...
-        try:
-            slurm_inc_ver = self.read_inc_version(
-                "{0}/slurm/slurm_version.h".format(self.slurm_inc)
-            )
-        except IOError:
-            slurm_inc_ver = self.read_inc_version("{0}/slurm_version.h".format(self.slurm_inc))
-...
-```
+[]: # #### Modify setup.py ####
+[]: # Make pyslurm work with slurm v21.08
+[]: # ```
+[]: # ...
+[]: # SLURM_VERSION = "21.08"
+[]: # ...
+[]: #         try:
+[]: #             slurm_inc_ver = self.read_inc_version(
+[]: #                 "{0}/slurm/slurm_version.h".format(self.slurm_inc)
+[]: #             )
+[]: #         except IOError:
+[]: #             slurm_inc_ver = self.read_inc_version("{0}/slurm_version.h".format(self.slurm_inc))
+[]: # ...
+[]: # ```
+
 
 #### Build and Install pyslurm:
 Inside the python virtual environment
 ```
-pip install Cython
 cd <pyslurm_source_dir>
-python setup.py build --slurm=/cm/shared/apps/slurm/current
-python setup.py install
+python setup.py --slurm-lib=$SLURM_ROOT/lib64 --slurm-inc=$SLURM_ROOT/include build
+python setup.py --slurm-lib=$SLURM_ROOT/lib64 --slurm-inc=$SLURM_ROOT/include install
 ```
 
-### Install python packages
-#### Install fbprophet
 ```
-pip install pystan==2.19.1.1 --no-cache
-pip install fbprophet --no-cache
-```
-Note: The installation of fbprophet may need to pip uninstall numpy; pip install numpy; to solve error of import pandas 
-
-#install other packages
-```
-pip install cherrypy
-pip install paho-mqtt
-pip install influxdb
-pip install python-ldap
-?pip install plotly
-?pip install seaborn
-?pip install python-dateutil
-?pip install holidays
-?pip install matplotlib
+MQTT server running on mon7.flatironinstitute.org
 ```
 
-Python virtual environment with packages:
 ```
-Package                       Version   
------------------------------ ----------
-backports.functools-lru-cache 1.5       
-certifi                       2018.11.29
-chardet                       3.0.4     
-cheroot                       6.5.2     
-CherryPy                      18.1.0    
-cycler                        0.10.0    
-Cython                        0.29.2    
-fbprophet                     0.3.post2 
-idna                          2.8       
-influxdb                      5.2.1     
-jaraco.functools              1.20      
-kiwisolver                    1.0.1     
-matplotlib                    3.0.2     
-more-itertools                4.3.0     
-numpy                         1.15.4    
-paho-mqtt                     1.4.0     
-pandas                        0.23.4    
-pip                           18.1      
-portend                       2.3       
-pyparsing                     2.3.0     
-pyslurm                       17.11.0.14
-pystan                        2.18.0.0  
-python-dateutil               2.7.5     
-pytz                          2018.7    
-requests                      2.21.0    
-setuptools                    40.6.3    
-six                           1.12.0    
-tempora                       1.14      
-urllib3                       1.24.1    
-wheel                         0.32.3    
-zc.lockfile                   1.4       
+Influxdb running on influxdb000
 ```
-
 
 ## Others:
-### Rebuild pyslurm
-```
-. env_slurm21_python39/bin/activate
-python setup.py build --slurm=/cm/shared/apps/slurm/current
-python setup.py install
-```
-
-```
-MQTT server running on mon5.flatironinstitute.org
-```
-
-```
-Influxdb running on localhost
-```
-
 ### Installing
 
 A step by step series of examples that tell you have to get a development env running.

@@ -54,7 +54,6 @@ class SLURMMonitorUI(object):
         self.startTime       = time.time()
         self.data            = 'No data received yet. Please wait a minute and come back.'
         self.pyslurmNode     = None
-        self.bright          = BrightRestClient.getInstance()
         self.bright1         = BrightRelayClient()
 
     @cherrypy.expose
@@ -606,7 +605,6 @@ class SLURMMonitorUI(object):
             gpu_nodes,max_gpu_cnt= PyslurmQuery.getGPUNodes(monData.pyslurmNodes)
             if name == "Rusty":
                gpu_ts, gpudata   = self.bright1.getLatestGPUAvg (minutes=avg_minute["gpu"])
-               #gpu_ts, gpudata   = self.bright.getLatestGPUAvg (gpu_nodes,minutes=avg_minute["gpu"])
             else: #TODO: add popeye GPU data
                gpu_ts, gpudata   = 0, {}
             workers,jobs,users   = self.getHeatmapData (monData, gpudata, weight, avg_minute["cpu"])
@@ -682,12 +680,9 @@ class SLURMMonitorUI(object):
             if name == "Rusty":   
               if 'gpu_util' in column:
                   gpu_ts, gpudata   = self.bright1.getLatestGPUAvg ()       #avg period is the one set in the configuration
-                  #gpu_ts, gpudata      = self.bright.getLatestGPUAvg (gpu_nodes, max_gpu_cnt=max_gpu_cnt)  # avg period is the one set in the configuration
               if 'avg_gpu_util' in column:
                   gpu_jobs             = dict([(jid,job) for jid, job in monData.currJobs.items() if job['gres_detail']])
                   gpu_ts, gpu_jid2data = self.bright1.getNodeJobGPUAvg (gpu_jobs)
-                  #min_start_ts, gpu_detail= monData.getCurrJobGPUDetail()   #gpu_detail include job's start_time
-                  #gpu_ts_d, gpu_jid2data  = self.bright.getAllGPUAvg_jobs(gpu_detail, min_start_ts)
             #else:                     # TODO: popeye no GPU data
             #  if 'gpu_util' in column:
             #   column.remove('gpu_util')
@@ -1157,8 +1152,6 @@ class SLURMMonitorUI(object):
                       gpu_data = m_data[node]['gpu{}'.format(gpu)]
                       series[measure].append({'name':'{} ({}.gpu{})'.format(job["job_id"], node, gpu), 'step':'right', 'data':[[ts*1000, val] for [ts,val] in gpu_data]})
 
-        #d            = self.bright.getNodesGPU_Mem(list(gpu_alloc.keys()), start_ts, msec=True)
-
         min_ts   = min([job['start_time'] for job in jobs])
         htmltemp = os.path.join(config.APP_DIR, 'gpuGraph.html')
         h = open(htmltemp).read()%{'spec_title': ' of User {}'.format(user),
@@ -1191,7 +1184,6 @@ class SLURMMonitorUI(object):
                 gpu_data = node_data["gpu{}".format(gpu)]
                 series[measure].append({'name':'{}.{}'.format(node,gpu), 'step':'right', 'data':[[ts*1000, val] for [ts,val] in gpu_data]})
 
-        #d            = self.bright.getNodesGPU_Mem (list(gpu_alloc.keys()), job_start, msec=True)
         htmltemp = os.path.join(config.APP_DIR, 'gpuGraph.html')
         h = open(htmltemp).read().format(spec_title= ' of Job {}'.format(jid),
                                          start     = time.strftime(TIME_DISPLAY_FORMAT, time.localtime(job['start_time'])),
@@ -1614,8 +1606,6 @@ class SLURMMonitorUI(object):
           for node, node_data in m_data.items():
             for gpu, gpu_data in node_data.items():
                 series[measure].append({'name':'{}.{}'.format(node,gpu), 'step':'right', 'data':[[ts*1000, val] for [ts,val] in gpu_data]})
-
-        #data      = self.bright.getNodesGPU_Mem({node:[0,1,2,3]}, start, msec=True)
 
         htmltemp = os.path.join(config.APP_DIR, 'gpuGraph.html')
         h = open(htmltemp).read().format(spec_title = ' on {}'.format(node),

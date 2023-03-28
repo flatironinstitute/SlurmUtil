@@ -1,7 +1,7 @@
 {
    "port":  8126,
    "influxdb": {
-       "host"                  : "worker1090",
+       "host"                  : "influxdb000",
        "port"                  : 8086,
        "db"                    : "slurmdb_2",
        "write_interval"        : 120,
@@ -27,11 +27,12 @@
    "mqtt": {
        "host"                  : "cephsvc01.flatironinstitute.org",
        "file_dir"              : "/mnt/ceph/users/yliu/mqtMonStreamRecord",
-       "writeFile"             : false
+       "writeFile"             : false,
+       "slurmOnly"             : false
    },
    "test":  false,
    "display_default": {
-       "low_util_job":      {"cpu": 1, "gpu": 10, "mem": 30, "run_time_hour": 24, "alloc_cpus": 30, "email": false},
+       "low_util_job":      {"cpu": 1, "gpu": 10, "mem": 30, "run_time_hour": 24, "alloc_cpus": 30, "email": true},
        "low_util_node":     {"cpu": 1, "gpu": 10, "mem": 30, "alloc_time_min": 64},
        "summary_column":    {"node": true, "status": true, "delay": false, "node_mem_M": true, "job": true, "user": true, "alloc_cpus": true, "run_time": true, "proc_count": true, "cpu_util": true, "avg_cpu_util": true, "rss": true, "vms": true, "io": true, "fds": true, "alloc_gpus": true, "gpu_util": true, "avg_gpu_util": false},
        "summary_low_util":  {"cpu_util": 1, "avg_cpu_util": 1, "rss": 1, "gpu_util": 10, "avg_gpu_util": 10, "type": "inform"},

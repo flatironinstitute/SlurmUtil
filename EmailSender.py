@@ -10,19 +10,23 @@ RECIPIENTS    =['yliu@flatironinstitute.org']
 #RECIPIENTS    =['yliu@flatironinstitute.org', 'scicomp@flatironinstitute.org']
 #RECIPIENTS    =['yliu@flatironinstitute.org','ncarriero@flatironinstitute.org','dsimon@flatironinstitute.org']
 MSG_LOW_UTIL  ='Dear {}, \n\nYour job {} has run for {} with an average CPU utilization of {:.2f} and MEM utilization of {:.2f} on node {} with a total of {} cpus. You may check the details of the resource usage at {}. \n\n Please verify that this job is behaving as expected. If you no longer need the job, please terminate it (e.g., use "scancel"), so that the resources allocated to it can be used by others. \n\n Thank you very much! \n SCC team'
-SCC_USERS     =['yliu', 'ncarriero', 'dsimon', 'ifisk', 'apataki', 'jcreveling', 'awatter', 'ntrikoupis', 'jmoore', 'pgunn', 'achavkin', 'elovero', 'rblackwell']
+SUMMARY_LOW_UTIL = """Greetings,
 
+Please find below a compilation of jobs that demonstrate minimal resource usage, with an average CPU utilization below 0.{:02d} (current CPU utilization also being below 0.{:02d}), MEM utilization below 0.{:02d}, and an average GPU utilization (if applicable) that has been below 0.{:02d} within the last hour. Further details are available at http://mon7:8126/bulletinboard.
 
-def getMsg_test ():
-    content='test1\n\ntest2'
+{}
 
+Warm regards."""
+
+def sendMessage (subject, content, to='yliu@flatironinstitute.org', sender='SlurmMonitor@flatironinstitute.org'):
+    print("sendMessage")
     msg = EmailMessage()
     msg.set_content(content)
-    msg['Subject'] = 'test1'
-    msg['From']    = 'yliu'
-    msg['To']      = 'yliu@flatironinstitute.org'
-
-    return msg
+    msg['Subject'] = subject
+    msg['From']    = sender
+    msg['To']      = to
+    with smtplib.SMTP('smtp-relay.gmail.com') as s:
+         s.send_message(msg)
 
 class JobNoticeSender:
     def __init__(self, interval=86400, cacheFile='jobNotice.cache'):
@@ -56,21 +60,25 @@ class JobNoticeSender:
         #to_list=RECIPIENTS + ['@flatironinstitute.org'.format(userName)]
         to_list=RECIPIENTS
 
-        #sendMessage('Long runnig job with low utilization at slurm cluster -- Job {} by {}'.format(job['job_id'], userName), content, 'yliu', ', '.join(to_list))
+        print("sendMessage {}".format(content))
         sendMessage('[scicomp] Job {} with low utilization'.format(job['job_id'], userName), content, to=','.join(to_list))
           
-def sendMessage (subject, content, sender='SlurmMonitor@flatironinstitute.org', to='yliu@flatironinstitute.org'):
-    #sender='SlurmMonitor@mon7.flatironinstitute.org'
-    msg = EmailMessage()
-    msg.set_content(content)
-    msg['Subject'] = subject
-    msg['From']    = sender
-    msg['To']      = to
-    with smtplib.SMTP('smtp-relay.gmail.com') as s:
-         s.send_message(msg)
+    # send low utilization summary
+    def sendLUSummary (self, ts, jobs, lmt_settings):
+        content      = SUMMARY_LOW_UTIL.format(lmt_settings['cpu'], lmt_settings['cpu'], lmt_settings['mem'], lmt_settings['gpu'], list(jobs.keys()))
+        print ("{}".format(content))
+        to_list      = RECIPIENTS
+
+
+        print("sendMessage {}".format(content))
+        sendMessage('[scicomp] Slurm Jobs of minimal resource usage', content, ','.join(to_list))
+        print ("Done sendLUSummary")
+
 
 def main():
-    sendMessage('test', 'test', to='yliu@flatironinstitute.org,yanbin_liu@yahoo.com,ygliu2007@gmail.com')#not reaching outside email
+    tst = JobNoticeSender()
+    tst.sendLUSummary(9843750, {'a':1, 'b':2}, {'cpu':10, 'mem':10, 'gpu':10})
+    sendMessage('test', 'test', to='yliu@flatironinstitute.org')#not reaching outside email
 
 if __name__=="__main__":
    main()

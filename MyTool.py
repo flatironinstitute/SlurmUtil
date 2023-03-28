@@ -216,7 +216,13 @@ def sub_dict_exist_remove(somedict, somekeys):
     return dict([ (k, somedict.pop(k)) for k in somekeys if (k in somedict) and (somedict[k])])
 def sub_dict_nonempty(somedict, somekeys):
     return dict([ (k, somedict[k]) for k in somekeys if (k in somedict) and (not emptyValue(somedict[k]))])
-
+#return n seconds in slurm format Day-hour:min:second
+def time_sec2str (n):
+    n           = int(n)
+    minute, sec = divmod (n, 60)
+    hour, minute= divmod (minute, 60)
+    day, hour   = divmod (hour, 24)
+    return "{}-{:02d}:{:02d}:{:02d}".format(day, hour, minute, sec)
 def flatten(d, parent_key='', sep='_'):
     items = []
     for k, v in d.items():
