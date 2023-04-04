@@ -102,15 +102,17 @@ service influxdb start
 
 #### Configuration
 By default, InfluxDB uses the following network ports:
-    TCP port 8086 is used for client-server communication over InfluxDB’s HTTP API
-    TCP port 8088 is used for the RPC service for backup and restore
+```
+    TCP port 8086 is used for client-server communication over InfluxDB’s HTTP API. And,
+    TCP port 8088 is used for the RPC service for backup and restore.
+```
 The configuration file for default installations can be found at /etc/influxdb/influxdb.conf, and it allows for the modification of all port mappings.
 
 The "influxdb" key can be found in the config/config.json file, which contains the configuration settings to connect to InfluxDB.
 
 ## Environment setup
-### Python and etc
-You can use module to add needed packages and libraries in SF environment.
+### Slurm, Python and gcc
+The module can be used to install necessary packages and libraries such as 
 ```
 module add slurm gcc/11.2.0 python/3.10
 ```
@@ -128,9 +130,9 @@ Inside the virutal environment
 pip install -r requirements.txt
 ```
 
-[]: # pip install pystan==2.19.1.1 --no-cache
-[]: pip install prophet --no-cache
-[]: Note: The installation of fbprophet may need to pip uninstall numpy; pip install numpy; to solve error of import pandas 
+[//]: # pip install pystan==2.19.1.1 --no-cache
+[//]: # pip install prophet --no-cache
+[//]: # Note: The installation of fbprophet may need to pip uninstall numpy; pip install numpy; to solve error of import pandas 
 
 ### Install pyslurm
 #### Download pyslurm source
