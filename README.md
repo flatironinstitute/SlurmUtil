@@ -130,9 +130,11 @@ Inside the virutal environment
 pip install -r requirements.txt
 ```
 
+<!---
 [//]: # pip install pystan==2.19.1.1 --no-cache
 [//]: # pip install prophet --no-cache
 [//]: # Note: The installation of fbprophet may need to pip uninstall numpy; pip install numpy; to solve error of import pandas 
+-->
 
 ### Install pyslurm
 #### Download pyslurm source
