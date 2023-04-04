@@ -723,37 +723,6 @@ class SLURMMonitorUI(object):
     def getLowResourceJobs (self, job_length_secs=ONE_DAY_SECS, job_width_cpus=1, job_cpu_avg_util=0.1, job_mem_util=0.3):
         return self.monData.getLowResourceJobs(job_length_secs, job_width_cpus, job_cpu_avg_util, job_mem_util)
 
-    def getLongrunLowUtilJobs (self, monData):
-        luj_settings      = sessionConfig.getSetting('low_util_job')
-        jobs              = monData.getCurrLUJobs (luj_settings)
-        BulletinBoard.setLowUtilJobMsg (jobs)
-
-        return list(jobs.values())
-
-    @cherrypy.expose
-    def getUnbalancedJobs (self, job_cpu_avg_util=0.1, job_mem_util=0.3, job_io_bps=1000000):
-        jobs   = self.monData.currJobs
-        ts     = self.monData.updateTS
-        job_cpu_avg_util = float(job_cpu_avg_util)
-        job_mem_util     = float(job_mem_util)
-        job_io_bps       = int(job_io_bps)
-
-        result = {}            # return {jid:job,...}
-        for jid, job in jobs.items():
-            #if job run long enough
-            if (job['job_avg_util'] < job_cpu_avg_util) and (job['job_mem_util']>job_mem_util or job['job_io_bps'] > job_io_bps):
-               result[job['job_id']] = job
-        logger.info('getUnbalancedJobs {}'.format(result.keys()))
-        return json.dumps([ts, result])
-
-    @cherrypy.expose
-    def getUnbalLoadJobs (self, cpu_stdev, rss_stdev, io_stdev):
-        cpu_stdev, rss_stdev, io_stdev = int(cpu_stdev), int(rss_stdev), int(io_stdev)
-        self.calculateStat (self.monData.currJobs, self.data)
-        sel_jobs = [(jid, job) for jid, job in self.monData.currJobs.items()
-                         if (job['node_cpu_stdev']>cpu_stdev) or (job['node_rss_stdev']>rss_stdev) or (job['node_io_stdev']>io_stdev)]
-        return json.dumps ([self.monData.updateTS, dict(sel_jobs)])
-
     #for a job, caclulate the deviaton of the cpu, mem, rss
     def calculateStat (self, jobs, nodes):
         for jid, job in jobs.items():
@@ -1483,11 +1452,16 @@ class SLURMMonitorUI(object):
         queryRlt     = influxClient.getJobMonData_hc(jobid, start, stop)
         return queryRlt
 
+    # return job jid's data saved in cache
+    # if the cached data does not start with 3 minutes of job's start time, 
+    # it is considered as imcomplete and will not be returned
     @cherrypy.expose
     def jobGraph_cache(self, jid, start=None, stop=None, cluster="Rusty"):
         jobid  = int(jid)
-        #job, cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes= self.monData.inMemCache.queryJob(jobid)
-        jobRlt = self.monDataDict[cluster].inMemCache.queryJob(jobid, start, stop)
+        if start and (start < job['start_time']):
+            start = job['start_time']
+        jobRlt = self.monDataDict[cluster].inMemCache.queryJob(jobid, start, stop)     # start,stop=None means all and will help performance
+        print("jobGraph_cache: start={}, {}".format(start, jobRlt))
 
         # highcharts
         if jobRlt:  #job is in cache
@@ -1498,14 +1472,12 @@ class SLURMMonitorUI(object):
                  # check whether cached enough data
                  minTS = min([n['data'][0][0]  for n in cpu_all_nodes if n['data']])
                  maxTS = max([n['data'][-1][0] for n in cpu_all_nodes if n['data']])
-                 if (not start) or (start < job['start_time']):
-                    start = job['start_time']
-                 if minTS < job['start_time'] + 180: # tolerate 3 minutes
+                 if minTS < job['start_time'] + 180: # have data from start_time (tolerate 3 minutes)
                     return minTS, maxTS, cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes
                  else:
-                    logger.warning("jobGraph_cache: job {} data in cache is not complete ({} << {})".format(jobid, job['submit_time'], minTS))
-
-        logger.info("jobGraph_cache: no job {} in cache".format(jobid))
+                    logger.warning("jobGraph_cache: job {} data in cache is not complete (job start time {} < data min time {})".format(jobid, job['start_time'], minTS))
+        else:
+           logger.info("jobGraph_cache: no job {} in cache".format(jobid))
         return None
 
     def nodeJobProcGraph_cache(self, node, jobid):
@@ -1816,7 +1788,7 @@ class SLURMMonitorUI(object):
         if cluster == "Rusty":
            gpu_nodes, max_gpu_cnt = monData.getCurrJobGPUNodes()
            return self.bright1.getNodesGPUAvg(list(gpu_nodes), start=int(time.time()-hours*3600))
-        else:
+        else:  # no gpu data for popeye
            return {}
         
     @cherrypy.expose
@@ -1828,18 +1800,19 @@ class SLURMMonitorUI(object):
           if monData.hasData():
             update_time  = monData.updateTS
             jobs         = monData.getCurrLUJobs (gpuData, luj_settings)
-            BulletinBoard.setLowUtilJobMsg (jobs)
             low_util     = list(jobs.values())
             # node with low resource utlization
-            low_nodes  = monData.getLowUtilNodes()
+            low_nodes    = monData.getLowUtilNodes()
+            unbal_jobs   = monData.getUnbalancedJobs(1,2,1)
           else:
             update_time= int(time.time())
             low_util   = [{'name':self.getWaitMsg()}]
-            low_nodes  = [{'name':'', 'low_util_msg':self.getWaitMsg()}]
+            low_nodes  = [{'name':''}]
+            unbal_jobs = []
 
 
           other      = monData.inMemLog.getAllLogs () #[{'source':'', 'ts':'','msg':''}]
-          bbData[cluster] = [update_time, low_util, low_nodes, other]
+          bbData[cluster] = [update_time, low_util, low_nodes, unbal_jobs, other]
 
 
         htmlTemp   = os.path.join(config.APP_DIR, 'bulletinboard.html')

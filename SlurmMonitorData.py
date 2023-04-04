@@ -49,6 +49,7 @@ class SLURMMonitorData(object):
         self.inMemLog          = inMemCache.InMemLog()
 
         self.checkTS           = 0
+        self.checkLUJ_TS       = 0
         self.checkResult       = {}                   # ts: {}
         self.jobNoticeSender   = JobNoticeSender()
         self.lock              = threading.Lock()
@@ -278,7 +279,7 @@ class SLURMMonitorData(object):
             job['user']              = MyTool.getUser(job['user_id'], cluster)
             job['node_cpu_time']     = {}         # cpu time on each node
             job['node_cpu_util_avg'] = {}
-            job['node_rss_util']     = {}
+            job['node_rss']     = {}
             job['node_io_bps_curr']  = {}
             job['node_cpu_util_curr']= {}
             job['node_num_proc']     = {}
@@ -310,7 +311,7 @@ class SLURMMonitorData(object):
                    else:
                       logger.warning ("Job {}'s allocated CPUs on node{} is 0".format(jid, node))
                       job['node_cpu_util_avg'][node] = 0
-                   job['node_rss_util'][node]     = node_rss
+                   job['node_rss'][node]     = node_rss
                    job['node_io_bps_curr'][node]  = node_io_bps
                    job['node_cpu_util_curr'][node]= node_cpu_util
                    job['node_num_proc'][node]     = len(procs)
@@ -370,12 +371,11 @@ class SLURMMonitorData(object):
 
     # return the low util jobs with settings
     def getCurrLUJobs (self, gpu_data, luj_settings):
-        if self.updateTS == self.checkTS:   # check already
+        if self.updateTS == self.checkLUJ_TS:   # check already
            return self.checkResult
         else:
-           self.checkTS     = self.updateTS
+           self.checkLUJ_TS = self.updateTS
            result = SLURMMonitorData.getLowUtilJobs(self.updateTS, self.currJobs, gpu_data, luj_settings)
-           #, luj_settings['cpu']/100, luj_settings['run_time_hour']*3600, luj_settings['alloc_cpus'], luj_settings['mem']/100)
            self.checkResult = result
            return result
 
@@ -393,7 +393,7 @@ class SLURMMonitorData(object):
                job['gpu_avg_util'] = -1
                job['remained_time_str']= MyTool.time_sec2str(job['time_limit']*60 - job['run_time'])
                result[job['job_id']] = job
-            else:
+            elif gpu_data:     # if allocate GPU and have gpu_data
                #if job is allocated gpu, check gpu util low
                for node, gpu_lst in job['gpus_allocated'].items():
                    gpu_keys = ["gpu{}".format(g) for g in gpu_lst]
@@ -407,30 +407,14 @@ class SLURMMonitorData(object):
         return result
 
     @cherrypy.expose
-    def getUnbalancedJobs (self, job_cpu_avg_util=0.1, job_mem_util=0.3, job_io_bps=1000000):
-        jobs   = self.currJobs
-        ts     = self.updateTS
-        job_cpu_avg_util = float(job_cpu_avg_util)
-        job_mem_util     = float(job_mem_util)
-        job_io_bps       = int(job_io_bps)
-
-        result = {}            # return {jid:job,...}
-        for jid, job in jobs.items():
-            #if job run long enough
-            if (job['job_avg_util'] < job_cpu_avg_util) and (job['job_mem_util']>job_mem_util or job['job_io_bps'] > job_io_bps):
-               result[job['job_id']] = job
-        logger.debug('getUnbalancedJobs {}'.format(result.keys()))
-        return json.dumps([ts, result])
-
-    @cherrypy.expose
-    def getUnbalLoadJobs (self, cpu_stdev, rss_stdev, io_stdev):
+    def getUnbalancedJobs (self, cpu_stdev, rss_stdev, io_stdev):
         cpu_stdev, rss_stdev, io_stdev = int(cpu_stdev), int(rss_stdev), int(io_stdev)
         self.calculateStat (self.currJobs, self.data)
-        sel_jobs = [(jid, job) for jid, job in self.currJobs.items()
+        sel_jobs = [job for jid, job in self.currJobs.items()
                          if (job['node_cpu_stdev']>cpu_stdev) or (job['node_rss_stdev']>rss_stdev) or (job['node_io_stdev']>io_stdev)]
-        return json.dumps ([self.updateTS, dict(sel_jobs)])
+        return sel_jobs
 
-    #for a job, caclulate the deviaton of the cpu, mem, rss
+    #for a job, caclulate the deviaton of the cpu, mem, rss on different allocated nodes
     def calculateStat (self, jobs, nodes):
         for jid, job in jobs.items():
             if 'node_cpu_stdev' in job:     # already calculated
@@ -440,13 +424,15 @@ class SLURMMonitorData(object):
                job['node_cpu_stdev'],job['node_rss_stdev'], job['node_io_stdev'] = 0,0,0     #cpu util, rss in KB, io bps
                continue
             #[u_name, uid, allocated_cpus, len(pp), totIUA_util, totRSS, totVMS, pp, totIO, totCPU_rate]
-            proc_cpu=[proc[4] for node in MyTool.nl2flat(job['nodes']) for proc in nodes[node][3:]]
-            proc_rss=[proc[5] for node in MyTool.nl2flat(job['nodes']) for proc in nodes[node][3:]]
-            proc_io =[proc[8] for node in MyTool.nl2flat(job['nodes']) for proc in nodes[node][3:]]
-            if len(proc_cpu) > 1:
-               job['node_cpu_stdev'],job['node_rss_stdev'], job['node_io_stdev'] = MyTool.pstdev(proc_cpu), MyTool.pstdev(proc_rss)/1024, MyTool.pstdev(proc_io)     # cpu util
+            job_nodes= MyTool.nl2flat(job['nodes'])
+            node_cpu = [job['node_cpu_util_avg'].get(node,0)  for node in job_nodes]
+            node_rss = [job['node_rss'].get(node,0)      for node in job_nodes]
+            node_io  = [job['node_io_bps_curr'].get(node,0)   for node in job_nodes]
+            if len(node_cpu) > 1:
+               job['node_cpu_stdev'],job['node_rss_stdev'], job['node_io_stdev'] = MyTool.stddev(node_cpu), MyTool.stddev(node_rss), MyTool.stddev(node_io)     
+               #job['node_cpu_stdev'],job['node_rss_stdev'], job['node_io_stdev'] = MyTool.pstdev(node_cpu), MyTool.pstdev(node_rss), MyTool.pstdev(node_io)     
             else:
-               #print('WARNING: Job {} has not enough process running on allocated nodes {} ({}) to calculate standard deviation.'.format(jid, job['nodes'], proc_cpu))
+               logger.error('Job {} has not enough process running on allocated nodes {} ({}) to calculate standard deviation.'.format(jid, job['nodes'], proc_cpu))
                job['node_cpu_stdev'],job['node_rss_stdev'], job['node_io_stdev'] = 0,0,0
 
     @cherrypy.expose
@@ -491,15 +477,16 @@ class SLURMMonitorData(object):
     def checkJobs (self):
         #check hourly for long run low util jobs and send notice
         luj_settings = sessionConfig.getSetting('low_util_job')
-        send_hours   = [9, 10, 11, 12, 13, 14]
+        send_hours   = [9, 14, 17, 18, 19, 20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6, 7, 8]
         if luj_settings['email']:
            now = datetime.datetime.now()
            if now.hour in send_hours and now.minute < 5:
               if self.updateTS - self.checkTS > 600:     # at least 10 minute from last time to avoid send it twice 
+                  logger.info('{}:({})'.format(self.updateTS, self.checkTS))   
                   gpu_data    = self.getJobGPUData ()
                   low_util    = self.getCurrLUJobs (gpu_data, luj_settings)
-                  print('low_util={}'.format(low_util.keys()))   
-                  self.jobNoticeSender.sendLUSummary(self.updateTS, low_util, luj_settings)
+                  logger.info('{}:({}) low_util={}'.format(self.updateTS, self.checkTS, low_util.keys()))   
+                  self.jobNoticeSender.sendLUSummary(self.cluster, low_util, luj_settings)
                   #self.jobNoticeSender.sendNotice(self.updateTS, low_util)
                   self.checkTS = self.updateTS
 

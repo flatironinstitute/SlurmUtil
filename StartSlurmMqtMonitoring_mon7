@@ -1,72 +1,58 @@
 #!/bin/bash
 
 ScriptDir=$(readlink -f $(dirname $0))
+ScriptName=$(basename "$0")
 
-pidfilestale () {
-    pidfile=$1
-    [[ -s ${pidfile} ]] || return 0
-    fdate=$(stat -c %Y ${pidfile})
-    pdate=$(date --date="$(ps -h --format lstart $(cat ${pidfile}) || echo Jan 1 1970 UTC)" +%s)
-    delta=$(( pdate - fdate ))
-    [[ -10 -lt delta ]] &&  [[ delta -lt 10 ]] && return 1
-    return 0
-}
+# set up the path, "borrowed" from module
+CmSlurmRoot=/cm/shared/apps/slurm/current
+export PATH=${CmSlurmRoot}/bin:$PATH
+export PATH=${CmSlurmRoot}/sbin:$PATH
+export LD_LIBRARY_PATH=${CmSlurmRoot}/lib64:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=${CmSlurmRoot}/lib64/slurm:$LD_LIBRARY_PATH
+PLHACK="LD_PRELOAD=${CmSlurmRoot}/lib64/slurm/libslurmfull.so"
 
-
-[[ -s /etc/slurm/slurm.conf ]] || { echo "No slurm.conf file." ; exit 1 ; }
-cm=$(grep -m1 SlurmctldHost /etc/slurm/slurm.conf)
-cm=${cm/SlurmctldHost=/}
-[[ -z ${cm+_} ]] && { echo "slurm.conf file lacks ControlMachine entry." ; exit 1 ; }
-
-# We use these mappings to ensure the same database is used when we failover the control machine.
-#declare -A CMAliases=( [bcm1]=bcm [bcm2]=bcm [ironbcm1]=ironbcm [ironbcm2]=ironbcm )
-#[[ ${CMAliases[${cm}]+_} ]] && cm=${CMAliases[${cm}]}
-
-# "borrowed" from module
-    CmSlurmRoot=/cm/shared/apps/slurm/current
-    export PATH=${CmSlurmRoot}/bin:$PATH
-    export PATH=${CmSlurmRoot}/sbin:$PATH
-    export LD_LIBRARY_PATH=${CmSlurmRoot}/lib64:$LD_LIBRARY_PATH
-    export LD_LIBRARY_PATH=${CmSlurmRoot}/lib64/slurm:$LD_LIBRARY_PATH
-    PLHACK="LD_PRELOAD=${CmSlurmRoot}/lib64/slurm/libslurmfull.so"
-
-    # activate python virutal environment
-    . /mnt/home/yliu/projects/slurm/utils/env_slurm21_python39/bin/activate
+# activate python virutal environment
+. /mnt/home/yliu/projects/slurm/utils/env_slurm22_p310/bin/activate
 echo "Using: $(which python)"
 
+# set up the log directory
 logDir="./log"
 mkdir -p ${logDir}  || { echo "Failed to create support directory." ; exit 1 ; }
-
-#pData="/mnt/ceph/users/yliu/tmp/mqtMonTest"
-#pData="/mnt/home/yliu/projects/slurm/utils/mqtMonStreamRecord"
-#mkdir -p $(dirname ${pData}) || { echo "Failed to create support directory." ; exit 1 ; }
 #mon7 specific: link to share public and data directory
 [ -d "./public" ] || ln -s /mnt/home/yliu/projects/slurm/utils/public/ public
 [ -d "./data" ]   || ln -s /mnt/home/yliu/projects/slurm/utils/data/ data
 
 #mon7 modified
-cmds=("python ${ScriptDir}/sm_app.py" "python ${ScriptDir}/mqttMonStream.py" "python ${ScriptDir}/mqttMon2Influx.py" "ssh -i /mnt/home/yliu/.ssh/id_sdsc -N -R 8126:localhost:8126 popeye-login2.sdsc.edu" "python ${ScriptDir}/brightRelay.py")
-ids=("webServer" "mqttMonitor" "mqtt2Influx" "sshPopeye" "brightRelay")
+declare -a cmds=("python ${ScriptDir}/sm_app.py" "python ${ScriptDir}/mqttMonStream.py" "python ${ScriptDir}/mqttMon2Influx.py" "ssh -i /mnt/home/yliu/.ssh/id_sdsc -N -R 8126:localhost:8126 popeye-login2.sdsc.edu" "python ${ScriptDir}/brightRelay.py")
 
-for i in ${!cmds[@]}; do
-  cmd=${cmds[$i]}
-  cmd_id=${ids[$i]}
-  pid_file="${cm}_${cmd_id}.pid"
-    
-  if pidfilestale ${pid_file}
-  then
-    while [[ 1 ]] 
-    do
-        eval "$cmd 2>&1 &"
-	pid=$!
-	echo ${pid} > ${pid_file}
-	wait ${pid}
-	echo "${cmd_id} returned: $(date). Restarting in 60 seconds."
-	sleep 60
-    done  > "${logDir}/${cmd_id}_${cm}_$(date +%Y%m%d_%T).log" 2>&1 &
-    echo "${cmd_id} is started."
-  else
-    echo "${cmd_id} is already running ($(cat ${pid_file}))."
-  fi
+
+echo "Start programs ..."
+for program in "${cmds[@]}"
+do
+    echo -e "\t $program &"
+    $program &
 done
+
+sleep 10
+#loop to check if each program is running
+while true
+do
+   #check the status of each program
+   for program in "${cmds[@]}"
+   do
+      # Get the porcess ID of the program
+      pid=$(pgrep -f "$program")
+      
+      # If the process ID is not found, restart the program
+      if [ -z "$pid" ]
+      then
+	 echo "$(date '+%D %H:%M:%S') $program has died. Restarting ..."
+	 $program &
+      fi
+   done
+
+   #Wait for a minute before checking again
+   sleep 60
+done > "${logDir}/${ScriptName}_$(date +%Y%m%d).log" 2>&1 &
+
 
