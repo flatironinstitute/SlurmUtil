@@ -117,16 +117,12 @@ The module can be used to install necessary packages and libraries such as
 module add slurm gcc/11.2.0 python/3.10
 ```
 
-### Create and activate a python virutal environment:
+### Python virutal environment:
+Create and install packages within a Python virtual environment.
 ```
 cd <dir>
 python -m venv --system-site-packages env_slurm22_p310
 source ./env_slurm25_p310/bin/activate
-```
-
-#### Install python packages
-Inside the virutal environment
-```
 pip install -r requirements.txt
 ```
 
@@ -136,13 +132,15 @@ pip install -r requirements.txt
 [//]: # Note: The installation of fbprophet may need to pip uninstall numpy; pip install numpy; to solve error of import pandas 
 -->
 
-### Install pyslurm
+#### Install pyslurm
+Inside the python virtual environment, we should install pyslurm.
+
 #### Download pyslurm source
-Check release information at https://github.com/PySlurm/pyslurm/releases.
 ```
 wget https://github.com/PySlurm/pyslurm/archive/refs/tags/v22.5.1.tar.gz
 tar -xzvf v22.5.1.tar.gz
 ```
+You may check release information at https://github.com/PySlurm/pyslurm/releases.
 
 Or,
 ```
@@ -168,6 +166,7 @@ Modify pyslurm/pyslurm.pyx
 2196             Job_dict[u'gres_detail'] = gres_detail
 ```
 
+<!---
 []: # #### Modify setup.py ####
 []: # Make pyslurm work with slurm v21.08
 []: # ```
@@ -182,6 +181,7 @@ Modify pyslurm/pyslurm.pyx
 []: #             slurm_inc_ver = self.read_inc_version("{0}/slurm_version.h".format(self.slurm_inc))
 []: # ...
 []: # ```
+-->
 
 
 #### Build and Install pyslurm:
