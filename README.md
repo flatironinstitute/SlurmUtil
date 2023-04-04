@@ -76,19 +76,22 @@ cd SlurmUtil
 
 # Getting Started
 ## Prerequisites 
-The data sources of our monitoring tool are listed as the following and thus should be available to use.
+The following are the listed data sources for our monitoring tool, which should be accessible for use.
 ### Slurm 
-Slurm configuration file can be accessed at /etc/slurm/slurm.conf.
+Slurm commands should be able to run on the same node.
 
 ### Bright
-Birght certificates are stored under ./prometheus.cm/. Bright configuration is in config/config.json under key "bright".
+Birght monitoring interface should be accessible.
+The "bright" key can be found in the config/config.json file, which contains the configuration settings for Bright.
 
 ### MQTT and cluster_host_mon.py
-MQTT configuration is in config/config.json under key "mqtt".
-The host monitoring deamon (cluster_host_mon.py) should be installed on the nodes and report data to MQTT server.
+For data to be reported to the MQTT server, the cluster_host_mon.py host monitoring daemon needs to be installed on all nodes.
+The "mqtt" key can be found in the config/config.json file, which contains the configuration settings for MQTT.
 
-### Install InfluxDB
-We save monitoring data in a time-series database: InfluxDB.
+### InfluxDB
+We save our monitoring data in a time-series database: InfluxDB.
+
+#### Installation
 For CentOS,
 ```
 wget https://dl.influxdata.com/influxdb/releases/influxdb-1.8.1.x86_64.rpm
@@ -96,10 +99,14 @@ sudo yum install influxdb-1.8.1.x86_64.rpm
 
 service influxdb start
 ```
+
+#### Configuration
 By default, InfluxDB uses the following network ports:
     TCP port 8086 is used for client-server communication over InfluxDB’s HTTP API
     TCP port 8088 is used for the RPC service for backup and restore
-All port mappings can be modified through the configuration file, which is located at /etc/influxdb/influxdb.conf for default installations.
+The configuration file for default installations can be found at /etc/influxdb/influxdb.conf, and it allows for the modification of all port mappings.
+
+The "influxdb" key can be found in the config/config.json file, which contains the configuration settings to connect to InfluxDB.
 
 ## Environment setup
 ### Python and etc
@@ -111,7 +118,7 @@ module add slurm gcc/11.2.0 python/3.10
 ### Create and activate a python virutal environment:
 ```
 cd <dir>
-python -m venv --system-site-packages env_slurm25_p310
+python -m venv --system-site-packages env_slurm22_p310
 source ./env_slurm25_p310/bin/activate
 ```
 
