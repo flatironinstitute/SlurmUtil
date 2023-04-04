@@ -717,31 +717,6 @@ class SLURMMonitorUI(object):
                       rlt[node] = gpu_ids
         return rlt, rlt_jobs
 
-
-
-    @cherrypy.expose
-    def getLowResourceJobs (self, job_length_secs=ONE_DAY_SECS, job_width_cpus=1, job_cpu_avg_util=0.1, job_mem_util=0.3):
-        return self.monData.getLowResourceJobs(job_length_secs, job_width_cpus, job_cpu_avg_util, job_mem_util)
-
-    #for a job, caclulate the deviaton of the cpu, mem, rss
-    def calculateStat (self, jobs, nodes):
-        for jid, job in jobs.items():
-            if 'node_cpu_stdev' in job:     # already calculated
-               return
-
-            if job['num_nodes'] == 1:
-               job['node_cpu_stdev'],job['node_rss_stdev'], job['node_io_stdev'] = 0,0,0     #cpu util, rss in KB, io bps
-               continue
-            #[u_name, uid, allocated_cpus, len(pp), totIUA_util, totRSS, totVMS, pp, totIO, totCPU_rate]
-            proc_cpu=[proc[4] for node in MyTool.nl2flat(job['nodes']) for proc in nodes[node][3:]]
-            proc_rss=[proc[5] for node in MyTool.nl2flat(job['nodes']) for proc in nodes[node][3:]]
-            proc_io =[proc[8] for node in MyTool.nl2flat(job['nodes']) for proc in nodes[node][3:]]
-            if len(proc_cpu) > 1:
-               job['node_cpu_stdev'],job['node_rss_stdev'], job['node_io_stdev'] = MyTool.pstdev(proc_cpu), MyTool.pstdev(proc_rss)/1024, MyTool.pstdev(proc_io)     # cpu util
-            else:
-               #print('WARNING: Job {} has not enough process running on allocated nodes {} ({}) to calculate standard deviation.'.format(jid, job['nodes'], proc_cpu))
-               job['node_cpu_stdev'],job['node_rss_stdev'], job['node_io_stdev'] = 0,0,0
-
     def sacctData (self, criteria):
         cmd = ['sacct', '-n', '-P', '-o', 'JobID,JobName,AllocCPUS,State,ExitCode,User,NodeList,Start,End'] + criteria
         try:
@@ -1041,7 +1016,6 @@ class SLURMMonitorUI(object):
                   for k,v in p.items():
                       if v == MAX_LIMIT: p[k]='-'
            userAssoc['partitionitions'] = [p for p in partition if p['user_avail_cpus']>0 or p['user_avail_gpus']>0]
-           #logger.info("get partitionition {}".format(time.time()-ts))
 
            if monData.hasData():
               user_jobs     = ins.getUserJobsByState (uid)  # can also get from sacct -u user -s 'RUNNING, PENDING'
@@ -1803,7 +1777,8 @@ class SLURMMonitorUI(object):
             low_util     = list(jobs.values())
             # node with low resource utlization
             low_nodes    = monData.getLowUtilNodes()
-            unbal_jobs   = monData.getUnbalancedJobs(1,2,1)
+            unbal_jobs   = monData.getUnbalancedJobs(1,2,2)
+            #unbal_jobs   = monData.getUnbalancedJobs(1,1000000000,1000000)
           else:
             update_time= int(time.time())
             low_util   = [{'name':self.getWaitMsg()}]

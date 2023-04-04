@@ -64,14 +64,13 @@ class JobNoticeSender:
         sendMessage('[scicomp] Job {} with low utilization'.format(job['job_id'], userName), content, to=','.join(to_list))
           
     # send low utilization summary
-    def sendLUSummary (self, ts, jobs, lmt_settings):
+    def sendLUSummary (self, cluster, jobs, lmt_settings):
         content      = SUMMARY_LOW_UTIL.format(lmt_settings['cpu'], lmt_settings['cpu'], lmt_settings['mem'], lmt_settings['gpu'], list(jobs.keys()))
-        print ("{}".format(content))
         to_list      = RECIPIENTS
 
 
         print("sendMessage {}".format(content))
-        sendMessage('[scicomp] Slurm Jobs of minimal resource usage', content, ','.join(to_list))
+        sendMessage('[scicomp] Slurm jobs with minimal resource usage on Cluster {}'.format(cluster), content, ','.join(to_list))
         print ("Done sendLUSummary")
 
 

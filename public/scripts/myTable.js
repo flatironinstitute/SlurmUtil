@@ -335,7 +335,7 @@ function getTRHtml (d, titles_dict, type_dict, cluster) {
 var Summary_ALARM    =null      // a list
 var Summary_TYPE_DICT=null      // a dict
 function createSummaryTable (data, titles_dict, table_id, parent_id, type_dict, summary_type, alarm_lst, cluster=DEF_CLUSTER) {
-   console.log("createSummaryTable data=", data, ",titles=", titles_dict, ",type=", type_dict, ",alarm_lst=", alarm_lst, ",cluster=", cluster)
+   console.log("createSummaryTable data=", data, ",alarm_lst=", alarm_lst, ",cluster=", cluster)
    Summary_ALARM     = alarm_lst
    Summary_TYPE_DICT = type_dict
    data.forEach (function(d) { d.html = getTRHtml (d, titles_dict, type_dict, cluster) });

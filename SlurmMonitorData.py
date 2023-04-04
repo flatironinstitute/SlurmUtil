@@ -477,16 +477,17 @@ class SLURMMonitorData(object):
     def checkJobs (self):
         #check hourly for long run low util jobs and send notice
         luj_settings = sessionConfig.getSetting('low_util_job')
-        send_hours   = [9, 14, 17, 18, 19, 20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6, 7, 8]
         if luj_settings['email']:
-           now = datetime.datetime.now()
+           now        = datetime.datetime.now()
+           send_hours = luj_settings['email_hour']
            if now.hour in send_hours and now.minute < 5:
               if self.updateTS - self.checkTS > 600:     # at least 10 minute from last time to avoid send it twice 
                   logger.info('{}:({})'.format(self.updateTS, self.checkTS))   
                   gpu_data    = self.getJobGPUData ()
                   low_util    = self.getCurrLUJobs (gpu_data, luj_settings)
                   logger.info('{}:({}) low_util={}'.format(self.updateTS, self.checkTS, low_util.keys()))   
-                  self.jobNoticeSender.sendLUSummary(self.cluster, low_util, luj_settings)
+                  if low_util:
+                     self.jobNoticeSender.sendLUSummary(self.cluster, low_util, luj_settings)
                   #self.jobNoticeSender.sendNotice(self.updateTS, low_util)
                   self.checkTS = self.updateTS
 

@@ -18,7 +18,7 @@ class BrightRelayClient:
     def __init__(self, url_input=relay_url, gpu_avg_period=gpu_avg_period):
         self.base_url  = url_input
         self.gpu_avg_period=gpu_avg_period
-        print("URL is {}".format(self.base_url))
+        print("BrightRelay URL is {}".format(self.base_url))
 
     # query bright all gpu data 
     def getLatestGPUAvg (self, node_list=None, node_regex=None, minutes=gpu_avg_period):

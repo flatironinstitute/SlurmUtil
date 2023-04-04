@@ -459,6 +459,15 @@ def pstdev(data):
     pvar = ss/n # the population variance
     return pvar**0.5
 
+# data are all positive numbers
+def stddev(data):
+    d = pstdev(data)
+    m = mean(data)
+    if m !=0 :
+       return d/m
+    else:
+       return 0
+
 # extract 56 from "1=56,2=1024000,4=2"
 # used for map function when only one parameter is used, otherwise use getTresDict
 def extract1 (s):
