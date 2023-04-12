@@ -1,7 +1,7 @@
 import argparse, time
 t1=time.time()
 from querySlurmDB import CSV_DIR, SlurmDBQuery
-from prophet      import daily
+from myProphet      import daily
 from queryInflux  import InfluxQueryClient
 
 #Also in MyTool
@@ -32,7 +32,7 @@ if __name__=="__main__":
           for day_or_hour in ['day','hour']:
               fname1 = "{}/{}_{}_{}".format(CSV_DIR, cluster, day_or_hour, "cpuAllocDF.csv")
               fname2 = "{}/{}_{}_{}".format(CSV_DIR, cluster, day_or_hour, "cpuAllocDF_{}.csv")
-              start,end,df = SlurmDBQuery.savCPUAlloc       (cluster, day_or_hour, fname1)  # cannot put into prophet.py 
+              start,end,df = SlurmDBQuery.savCPUAlloc (cluster, day_or_hour, fname1)  # cannot put into prophet.py 
               print("\tAll: {}-{}".format(start, end)) 
               SlurmDBQuery.savAccountCPUAlloc(cluster, day_or_hour, fname2, df)  
 
@@ -41,17 +41,8 @@ if __name__=="__main__":
        InfluxQueryClient.daily()
 
    # generate summary usage file
-
-   SlurmDBQuery.sum_assoc_usage_day('slurm_plus')
+   #SlurmDBQuery.sum_assoc_usage_day('slurm_plus')
    SlurmDBQuery.sum_job_step       ('slurm')
 
    # generate new prophet and figure
-   prophet.daily()
-   #for cluster in clusters:
-   #    print("--- Cluseter {} ---".format(cluster))
-   #    fname1 = "{}/{}_day_{}".format(CSV_DIR, cluster, "cpuAllocDF.csv")
-   #    fname2 = "{}/{}_day_{}".format(CSV_DIR, cluster, "cpuAllocDF_*.csv")
-   #    inst   = MyProphet(years=3)                      # use up to 2 years of hisotry
-   #    inst.clusterUsage_forecast (fname1, days=14)   # predict 2 weeks
-   #    #inst.accountUsage_forecast (fname2, days=14)
-
+   myProphet.daily()

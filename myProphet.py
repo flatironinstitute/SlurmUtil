@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 
 from collections import defaultdict
 #IMPORTANT: can not import pyslurm directly or indirectly, will cuase core dump
-from fbprophet             import Prophet
-from fbprophet.plot        import add_changepoints_to_plot
-from fbprophet.plot        import plot_cross_validation_metric
-from fbprophet.diagnostics import cross_validation
-from fbprophet.diagnostics import performance_metrics
+from prophet             import Prophet
+from prophet.plot        import add_changepoints_to_plot
+from prophet.plot        import plot_cross_validation_metric
+from prophet.diagnostics import cross_validation
+from prophet.diagnostics import performance_metrics
 
 IMG_DIR          = "./public/images/"
 CSV_DIR          = "./data/"
@@ -166,21 +166,19 @@ class MyProphet:
 
 def daily (clusters=['slurm', 'slurm_plus']):
     for cluster in clusters:
-       print("--- Cluseter {} ---".format(cluster))
+       print("cluseter: {}".format(cluster))
        fname1 = "{}/{}_day_{}".format(CSV_DIR, cluster, "cpuAllocDF.csv")
        fname2 = "{}/{}_day_{}".format(CSV_DIR, cluster, "cpuAllocDF_*.csv")
        inst   = MyProphet(years=3)                      # use up to 2 years of hisotry
+       print("\tcluster usage file: {}".format(fname1))
        inst.clusterUsage_forecast (fname1, days=14)   # predict 2 weeks
+       print("\taccount usage file: {}".format(fname1))
        inst.accountUsage_forecast (fname2, days=14)
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description='Make prediction of cluster and account usage.')
     parser.add_argument('-y', '--years',     type=int, default=3,   help='years of history used to make prediction')
     parser.add_argument('-d', '--future',    type=int, default=30,  help='days in the future to predict')
-    parser.add_argument('-c', '--clusters', nargs="+", default=['slurm', 'slurm_plus'],   help='clusters')
+    parser.add_argument('-c', '--clusters', nargs="+", default=['slurm'],   help='clusters')
     args = parser.parse_args()
     daily(args.clusters)
-
-    inst = MyProphet(args.years)
-    inst.clusterUsage_forecast ("./data/slurm_plus_day_cpuAllocDF.csv",   days=args.future)
-    #inst.accountUsage_forecast ("./data/slurm_plus_day_cpuAllocDF_*.csv", days=args.future)
