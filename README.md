@@ -1,6 +1,20 @@
 # Slurm Utilites: monitoring tools and web interfaces
 
-This project is to monitor a slurm cluster and to provide a set of user interfaces to display the monitoring data.
+ 
+We have a front-end web interface that displays real-time and historical monitoring information. The
+interface was powered by a background server that collected data from
+multiple sources, such as our own monitoring agents, slurm database,
+Bright server, etc., across local (rusty) and (popeye) remote
+clusters. The server also saves the real-time data into time-series
+databases and backup files. Additionally, it provided tools to
+facilitate the administrator's work, such as sending alerts when the
+system was in an unhealthy state, offering possible solutions,
+predicting future workload, and more. The server was designed for high
+performance, with multiple processes and memory data caches to boost
+efficiency.
+
+We have an instance set up at http://mon7:8126
+
 
 ## Monitoring Framework
 On each node of the slurm cluster, a deamon cluster_host_mon.py is running and reporting the monitored data (running processes' user, slurm_job_id, cpu, memory, io ...) to a MQTT server (for example, mon5.flatironinstitute.org).
@@ -135,7 +149,7 @@ pip install -r requirements.txt
 #### Install pyslurm
 Inside the python virtual environment, we should install pyslurm.
 
-#### Download pyslurm source
+##### Download source code
 ```
 wget https://github.com/PySlurm/pyslurm/archive/refs/tags/v22.5.1.tar.gz
 tar -xzvf v22.5.1.tar.gz
@@ -147,8 +161,8 @@ Or,
 git clone https://github.com/PySlurm/pyslurm.git
 ```
 
-#### Modify pyslurm source (20.11.8):
-Modify pyslurm/pyslurm.pyx
+#### Modify the source code:
+Modify pyslurm/pyslurm.pyx to add job attributes 'state_reason' and 'gres_detail'.
 ```
 2139             #Yanbin: add state_reason_desc
 2140             if self._record.state_desc:
@@ -183,45 +197,47 @@ Modify pyslurm/pyslurm.pyx
 []: # ```
 -->
 
-
-#### Build and Install pyslurm:
-Inside the python virtual environment
+##### Build and Install pyslurm:
+Inside the Python virtual environment
 ```
 cd <pyslurm_source_dir>
 python setup.py --slurm-lib=$SLURM_ROOT/lib64 --slurm-inc=$SLURM_ROOT/include build
 python setup.py --slurm-lib=$SLURM_ROOT/lib64 --slurm-inc=$SLURM_ROOT/include install
 ```
 
-```
-MQTT server running on mon7.flatironinstitute.org
-```
+## Run the Slurm Monitoring Tool:
 
-```
-Influxdb running on influxdb000
-```
-
-## Others:
-### Installing
-
-A step by step series of examples that tell you have to get a development env running.
+### Installation
 
 Clone the repository to your local machine
 ```
 git clone https://github.com/flatironinstitute/SlurmUtil.git
 ```
-(git pull to retrieve the update)
 
-## Execute
+### Configuration
 
-Here is how to start the system on your local machine.
+You may configure the monitoring tools using both the shell script "StartSlurmMqtMonitoring_mon7" and the configuration 
+file "config/config.json".
 
-### StartSlurmMqtMonitoring 
+### Start the Slurm Monitoring Tool:
 
-Customerize ${CmSlurmRoot}, ${pData}, ${WebPort}, python virtual environment in the script, list the web server update interface in mqt_urls, and run
+Run
 ```
-StartSlurmMqtMonitoring
+StartSlurmMqtMonitoring_mon7
 ```
-It starts web server at http://localhost:${WebPort} and two deamons that 1) both subscribe to MQTT 2) one update the informaton of the web server, one update influxdb (WILL MERGE TWO DEAMONS LATER)
+
+The script starts programs defined in "cmds" such as
+```
+declare -a cmds=("python ${ScriptDir}/sm_app.py" "python ${ScriptDir}/mqttMonStream.py" "python ${ScriptDir}/mqttMon2Influx.py" "ssh -i /mnt/home/yliu/.ssh/id_sdsc -N -R 8126:localhost:8126 popeye-login2.sdsc.edu" "python ${ScriptDir}/brightRelay.py")
+```
+
+"python ${ScriptDir}/sm_app.py" starts a web server at http://localhost:${port}, where "port" is configured in "config/config.json".
+ 
+"python ${ScriptDir}/mqttMonStream.py" starts a MQTT client that receieves montoring data form a MQTT server, which is configured in "config/config.json".
+
+"python ${ScriptDir}/mqttMon2Influx.py"
+
+web server at http://localhost:${WebPort} and two deamons that 1) both subscribe to MQTT 2) one update the informaton of the web server, one update influxdb (WILL MERGE TWO DEAMONS LATER)
 
 The script starts 3 python processes, such as 
 ```
@@ -229,6 +245,7 @@ python3 /mnt/home/yliu/projects/slurm/utils/smcpgraph-html-sun.py 8126 /mnt/ceph
 python3 /mnt/home/yliu/projects/slurm/utils/mqtMon2Influx.py
 python3 /mnt/home/yliu/projects/slurm/utils/mqtMonStream.py /mnt/ceph/users/yliu/tmp/mqtMonTest mqt_urls
 ```
+
 ## Debug and Restart
 
 Check log files for errors. Log files are saved in smcpsun_${cm}_mqt_$(date +%Y%m%d_%T).log, mms_${cm}_$(date +%Y%m%d_%T).log and ifx_${cm}_$(date +%Y%m%d_%T).log.
