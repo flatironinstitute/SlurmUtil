@@ -64,7 +64,7 @@ class SLURMMonitorUI(object):
     def qosDetail(self, qos, cluster="Rusty"):
         pyslurmData   = self.monDataDict[cluster].pyslurmData
         qosData       = PyslurmQuery.getQoSDict(cluster,pyslurmData).get(qos, {'name':qos, 'note':"No data yet. Please come back to check."})
-        htmlTemp      = os.path.join(config.APP_DIR, 'qosDetail.html')
+        htmlTemp      = os.path.join(config.HTML_DIR, 'qosDetail.html')
         htmlStr       = open(htmlTemp).read().format(cluster    = cluster,
                                                      update_time=MyTool.getTsString(time.time()),
                                                      qos        =json.dumps(qosData))
@@ -80,7 +80,7 @@ class SLURMMonitorUI(object):
         else:
            p_info['avail_tres_fmt_str']='cpu={},node={}'.format(p_info.get('avail_cpus_cnt',0),p_info.get('avail_nodes_cnt',0))
 
-        htmlTemp      = os.path.join(config.APP_DIR, 'partitionDetail.html')
+        htmlTemp      = os.path.join(config.HTML_DIR, 'partitionDetail.html')
         htmlStr       = open(htmlTemp).read().format(cluster    =json.dumps(cluster),
                                                      update_time=MyTool.getTsString(ins.updateTS),
                                                      p_detail   =json.dumps(p_info),
@@ -104,7 +104,7 @@ class SLURMMonitorUI(object):
                   p['display_class'] = 'inform'
            pendingData[cluster] = [ins.updateTS, pendingLst, relaxQoS, partLst]
 
-        htmlTemp   = os.path.join(config.APP_DIR, 'pending.html')
+        htmlTemp   = os.path.join(config.HTML_DIR, 'pending.html')
         htmlStr    = open(htmlTemp).read().format(data              =json.dumps(pendingData))
         return htmlStr
      except Exception as e:
@@ -121,7 +121,7 @@ class SLURMMonitorUI(object):
                 s.append({'type': 'column', 'name': acct, 'data': d.values.tolist()})
             series.append (s)
 
-        htmlTemp   = os.path.join(config.APP_DIR, 'CDFHC.html')
+        htmlTemp   = os.path.join(config.HTML_DIR, 'CDFHC.html')
         t1         = 'Cluster {}: Distribution of Job Wall Time'.format(cluster)
         t2         = 'Cluster {}: Distribution of Job CPU Time'.format(cluster)
         parameters = {'start': time.strftime('%Y-%m-%d', time.localtime(start)),
@@ -142,7 +142,7 @@ class SLURMMonitorUI(object):
                 s.append({'type': 'column', 'name': acct, 'data': d.values.tolist()})
             series.append (s)
 
-        htmlTemp   = os.path.join(config.APP_DIR, 'CDFHC_3.html')
+        htmlTemp   = os.path.join(config.HTML_DIR, 'CDFHC_3.html')
         t1         = 'Cluster {}: Distribution of Job Requested CPUs'.format(cluster)
         t2         = 'Cluster {}: Distribution of Job Allocated CPUs'.format(cluster)
         t3         = 'Cluster {}: Distribution of Job Requested Nodes'.format(cluster)
@@ -172,7 +172,7 @@ class SLURMMonitorUI(object):
                 tresSer[tres].append({'name': acct, 'data':sumDf.loc[(tres,acct,), ['ts_ms', 'alloc_ratio']].values.tolist()})
 
         #generate data
-        htmlTemp = os.path.join(config.APP_DIR, 'scatterHC.html')
+        htmlTemp = os.path.join(config.HTML_DIR, 'scatterHC.html')
         h = open(htmlTemp).read()%{
                                    'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
@@ -189,7 +189,7 @@ class SLURMMonitorUI(object):
            acct = None
         start, stop, tresSer  = SlurmDBQuery.getUserReport_hourly(cluster, start, stop, int(top), acct)
 
-        htmlTemp = os.path.join(config.APP_DIR, 'timeSeriesHC.html')
+        htmlTemp = os.path.join(config.HTML_DIR, 'timeSeriesHC.html')
         h = open(htmlTemp).read().format(
                                    start = time.strftime('%Y-%m-%d', time.localtime(start)),
                                    stop  = time.strftime('%Y-%m-%d', time.localtime(stop)),
@@ -204,7 +204,7 @@ class SLURMMonitorUI(object):
     def forecast_old(self, page=None):
         clu_dict = PyslurmQuery.getSlurmDBClusters()
         clu_name = list(clu_dict.keys())
-        htmltemp = os.path.join(config.APP_DIR, 'forecast.html')
+        htmltemp = os.path.join(config.HTML_DIR, 'forecast.html')
         #h        = open(htmltemp).read().format(clusters=clu_name)
         h        = open(htmltemp).read()
  
@@ -217,7 +217,7 @@ class SLURMMonitorUI(object):
         f_lst   = sorted(glob.glob('./public/images/{}_cpuAllocDF_*_forecast.png'.format(clusters[0])))
         f_lst   = [os.path.splitext(os.path.split(fname)[1])[0] for fname in f_lst]     #filename no dir no ext
         f_lst = [fname.split('_')[-2] for fname in f_lst]
-        htmlTemp = os.path.join(config.APP_DIR, 'forecastImage.html')
+        htmlTemp = os.path.join(config.HTML_DIR, 'forecastImage.html')
         h = open(htmlTemp).read().format(clusters=clusters, accounts=f_lst)
         return h
 
@@ -226,7 +226,7 @@ class SLURMMonitorUI(object):
         f_lst = sorted(glob.glob('./public/images/{}_cpuAllocDF_*_forecast.png'.format(cluster)))
         f_lst = [os.path.splitext(os.path.split(fname)[1])[0] for fname in f_lst]     #filename no dir no ext
         f_lst = [fname.split('_')[-2] for fname in f_lst]
-        htmlTemp = os.path.join(config.APP_DIR, 'forecastImage.html')
+        htmlTemp = os.path.join(config.HTML_DIR, 'forecastImage.html')
         h = open(htmlTemp).read().format(cluster=cluster, accounts=f_lst)
         return h
 
@@ -250,7 +250,7 @@ class SLURMMonitorUI(object):
                      {'name': 'Pending Job Requested Nodes',      'data':[[ts, cnt] for ts, cnt in ts2PendReqNodeCnt.items()],                 'step':'left'},
                      {'name': 'QoS Pending Job Requested Nodes',  'data':[[ts, cnt] for ts, cnt in ts2QoSPendReqCnt.items()],                  'step':'left'},
                   ]
-        htmlTemp = os.path.join(config.APP_DIR, 'seriesHC.html')
+        htmlTemp = os.path.join(config.HTML_DIR, 'seriesHC.html')
         h        = open(htmlTemp).read()%{
                                    'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
@@ -294,7 +294,7 @@ class SLURMMonitorUI(object):
                      {'name': 'Pending Job Requested CPUs',       'data':[[ts, cnt] for ts, cnt in ts2PendReqCPUCnt.items()]},
                     ]
 
-        htmlTemp = os.path.join(config.APP_DIR, 'clusterHistory.html')
+        htmlTemp = os.path.join(config.HTML_DIR, 'clusterHistory.html')
         h = open(htmlTemp).read().format(cluster=cluster,
                                          start=time.strftime('%Y-%m-%d', time.localtime(start)),
                                          stop =time.strftime('%Y-%m-%d', time.localtime(stop)),
@@ -343,7 +343,7 @@ class SLURMMonitorUI(object):
         cate2title = {'Resource':'Queued by Resource', 'GPU':'Queued by GPU Resource', 'QoSGrp':'Queued by Group QoS', 'QoS':'Queued by User QoS', 'Sched':'Queued by Job Defination', 'Other':'Queued by Other'}  #order matters
         cates_sort = [cate for cate in cate2title.keys() if cate in cates]
         series1    = [{'name':cate2title[cate], 'data':cate2ts_cnt[cate], 'step':'left'} for cate in cates_sort]
-        htmlTemp   = os.path.join(config.APP_DIR, 'pendingJobReport.html')
+        htmlTemp   = os.path.join(config.HTML_DIR, 'pendingJobReport.html')
         h          = open(htmlTemp).read().format(start=time.strftime(DATE_DISPLAY_FORMAT, time.localtime(start)),
                                                   stop =time.strftime(DATE_DISPLAY_FORMAT, time.localtime(stop)),
                                                   series1=series1, title1=cluster + ' Job Queue Length', xlabel1='Queue Length',
@@ -370,7 +370,7 @@ class SLURMMonitorUI(object):
                       {'data': dfs[6][['time', 'count']].values.tolist(),  'name': 'Req Nodes of Exec. Jobs'},
                       {'data': dfs[7][['time', 'count']].values.tolist(),  'name': 'Alloc. Nodes'},
                       {'data': [[start*1000,total_node], [stop*1000,total_node]], 'name': 'Total Nodes'}]
-        htmlTemp = os.path.join(config.APP_DIR, 'jobHistory.html')
+        htmlTemp = os.path.join(config.HTML_DIR, 'jobHistory.html')
         h = open(htmlTemp).read()%{
                                    'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
@@ -391,7 +391,7 @@ class SLURMMonitorUI(object):
         series1   = [{'data': df[['time', 'value0']].values.tolist(), 'name': 'Job Queue Length'}]
         series2   = [{'data': df[['time', 'value1']].values.tolist(), 'name': 'Requested CPUs of Queued Job'}]
 
-        htmlTemp = os.path.join(config.APP_DIR, 'seriesHC_2.html')
+        htmlTemp = os.path.join(config.HTML_DIR, 'seriesHC_2.html')
         h = open(htmlTemp).read()%{
                                    'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
@@ -435,7 +435,7 @@ class SLURMMonitorUI(object):
         cpu_ann    = cpuDf.groupby('count').first().loc[:,['ts_ms', 'total_secs']].reset_index().values.tolist()
         mem_ann    = memDf.groupby('count').first().loc[:,['ts_ms', 'total_secs']].reset_index().values.tolist()
 
-        htmlTemp = os.path.join(config.APP_DIR, 'seriesHC_2.html')
+        htmlTemp = os.path.join(config.HTML_DIR, 'seriesHC_2.html')
         h = open(htmlTemp).read()%{
                                    'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
@@ -449,8 +449,6 @@ class SLURMMonitorUI(object):
         return '({},{})'.format(self.monData.updateTS, self.monData.allJobs)
 
     def getSummaryTableData(monData, gpudata=None, gpu_jid2data=None):
-        #logger.info("monData {}={}".format(monData.cluster, monData.data.keys()))
-        logger.info("gpudata={}".format(gpudata))
         cluster     = monData.cluster
         hostData    = monData.data
         jobData     = monData.currJobs
@@ -459,7 +457,7 @@ class SLURMMonitorUI(object):
         result      = []
         for node, nodeInfo in sorted(hostData.items()):
             if node not in pyslurmNode:
-               logger.error("node {} not in pyslurmNode".format(node))
+               logger.warning("node {} not in pyslurmNode".format(node))
                continue
 
             node_mem_M = pyslurmNode[node]['real_memory']
@@ -472,7 +470,6 @@ class SLURMMonitorUI(object):
             if status.endswith(('@','+','$','#','~','*')):  #format status diaplay, sinfo explain 
                status = status[:-1]
             if 'DOWN' in status:                            #or modify javascript equalOnCol 
-               #status = 'DOWN'
                continue                                     # not displaying down nodes
 
             node_info = [node, status, delay, node_mem_M]
@@ -577,14 +574,13 @@ class SLURMMonitorUI(object):
 
     def getHeatmapData (self, monData, gpudata, weight, avg_minute=0):
         workers = monData.getHeatmapWorkerData(gpudata, weight, avg_minute)
-        logger.info("workers={}".format(workers))
         jobs    = SLURMMonitorUI.getAllocJobsWithLabel (monData)  #jobs list  [{job_id, long_label, disabled}, ...]
         users   = SLURMMonitorUI.getAllocUsersWithLabel(monData)  #users list [{user, jobs, long_label}, ...]
         return workers,jobs,users
 
     def getNoDataPage (self, title, page):
         msg      = self.getWaitMsg ()
-        htmltemp = os.path.join(config.APP_DIR, 'noData.html')
+        htmltemp = os.path.join(config.HTML_DIR, 'noData.html')
         h        = open(htmltemp).read().format(update_time = MyTool.getTsString(int(time.time())),
                                                 title       = title,
                                                 page        = page,
@@ -610,7 +606,7 @@ class SLURMMonitorUI(object):
             workers,jobs,users   = self.getHeatmapData (monData, gpudata, weight, avg_minute["cpu"])
             heatmapData[name]    = (monData.updateTS, workers, jobs, users, gpu_ts, gpudata)
 
-        htmltemp = os.path.join(config.APP_DIR, 'heatmap.html')
+        htmltemp = os.path.join(config.HTML_DIR, 'heatmap.html')
         h        = open(htmltemp).read()%{'heatmapData': json.dumps(heatmapData),
                                           'gpu_avg_minute'  : json.dumps(avg_minute["gpu"])}
 
@@ -619,7 +615,7 @@ class SLURMMonitorUI(object):
     @cherrypy.expose
     def report(self, page=None):
         accounts = sorted(SlurmCmdQuery.getAccounts())
-        htmltemp = os.path.join(config.APP_DIR, 'report.html')
+        htmltemp = os.path.join(config.HTML_DIR, 'report.html')
         h = open(htmltemp).read().format(accounts=accounts)
 
         return h
@@ -694,7 +690,7 @@ class SLURMMonitorUI(object):
             data_dict[name] = data
             upd_time[name]  = monData.updateTS
 
-        htmltemp  = os.path.join(config.APP_DIR, 'index.html')
+        htmltemp  = os.path.join(config.HTML_DIR, 'index.html')
         h         = open(htmltemp).read().format(tables_data=json.dumps(data_dict),
                                                  update_time=json.dumps(upd_time),
                                                  column     =column,
@@ -797,7 +793,7 @@ class SLURMMonitorUI(object):
 
         if 1001 not in tresSer:
            tresSer[1001] = []
-        htmlTemp = os.path.join(config.APP_DIR, 'timeSeriesHC.html')
+        htmlTemp = os.path.join(config.HTML_DIR, 'timeSeriesHC.html')
         h = open(htmlTemp).read().format(
                                    start = time.strftime('%Y-%m-%d', time.localtime(start)),
                                    stop  = time.strftime('%Y-%m-%d', time.localtime(stop)),
@@ -813,7 +809,7 @@ class SLURMMonitorUI(object):
         start, stop   = MyTool.getStartStopTS (start, stop, '%Y-%m-%d', days=int(days))
         fc_seq,bc_seq = fs2hc.gendata_user(int(uid), start, stop)
 
-        htmlTemp = os.path.join(config.APP_DIR, 'userFile.html')
+        htmlTemp = os.path.join(config.HTML_DIR, 'userFile.html')
         h        = open(htmlTemp).read().format(
                                    start = time.strftime(DATE_DISPLAY_FORMAT, time.localtime(start)),
                                    stop  = time.strftime(DATE_DISPLAY_FORMAT, time.localtime(stop)),
@@ -832,7 +828,7 @@ class SLURMMonitorUI(object):
         start        = fcSer[0]['data'][0][0]/1000
         stop         = fcSer[0]['data'][-1][0]/1000
 
-        htmlTemp = os.path.join(config.APP_DIR, 'seriesHC.html')
+        htmlTemp = os.path.join(config.HTML_DIR, 'seriesHC.html')
         h        = open(htmlTemp).read()%{
                                    'start':   time.strftime('%Y-%m-%d', time.localtime(start)),
                                    'stop':    time.strftime('%Y-%m-%d', time.localtime(stop)),
@@ -865,7 +861,7 @@ class SLURMMonitorUI(object):
                 seq['data'] = dict_ms
 
         if len(msg)==6: #from cache or influx, 'first_ts', 'last_ts', cpu_all_nodes, mem_all_nodes, io_r_all_nodes, io_w_all_nodes
-           htmltemp = os.path.join(config.APP_DIR, 'nodeGraph.html')
+           htmltemp = os.path.join(config.HTML_DIR, 'nodeGraph.html')
            h = open(htmltemp).read()%{'spec_title': ' of {}'.format(node),
                                    'note'      : note,
                                    'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(msg[0])),
@@ -875,7 +871,7 @@ class SLURMMonitorUI(object):
                                    'iseries_r' : msg[4],
                                    'iseries_w' : msg[5]}
         else: #from file, start, stop, cpu_all_seq, mem_all_seq, io_all_seq
-           htmltemp = os.path.join(config.APP_DIR, 'nodeGraph_2.html')
+           htmltemp = os.path.join(config.HTML_DIR, 'nodeGraph_2.html')
            h = open(htmltemp).read()%{'spec_title': ' of {}'.format(node),
                                    'note'      : note,
                                    'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(msg[0])),
@@ -928,14 +924,14 @@ class SLURMMonitorUI(object):
         if f_slurm:
            nodeReport     = SlurmCmdQuery.getNodeDoneJobReport(node, days=3)
            array_het_jids = [ job['JobID'] for job in nodeReport if '_' in job['JobID'] or '+' in job['JobID']]
-           htmlTemp       = os.path.join(config.APP_DIR, 'nodeDetail.html')
+           htmlTemp       = os.path.join(config.HTML_DIR, 'nodeDetail.html')
            htmlStr        = open(htmlTemp).read().format(cluster        = json.dumps(cluster),
                                                       update_time    = MyTool.getTsString(nodeData['updateTS']) if nodeData['updateTS'] else 'NotDefined',
                                                       node_data      = json.dumps(nodeData),
                                                       array_het_jids = array_het_jids,
                                                       node_report    = nodeReport)
         else:
-           htmlTemp       = os.path.join(config.APP_DIR, 'nodeDetail_noSlurm.html')
+           htmlTemp       = os.path.join(config.HTML_DIR, 'nodeDetail_noSlurm.html')
            htmlStr        = open(htmlTemp).read().format(cluster        = json.dumps(cluster),
                                                       update_time    = MyTool.getTsString(nodeData['updateTS']) if nodeData['updateTS'] else 'NotDefined',
                                                       node_data      = json.dumps(nodeData))
@@ -976,12 +972,6 @@ class SLURMMonitorUI(object):
         if alloc_gpus:
               userAssoc['tres_alloc_str'] = "{},gpu={}".format(userAssoc['tres_alloc_str'], alloc_gpus)
 
-
-    def new_ui(self):
-        htmlTemp   = os.path.join(config.APP_DIR, '../slurm-util-ui/index.html')
-        return open(htmlTemp).read()
-
-
     @cherrypy.expose
     def userJobHistory(self, user, cluster=DEFAULT_CLUSTER, days=3):
         # get done job of the user
@@ -990,7 +980,7 @@ class SLURMMonitorUI(object):
         logger.info("past_job={}".format(past_job))
         array_het_jids= [job['JobID'] for job in past_job if '_' in job['JobID'] or '+' in job['JobID']]  # array of heterogenour job
 
-        htmlTemp   = os.path.join(config.APP_DIR, 'jobHistory.html')
+        htmlTemp   = os.path.join(config.HTML_DIR, 'jobHistory.html')
         htmlStr    = open(htmlTemp).read().format(jobs = json.dumps(past_job), array_het_jids=json.dumps(array_het_jids))
         return htmlStr
 
@@ -1039,7 +1029,7 @@ class SLURMMonitorUI(object):
            detailData[cluster] = [uid, userAssoc, ins.updateTS, user_jobs, partition]
     
         detail = detailData["Rusty"]
-        htmlTemp   = os.path.join(config.APP_DIR, 'userDetail.html')
+        htmlTemp   = os.path.join(config.HTML_DIR, 'userDetail.html')
         htmlStr    = open(htmlTemp).read().format(data        =json.dumps(detailData),
                                                   user        =MyTool.getUserFullName(user),  
                                                   uname       =user,
@@ -1064,7 +1054,7 @@ class SLURMMonitorUI(object):
         #   d['time_start'] = MyTool.getTsString(d['time_start'])
         #   d['time_end']   = MyTool.getTsString(d['time_end'])
 
-        htmlTemp   = os.path.join(config.APP_DIR, 'jobByName.html')
+        htmlTemp   = os.path.join(config.HTML_DIR, 'jobByName.html')
         htmlStr    = open(htmlTemp).read().format(job_name=name, job_list=json.dumps(data))
         return htmlStr
         #return '{}\n{}'.format(fields, data)
@@ -1096,7 +1086,7 @@ class SLURMMonitorUI(object):
                       series[measure].append({'name':'{} ({}.gpu{})'.format(job["job_id"], node, gpu), 'step':'right', 'data':[[ts*1000, val] for [ts,val] in gpu_data]})
 
         min_ts   = min([job['start_time'] for job in jobs])
-        htmltemp = os.path.join(config.APP_DIR, 'gpuGraph.html')
+        htmltemp = os.path.join(config.HTML_DIR, 'gpuGraph.html')
         h = open(htmltemp).read()%{'spec_title': ' of User {}'.format(user),
                                    'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(min_ts)),
                                    'stop'      : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(int(time.time()))),
@@ -1127,7 +1117,7 @@ class SLURMMonitorUI(object):
                 gpu_data = node_data["gpu{}".format(gpu)]
                 series[measure].append({'name':'{}.{}'.format(node,gpu), 'step':'right', 'data':[[ts*1000, val] for [ts,val] in gpu_data]})
 
-        htmltemp = os.path.join(config.APP_DIR, 'gpuGraph.html')
+        htmltemp = os.path.join(config.HTML_DIR, 'gpuGraph.html')
         h = open(htmltemp).read().format(spec_title= ' of Job {}'.format(jid),
                                          start     = time.strftime(TIME_DISPLAY_FORMAT, time.localtime(job['start_time'])),
                                          stop      = time.strftime(TIME_DISPLAY_FORMAT, time.localtime(int(time.time()))),
@@ -1227,7 +1217,7 @@ class SLURMMonitorUI(object):
            proc_cnt   = 0
 
         logger.info("prepare html")
-        htmlTemp   = os.path.join(config.APP_DIR, 'jobDetail.html')
+        htmlTemp   = os.path.join(config.HTML_DIR, 'jobDetail.html')
         htmlStr    = open(htmlTemp).read().format(cluster    = cluster,
                                                   job_id     = jid,
                                                   job_name   = job_report['JobName'],
@@ -1347,7 +1337,7 @@ class SLURMMonitorUI(object):
         t += '</tbody>\n<a href="%s/tymor?refresh=1">&#8635</a>\n'%cherrypy.request.base
         t2 += '</tbody>\n<a href="%s/tymor?refresh=1">&#8635</a>\n'%cherrypy.request.base
 
-        htmlTemp = os.path.join(config.APP_DIR, 'sparkline_std.html')
+        htmlTemp = os.path.join(config.HTML_DIR, 'sparkline_std.html')
         #h = open(htmlTemp).read()%{'tablespark' : t, 'tablespark2' : t2 }
         h = open(htmlTemp).read()%{'tablespark' : t }
 
@@ -1378,7 +1368,7 @@ class SLURMMonitorUI(object):
                 seq['data'] = dict_ms
 
         if len(msg)==6:
-           htmltemp = os.path.join(config.APP_DIR, 'nodeGraph.html')
+           htmltemp = os.path.join(config.HTML_DIR, 'nodeGraph.html')
            h = open(htmltemp).read()%{'spec_title': ' of job {}'.format(jobid),
                                    'cluster'   : cluster,
                                    'note'      : note,
@@ -1389,7 +1379,7 @@ class SLURMMonitorUI(object):
                                    'iseries_r' : msg[4],
                                    'iseries_w' : msg[5]}
         else:
-           htmltemp = os.path.join(config.APP_DIR, 'nodeGraph_2.html')
+           htmltemp = os.path.join(config.HTML_DIR, 'nodeGraph_2.html')
            h = open(htmltemp).read()%{'spec_title': ' of job {}'.format(jobid),
                                    'note'      : note,
                                    'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(msg[0])),
@@ -1553,7 +1543,7 @@ class SLURMMonitorUI(object):
             for gpu, gpu_data in node_data.items():
                 series[measure].append({'name':'{}.{}'.format(node,gpu), 'step':'right', 'data':[[ts*1000, val] for [ts,val] in gpu_data]})
 
-        htmltemp = os.path.join(config.APP_DIR, 'gpuGraph.html')
+        htmltemp = os.path.join(config.HTML_DIR, 'gpuGraph.html')
         h = open(htmltemp).read().format(spec_title = ' on {}'.format(node),
                                          start      = time.strftime(TIME_DISPLAY_FORMAT, time.localtime(start)),
                                          stop       = time.strftime(TIME_DISPLAY_FORMAT, time.localtime(stop)),
@@ -1587,7 +1577,7 @@ class SLURMMonitorUI(object):
                 dict_ms = [ [ts*1000, value] for ts,value in seq['data']]
                 seq['data'] = dict_ms
 
-        htmltemp = os.path.join(config.APP_DIR, 'nodeGraph.html')
+        htmltemp = os.path.join(config.HTML_DIR, 'nodeGraph.html')
         h = open(htmltemp).read()%{'spec_title': ' of job {} on {}'.format(jobid, node),
                                    'note'      : note,
                                    'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(msg[0])),
@@ -1679,7 +1669,7 @@ class SLURMMonitorUI(object):
                series['io'].append ({'name': jid2dsc[jid], 'data':[]})
 
         #if len(msg)==6:
-        htmltemp = os.path.join(config.APP_DIR, 'nodeGraph_2.html')
+        htmltemp = os.path.join(config.HTML_DIR, 'nodeGraph_2.html')
         h        = open(htmltemp).read()%{'spec_title': ' of user {}'.format(user),
                                    'note'      : 'influxdb',
                                    'start'     : time.strftime(TIME_DISPLAY_FORMAT, time.localtime(start)),
@@ -1720,7 +1710,7 @@ class SLURMMonitorUI(object):
             io_all_nodes.append (io_node)
         ann_series = []
 
-        htmltemp = os.path.join(config.APP_DIR, 'nodeGraph_2.html')
+        htmltemp = os.path.join(config.HTML_DIR, 'nodeGraph_2.html')
         h = open(htmltemp).read()%{'spec_title': ' of user ' + uname,
                                    'note'      : 'data from influx',
                                    'start'     : time.strftime('%Y-%m-%d', time.localtime(start)),
@@ -1739,7 +1729,7 @@ class SLURMMonitorUI(object):
         for name, monData in self.monDataDict.items():
            data[name] = monData.getSunburstData()        #d_core, d_cpu_util, d_rss_K, d_io_bps, d_state
 
-        htmltemp = os.path.join(config.APP_DIR, 'sunburst2.html')
+        htmltemp = os.path.join(config.HTML_DIR, 'sunburst2.html')
         h = open(htmltemp).read()%{'update_time': datetime.datetime.fromtimestamp(self.monData.updateTS).ctime(), 
                                    'sunburstData': json.dumps(data)}
                                    #'data1':json.dumps(d_core),
@@ -1754,7 +1744,7 @@ class SLURMMonitorUI(object):
         nodeLst    = sorted(pyslurm.node().get().keys())
         partLst    = sorted(pyslurm.partition().get().keys())
         qosLst     = sorted(pyslurm.qos().get().keys())
-        htmlTemp   = os.path.join(config.APP_DIR, 'search.html')
+        htmlTemp   = os.path.join(config.HTML_DIR, 'search.html')
         htmlStr    = open(htmlTemp).read().format(users=userLst, jobs=jobLst, nodes=nodeLst, partitions=partLst,qos=qosLst)
         return htmlStr
 
@@ -1790,7 +1780,7 @@ class SLURMMonitorUI(object):
           bbData[cluster] = [update_time, low_util, low_nodes, unbal_jobs, other]
 
 
-        htmlTemp   = os.path.join(config.APP_DIR, 'bulletinboard.html')
+        htmlTemp   = os.path.join(config.HTML_DIR, 'bulletinboard.html')
         htmlStr    = open(htmlTemp).read().format(data        =json.dumps(bbData))
         return htmlStr
 
@@ -1800,7 +1790,7 @@ class SLURMMonitorUI(object):
         #   logger.info("settings{}".format(settings))
         #   self.chg_settings (settings)
         settings = sessionConfig.getSettings()
-        htmlTemp   = os.path.join(config.APP_DIR, 'settings.html')
+        htmlTemp   = os.path.join(config.HTML_DIR, 'settings.html')
         htmlStr    = open(htmlTemp).read().format(settings=json.dumps(settings))
         return htmlStr
 

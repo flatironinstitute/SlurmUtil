@@ -9,6 +9,7 @@ else:  # from python
    APP_DIR           = os.path.realpath(sys.argv[0])
    APP_NAME          = 'python'
 
+HTML_DIR          = os.path.join(APP_DIR, 'html')
 APP_CONFIG        = {}
 CSV_DIR           = "./data/"
 SUMMARY_TABLE_COL = ['node', 'status', 'delay', 'node_mem_M', 'job', 'user', 'alloc_cpus', 'run_time', 'proc_count', 'cpu_util', 'avg_cpu_util', 'rss', 'vms', 'io', 'fds', 'alloc_gpus', 'gpu_util', 'avg_gpu_util']
