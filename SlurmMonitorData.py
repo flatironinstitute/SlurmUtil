@@ -384,9 +384,10 @@ class SLURMMonitorData(object):
         result = {}            # return {jid:job,...}
         for jid, job in jobs.items():
             if job['account'] in exclude_acct: continue  # 
-            period = ts - job['start_time']
-            if period                < lmt_settings['run_time_hour']*3600: continue    # short job
             if job.get('num_cpus',1) < lmt_settings['alloc_cpus']:         continue    # small job 
+            if job.get('num_nodes',1)< lmt_settings['num_nodes']:          continue    # small job
+            if (ts-job['start_time'])< lmt_settings['run_time_hour']*3600: continue    # short job
+            if any(map(lambda x: x in job['name'], lmt_settings['exclude_name'])): continue  # job name is in the exlusion list 
             if (job['job_avg_util']  > lmt_settings['cpu']/100) or (job['job_mem_util']  > lmt_settings['mem']/100) or (job['job_inst_util'] > lmt_settings['cpu']/100): 
                continue
             if not job['gpus_allocated']: 
@@ -438,6 +439,14 @@ class SLURMMonitorData(object):
     @cherrypy.expose
     def test(self, **args):
         return "hello"
+
+    @cherrypy.expose
+    def getLoginNode (self):
+        if self.cluster!="Popeye":
+            return None
+
+        # for popeye cluster
+        return "{}\n{}".format(self.data, self.noslurm_data)
 
     def updateNodeData (sav_data, new_data):
         for node, n_data in new_data.items():
