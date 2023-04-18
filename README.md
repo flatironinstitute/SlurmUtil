@@ -1,92 +1,17 @@
-# Slurm Utilites: monitoring tools and web interfaces
+# Flatiron Monitoring and Alarming Utilities
 
- 
-We have a front-end web interface that displays real-time and historical monitoring information. The
-interface was powered by a background server that collected data from
-multiple sources, such as our own monitoring agents, slurm database,
-Bright server, etc., across local (rusty) and (popeye) remote
-clusters. The server also saves the real-time data into time-series
-databases and backup files. Additionally, it provided tools to
-facilitate the administrator's work, such as sending alerts when the
-system was in an unhealthy state, offering possible solutions,
-predicting future workload, and more. The server was designed for high
-performance, with multiple processes and memory data caches to boost
-efficiency.
+The front-end web interface provides users with real-time and historical monitoring information. 
+The interface is powered by a backend server that collects data from various sources, 
+including our own monitoring agents, slurm database, Bright server, etc., from both local (rusty) 
+and remote (popeye) clusters. 
 
-We have an instance set up at http://mon7:8126
+The server efficiently saves the real-time data into time-series databases and backup files, 
+while also offering tools to streamline the administrator's tasks, such as sending alerts 
+during system health issues, providing possible solutions, predicting future workload, and more. 
+The server is designed for high performance, utilizing multiple processes and memory data 
+caches to enhance efficiency.
 
-
-## Monitoring Framework
-On each node of the slurm cluster, a deamon cluster_host_mon.py is running and reporting the monitored data (running processes' user, slurm_job_id, cpu, memory, io ...) to a MQTT server (for example, mon5.flatironinstitute.org).
-
-An InfluxDB server (for example, worker1090.flatironinstitute.org) is set up to store the monitoring data.
-
-A monitoring server (for example, mon7.flatironinstiute.org) is set up to receive, forward and display the monitoring data. We use Phao Python Client to subscribe to the MQTT server and thus receive data from it. We also use PySlurm to retrieve data from slurm server periodically. These incoming data will be 
-1) parsed and indexed; 
-2) saved to data file (${hostname}_sm.p) and index file (${hostname}_sm.px); 
-3) saved to a measurement (for example, slurmdb_2) in InfluxDB
-3) sent to the web interface (http://${webserver}:8126/updateSlurmData) to display
-
-## Web Interface
-Web server is built using CherryPy. You can see an example of it at http://mon7:8126/. The set of user interfaces includes:
-
-1) http://${webserver}:8126/,
-A tabular summary of the slurm worker nodes, jobs and users.
-
-2) http://${webserver}:8126/utilHeatmap,
-A heatmap graph of worker nodes' and gpus' utilization.
-
-3) http://${webserver}:8126/pending,
-A table of pending jobs and related information.
-
-4) http://${webserver}:8126/sunburst,
-A sunburst graph of the slurm accounts, users, jobs and worker nodes.
-
-5) http://${webserver}:8126/usageGraph,
-A chart of the file and byte usage of users.
-
-6) http://${webserver}:8126/tymor,
-A tabular summary of slurm jobs' load statistics.
-
-7) http://${webserver}:8126/bulletinboard,
-A set of tables including running jobs and allocated nodes with low resource utilization, errors reported from different components of the system, and etc.
-
-8) http://${webserver}:8126/report,
-Generate reports of the cluster resource usage.
-
-9) http://${webserver}:8126/search,
-Search the slurm entities' information.
-
-10) http://${webserver}:8126/settings,
-Set the settings to control the display of interfaces.
-
-11) http://${webserver}:8126/forecast,
-Forecast the cluster usage in the future.
-
-Through the links embeded in these user inferfaces, you can also see the detailed informaiton and resource usage of a specific worker node, job, user, partition and so on. 
-
-## Shortcut for a test run on a Simons Foundation machine
-You can have a test run using the existed python enironment and influxdb server.
-
-### Download the repository from github
-```
-git clone https://github.com/flatironinstitute/SlurmUtil.git
-```
-
-### Start the web server on your node
-Check the configuration file at SlurmUtil/config/config.json. Make sure "writeFile" is set to false. 
-```
-   "fileStorage": {
-       "dir":       "/mnt/ceph/users/yliu/mqtMonStreamRecord",
-       "writeFile": false
-   },
-```
-
-```
-module add slurm gcc/11.2.0 python3
-cd SlurmUtil
-./StartSlurmMqtMonitoring_1
-```  
+An instance of the web interface is accessible at http://mon7:8126.
 
 # Getting Started
 ## Prerequisites 
@@ -269,4 +194,76 @@ install fbprophet
 pip install pandas
 pip install fbprophet
 pip --use-feature=2020-resolver install python-dev-tools
+
+## Monitoring Framework
+On each node of the slurm cluster, a deamon cluster_host_mon.py is running and reporting the monitored data (running processes' user, slurm_job_id, cpu, memory, io ...) to a MQTT server (for example, mon5.flatironinstitute.org).
+
+An InfluxDB server (for example, worker1090.flatironinstitute.org) is set up to store the monitoring data.
+
+A monitoring server (for example, mon7.flatironinstiute.org) is set up to receive, forward and display the monitoring data. We use Phao Python Client to subscribe to the MQTT server and thus receive data from it. We also use PySlurm to retrieve data from slurm server periodically. These incoming data will be 
+1) parsed and indexed; 
+2) saved to data file (${hostname}_sm.p) and index file (${hostname}_sm.px); 
+3) saved to a measurement (for example, slurmdb_2) in InfluxDB
+3) sent to the web interface (http://${webserver}:8126/updateSlurmData) to display
+
+## Web Interface
+Web server is built using CherryPy. You can see an example of it at http://mon7:8126/. The set of user interfaces includes:
+
+1) http://${webserver}:8126/,
+A tabular summary of the slurm worker nodes, jobs and users.
+
+2) http://${webserver}:8126/utilHeatmap,
+A heatmap graph of worker nodes' and gpus' utilization.
+
+3) http://${webserver}:8126/pending,
+A table of pending jobs and related information.
+
+4) http://${webserver}:8126/sunburst,
+A sunburst graph of the slurm accounts, users, jobs and worker nodes.
+
+5) http://${webserver}:8126/usageGraph,
+A chart of the file and byte usage of users.
+
+6) http://${webserver}:8126/tymor,
+A tabular summary of slurm jobs' load statistics.
+
+7) http://${webserver}:8126/bulletinboard,
+A set of tables including running jobs and allocated nodes with low resource utilization, errors reported from different components of the system, and etc.
+
+8) http://${webserver}:8126/report,
+Generate reports of the cluster resource usage.
+
+9) http://${webserver}:8126/search,
+Search the slurm entities' information.
+
+10) http://${webserver}:8126/settings,
+Set the settings to control the display of interfaces.
+
+11) http://${webserver}:8126/forecast,
+Forecast the cluster usage in the future.
+
+Through the links embeded in these user inferfaces, you can also see the detailed informaiton and resource usage of a specific worker node, job, user, partition and so on. 
+
+## Shortcut for a test run on a Simons Foundation machine
+You can have a test run using the existed python enironment and influxdb server.
+
+### Download the repository from github
+```
+git clone https://github.com/flatironinstitute/SlurmUtil.git
+```
+
+### Start the web server on your node
+Check the configuration file at SlurmUtil/config/config.json. Make sure "writeFile" is set to false. 
+```
+   "fileStorage": {
+       "dir":       "/mnt/ceph/users/yliu/mqtMonStreamRecord",
+       "writeFile": false
+   },
+```
+
+```
+module add slurm gcc/11.2.0 python3
+cd SlurmUtil
+./StartSlurmMqtMonitoring_1
+```  
 
