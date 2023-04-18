@@ -13,6 +13,23 @@ cert_dir    = config.APP_CONFIG["bright"]["cert_dir"]
 bright_cert = ('{}/cert.pem'.format(cert_dir), '{}/cert.key'.format(cert_dir))
 gpu_avg_period = config.APP_CONFIG["display_default"]["heatmap_avg"]["gpu"]
 
+def merge_duplicate(lst):
+    """
+    merge the values in a sorted list of [[ts, value], ...]
+    """
+    if not lst:
+        return []
+    new_list  = [lst[0]]
+    pre_value = lst[0]
+    for item in lst[1:]:
+        key   = item[0]
+        value = item[1]
+        if value != pre_value:
+            new_list.append (item)
+        pre_value = value
+    return new_list
+
+#the client of Bright relay server
 relay_url   = config.APP_CONFIG["bright"]["relay_url"]
 class BrightRelayClient:
     def __init__(self, url_input=relay_url, gpu_avg_period=gpu_avg_period):
@@ -29,7 +46,6 @@ class BrightRelayClient:
         except Exception as e:
             logger.error("Cannot connect to Bright Relay Server {}-{}. Exception {}".format(url, payload, e))
             return int(time.time()), {}
-        #print("Return {}".format(r.json()))
         
         return int(time.time()), r.json()
 
@@ -45,7 +61,6 @@ class BrightRelayClient:
                 node_gpu       = ['gpu{}'.format(i) for i in job['gpus_allocated'][node]]
                 rlt[node][jid] = sum([v for k,v in gpuData.items() if k in node_gpu])
 
-        #print("Result={}".format(dict(rlt)))
         return ts, dict(rlt)
 
     #return gpu avg on each node in node_list starting from start
@@ -53,7 +68,6 @@ class BrightRelayClient:
         url = "{}/getNodesGPUAvg".format(self.base_url)
         try:
             r     = requests.get(url, params={'nodes':json.dumps(node_list), 'start':start, 'stop':stop})
-            #print("Return {}".format(r.json()))
         except Exception as e:
             print("Cannot connect to Bright Relay Server {}. Exception {}".format(url, e))
             return None
@@ -68,7 +82,13 @@ class BrightRelayClient:
             logger.error("Cannot connect to Bright Relay Server {}. Exception {}".format(url, e))
             return None
         d  = r.json()
-        #print("type={},data={}".format(type(d),d))
+        # get rid of duplicate value in the list
+        for measure, v in d.items():
+            for node, n_v in v.items():
+                for gpu, g_v in n_v.items():
+                    n_g_v = merge_duplicate(g_v)
+                    d[measure][node][gpu] = n_g_v
+
         return d
         
     # get gpu and mem usage history for each node's period defined by {node:[start, stop]}
@@ -99,10 +119,10 @@ class BrightRestClient:
            raise Exception("This class is a singleton!")
         else:
            self.base_url  = bright_url if not url_input else url_input
-           print("URL is {}".format(self.base_url))
+           print("Bright URL is {}".format(self.base_url))
            self.cert      = bright_cert
-           self.gpu_ts    = 0        # cache data of getAllGPUAvg
-           self.gpu_data  = None
+           self.gpu_ts    = 0        
+           self.gpu_data  = None     # cache data of getAllGPUAvg
            self.gpu_avg_period=gpu_avg_period
            BrightRestClient._instance = self
   
@@ -203,9 +223,7 @@ class BrightRestClient:
                lastIdx= idx
         if seq[lastIdx]['time']/1000 < stopTS :     # last time period
             total += seq[lastIdx]['raw'] * (stopTS - seq[lastIdx]['time']/1000)
-            #print("calculateRawAvg late last={}".format(stopTS - seq[lastIdx]['time']/1000))
               
-        #print("calculateRawAvg min={},max={}".format(minP, maxP)) # preMax and max should have the same raw
         return total/(stopTS-startTS)
             
     # get all gpu data on node_list, return avg util of last {minutes} minutes
@@ -365,24 +383,27 @@ def test10():
     client.getNodesGPUAvg  (['workergpu017'], start=1650727094)
     gpu, mem = client.getNodesGPULoad (['workergpu017'])
     ts     = int(time.time())
-    print("---------")
     gpu, mem = client.getNodesGPULoad_1 ({'workergpu017':[ts-60*60, None], 'workergpu38':[ts-10*60, None]})
 
 def test11():
     import pyslurm
     import MyTool
     curr   = int(time.time())
-    jobs   = dict([(jid,job) for jid, job in pyslurm.job().get().items() if job['gres_detail']])
+    #jobs   = dict([(jid,job) for jid, job in pyslurm.job().get().items() if job['gres_detail']])
+    jobs   = {2277343:pyslurm.job().get()[2277343]}
     nodes  = pyslurm.node().get()
     for jid,job in jobs.items():
         node_list      = [nodes[node] for node in job['cpus_allocated'].keys()]
         job['gpus_allocated'] = MyTool.getGPUAlloc_layout(node_list, job['gres_detail'])
     client = BrightRelayClient()
-    rlt    = client.getNodeJobGPUAvg (jobs)
+    #rlt    = client.getNodeJobGPU (jobs)
+    rlt    = client.getNodesGPULoad ([list(job['gpus_allocated'].keys())[1]], job['start_time'])
+    print ("{}".format(rlt.keys()))
+    print ("{}".format(rlt))
 
 def main():
     t1=time.time()
-    test10 ()
+    test11 ()
     print("main take time " + str(time.time()-t1))
 
 if __name__=="__main__":

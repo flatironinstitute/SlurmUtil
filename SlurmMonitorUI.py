@@ -1096,6 +1096,7 @@ class SLURMMonitorUI(object):
 
     @cherrypy.expose
     def jobGPUGraph (self, jid, cluster=DEFAULT_CLUSTER):
+        curr_ts  = int(time.time())
         monData  = self.monDataDict[cluster]
         if not monData.hasData():
            return self.getWaitMsg()
@@ -1114,13 +1115,13 @@ class SLURMMonitorUI(object):
         for measure, m_data in gm_data.items():
           for node, node_data in m_data.items():
             for gpu in gpu_alloc[node]:
-                gpu_data = node_data["gpu{}".format(gpu)]
+                gpu_data = node_data.get("gpu{}".format(gpu), [[job['start_time']*1000,0], [curr_ts*1000, 0]]) # default 0 value
                 series[measure].append({'name':'{}.{}'.format(node,gpu), 'step':'right', 'data':[[ts*1000, val] for [ts,val] in gpu_data]})
 
         htmltemp = os.path.join(config.HTML_DIR, 'gpuGraph.html')
         h = open(htmltemp).read().format(spec_title= ' of Job {}'.format(jid),
                                          start     = time.strftime(TIME_DISPLAY_FORMAT, time.localtime(job['start_time'])),
-                                         stop      = time.strftime(TIME_DISPLAY_FORMAT, time.localtime(int(time.time()))),
+                                         stop      = time.strftime(TIME_DISPLAY_FORMAT, time.localtime(curr_ts)),
                                          series    = json.dumps(series["gpu"]),
                                          series2   = json.dumps(series["mem"]))
         return h

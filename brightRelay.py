@@ -62,7 +62,6 @@ class QueryBrightThread (threading.Thread):
 
         cut_ts = int(time.time()) - SEVEN_DAYS
         for measure, m_data in self.data.items():
-          logger.info("measure={}".format(measure))
           for node, node_data in m_data.items():
             for gpu_id, data_lst in node_data.items():
                 for idx in range(0, len(data_lst)):
@@ -82,7 +81,7 @@ class QueryBrightThread (threading.Thread):
         
     def queryBright(self):
         s_print("***query bright***")
-        q_str = '{}/dump?measurable=gpu_utilization:gpu[0-9],gpu_fb_used:gpu[0-9]&start={}&epoch=1'.format(BRIGHT_URL, self.last_ts-1)
+        q_str = '{}/dump?measurable=gpu_utilization:gpu[0-15],gpu_fb_used:gpu[0-15]&start={}&epoch=1'.format(BRIGHT_URL, self.last_ts-1)
         s_print("query {}".format(q_str))
         try:
            r  = requests.get(q_str, verify=False, cert=BRIGHT_CERT)
