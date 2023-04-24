@@ -777,8 +777,8 @@ class SLURMMonitorUI(object):
         usageData_dict= fs2hc.gendata(yyyymmdd, delta_day=int(delta_day))
         for k,v in usageData_dict.items():
             v[2] = '{}-{}-{}'.format(v[2][0:4], v[2][4:6], v[2][6:8]) #convert from '%Y%m%d' to '%Y-%m-%d'
-        htmlTemp    = 'fileCensus.html'
-        h           = open(htmlTemp).read().format(file_systems=fs2hc.FileSystems,
+        htmltemp = os.path.join(config.HTML_DIR, 'fileCensus.html')
+        h        = open(htmlTemp).read().format(file_systems=fs2hc.FileSystems,
                                                    data=json.dumps(usageData_dict), 
                                                    update_time=update_time,
                                                    delta_day = delta_day)
@@ -1805,9 +1805,9 @@ class SLURMMonitorUI(object):
             elif value == "true":
                value = True
             new_settings[key] = value
-        logger.info("---new settings{}".format(new_settings))
         sessionConfig.setSetting(setting_key, new_settings)
-        return open("back2.html").read()
+        htmlTemp   = os.path.join(config.HTML_DIR, 'back2.html')
+        return htmlTemp.read()
 
     @cherrypy.expose
     def displayFile(self, fname, cluster='Rusty'):
