@@ -32,10 +32,8 @@ class InfluxWriter (threading.Thread):
         self.influx_client.close()
 
     def connectInflux (self):
-        #return influxdb.InfluxDBClient(host, port, user, "", db, timeout=10)
         #using UDP
         #client = InfluxDBClient(host, db, use_udp=True, udp_port=4444)
-        #logger.info("connect {}:{}-{} {}".format(self.influx_host, self.influx_port, self.influx_user, "", self.influx_db)
         client = influxdb.InfluxDBClient(self.influx_host, self.influx_port, self.influx_user, "", self.influx_db)
         logger.info("return client {}".format(client))
         return client
@@ -108,7 +106,6 @@ class MQTTReader (threading.Thread):
         self.hostperf_msgs = []
         #self.hostinfo_msgs = []
         self.hostproc_msgs = []
-        #self.hostproc_msgs_byHost = []
 
         self.startTime     = datetime.now().timestamp()
         self.cpuinfo       = {} 		#static information
@@ -140,7 +137,6 @@ class MQTTReader (threading.Thread):
         return mqtt_client
 
     def on_connect(self, client, userdata, flags, rc):
-        #self.mqtt_client.subscribe("cluster/hostprocesses/worker1000")
         #logger.info("on_connect with code %d." %(rc) )
         #self.mqtt_client.subscribe("cluster/hostinfo/#")
         self.mqtt_client.subscribe("cluster/hostperf/#")
@@ -183,7 +179,6 @@ class MQTTReader (threading.Thread):
     # retrieve points
     def retrieveInfluxPoints (self):
         global ignore_count
-        #self.pyslurmQueryTime= datetime.now().timestamp()
         #pdb.set_trace()
         rp_points = DDict(list)      #{'autogen':[point...]}
 
@@ -280,9 +275,8 @@ class MQTTReader (threading.Thread):
            return []
 
     def hostperf2point(self, msg):
-        #{'load': [0.29, 0.29, 0.44], 'cpu_times': {'iowait': 553.4, 'idle': 6050244.96, 'user': 12374.76, 'system': 2944.12}, 'proc_total': 798, 'hdr': {'hostname': 'ccalin007', 'msg_process': 'cluster_host_mon', 'msg_type': 'cluster/hostperf', 'msg_ts': 1541096161.66126}, 'mem': {'available': 196645462016, 'used': 8477605888, 'cached': 3937718272, 'free': 192701874176, 'total': 201179480064, 'buffers': 5869568}, 'net_io': {'rx_err': 0, 'rx_packets': 6529000, 'rx_bytes': 5984570284, 'tx_err': 0, 'tx_drop': 0, 'tx_bytes': 6859935273, 'tx_packets': 6987776, 'rx_drop': 0}, 'proc_run': 1, 'disk_io': {'write_bytes': 7890793472, 'read_count': 130647, 'write_count': 221481, 'read_time': 19938, 'read_bytes': 2975410176, 'write_time': 6047344}}
-        ts    = msg['hdr']['msg_ts']
-        point           = {'measurement':'cpu_load', 'time': (int)(ts)}
+        #{'load': [0.29, 0.29, 0.44], 'cpu_times': {'iowait': 553.4, 'idle': 6050244.96, 'user': 12374.76, 'system': 2944.12}, 'proc_total': 798, 'hdr': {'hostname': 'ccalin007', 'msg_process': 'cluster_host_mon', 'msg_type': 'cluster/hostperf', 'msg_ts': 1541096161.66126}, 'mem': {'available': 196645462016, 'used': 8477605888, 'cached': 3937718272, 'free': 192701874176, 'total': 201179480064, 'buffers': 5869568}, 'net_io': {'rx_err': 0, 'rx_packets': 6529000, 'rx_bytes': 5984570284, 'tx_err': 0, 'tx_drop': 0, 'tx_bytes': 6859935273, 'tx_packets': 6987776, 'rx_drop': 0}, 'proc_run': 1, 'disk_io': {'write_bytes': 789, 'read_count': 17, 'write_count': 22, 'read_time': 19, 'read_bytes': 297, 'write_time': 604}}
+        point           = {'measurement':'cpu_load', 'time': (int)(msg['hdr']['msg_ts'])}
         point['tags']   = {'hostname'   : msg['hdr']['hostname']}
         point['fields'] = MyTool.flatten(MyTool.sub_dict(msg, ['cpu_times', 'mem', 'net_io', 'disk_io']))
         point['fields'].update ({'load_1min':msg['load'][0], 'load_5min':msg['load'][1], 'load_15min':msg['load'][2], 'proc_total':msg['proc_total'], 'proc_run': msg['proc_run']})
@@ -297,8 +291,9 @@ class MQTTReader (threading.Thread):
         ts       = (int)(msg['hdr']['msg_ts'])
         node     = msg['hdr']['hostname']
         proc_cnt = len(msg['processes'])
-        if ( proc_cnt == 0 ):   return {}
+        if ( proc_cnt == 0 ):   return {}                # no proc
 
+        # if there are too many process, we will increase the threashold to record the change
         too_many_proc  = True if proc_cnt > (self.nodeData[node]['cpus']+10) else False
         cpu_delta_thld = 1    if not too_many_proc else 5
 
@@ -403,7 +398,7 @@ class MQTTReader (threading.Thread):
 
         period   = curr_ts - pre_ts
         if period > 500:
-           logger.debug("createUidMonPoint: Node{}, Period is {} bigger than 120 seconds between {} and {}. ".format(node, period, pre_ts, curr_ts))
+           logger.debug("createMonPoint: Node{}, Period is {} bigger than 120 seconds between {} and {}. ".format(node, period, pre_ts, curr_ts))
         pre_num      = [(proc['cpu']['system_time'],proc['cpu']['user_time'],proc['io']['read_bytes'],proc['io']['write_bytes']) for proc in pre_cont_procs]
         pre_sum      = list(map(sum, zip(*pre_num)))
         point['fields']['cpu_system_util'] = max(0.0,round((curr_sum[0] - pre_sum[0])/period,4))
@@ -470,19 +465,19 @@ class Node2PidsCache:
        else:
           logger.debug("writeFile test")
 
+#query pyslurm data every py_interval and send the data to influx to save
 class PyslurmReader (threading.Thread):
     def __init__(self, py_interval=300):
         threading.Thread.__init__(self)
 
-        self.points   = []
-        self.lock     = threading.Lock()       #protect self.points as it is read and write by different threads
+        self.points   = []                   # influx points
+        self.lock     = threading.Lock()     # protect self.points as it is read and write by different threads
         self.interval = py_interval
    
-        self.sav_job_dict = {}               #save job_id:json.dumps(infopoint)   03/15/2021 not used
-        self.sav_node_dict = {}              #save name:json.dumps(infopoint)
-        self.sav_part_dict = {}              #save value
-        self.sav_qos_dict  = {}              #save value
-        self.sav_res_dict  = {}              #save value
+        self.sav_node_dict = {}              #save name:json.dumps(infopoint), avoid duplicate node points
+        self.sav_part_dict = {}              #save value, avoid duplicate partition points
+        self.sav_qos_dict  = {}              #save value, avoid duplicate qos points
+        self.sav_res_dict  = {}              #save value, avoid duplicate reservation points
         logger.info("Init PyslurmReader with interval={}".format(self.interval))
 
     def run(self):
@@ -496,18 +491,12 @@ class PyslurmReader (threading.Thread):
           node_dict= pyslurm.node().get()
           part_dict= pyslurm.partition().get()
           qos_dict = pyslurm.qos().get()
-          #res_dict = pyslurm.reservation().get()
-          res_dict = {}  #TODO: pyslurm reservation coredump ERROR
-          #js_dict  = pyslurm.jobstep().get()
+          res_dict = pyslurm.reservation().get()        # some version trigger coredump ERROR
 
           #convert to points
           points   = []
           for jid,job in job_dict.items():
               self.slurmJob2point(ts, job, points)
-          finishJob = [jid for jid in self.sav_job_dict.keys() if jid not in job_dict.keys()]
-          #logger.debug ("PyslurmReader::run: Finish jobs {}".format(finishJob))
-          for jid in finishJob:
-              del self.sav_job_dict[jid]
 
           for node in node_dict.values():
               self.slurmNode2point(ts, node, points)
@@ -517,11 +506,13 @@ class PyslurmReader (threading.Thread):
                  self.slurmPartition2point(ts, pname, part, points)
               self.sav_part_dict = part_dict
 
+          # only covert to points when qos is changed
           if json.dumps(qos_dict) != json.dumps(self.sav_qos_dict):
               for qname, qos in qos_dict.items():
-                 self.slurmQOS2point(ts, qname, qos, points)
+                 self.slurmQoS2point(ts, qname, qos, points)
               self.sav_qos_dict = qos_dict
 
+          # only covert to points when reservation is changed
           if res_dict and (json.dumps(res_dict) != json.dumps(self.sav_res_dict)):
               for rname, res in res_dict.items():
                  self.slurmReservation2point(ts, rname, res, points)
@@ -541,11 +532,11 @@ class PyslurmReader (threading.Thread):
         return {'autogen':rlt}
 
     def slurmJob2point (self, ts, item, points):
-    #{'account': 'scc', 'accrue_time': 'Unknown', 'admin_comment': None, 'alloc_node': 'rusty1', 'alloc_sid': 3207927, 'array_job_id': None, 'array_task_id': None, 'array_task_str': None, 'array_max_tasks': None, 'assoc_id': 153, 'batch_flag': 0, 'batch_features': None, 'batch_host': 'worker1085', 'billable_tres': 28.0, 'bitflags': 1048576, 'boards_per_node': 0, 'burst_buffer': None, 'burst_buffer_state': None, 'command': None, 'comment': None, 'contiguous': False, 'core_spec': None, 'cores_per_socket': None, 'cpus_per_task': 1, 'cpus_per_tres': None, 'cpu_freq_gov': None, 'cpu_freq_max': None, 'cpu_freq_min': None, 'dependency': None, 'derived_ec': '0:0', 'eligible_time': 1557337982, 'end_time': 1588873982, 'exc_nodes': [], 'exit_code': '0:0', 'features': [], 'group_id': 1023, 'job_id': 240240, 'job_state': 'RUNNING', 'last_sched_eval': '2019-05-08T13:53:02', 'licenses': {}, 'max_cpus': 0, 'max_nodes': 0, 'mem_per_tres': None, 'name': 'bash', 'network': None, 'nodes': 'worker1085', 'nice': 0, 'ntasks_per_core': None, 'ntasks_per_core_str': 'UNLIMITED', 'ntasks_per_node': 0, 'ntasks_per_socket': None, 'ntasks_per_socket_str': 'UNLIMITED', 'ntasks_per_board': 0, 'num_cpus': 28, 'num_nodes': 1, 'partition': 'scc', 'mem_per_cpu': False, 'min_memory_cpu': None, 'mem_per_node': True, 'min_memory_node': 0, 'pn_min_memory': 0, 'pn_min_cpus': 1, 'pn_min_tmp_disk': 0, 'power_flags': 0, 'preempt_time': None, 'priority': 4294877910, 'profile': 0, 'qos': 'gen', 'reboot': 0, 'req_nodes': [], 'req_switch': 0, 'requeue': False, 'resize_time': 0, 'restart_cnt': 0, 'resv_name': None, 'run_time': 4308086, 'run_time_str': '49-20:41:26', 'sched_nodes': None, 'shared': '0', 'show_flags': 23, 'sockets_per_board': 0, 'sockets_per_node': None, 'start_time': 1557337982, 'state_reason': 'None', 'std_err': None, 'std_in': None, 'std_out': None, 'submit_time': 1557337982, 'suspend_time': 0, 'system_comment': None, 'time_limit': 'UNLIMITED', 'time_limit_str': 'UNLIMITED', 'time_min': 0, 'threads_per_core': None, 'tres_alloc_str': 'cpu=28,mem=500G,node=1,billing=28', 'tres_bind': None, 'tres_freq': None, 'tres_per_job': None, 'tres_per_node': None, 'tres_per_socket': None, 'tres_per_task': None, 'tres_req_str': 'cpu=1,node=1,billing=1', 'user_id': 1022, 'wait4switch': 0, 'wckey': None, 'work_dir': '/mnt/home/apataki', 'cpus_allocated': {'worker1085': 28}, 'cpus_alloc_layout': {'worker1085': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]}}
+    #{'account': 'scc', 'accrue_time': 'Unknown', 'admin_comment': None, 'alloc_node': 'rusty1', 'alloc_sid': 3207927, 'array_job_id': None, 'array_task_id': None, 'array_task_str': None, 'array_max_tasks': None, 'assoc_id': 153, 'batch_flag': 0, 'batch_features': None, 'batch_host': 'worker1085', 'billable_tres': 28.0, 'bitflags': 1048576, 'boards_per_node': 0, 'burst_buffer': None, 'burst_buffer_state': None, 'command': None, 'comment': None, 'contiguous': False, 'core_spec': None, 'cores_per_socket': None, 'cpus_per_task': 1, 'cpus_per_tres': None, 'cpu_freq_gov': None, 'cpu_freq_max': None, 'cpu_freq_min': None, 'dependency': None, 'derived_ec': '0:0', 'eligible_time': 1557337982, 'end_time': 1588873982, 'exc_nodes': [], 'exit_code': '0:0', 'features': [], 'group_id': 1023, 'job_id': 240240, 'job_state': 'RUNNING', 'last_sched_eval': '2019-05-08T13:53:02', 'licenses': {}, 'max_cpus': 0, 'max_nodes': 0, 'mem_per_tres': None, 'name': 'bash', 'network': None, 'nodes': 'worker1085', 'nice': 0, 'ntasks_per_core': None, 'ntasks_per_core_str': 'UNLIMITED', 'ntasks_per_node': 0, 'ntasks_per_socket': None, 'ntasks_per_socket_str': 'UNLIMITED', 'ntasks_per_board': 0, 'num_cpus': 28, 'num_nodes': 1, 'partition': 'scc', 'mem_per_cpu': False, 'min_memory_cpu': None, 'mem_per_node': True, 'min_memory_node': 0, 'pn_min_memory': 0, 'pn_min_cpus': 1, 'pn_min_tmp_disk': 0, 'power_flags': 0, 'preempt_time': None, 'priority': 4294877910, 'profile': 0, 'qos': 'gen', 'reboot': 0, 'req_nodes': [], 'req_switch': 0, 'requeue': False, 'resize_time': 0, 'restart_cnt': 0, 'resv_name': None, 'run_time': 4308086, 'run_time_str': '49-20:41:26', 'sched_nodes': None, 'shared': '0', 'show_flags': 23, 'sockets_per_board': 0, 'sockets_per_node': None, 'start_time': 1557337982, 'state_reason': 'None', 'std_err': None, 'std_in': None, 'std_out': None, 'submit_time': 1557337982, 'suspend_time': 0, 'system_comment': None, 'time_limit': 'UNLIMITED', 'time_limit_str': 'UNLIMITED', 'time_min': 0, 'threads_per_core': None, 'tres_alloc_str': 'cpu=28,mem=500G,node=1,billing=28', 'tres_bind': None, 'tres_freq': None, 'tres_per_job': None, 'tres_per_node': None, 'tres_per_socket': None, 'tres_per_task': None, 'tres_req_str': 'cpu=1,node=1,billing=1', 'user_id': 1022, 'wait4switch': 0, 'wckey': None, 'work_dir': '/mnt/home/apataki', 'cpus_allocated': {'worker1085': 1}, 'cpus_alloc_layout': {'worker1085': [0]}}
         # remove empty values
         job_id = item['job_id']
         MyTool.remove_dict_empty(item)
-        for v in ['run_time_str', 'time_limit_str']: item.pop(v, None)
+        for v in ['run_time_str', 'time_limit_str']: item.pop(v, None)       # skip attributes
 
         # pending_job
         if item['job_state'] == 'PENDING':
@@ -603,7 +594,7 @@ class PyslurmReader (threading.Thread):
 
         return points
 
-    def slurmQOS2point (self, ts, name, item, points):
+    def slurmQoS2point (self, ts, name, item, points):
 #{'description': 'cca', 'flags': 0, 'grace_time': 0, 'grp_jobs': 4294967295, 'grp_submit_jobs': 4294967295, 'grp_tres': '1=6000', 'grp_tres_mins': None, 'grp_tres_run_mins': None, 'grp_wall': 4294967295, 'max_jobs_pu': 4294967295, 'max_submit_jobs_pu': 4294967295, 'max_tres_mins_pj': None, 'max_tres_pj': None, 'max_tres_pn': None, 'max_tres_pu': '1=840', 'max_tres_run_mins_pu': None, 'max_wall_pj': 10080, 'min_tres_pj': None, 'name': 'cca', 'preempt_mode': 'OFF', 'priority': 15, 'usage_factor': 1.0, 'usage_thres': 4294967295.0}
 
         MyTool.remove_dict_empty(item)
