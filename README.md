@@ -17,7 +17,7 @@ An instance of the web interface is accessible at http://mon7:8126.
 ## Prerequisites 
 The following are the listed data sources for our monitoring tool, which should be accessible for use.
 ### Slurm 
-Slurm commands should be able to run on the same node.
+Slurm commands should be executable on the same node.
 
 ### Bright
 Birght monitoring interface should be accessible.
@@ -28,11 +28,10 @@ For data to be reported to the MQTT server, the cluster_host_mon.py host monitor
 The "mqtt" key can be found in the config/config.json file, which contains the configuration settings for MQTT.
 
 ### InfluxDB
-We save our monitoring data in a time-series database: InfluxDB. 
-The "influxdb" key can be found in the config/config.json file, which contains the configuration settings for InfluxDB.
+Our monitoring data is stored in a time-series database called InfluxDB, with its configuration settings specified in the config/config.json file under the 'influxdb' key.
 
 #### Installation
-For CentOS,
+For Linux,
 ```
 wget https://dl.influxdata.com/influxdb/releases/influxdb-1.8.1.x86_64.rpm
 sudo yum install influxdb-1.8.1.x86_64.rpm
@@ -44,8 +43,8 @@ By default, InfluxDB uses the following network ports:
     TCP port 8086 is used for client-server communication over InfluxDB’s HTTP API. And,
     TCP port 8088 is used for the RPC service for backup and restore.
 ```
-The configuration file can be found at /etc/influxdb/influxdb.conf. 
-It can be modified to reflect the saving directories of data.
+The configuration file is located at /etc/influxdb/influxdb.conf, and it can be customized 
+to specify the port and directories where the data is saved.
 
 #### Start
 ```
@@ -67,15 +66,15 @@ influxd restore -portable /mnt/home/yliu/ceph/influxdb/backup
 ```
 After the data has been successfully restored, you can then proceed to restart InfluxDB.
 
-## Environment setup
-### Slurm, Python and gcc
-The module can be used to install necessary packages and libraries such as 
+##Environment setup
+### Required Modules 
+The module facilitates the installation of required packages and libraries, including
 ```
 module add slurm gcc/11.2.0 python/3.10
 ```
 
-### Python virutal environment:
-Create and install packages within a Python virtual environment.
+### Python Virutal Environment:
+Create and install Python packages within a Python virtual environment.
 ```
 cd <dir>
 python -m venv --system-site-packages env_slurm22_p310
@@ -89,23 +88,23 @@ pip install -r requirements.txt
 [//]: # Note: The installation of fbprophet may need to pip uninstall numpy; pip install numpy; to solve error of import pandas 
 -->
 
-#### Install pyslurm
-Inside the python virtual environment, we should install pyslurm.
+#### Pyslurm
+Once the Python virtual environment is set up, we install pyslurm within it.
 
-##### Download source code
+##### Download the source code
 ```
 wget https://github.com/PySlurm/pyslurm/archive/refs/tags/v22.5.1.tar.gz
 tar -xzvf v22.5.1.tar.gz
 ```
-You may check release information at https://github.com/PySlurm/pyslurm/releases.
-
 Or,
 ```
 git clone https://github.com/PySlurm/pyslurm.git
 ```
+For the latest release information, please visit the following URL: https://github.com/PySlurm/pyslurm/releases.
+
 
 #### Modify the source code:
-Modify pyslurm/pyslurm.pyx to add job attributes 'state_reason' and 'gres_detail'.
+Modify pyslurm/pyslurm.pyx to include additional job attributes, namely 'state_reason' and 'gres_detail'.
 ```
 2139             #Yanbin: add state_reason_desc
 2140             if self._record.state_desc:
@@ -141,14 +140,13 @@ Modify pyslurm/pyslurm.pyx to add job attributes 'state_reason' and 'gres_detail
 -->
 
 ##### Build and Install pyslurm:
-Inside the Python virtual environment
 ```
 cd <pyslurm_source_dir>
 python setup.py --slurm-lib=$SLURM_ROOT/lib64 --slurm-inc=$SLURM_ROOT/include build
 python setup.py --slurm-lib=$SLURM_ROOT/lib64 --slurm-inc=$SLURM_ROOT/include install
 ```
 
-## Run the Slurm Monitoring Tool:
+## Run the Monitoring and Alarming Utilities:
 
 ### Installation
 
@@ -158,11 +156,10 @@ git clone https://github.com/flatironinstitute/SlurmUtil.git
 ```
 
 ### Configuration
+The configuration can be done via both the shell script "StartSlurmMqtMonitoring_mon7" 
+and the configuration file "config/config.json"
 
-You may configure the monitoring tools using both the shell script "StartSlurmMqtMonitoring_mon7" and the configuration 
-file "config/config.json".
-
-### Start the Slurm Monitoring Tool:
+### Execution
 
 Run
 ```
@@ -174,19 +171,23 @@ The script starts programs defined in "cmds" such as
 declare -a cmds=("python ${ScriptDir}/sm_app.py" "python ${ScriptDir}/mqttMonStream.py" "python ${ScriptDir}/mqttMon2Influx.py" "ssh -i /mnt/home/yliu/.ssh/id_sdsc -N -R 8126:localhost:8126 popeye-login2.sdsc.edu" "python ${ScriptDir}/brightRelay.py")
 ```
 
-"python ${ScriptDir}/sm_app.py" starts a web server at http://localhost:${port}, where "port" is configured in "config/config.json".
+The command "python ${ScriptDir}/sm_app.py" starts a web server at http://localhost:${port}, where "port" is configured in "config/config.json".
  
-"python ${ScriptDir}/mqttMonStream.py" starts a MQTT client that receieves montoring data form a MQTT server, which is configured in "config/config.json".
+The command "python ${ScriptDir}/mqttMonStream.py" launches an MQTT client that receives monitoring data from an MQTT server, sends the data to web servers, and saves it in files. 
+The configuration of it can be found under the "mqtt" key in the "config/config.json" configuration file."
 
-"python ${ScriptDir}/mqttMon2Influx.py"
+The command "python ${ScriptDir}/mqttMon2Influx.py" launches another MQTT client that receives monitoring data from an MQTT server, 
+formats the data and sends it to a InfluxDB server. 
+The configuration of it can be found under the "influxdb" key in the "config/config.json" configuration file."
 
-web server at http://localhost:${WebPort} and two deamons that 1) both subscribe to MQTT 2) one update the informaton of the web server, one update influxdb (WILL MERGE TWO DEAMONS LATER)
+The command "python ${ScriptDir}/brightRelay.py" executes a proxy server that queries and caches data from a bright server.
 
-The script starts 3 python processes, such as 
+The command "ssh -i /mnt/home/yliu/.ssh/id_sdsc -N -R 8126:localhost:8126 popeye-login2.sdsc.edu" establishes an SSH forwarding channel that enables the receipt of data from a remote cluster (popeye) where an instance of mqttMonStream.py is running.
+
+The script and configuration file can be customized to initiate a subset of the processes mentioned earlier. For example, on popeye, "cmds" is defined as:
 ```
-python3 /mnt/home/yliu/projects/slurm/utils/smcpgraph-html-sun.py 8126 /mnt/ceph/users/yliu/tmp/mqtMonTest
-python3 /mnt/home/yliu/projects/slurm/utils/mqtMon2Influx.py
-python3 /mnt/home/yliu/projects/slurm/utils/mqtMonStream.py /mnt/ceph/users/yliu/tmp/mqtMonTest mqt_urls
+declare -a cmds=("python ${ScriptDir}/mqttMonStream.py -c config/config_popeye.json" "python ${ScriptDir}/mqttMon2Influx.py -c config/config_
+popeye.json")
 ```
 
 ## Debug and Restart
