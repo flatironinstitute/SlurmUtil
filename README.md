@@ -190,17 +190,13 @@ declare -a cmds=("python ${ScriptDir}/mqttMonStream.py -c config/config_popeye.j
 popeye.json")
 ```
 
-## Debug and Restart
+Log files are generated and serve as a valuable resource for troubleshooting in case any issues arise.
 
-Check log files for errors. Log files are saved in smcpsun_${cm}_mqt_$(date +%Y%m%d_%T).log, mms_${cm}_$(date +%Y%m%d_%T).log and ifx_${cm}_$(date +%Y%m%d_%T).log.
+### Restart
 
-If missed, the python process will be automatically restarted every 60 seconds.
-
-In case, you need to restart
+If you need to restart, make sure to clean up any remaining processes before re-running the same command.
 ```
-sudo service influxdb start
-cd /mnt/home/yliu/projects/slurm/utils
-. ./StartSlurmMqtMonitoring
+. ./StartSlurmMqtMonitoring_mon7
 ```
 
 # set up cron job
@@ -209,10 +205,12 @@ Run daily.sh every day to update data.
 crontab -e
 00 07 * * * . /mnt/home/yliu/projects/slurm/utils/daily.sh >  /mnt/home/yliu/projects/slurm/utils/daily_$(date +%Y-%m-%d).log 2>&1
 ```
+<!---
 install fbprophet
 pip install pandas
 pip install fbprophet
 pip --use-feature=2020-resolver install python-dev-tools
+--->
 
 ## Monitoring Framework
 On each node of the slurm cluster, a deamon cluster_host_mon.py is running and reporting the monitored data (running processes' user, slurm_job_id, cpu, memory, io ...) to a MQTT server (for example, mon5.flatironinstitute.org).
