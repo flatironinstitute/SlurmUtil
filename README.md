@@ -257,6 +257,7 @@ Search the slurm entities' information.
 
 Through the links embeded in these user inferfaces, you can also see the detailed informaiton and resource usage of a specific worker node, job, user, partition and so on. 
 
+<!---
 ## Shortcut for a test run on a Simons Foundation machine
 You can have a test run using the existed python enironment and influxdb server.
 
@@ -279,4 +280,5 @@ module add slurm gcc/11.2.0 python3
 cd SlurmUtil
 ./StartSlurmMqtMonitoring_1
 ```  
+--->
 
