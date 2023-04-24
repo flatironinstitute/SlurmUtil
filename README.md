@@ -200,9 +200,8 @@ If you need to restart, make sure to clean up any remaining processes before re-
 ```
 
 # set up cron job
-Run daily.sh every day to update data.
+Execute the daily.sh script on a daily basis to proactively save data for improved efficiency.
 ```
-crontab -e
 00 07 * * * . /mnt/home/yliu/projects/slurm/utils/daily.sh >  /mnt/home/yliu/projects/slurm/utils/daily_$(date +%Y-%m-%d).log 2>&1
 ```
 <!---
@@ -210,7 +209,6 @@ install fbprophet
 pip install pandas
 pip install fbprophet
 pip --use-feature=2020-resolver install python-dev-tools
---->
 
 ## Monitoring Framework
 On each node of the slurm cluster, a deamon cluster_host_mon.py is running and reporting the monitored data (running processes' user, slurm_job_id, cpu, memory, io ...) to a MQTT server (for example, mon5.flatironinstitute.org).
@@ -222,42 +220,40 @@ A monitoring server (for example, mon7.flatironinstiute.org) is set up to receiv
 2) saved to data file (${hostname}_sm.p) and index file (${hostname}_sm.px); 
 3) saved to a measurement (for example, slurmdb_2) in InfluxDB
 3) sent to the web interface (http://${webserver}:8126/updateSlurmData) to display
+--->
 
 ## Web Interface
 Web server is built using CherryPy. You can see an example of it at http://mon7:8126/. The set of user interfaces includes:
 
-1) http://${webserver}:8126/,
-A tabular summary of the slurm worker nodes, jobs and users.
+1) Summary (http://${webserver}:8126/):
+a tabular summary of the slurm worker nodes, jobs and users.
 
-2) http://${webserver}:8126/utilHeatmap,
-A heatmap graph of worker nodes' and gpus' utilization.
+2) Host Utils (http://${webserver}:8126/utilHeatmap):
+a heatmap graph of worker nodes' and gpus' utilization.
 
-3) http://${webserver}:8126/pending,
-A table of pending jobs and related information.
+3) Pending Jobs (http://${webserver}:8126/pending):
+a table of pending jobs and related cluster partition information.
 
-4) http://${webserver}:8126/sunburst,
-A sunburst graph of the slurm accounts, users, jobs and worker nodes.
+4) Sunburst Graph (http://${webserver}:8126/sunburst):
+a sunburst graph of the slurm accounts, users, jobs and worker nodes.
 
-5) http://${webserver}:8126/usageGraph,
-A chart of the file and byte usage of users.
+5) File Usage (http://${webserver}:8126/usageGraph):
+a chart of the file count and byte usage of users.
 
-6) http://${webserver}:8126/tymor,
-A tabular summary of slurm jobs' load statistics.
+6) Bulletin Board (http://${webserver}:8126/bulletinboard):
+a set of tables including running jobs and allocated nodes with low resource utilization, running jobs with unbalanced resourse usage, and errors reported from different components of the system, and etc.
 
-7) http://${webserver}:8126/bulletinboard,
-A set of tables including running jobs and allocated nodes with low resource utilization, errors reported from different components of the system, and etc.
+7) Report (http://${webserver}:8126/report):
+generate reports of the cluster resource usage.
 
-8) http://${webserver}:8126/report,
-Generate reports of the cluster resource usage.
+8) Forecast (http://${webserver}:8126/forecast):
+forecast the cluster usage in the future.
 
-9) http://${webserver}:8126/search,
+9) Settings (http://${webserver}:8126/settings):
+modify the settings to control the display of data.
+
+10) Search (http://${webserver}:8126/search),
 Search the slurm entities' information.
-
-10) http://${webserver}:8126/settings,
-Set the settings to control the display of interfaces.
-
-11) http://${webserver}:8126/forecast,
-Forecast the cluster usage in the future.
 
 Through the links embeded in these user inferfaces, you can also see the detailed informaiton and resource usage of a specific worker node, job, user, partition and so on. 
 
