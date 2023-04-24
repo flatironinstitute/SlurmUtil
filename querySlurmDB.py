@@ -290,6 +290,7 @@ class SlurmDBQuery:
 
     def readClusterTable (cluster, part_table_name, fld_lst=None, index_col=None):
         f_name        = "{}/{}_{}.csv".format(CSV_DIR, cluster, part_table_name)
+        print("readClusterTable {}".format(f_name))
         df            = pandas.read_csv(f_name, usecols=fld_lst, index_col=index_col)
         return df
 
@@ -575,11 +576,5 @@ def main():
     t1=time.time()
 
 if __name__=="__main__":
-    #SlurmDBQuery.plusUsageFiles ()
-    #def savAccountCPUAlloc (cluster, day_or_hour, output_file, clusterDf=None):
-    #df = pandas.read_csv("./data/slurm_plus_day_cpuAllocDF.csv")
-    #fname2 = "{}/{}_{}_{}".format(CSV_DIR, cluster, day_or_hour, "cpuAllocDF_{}.csv")
-    #SlurmDBQuery.savAccountCPUAlloc('slurm_plus', 'day', './data/slurm_plus_day_cpuAllocDF_{}.csv', df)
-    #SlurmDBQuery.sum_job_step('slurm')
     test6()
 

@@ -181,11 +181,6 @@ class FileWebUpdater(WebUpdater):
             msg_ts = nodeProc[2]                # [slurm_state, delta, msg_ts] + procsByUser
             self.hostData_dir.writeData(hostname, msg_ts, nodeProc)
 
-class InfluxUpdater(MQTTUpdater):
-    def __init__(self, mqttMsg, interval, config):
-        super().__init__(mqttMsg, interval, config)
-        self.name = "InfluxUpdater"
-
 class UpdateProcessManager:
     INTERVAL = 60
     def __init__(self, config):
@@ -197,7 +192,7 @@ class UpdateProcessManager:
         with multiprocessing.Manager() as manager:
             # start mqtt client
             mqttMsg        = manager.dict()
-            mqttReaderProc = MQTTReader (self.config["server"], mqttMsg)
+            mqttReaderProc = MQTTReader (self.config["host"], mqttMsg)
             mqttReaderProc.start()
             # start updater processes based on config file
             if self.config.get("writeWeb", False):
@@ -207,24 +202,21 @@ class UpdateProcessManager:
                 else:
                    writeFileWebProc = FileWebUpdater (mqttMsg, self.INTERVAL*2,self.config)
                    writeFileWebProc.start()
-            if self.config.get("writeInflux", False):
-                writeInfluxProc = InfluxUpdater (mqttMsg, self.INTERVAL*3,self.config)
-                writeInfluxProc.start()
 
             # restart the processes if they die
             while True:
                 if not mqttReaderProc.is_alive():
+                   logger.info("Restart MQTTReader")
                    mqttReaderProc = MQTTReader (mqttMsg)
                    mqttReaderProc.start()
                 if writeWebProc and not writeWebProc.is_alive():
+                   logger.info("Restart WebUpdater")
                    writeWebProc = WebUpdater       (mqttMsg, self.INTERVAL,  self.config)
                    writeWebProc.start()
                 if writeFileWebProc and not writeFileWebProc.is_alive():
+                   logger.info("Restart FileWebUpdater")
                    writeFileWebProc = FileWebUpdater  (mqttMsg, self.INTERVAL*2,self.config)
                    writeFileWebProc.start()
-                if writeInfluxProc and not writeInfluxProc.is_alive():
-                   writeInfluxProc = InfluxUpdater (mqttMsg, self.INTERVAL*3,self.config)
-                   writeInfluxProc.start()
 
 if __name__=="__main__":
    #Usage: python mqttMonStream.py 

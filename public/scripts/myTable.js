@@ -122,13 +122,6 @@ function expandTitle () {
 function createProcTable (data_dict, parent_id, table_title_list, node, type_list, idx_list, cluster=DEF_CLUSTER) {
    console.log("createProcTable: data_dict=", data_dict, "table_title_list=", table_title_list, "node=", node, "type_list=", type_list)
    var table = d3.select(parent_id).append('table').property('id', node+'_proc').attr('class','noborder');
-	//table.append('thead')
-          //           .append('tr')
-            //         .selectAll('th')
-              //       .data(table_title_list)
-                //     .enter().append('th')
-                  //      .attr('class','noborder')
-                    //    .text(function (d,i) { return table_title_list[i]; })
    var trs   = table.append('tbody').selectAll('tr')
                      .data(Object.values(data_dict)).enter()
                      .append('tr')
@@ -418,7 +411,6 @@ function createSummaryTbody (tbody, allData, sortCol, titles_dict, type_dict, su
    //
 };
 
-
 function merge (detailData, summaryData, sortCol) {
    var data      = []
    var d_idx     = 0
@@ -650,7 +642,7 @@ function createTableHeader (table, titles_dict, rows) {
 
 //data is a list of dict
 function createTable (data, titles_dict, table_id, parent_id, pre_data_func, type_dict, cluster=DEF_CLUSTER) {
-        console.log("createTable table_id=", table_id, " data=", data, " titles_dict=", titles_dict, ",type_dict=", type_dict)
+        console.log("createTable ", table_id, " data=", data, " titles_dict=", titles_dict, ",type_dict=", type_dict)
         var table         = d3.select('#'+parent_id).append('table').property('id', table_id);
 
         if (pre_data_func != undefined)
