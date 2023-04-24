@@ -1,4 +1,4 @@
-# Flatiron Monitoring and Alarming Utilities
+# Flatiron Scientific Computing Monitoring and Alarming Utilities
 
 The front-end web interface provides users with real-time and historical monitoring information. 
 The interface is powered by a backend server that collects data from various sources, 
@@ -28,15 +28,14 @@ For data to be reported to the MQTT server, the cluster_host_mon.py host monitor
 The "mqtt" key can be found in the config/config.json file, which contains the configuration settings for MQTT.
 
 ### InfluxDB
-We save our monitoring data in a time-series database: InfluxDB.
+We save our monitoring data in a time-series database: InfluxDB. 
+The "influxdb" key can be found in the config/config.json file, which contains the configuration settings for InfluxDB.
 
 #### Installation
 For CentOS,
 ```
 wget https://dl.influxdata.com/influxdb/releases/influxdb-1.8.1.x86_64.rpm
 sudo yum install influxdb-1.8.1.x86_64.rpm
-
-service influxdb start
 ```
 
 #### Configuration
@@ -45,9 +44,28 @@ By default, InfluxDB uses the following network ports:
     TCP port 8086 is used for client-server communication over InfluxDB’s HTTP API. And,
     TCP port 8088 is used for the RPC service for backup and restore.
 ```
-The configuration file for default installations can be found at /etc/influxdb/influxdb.conf, and it allows for the modification of all port mappings.
+The configuration file can be found at /etc/influxdb/influxdb.conf. 
+It can be modified to reflect the saving directories of data.
 
-The "influxdb" key can be found in the config/config.json file, which contains the configuration settings to connect to InfluxDB.
+#### Start
+```
+service influxdb start
+```
+
+#### Backup
+On the InfluxDB server, we can set up a monthly cron job to run the backup command
+```
+0 2 1 * * /usr/bin/influxd backup -portable /mnt/home/yliu/ceph/influxdb/backup
+```
+
+#### Restart
+In some situations, you may need to perform a re-installation and re-configuration 
+of InfluxDB. Once that is done, you can restore the data using the following command:
+
+```
+influxd restore -portable /mnt/home/yliu/ceph/influxdb/backup
+```
+After the data has been successfully restored, you can then proceed to restart InfluxDB.
 
 ## Environment setup
 ### Slurm, Python and gcc
