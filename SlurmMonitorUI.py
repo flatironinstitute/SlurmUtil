@@ -453,7 +453,7 @@ class SLURMMonitorUI(object):
         hostData    = monData.data
         jobData     = monData.currJobs
         node2jobs   = monData.node2jids
-        pyslurmNode = monData.pyslurmNodes
+        pyslurmNode = monData.pyslurmNode
         result      = []
         for node, nodeInfo in sorted(hostData.items()):
             if node not in pyslurmNode:
@@ -598,7 +598,7 @@ class SLURMMonitorUI(object):
             logger.info("monData {}".format(monData.cluster))
 
             #get gpu_nodes and max_gpu_cnt from pyslurm
-            gpu_nodes,max_gpu_cnt= PyslurmQuery.getGPUNodes(monData.pyslurmNodes)
+            gpu_nodes,max_gpu_cnt= PyslurmQuery.getGPUNodes(monData.pyslurmNode)
             if name == "Rusty":
                gpu_ts, gpudata   = self.bright1.getLatestGPUAvg (minutes=avg_minute["gpu"])
             else: #TODO: add popeye GPU data
@@ -839,8 +839,8 @@ class SLURMMonitorUI(object):
     @cherrypy.expose
     def nodeGraph(self, node,start='', stop=''):
         start, stop = MyTool.getStartStopTS (start, stop, formatStr='%Y-%m-%d')
-        logger.info("start={},stop={}".format(MyTool.getTsString(start), MyTool.getTsString(stop)))
 
+        # get data from cache, influx and file
         msg = self.nodeGraph_cache(node, start, stop)
         note  = 'cache'
         if not msg:
@@ -854,7 +854,6 @@ class SLURMMonitorUI(object):
         if (not msg) or (len(msg)<5):
            return 'Node {}: no data during {}-{} in cache, influx and saved file. Note: {}'.format(node, start, stop, msg)
 
-        #ann_series = self.queryTxtClient.getNodeUpTS([node])[node]
         for idx in range(2,len(msg)):
             for seq in msg[idx]:
                 dict_ms = [ [ts*1000, value] for ts,value in seq['data']]
@@ -1108,7 +1107,6 @@ class SLURMMonitorUI(object):
         if not job['gpus_allocated']: 
            return "No GPU Alloc for job {}".format(jid)
         #GPU job
-        #job_gpu_alloc= SLURMMonitorData.getJobAllocGPU(job, pyslurm.node().get())  #{'workergpu01':[0,1]
         gpu_alloc    = job['gpus_allocated']
         gm_data      = self.bright1.getNodesGPULoad(list(gpu_alloc.keys()),  job['start_time'])
         series       = defaultdict(list)
@@ -1163,12 +1161,11 @@ class SLURMMonitorUI(object):
         msg_note      = ""
 
         # get job from pyslurm
-        job           = monData.pyslurmJobs.get(jid,None)
+        job           = monData.pyslurmJob.get(jid,{})
         # if not an active job, try to query pyslurmdb
         if not job:      # not an active job
            logger.info("Job {} is not an running job".format(jid))
-           job        = PyslurmQuery.getSlurmDBJob(jid, cluster=cluster)         # convert db job fields
-           logger.info("\t{}".format(job))
+           job.update(PyslurmQuery.getSlurmDBJob(jid, cluster=cluster))         # convert db job fields
            msg_note   = msg_note + "Cannot find job {} of cluster {} from pyslurm. ".format(jid, cluster)
         if not job:
            msg_note   = msg_note + "Cannot find job {} of cluster {} from pyslurmdb. ".format(jid, cluster)
@@ -1182,7 +1179,6 @@ class SLURMMonitorUI(object):
         job_report['HeterogeneousJobID'] = job_report['JobID'] if '+' in job_report['JobID'] else None
 
         # get job process information
-        logger.info("Job report {}".format(job_report))
         worker2proc    = {}
         proc_disp_field= []
         if job and job['job_state'] == 'RUNNING':              #running job's proc is in self.data
@@ -1217,7 +1213,6 @@ class SLURMMonitorUI(object):
         else:
            proc_cnt   = 0
 
-        logger.info("prepare html")
         htmlTemp   = os.path.join(config.HTML_DIR, 'jobDetail.html')
         htmlStr    = open(htmlTemp).read().format(cluster    = cluster,
                                                   job_id     = jid,
@@ -1767,7 +1762,7 @@ class SLURMMonitorUI(object):
             jobs         = monData.getCurrLUJobs (gpuData, luj_settings)
             low_util     = list(jobs.values())
             # node with low resource utlization
-            low_nodes    = monData.getLowUtilNodes()
+            low_nodes    = list(monData.getLowUtilNodes().values())
             unbal_jobs   = monData.getUnbalancedJobs(1,2,2)
             #unbal_jobs   = monData.getUnbalancedJobs(1,1000000000,1000000)
           else:

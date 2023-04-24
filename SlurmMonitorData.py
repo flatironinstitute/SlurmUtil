@@ -15,11 +15,9 @@ import MyTool
 import inMemCache
 
 # Directory where processed monitoring data lives.
-TS_IDX             = 2
-USER_INFO_IDX      = 3  # incoming data and self.data {node: [status, delta, ts, users_procs, ...]...}
+STATE_IDX,DELTA_IDX,TS_IDX,USER_INFO_IDX = range(4)  #incoming data and self.data {node: [status, delta, ts, users_procs, ...]...}
 USER_PROC_IDX      = 7  # in users_procs [uname, uid, user_alloc_cores, proc_cnt, totCPURate, totRSS, totVMS, procs, totIO, totCPU]
-STATE_IDX,DELTA_IDX,TS_IDX,USERS_IDX = range(4)
-PID_IDX,CPU_IDX,CREATE_TIME_IDX,USER_TIME_IDX,SYS_TIME_IDX,RSS_IDX,VMS_IDX,CMD_IDX,IO_IDX,JID_IDX,FDS_IDX,READ_IDX,WRITE_IDX,UID_IDX,THREADS_IDX   = range(15)   
+PID_IDX,CPU_UTIL_IDX,CREATE_TIME_IDX,USER_TIME_IDX,SYS_TIME_IDX,RSS_IDX,VMS_IDX,CMD_IDX,IO_IDX,JID_IDX,FDS_IDX,READ_IDX,WRITE_IDX,UID_IDX,THREADS_IDX   = range(15)   
                         # in procs [[pid, intervalCPUtimeAvg, create_time, user_time, system_time, mem_rss, mem_vms, cmdline, in    tervalIOByteAvg, jid],...]
 ONE_HOUR_SECS      = 3600
 ONE_DAY_SECS       = 86400
@@ -35,14 +33,14 @@ def logTest (msg, pre_ts):
 class SLURMMonitorData(object):
     def __init__(self, name):
         self.cluster           = name
-        self.updateTS          = time.time()
+        self.updateTS          = int(time.time())
         self.data              = {}                   #'No data received yet. Please wait a minute and come back.'
         self.noslurm_data      = {}
         self.currJobs          = {}                   #re-created in updateMonData
-        self.node2jids         = {}                   #{node:[jid...]} {node:{jid: {'proc_cnt','cpu_util','rss','iobps'}}}
+        self.node2jids         = {}                   #{node:[jid...]} 
         self.uid2jid           = {}                   #
-        self.pyslurmJobs       = {}
-        self.pyslurmNodes      = {}
+        self.pyslurmJob       = {}
+        self.pyslurmNode      = {}
         self.pyslurmData       = {}
         self.jobNode2Proc      = defaultdict(lambda: defaultdict(lambda: (0, defaultdict(list))))
         self.inMemCache        = inMemCache.InMemCache()
@@ -76,7 +74,7 @@ class SLURMMonitorData(object):
 
     @cherrypy.expose
     def getAllJobData(self):
-        return '({},{})'.format(self.updateTS, self.pyslurmJobs)
+        return '({},{})'.format(self.updateTS, self.pyslurmJob)
 
     @cherrypy.expose
     def getNode2Jobs1 (self):
@@ -117,7 +115,7 @@ class SLURMMonitorData(object):
 
     @cherrypy.expose
     def getNodeUtil (self, **args):
-        return self.getNodeUtilData (self.pyslurmNodes, self.data)
+        return self.getNodeUtilData (self.pyslurmNode, self.data)
 
     def getCPUMemData (self, data1, data2):
         result = defaultdict(list)
@@ -133,7 +131,7 @@ class SLURMMonitorData(object):
 
         return result
 
-    #data1=self.pyslurmNodes, data2=self.data
+    #data1=self.pyslurmNode, data2=self.data
     def getNodeUtilData (self, data1, data2):
         rawData = self.getCPUMemData (data1, data2)
 
@@ -199,7 +197,7 @@ class SLURMMonitorData(object):
             sorted_d = sorted(self.data)
         for hostname in sorted_d:
             hostinfo     = self.data[hostname]
-            pyslurmNode  = self.pyslurmNodes[hostname]
+            pyslurmNode  = self.pyslurmNode[hostname]
             node_mem_M   = pyslurmNode['real_memory']
             alloc_jobs   = node2job.get(hostname, [])
             if avg_minute==0:
@@ -221,7 +219,7 @@ class SLURMMonitorData(object):
         return 'ALLOCATED' in hostinfo[0] or 'MIXED' in hostinfo[0]
 
     def getHeatmapNodeRecord (self, hostname, hostinfo, alloc_jobs, node_cpu_util, node_mem_util, gpudata):
-        pyslurmNode  = self.pyslurmNodes[hostname]
+        pyslurmNode  = self.pyslurmNode[hostname]
         node_cores   = pyslurmNode['cpus']
         node_gpus    = MyTool.getNodeGresGPUCount     (pyslurmNode['gres'])
         node_mem_M   = pyslurmNode['real_memory']
@@ -255,7 +253,7 @@ class SLURMMonitorData(object):
 
     # return (gpu_nodes, max_gpu_cnt)
     def getCurrJobGPUNodes (self):
-        return PyslurmQuery.getJobGPUNodes(self.currJobs, self.pyslurmNodes)
+        return PyslurmQuery.getJobGPUNodes(self.currJobs, self.pyslurmNode)
 
     def getCurrJobGPUDetail (self):
         return PyslurmQuery.getJobGPUDetail(self.currJobs)
@@ -288,10 +286,12 @@ class SLURMMonitorData(object):
                 savTs, procs         = jobNode2Procs[jid][node]
                 if savTs:
                    #add up proc cpu_time to get node and job cpu_time
+                   #ATTENTION: process come and go
                    node_cpu_time     = sum([p[USER_TIME_IDX]+p[SYS_TIME_IDX] for p in procs.values()])
+                   node_cpu_util1    = sum([(p[USER_TIME_IDX]+p[SYS_TIME_IDX])/(ts-p[CREATE_TIME_IDX]) for p in procs.values()])
                    node_rss          = sum([p[RSS_IDX]>>10                   for p in procs.values()])    #convert to K
                    node_io_bps       = sum([p[IO_IDX]                        for p in procs.values()]) 
-                   node_cpu_util     = sum([p[CPU_IDX]                       for p in procs.values()]) 
+                   node_cpu_util     = sum([p[CPU_UTIL_IDX]                  for p in procs.values()]) 
                    total_cpu_time   += node_cpu_time
                    total_rss        += node_rss
                    total_io_bps     += node_io_bps
@@ -301,13 +301,11 @@ class SLURMMonitorData(object):
                    #if 'mem' in node_tres:   # memory is shared
                    #   ratio            = job['cpus_allocated'][node] / node_tres['cpu'] if 'cpu' in node_tres else 1
                    #   total_node_mem  += MyTool.convert2K(node_tres['mem']) * ratio
-                   #else:
-                   #   logger.error('ERROR: Node {} does not have mem {} in tres_fmt_str {}'.format(node, d, s))
 
                    #calculate and assign cpu avg util
                    job['node_cpu_time'][node]     = node_cpu_time 
                    if job['cpus_allocated'][node]:
-                      job['node_cpu_util_avg'][node] = node_cpu_time / job_runtime / job['cpus_allocated'][node]
+                      job['node_cpu_util_avg'][node]= node_cpu_util1
                    else:
                       logger.warning ("Job {}'s allocated CPUs on node{} is 0".format(jid, node))
                       job['node_cpu_util_avg'][node] = 0
@@ -323,7 +321,6 @@ class SLURMMonitorData(object):
                       logger.warning('Node {} of Job {} (start at {} on {}) is not in jobNode2Procs'.format(node, jid, MyTool.getTsString(job['start_time']), job['nodes']))
 
             #calculate and assign job level util
-            job['job_cpu_time']   = total_cpu_time
             job['job_inst_util']  = total_cpu_util / job['num_cpus']
             job['job_avg_util']   = total_cpu_time / job_runtime / job['num_cpus']
             job['job_io_bps']     = total_io_bps
@@ -353,21 +350,34 @@ class SLURMMonitorData(object):
                       rlt[node] = gpu_ids
         return rlt, rlt_jobs
 
-    def getCurrEmptyAllocNode (self):
-        return [nm for nm, ninfo in self.data.items() if SLURMMonitorData.nodeAllocated(ninfo) and (len(ninfo) <= USER_INFO_IDX or      not ninfo[USER_INFO_IDX])]
+    @cherrypy.expose
+    def getLowUtilNodes (self, lmt_settings={"cpu":1, "run_time_hour":0.5, "exclude_name": ["bash","jupyter"]}):
+        result = {}            # return {name:node,...}
+        curr   = int(time.time())
+        usage  = defaultdict(int)     # save the node's usage
+        exclude= set()
+        for jid, job in self.currJobs.items():
+            # job start time less than half an hour or with special name, ignore their allocated nodes
+            if (curr - job['start_time'] < lmt_settings["run_time_hour"] ) or any(map(lambda x: x in job['name'], lmt_settings['exclude_name'])):  
+                exclude.update(job['cpus_allocated'].keys())              # exclude the nodes for jobs that are either short running or with specfic names 
+                continue  
+            # longer job, add cpu_util
+            check_node = set(job['cpus_allocated']) - exclude
+            for nm in check_node:
+                if job['node_cpu_util_avg'].get(nm,0) > lmt_settings["cpu"]/100:
+                   exclude.add (nm)
+                else:
+                   usage[nm] += job['node_cpu_util_avg'].get(nm,0)   
+                   if usage[nm] > lmt_settings["cpu"]/100:
+                      exclude.add (nm)
+        if usage:
+            for nm,u in usage.items():
+                if nm not in exclude:
+                    self.pyslurmNode[nm].update({'cpu_util_avg':u})
+                    self.getNodeProc(nm)
+                    result[nm] = self.pyslurmNode[nm]
 
-    def getLowUtilNodes (self):
-        # node with low resource utlization
-        empty_nodes= self.getCurrEmptyAllocNode()
-        low_nodes  = []
-        for nm in empty_nodes:
-            jobs     = self.getNode2Jobs(nm)
-            avg_util = sum([job.get('job_avg_util',0) for job in jobs])
-            avg_mem  = sum([job.get('job_mem_util',0) for job in jobs])
-            u_set    = set([job['user_id'] for job in jobs])
-            u_lst    = [MyTool.getUser(uid) for uid in u_set]
-            low_nodes.append({'name':nm, 'msg':'Node is allocated to job {} of user {}. The average cpu utilization is {} and the average memory utiization is {}.'.format([job['job_id'] for job in jobs], u_lst, avg_util, avg_mem)})
-        return low_nodes
+        return result
 
     # return the low util jobs with settings
     def getCurrLUJobs (self, gpu_data, luj_settings):
@@ -435,10 +445,6 @@ class SLURMMonitorData(object):
             else:
                logger.error('Job {} has not enough process running on allocated nodes {} ({}) to calculate standard deviation.'.format(jid, job['nodes'], proc_cpu))
                job['node_cpu_stdev'],job['node_rss_stdev'], job['node_io_stdev'] = 0,0,0
-
-    @cherrypy.expose
-    def test(self, **args):
-        return "hello"
 
     @cherrypy.expose
     def getLoginNode (self):
@@ -514,8 +520,8 @@ class SLURMMonitorData(object):
         #other
         self.inMemCache.append(self.data,         self.updateTS, self.pyslurmData['jobs'])
         self.inMemCache.append(self.noslurm_data, self.updateTS, self.pyslurmData['jobs'])
-        self.pyslurmJobs  = self.pyslurmData['jobs']
-        self.pyslurmNodes = self.pyslurmData['nodes']
+        self.pyslurmJob  = self.pyslurmData['jobs']
+        self.pyslurmNode = self.pyslurmData['nodes']
 
         #check hourly for long run low util jobs and send notice
         self.checkJobs ()
@@ -602,10 +608,10 @@ class SLURMMonitorData(object):
         node['jobProc']   = dict([(jid, {'job':currJobs.get(jid,None), 'procs':jobNode2Procs[jid][nodeName][1]}) for jid in slurm_jids])
         node['procCnt']   = sum([1 for d in node['jobProc'].values() for p in d['procs']])
   
-    #add new proc data to self.pyslurmNodes[nodeName]
+    #add new proc data to self.pyslurmNode[nodeName]
     def getNodeProc (self, nodeName):
-        if nodeName in self.pyslurmNodes:
-           #get nodeName data from self.pyslurmNodes
+        if nodeName in self.pyslurmNode:
+           #get nodeName data from self.pyslurmNode
            node      = self.pyslurmData['nodes'][nodeName]  #'name', 'state', 'cpus', 'alloc_cpus',
            node['gpus'],node['alloc_gpus'] = MyTool.getGPUCount(node['gres'], node['gres_used'])
         else:     # not a slurm node
@@ -685,8 +691,8 @@ class SLURMMonitorData(object):
 
     #req_fld is to make sure the fields are there. default is the nature result
     def getJob (self, jobid, req_fields=[]):
-        if self.pyslurmJobs and (jobid in self.pyslurmJobs):
-           job = self.pyslurmJobs[jobid]
+        if self.pyslurmJob and (jobid in self.pyslurmJob):
+           job = self.pyslurmJob[jobid]
         else:
            job = PyslurmQuery.getSlurmDBJob (jobid, req_fields=['start_time'])
         return job
@@ -721,7 +727,7 @@ class SLURMMonitorData(object):
                ts, procs = self.jobNode2Proc[jid][node]
                #{1779064: [1779064, 0.0, 1679113036.25, 0.0, 0.01, 3039232, 13180928, ['/bin/bash', '/cm/local/apps/slurm/var/spool/job2204874/slurm_script'], 0, 2204874, 4, 520192, 21864448, 1359, 1],
                if procs:
-                  j_cpu_util  = sum([p[CPU_IDX] for p in procs.values()])
+                  j_cpu_util  = sum([p[CPU_UTIL_IDX] for p in procs.values()])
                   j_mem_rss   = sum([p[RSS_IDX] for p in procs.values()])
                   j_io_bps    = sum([p[IO_IDX]  for p in procs.values()])
                   cpu_lst.append (j_cpu_util)
@@ -739,7 +745,7 @@ class SLURMMonitorData(object):
                  
     def test1(self):  #took 2.1 sec
         #TODO: synchronize the mod/get of core data structure
-        ts           = time.time()
+        ts           = int(time.time())
         user2acct    = SlurmCmdQuery.getAllUserAssoc()
 
         jobs_df      = pandas.DataFrame()
@@ -758,7 +764,7 @@ class SLURMMonitorData(object):
     def getSunburstData(self):
         #TODO: synchronize the mod/get of core data structure
         #self.getSunburstData ()
-        ts           = time.time()
+        ts           = int(time.time())
 
         user2acct    = SlurmCmdQuery.getAllUserAssoc()
 
@@ -789,7 +795,7 @@ class SLURMMonitorData(object):
 
         # state
         idx_lst1        = [mapping[key] for key in ['node_state', 'acct', 'user', 'job', 'node']]
-        for n_name, node in self.pyslurmNodes.items():
+        for n_name, node in self.pyslurmNode.items():
             if ('ALLOCATED' not in node['state']) and ('MIXED' not in node['state']):
                n_state = node['state']
                if 'IDLE' in node['state']:
@@ -844,7 +850,7 @@ class SLURMMonitorData(object):
 
     def getUserJobsByState (self, uid):
         result    = defaultdict(list)  #{state:[job...]}
-        jobs      = [job for job in self.pyslurmJobs.values() if job['user_id']==uid]
+        jobs      = [job for job in self.pyslurmJob.values() if job['user_id']==uid]
         for job in jobs:
             result[job['job_state']].append (job)
         return dict(result)

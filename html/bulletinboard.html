@@ -32,9 +32,10 @@
 
           const j_title    = {{'job_id':'Job', 'name':'Job Name','user':'User', 'partition':'Partition','run_time_str':'Wall-clock Time','remained_time_str':'Wall-clock Remained','nodes':'Nodes','num_cpus':'#CPUs', 'job_avg_util':'Avg CPU Util', 'job_mem_util':'Mem Util','job_io_bps':'Avg I/O bps', 'gpu_avg_util':'Avg GPU last hour'}};
           const o_title    = {{'source':'Source', 'ts':'Time', 'msg':'Message'}};
-          const type       = {{'job_id':'job_step', 'user':'user', 'ts':'timestamp', 'job_avg_util':'float','job_mem_util':'float', 'partition':'partition', 'gpu_avg_util':'noneg_float'}};
+	  const nd_title   = {{'name':'Node', 'cpus':'# CPUs','alloc_cpus': '# Alloc CPUs', 'cpu_util_avg':'Avg CPU Util', 'running_jobs':'Running Jobs'}};
+          const type       = {{'job_id':'job_step', 'user':'user', 'ts':'timestamp', 'job_avg_util':'float','job_mem_util':'float', 'partition':'partition', 'gpu_avg_util':'noneg_float', 'name':'node', 'cpu_util_avg':'float', 'running_jobs':'job_list'}};
 
-          var update_time, low_util, low_nodes, other;
+          var update_time, low_util, low_node, other;
           display(clusters[0])
 
           $('#cluster').change(function() {{ 
@@ -49,7 +50,8 @@
             $("#update_time").text(getTS_String(update_time))
             //create table job_table and part_table
             createTable (low_util,   j_title,  'low_util_table',  'low_util',  undefined, type, cluster)
-            createTable (unbal_job,  j_title,  'unbal_util_table','unbal_util',  undefined, type, cluster)
+            createTable (low_node,   nd_title, 'low_node_table',  'low_node',  undefined, type, cluster)
+            createTable (unbal_job,  j_title,  'unbal_util_table','unbal_util',undefined, type, cluster)
             createTable (other,      o_title,  'other_table',     'other',     undefined, type, cluster)
             expandTitle ();
             //collapseTitle ();
@@ -57,15 +59,16 @@
 
           function clearDisplay () {{
              $("#low_util_table").remove()
+             $("#low_node_table").remove()
              $("#unbal_util_table").remove()
              $("#other_table").remove()
           }}
 
           function setClusterData (c) {{
-             cluster = c          //[update_time, low_util, low_nodes, other]
+             cluster = c          //[update_time, low_util, low_node, other]
              update_time = bbData[cluster][0]
              low_util    = bbData[cluster][1]
-             low_nodes   = bbData[cluster][2]
+             low_node    = bbData[cluster][2]
 	     unbal_job   = bbData[cluster][3]
              other       = bbData[cluster][4]
           }} 
@@ -92,6 +95,15 @@
             <h3><select id="cluster" name="cluster"></select></h3>
             <h3 class="table_title"> Running Jobs with Low Resource Utilization:</h3>
             <div class="table__subtitle" id="low_util">
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section__inner section__inner--fullwidth">
+          <div class="section__div">
+            <h3 class="table_title"> Allocated Nodes with Low Resource Utilization:</h3>
+            <div class="table__subtitle" id="low_node">
             </div>
           </div>
         </div>

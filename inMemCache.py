@@ -20,10 +20,16 @@ import config
 
 logger   = config.logger
 
+STATE_IDX,DELTA_IDX,TS_IDX,USER_INFO_IDX = range(4)  #incoming data and self.data {node: [status, delta, ts, users_procs, ...]...}
+USER_PROC_IDX      = 7  # in users_procs [uname, uid, user_alloc_cores, proc_cnt, totCPURate, totRSS, totVMS, procs, totIO, totCPU]
+PID_IDX,CPU_UTIL_IDX,CREATE_TIME_IDX,USER_TIME_IDX,SYS_TIME_IDX,RSS_IDX,VMS_IDX,CMD_IDX,IO_IDX,JID_IDX,FDS_IDX,READ_IDX,WRITE_IDX,UID_IDX,THREADS_IDX   = range(15)
+                        # in procs [[pid, intervalCPUtimeAvg, create_time, user_time, system_time, mem_rss, mem_vms, cmdline, in    tervalIOByteAvg, jid],...]
+
+
+
 #keep a in-mem cache that can be queried about running jobs and other jobs in the past 3(?) days
 class InMemCache:
     TIME_WINDOW   = 3 * 24 * 3600             # 3 days' time window
-    USER_INFO_IDX = 3
     CPU_IDX       = 7
     RSS_IDX       = 9
     IO_IDX        = 10
@@ -36,50 +42,45 @@ class InMemCache:
         self.jobs          = defaultdict(lambda:{'submit_time':0, 'start_time':0, 'preempt_time':0, 'suspend_time':0, 'resize_time':0, 'nodes':[], 'seq':[]})   # jid: {'first_ts':, 'last_ts':, 'seq':[(ts, status)]}
         self.start         = time.time()
 
-    # return users and job usage on the node in a dict
-    # nodeInfo format: ['IDLE+POWER', 91.20261883735657, 1574352819.760845]
-    # ['MIXED', 93.20821714401245, 1574353973.507513, ['cbertrand', 1544, 1, 5, 0.00847564757921933, 774889472, 3722960896, [[39264, 0.0, 1574090530.73, 0.0, 0.0, 1859584, 116178944, ['/bin/bash', '/cm/local/apps/slurm/var/spool/job421611/slurm_script'], 0]
-    def getUsageOnNode (self, nodeName, nodeInfo, jobData):
+    # return users and job usage on the node in a dict based on incoming nodeInfo
+    def retrieveUsageOnNode (self, nodeName, nodeInfo, pyslurmJob):
         result = {}       #{uid: []}
         jobRlt = {}       #{jid: []}
-        ts     = int(nodeInfo[2])
+        ts     = int(nodeInfo[TS_IDX])
         # create a usage unit
         #if 'ALLOCATED' in nodeInfo[0] or 'MIXED' in nodeInfo[0]: # node is allocated
-        if len(nodeInfo) > InMemCache.USER_INFO_IDX:                         # node reports values 
+        if len(nodeInfo) > USER_INFO_IDX:                         # node reports values 
            # loop over every user
-           for user, uid, coreNum, proNum, cpuUtil, rss, vms, procs, io, cpuTime, *etc in nodeInfo[InMemCache.USER_INFO_IDX:]:
-               # jid information is in procs [pid, CPURate, proc['create_time'], proc['cpu']['user_time'], proc['cpu']['system_time'], proc['mem']['rss'], proc['mem']['vms'], proc['cmdline'], IOBps, jid]
+           for user, uid, coreNum, procNum, cpuUtil, rss, vms, procs, io, cpuTime, *etc in nodeInfo[USER_INFO_IDX:]:
                jids = set()
                if len(procs)>0 and len(procs[0])>11:
-                  jids   = set([p[9] for p in procs])
+                  jids   = set([p[JID_IDX] for p in procs])
                   jids.discard(-1)
                   for jid in jids:
-                      job_procs   = [ p for p in procs if p[9]==jid]
-                      j_cpuUtil   = sum([ p[1]      for p in job_procs])
-                      j_cpuTime   = sum([ p[3]+p[4] for p in job_procs])
-                      j_rss       = sum([ p[5]      for p in job_procs])/1024
-                      j_vms       = sum([ p[6]      for p in job_procs])/1024
-                      j_ioBps     = sum([ p[8]      for p in job_procs])
-                      j_read      = sum([ p[10]      for p in job_procs])
-                      j_write     = sum([ p[11]      for p in job_procs])
-                      if jid in jobData:
-                         jobRlt[jid] = [ts, nodeName, uid, jid, nodeInfo[0], sum(jobData[jid]['cpus_allocated'].values()), len(job_procs), j_cpuUtil, j_cpuTime, j_rss, j_vms, j_ioBps, j_read, j_write]
+                      job_procs   = [ p for p in procs if p[JID_IDX]==jid]
+                      j_cpuUtil   = sum([ p[CPU_UTIL_IDX] for p in job_procs])
+                      j_cpuTime   = sum([ p[USER_TIME_IDX]+p[SYS_TIME_IDX] for p in job_procs])
+                      j_rss       = sum([ p[RSS_IDX]>>10  for p in job_procs])
+                      j_vms       = sum([ p[VMS_IDX]>>10  for p in job_procs])
+                      j_ioBps     = sum([ p[IO_IDX]       for p in job_procs])
+                      j_read      = sum([ p[READ_IDX]     for p in job_procs])
+                      j_write     = sum([ p[WRITE_IDX]    for p in job_procs])
+                      if jid in pyslurmJob:
+                          jobRlt[jid] = [ts, nodeName, uid, jid, nodeInfo[STATE_IDX], pyslurmJob[jid]['cpus_allocated'].get(nodeName,0), len(job_procs), j_cpuUtil, j_cpuTime, j_rss, j_vms, j_ioBps, j_read, j_write]
                       else:
-                         logger.warning("Job {} is not in jobData when getUsageOnNode {}".format(jid, nodeName))
-               lst = [ts, nodeName, uid, jids, nodeInfo[0], coreNum, proNum, cpuUtil, cpuTime, int(rss/1024), int(vms/1024), io]
-               result[uid] = lst
+                         logger.warning("Job {} is not in pyslurmJob when retrieveUsageOnNode {}".format(jid, nodeName))
+               result[uid] = [ts, nodeName, uid, jids, nodeInfo[STATE_IDX], coreNum, procNum, cpuUtil, cpuTime, int(rss>>10), int(vms>>10), io]
 
-        #logger.debug("getUsageOnNode {} got userRlt={}\njobRlt={}\n".format(nodeName, result, jobRlt))
         return result, jobRlt
 
     # add data from updateSlurmData
-    def append (self, nodeData, jobTS, jobData, uid2jid=None):
+    def append (self, nodeData, jobTS, pyslurmJob, uid2jid=None):
         # loop over every node and every user on node
         for nodename, nodeInfo in sorted(nodeData.items()):
+            ts = int(nodeInfo[TS_IDX])
             # compare with last value, make sure ts is sorted
-            ts = int(nodeInfo[2])
             if ts > self.nodes[nodename]['last_ts']: # ignore the older information
-               nodeUserUsage, nodeJobUsage = self.getUsageOnNode(nodename, nodeInfo, jobData)
+               nodeUserUsage, nodeJobUsage = self.retrieveUsageOnNode(nodename, nodeInfo, pyslurmJob)
                # add the usage to the series
                for uid, userUsage in nodeUserUsage.items():
                    self.node_user[nodename][uid].append((ts, userUsage))
@@ -111,36 +112,36 @@ class InMemCache:
                 self.node_user[nodename][uid] = self.node_user[nodename][uid][idx:]
 
         # deal with job data
-        activeJob  = [jid for jid, job in jobData.items() if job['job_state'] in ['PENDING', 'RUNNING', 'PREEMPTED', 'SUSPENDED', 'RESIZING']]
+        activeJob  = [jid for jid, job in pyslurmJob.items() if job['job_state'] in ['PENDING', 'RUNNING', 'PREEMPTED', 'SUSPENDED', 'RESIZING']]
         #logger.debug("active jobs {}".format(activeJob))
         for jid in activeJob:
-            self.jobs[jid]['seq'].append((jobTS, jobData[jid]['job_state'], jobData[jid].get('job_inst_util',-1), jobData[jid].get('job_io_bps',-1), jobData[jid].get('job_mem_util',-1)))
+            self.jobs[jid]['seq'].append((jobTS, pyslurmJob[jid]['job_state'], pyslurmJob[jid].get('job_inst_util',-1), pyslurmJob[jid].get('job_io_bps',-1), pyslurmJob[jid].get('job_mem_util',-1)))
             if not self.jobs[jid]['submit_time']:
-               self.jobs[jid]['submit_time']  = jobData[jid]['submit_time']
-            if (not self.jobs[jid]['start_time']) and jobData[jid]['start_time']:
-               self.jobs[jid]['start_time']   = jobData[jid]['start_time']
-            if (not self.jobs[jid]['nodes']) and jobData[jid]['cpus_allocated']:
-               self.jobs[jid]['nodes']  = list(jobData[jid]['cpus_allocated'].keys())
-            if jobData[jid]['suspend_time']:
-               self.jobs[jid]['suspend_time'] = jobData[jid]['suspend_time']
-            #if jobData[jid]['preempt_time']:
-            #   self.jobs[jid]['preempt_time'] = jobData[jid]['preempt_time']
-            if jobData[jid]['resize_time']:
-               self.jobs[jid]['resize_time']  = jobData[jid]['resize_time']
+               self.jobs[jid]['submit_time']  = pyslurmJob[jid]['submit_time']
+            if (not self.jobs[jid]['start_time']) and pyslurmJob[jid]['start_time']:
+               self.jobs[jid]['start_time']   = pyslurmJob[jid]['start_time']
+            if (not self.jobs[jid]['nodes']) and pyslurmJob[jid]['cpus_allocated']:
+               self.jobs[jid]['nodes']  = list(pyslurmJob[jid]['cpus_allocated'].keys())
+            if pyslurmJob[jid]['suspend_time']:
+               self.jobs[jid]['suspend_time'] = pyslurmJob[jid]['suspend_time']
+            #if pyslurmJob[jid]['preempt_time']:
+            #   self.jobs[jid]['preempt_time'] = pyslurmJob[jid]['preempt_time']
+            if pyslurmJob[jid]['resize_time']:
+               self.jobs[jid]['resize_time']  = pyslurmJob[jid]['resize_time']
             #logger.debug("active jid {} done".format(jid))
             
         #remove data of not running jobs from self.job_node
-        doneJob   = [jid for jid in jobData              if jid not in activeJob and jid in self.jobs]
+        doneJob   = [jid for jid in pyslurmJob              if jid not in activeJob and jid in self.jobs]
         if doneJob:
            logger.debug('remove done jobs {} from self.jobs'.format(doneJob))
            for jid in doneJob:
                if jid not in self.jobs:
-                  logger.warning("Job {}({}-{}) is not in self.jobs. {}".format(jid, jobData[jid]['start_time'], jobData[jid]['end_time'], jobData[jid]))
+                  logger.warning("Job {}({}-{}) is not in self.jobs. {}".format(jid, pyslurmJob[jid]['start_time'], pyslurmJob[jid]['end_time'], pyslurmJob[jid]))
                else:
                   self.jobs.pop(jid)
-                  for node in jobData[jid]['cpus_allocated'].keys():
+                  for node in pyslurmJob[jid]['cpus_allocated'].keys():
                       if jid not in self.node_job[node]:
-                         logger.warning("Job {}({}-{}) is not in self.node_job[{}]={}".format(jid, jobData[jid]['start_time'], jobData[jid]['end_time'], node, list(self.node_job[node].keys())))
+                         logger.warning("Job {}({}-{}) is not in self.node_job[{}]={}".format(jid, pyslurmJob[jid]['start_time'], pyslurmJob[jid]['end_time'], node, list(self.node_job[node].keys())))
                       else:
                          self.node_job[node].pop(jid)
             
@@ -182,7 +183,6 @@ class InMemCache:
            return 0
         if start_ts > self.nodes[node]['first_ts']+minutes*60*0.2:  # 20% relax on period inclusion 
            logger.warning("queryNodeAvg: Node {} requested period {}- is not completely in cache ({}-{})".format(node, start_ts, self.nodes[node]['first_ts'], self.nodes[node]['last_ts']))
-           #return 0      # still return some value
 
         for uid, user_usage in self.node_user[node].items():
             #logger.debug("\t{}:{}".format(node, self.node_user[node][uid]))
